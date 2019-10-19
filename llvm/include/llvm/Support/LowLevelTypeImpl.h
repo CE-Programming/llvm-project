@@ -161,7 +161,7 @@ public:
   /// needed to represent the size in bits. Must only be called on sized types.
   TypeSize getSizeInBytes() const {
     TypeSize BaseSize = getSizeInBits();
-    return {(BaseSize.getKnownMinSize() + 7) / 8, BaseSize.isScalable()};
+    return {divideCeil(BaseSize.getKnownMinSize(), 8), BaseSize.isScalable()};
   }
 
   LLT getScalarType() const {

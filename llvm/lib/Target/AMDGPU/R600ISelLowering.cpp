@@ -48,7 +48,10 @@ R600TargetLowering::R600TargetLowering(const TargetMachine &TM,
   // spaces, so it is custom lowered to handle those where it isn't.
   for (auto Op : {ISD::SEXTLOAD, ISD::ZEXTLOAD, ISD::EXTLOAD})
     for (MVT VT : MVT::integer_valuetypes()) {
-      setLoadExtAction(Op, VT, MVT::i1, Promote);
+      if (!VT.isPow2Size())
+      continue;
+
+    setLoadExtAction(Op, VT, MVT::i1, Promote);
       setLoadExtAction(Op, VT, MVT::i8, Custom);
       setLoadExtAction(Op, VT, MVT::i16, Custom);
     }
