@@ -45,157 +45,158 @@ namespace llvm {
       i4             =   4,   // This is a 4 bit integer value
       i8             =   5,   // This is an 8 bit integer value
       i16            =   6,   // This is a 16 bit integer value
-      i32            =   7,   // This is a 32 bit integer value
-      i64            =   8,   // This is a 64 bit integer value
-      i128           =   9,   // This is a 128 bit integer value
+      i24            =   7,   // This is a 24 bit integer value
+      i32            =   8,   // This is a 32 bit integer value
+      i64            =   9,   // This is a 64 bit integer value
+      i128           =  10,   // This is a 128 bit integer value
 
       FIRST_INTEGER_VALUETYPE = i1,
       LAST_INTEGER_VALUETYPE  = i128,
 
-      bf16           =  10,   // This is a 16 bit brain floating point value
-      f16            =  11,   // This is a 16 bit floating point value
-      f32            =  12,   // This is a 32 bit floating point value
-      f64            =  13,   // This is a 64 bit floating point value
-      f80            =  14,   // This is a 80 bit floating point value
-      f128           =  15,   // This is a 128 bit floating point value
-      ppcf128        =  16,   // This is a PPC 128-bit floating point value
+      bf16           =  11,   // This is a 16 bit brain floating point value
+      f16            =  12,   // This is a 16 bit floating point value
+      f32            =  13,   // This is a 32 bit floating point value
+      f64            =  14,   // This is a 64 bit floating point value
+      f80            =  15,   // This is a 80 bit floating point value
+      f128           =  16,   // This is a 128 bit floating point value
+      ppcf128        =  17,   // This is a PPC 128-bit floating point value
 
       FIRST_FP_VALUETYPE = bf16,
       LAST_FP_VALUETYPE  = ppcf128,
 
-      v1i1           =  17,   //    1 x i1
-      v2i1           =  18,   //    2 x i1
-      v4i1           =  19,   //    4 x i1
-      v8i1           =  20,   //    8 x i1
-      v16i1          =  21,   //   16 x i1
-      v32i1          =  22,   //   32 x i1
-      v64i1          =  23,   //   64 x i1
-      v128i1         =  24,   //  128 x i1
-      v256i1         =  25,   //  256 x i1
-      v512i1         =  26,   //  512 x i1
-      v1024i1        =  27,   // 1024 x i1
-      v2048i1        =  28,   // 2048 x i1
+      v1i1           =  18,   //    1 x i1
+      v2i1           =  19,   //    2 x i1
+      v4i1           =  20,   //    4 x i1
+      v8i1           =  21,   //    8 x i1
+      v16i1          =  22,   //   16 x i1
+      v32i1          =  23,   //   32 x i1
+      v64i1          =  24,   //   64 x i1
+      v128i1         =  25,   //  128 x i1
+      v256i1         =  26,   //  256 x i1
+      v512i1         =  27,   //  512 x i1
+      v1024i1        =  28,   // 1024 x i1
+      v2048i1        =  29,   // 2048 x i1
 
-      v128i2         =  29,   //  128 x i2
-      v256i2         =  30,   //  256 x i2
+      v128i2         =  30,   //  128 x i2
+      v256i2         =  31,   //  256 x i2
 
-      v64i4          =  31,   //   64 x i4
-      v128i4         =  32,   //  128 x i4
+      v64i4          =  32,   //   64 x i4
+      v128i4         =  33,   //  128 x i4
 
-      v1i8           =  33,   //    1 x i8
-      v2i8           =  34,   //    2 x i8
-      v4i8           =  35,   //    4 x i8
-      v8i8           =  36,   //    8 x i8
-      v16i8          =  37,   //   16 x i8
-      v32i8          =  38,   //   32 x i8
-      v64i8          =  39,   //   64 x i8
-      v128i8         =  40,   //  128 x i8
-      v256i8         =  41,   //  256 x i8
-      v512i8         =  42,   //  512 x i8
-      v1024i8        =  43,   // 1024 x i8
+      v1i8           =  34,   //    1 x i8
+      v2i8           =  35,   //    2 x i8
+      v4i8           =  36,   //    4 x i8
+      v8i8           =  37,   //    8 x i8
+      v16i8          =  38,   //   16 x i8
+      v32i8          =  39,   //   32 x i8
+      v64i8          =  40,   //   64 x i8
+      v128i8         =  41,   //  128 x i8
+      v256i8         =  42,   //  256 x i8
+      v512i8         =  43,   //  512 x i8
+      v1024i8        =  44,   // 1024 x i8
 
-      v1i16          =  44,   //   1 x i16
-      v2i16          =  45,   //   2 x i16
-      v3i16          =  46,   //   3 x i16
-      v4i16          =  47,   //   4 x i16
-      v8i16          =  48,   //   8 x i16
-      v16i16         =  49,   //  16 x i16
-      v32i16         =  50,   //  32 x i16
-      v64i16         =  51,   //  64 x i16
-      v128i16        =  52,   // 128 x i16
-      v256i16        =  53,   // 256 x i16
-      v512i16        =  54,   // 512 x i16
+      v1i16          =  45,   //   1 x i16
+      v2i16          =  46,   //   2 x i16
+      v3i16          =  47,   //   3 x i16
+      v4i16          =  48,   //   4 x i16
+      v8i16          =  49,   //   8 x i16
+      v16i16         =  50,   //  16 x i16
+      v32i16         =  51,   //  32 x i16
+      v64i16         =  52,   //  64 x i16
+      v128i16        =  53,   // 128 x i16
+      v256i16        =  54,   // 256 x i16
+      v512i16        =  55,   // 512 x i16
 
-      v1i32          =  55,   //    1 x i32
-      v2i32          =  56,   //    2 x i32
-      v3i32          =  57,   //    3 x i32
-      v4i32          =  58,   //    4 x i32
-      v5i32          =  59,   //    5 x i32
-      v6i32          =  60,   //    6 x i32
-      v7i32          =  61,   //    7 x i32
-      v8i32          =  62,   //    8 x i32
-      v9i32          =  63,   //    9 x i32
-      v10i32         =  64,   //   10 x i32
-      v11i32         =  65,   //   11 x i32
-      v12i32         =  66,   //   12 x i32
-      v16i32         =  67,   //   16 x i32
-      v32i32         =  68,   //   32 x i32
-      v64i32         =  69,   //   64 x i32
-      v128i32        =  70,   //  128 x i32
-      v256i32        =  71,   //  256 x i32
-      v512i32        =  72,   //  512 x i32
-      v1024i32       =  73,   // 1024 x i32
-      v2048i32       =  74,   // 2048 x i32
+      v1i32          =  56,   //    1 x i32
+      v2i32          =  57,   //    2 x i32
+      v3i32          =  58,   //    3 x i32
+      v4i32          =  59,   //    4 x i32
+      v5i32          =  60,   //    5 x i32
+      v6i32          =  61,   //    6 x i32
+      v7i32          =  62,   //    7 x i32
+      v8i32          =  63,   //    8 x i32
+      v9i32          =  64,   //    9 x i32
+      v10i32         =  65,   //   10 x i32
+      v11i32         =  66,   //   11 x i32
+      v12i32         =  67,   //   12 x i32
+      v16i32         =  68,   //   16 x i32
+      v32i32         =  69,   //   32 x i32
+      v64i32         =  70,   //   64 x i32
+      v128i32        =  71,   //  128 x i32
+      v256i32        =  72,   //  256 x i32
+      v512i32        =  73,   //  512 x i32
+      v1024i32       =  74,   // 1024 x i32
+      v2048i32       =  75,   // 2048 x i32
 
-      v1i64          =  75,   //   1 x i64
-      v2i64          =  76,   //   2 x i64
-      v3i64          =  77,   //   3 x i64
-      v4i64          =  78,   //   4 x i64
-      v8i64          =  79,   //   8 x i64
-      v16i64         =  80,   //  16 x i64
-      v32i64         =  81,   //  32 x i64
-      v64i64         =  82,   //  64 x i64
-      v128i64        =  83,   // 128 x i64
-      v256i64        =  84,   // 256 x i64
+      v1i64          =  76,   //   1 x i64
+      v2i64          =  77,   //   2 x i64
+      v3i64          =  78,   //   3 x i64
+      v4i64          =  79,   //   4 x i64
+      v8i64          =  80,   //   8 x i64
+      v16i64         =  81,   //  16 x i64
+      v32i64         =  82,   //  32 x i64
+      v64i64         =  83,   //  64 x i64
+      v128i64        =  84,   // 128 x i64
+      v256i64        =  85,   // 256 x i64
 
-      v1i128         =  85,   //  1 x i128
+      v1i128         =  86,   //  1 x i128
 
       FIRST_INTEGER_FIXEDLEN_VECTOR_VALUETYPE = v1i1,
       LAST_INTEGER_FIXEDLEN_VECTOR_VALUETYPE = v1i128,
 
-      v1f16          =  86,   //    1 x f16
-      v2f16          =  87,   //    2 x f16
-      v3f16          =  88,   //    3 x f16
-      v4f16          =  89,   //    4 x f16
-      v8f16          =  90,   //    8 x f16
-      v16f16         =  91,   //   16 x f16
-      v32f16         =  92,   //   32 x f16
-      v64f16         =  93,   //   64 x f16
-      v128f16        =  94,   //  128 x f16
-      v256f16        =  95,   //  256 x f16
-      v512f16        =  96,   //  512 x f16
+      v1f16          =  87,   //    1 x f16
+      v2f16          =  88,   //    2 x f16
+      v3f16          =  89,   //    3 x f16
+      v4f16          =  90,   //    4 x f16
+      v8f16          =  91,   //    8 x f16
+      v16f16         =  92,   //   16 x f16
+      v32f16         =  93,   //   32 x f16
+      v64f16         =  94,   //   64 x f16
+      v128f16        =  95,   //  128 x f16
+      v256f16        =  96,   //  256 x f16
+      v512f16        =  97,   //  512 x f16
 
-      v2bf16         =  97,   //    2 x bf16
-      v3bf16         =  98,   //    3 x bf16
-      v4bf16         =  99,   //    4 x bf16
-      v8bf16         = 100,   //    8 x bf16
-      v16bf16        = 101,   //   16 x bf16
-      v32bf16        = 102,   //   32 x bf16
-      v64bf16        = 103,   //   64 x bf16
-      v128bf16       = 104,   //  128 x bf16
+      v2bf16         =  98,   //    2 x bf16
+      v3bf16         =  99,   //    3 x bf16
+      v4bf16         = 100,   //    4 x bf16
+      v8bf16         = 101,   //    8 x bf16
+      v16bf16        = 102,   //   16 x bf16
+      v32bf16        = 103,   //   32 x bf16
+      v64bf16        = 104,   //   64 x bf16
+      v128bf16       = 105,   //  128 x bf16
 
-      v1f32          = 105,   //    1 x f32
-      v2f32          = 106,   //    2 x f32
-      v3f32          = 107,   //    3 x f32
-      v4f32          = 108,   //    4 x f32
-      v5f32          = 109,   //    5 x f32
-      v6f32          = 110,   //    6 x f32
-      v7f32          = 111,   //    7 x f32
-      v8f32          = 112,   //    8 x f32
-      v9f32          = 113,   //    9 x f32
-      v10f32         = 114,   //   10 x f32
-      v11f32         = 115,   //   11 x f32
-      v12f32         = 116,   //   12 x f32
-      v16f32         = 117,   //   16 x f32
+      v1f32          = 106,   //    1 x f32
+      v2f32          = 107,   //    2 x f32
+      v3f32          = 108,   //    3 x f32
+      v4f32          = 109,   //    4 x f32
+      v5f32          = 110,   //    5 x f32
+      v6f32          = 111,   //    6 x f32
+      v7f32          = 112,   //    7 x f32
+      v8f32          = 113,   //    8 x f32
+      v9f32          = 114,   //    9 x f32
+      v10f32         = 115,   //   10 x f32
+      v11f32         = 116,   //   11 x f32
+      v12f32         = 117,   //   12 x f32
+      v16f32         = 118,   //   16 x f32
 
-      v32f32         = 118,   //   32 x f32
-      v64f32         = 119,   //   64 x f32
-      v128f32        = 120,   //  128 x f32
-      v256f32        = 121,   //  256 x f32
-      v512f32        = 122,   //  512 x f32
-      v1024f32       = 123,   // 1024 x f32
-      v2048f32       = 124,   // 2048 x f32
+      v32f32         = 119,   //   32 x f32
+      v64f32         = 120,   //   64 x f32
+      v128f32        = 121,   //  128 x f32
+      v256f32        = 122,   //  256 x f32
+      v512f32        = 123,   //  512 x f32
+      v1024f32       = 124,   // 1024 x f32
+      v2048f32       = 125,   // 2048 x f32
 
-      v1f64          = 125,   //    1 x f64
-      v2f64          = 126,   //    2 x f64
-      v3f64          = 127,   //    3 x f64
-      v4f64          = 128,   //    4 x f64
-      v8f64          = 129,   //    8 x f64
-      v16f64         = 130,   //   16 x f64
-      v32f64         = 131,   //   32 x f64
-      v64f64         = 132,   //   64 x f64
-      v128f64        = 133,   //  128 x f64
-      v256f64        = 134,   //  256 x f64
+      v1f64          = 126,   //    1 x f64
+      v2f64          = 127,   //    2 x f64
+      v3f64          = 128,   //    3 x f64
+      v4f64          = 129,   //    4 x f64
+      v8f64          = 130,   //    8 x f64
+      v16f64         = 131,   //   16 x f64
+      v32f64         = 132,   //   32 x f64
+      v64f64         = 133,   //   64 x f64
+      v128f64        = 134,   //  128 x f64
+      v256f64        = 135,   //  256 x f64
 
       FIRST_FP_FIXEDLEN_VECTOR_VALUETYPE = v1f16,
       LAST_FP_FIXEDLEN_VECTOR_VALUETYPE = v256f64,
@@ -203,70 +204,70 @@ namespace llvm {
       FIRST_FIXEDLEN_VECTOR_VALUETYPE = v1i1,
       LAST_FIXEDLEN_VECTOR_VALUETYPE = v256f64,
 
-      nxv1i1         = 135,   // n x  1 x i1
-      nxv2i1         = 136,   // n x  2 x i1
-      nxv4i1         = 137,   // n x  4 x i1
-      nxv8i1         = 138,   // n x  8 x i1
-      nxv16i1        = 139,   // n x 16 x i1
-      nxv32i1        = 140,   // n x 32 x i1
-      nxv64i1        = 141,   // n x 64 x i1
+      nxv1i1         = 136,   // n x  1 x i1
+      nxv2i1         = 137,   // n x  2 x i1
+      nxv4i1         = 138,   // n x  4 x i1
+      nxv8i1         = 139,   // n x  8 x i1
+      nxv16i1        = 140,   // n x 16 x i1
+      nxv32i1        = 141,   // n x 32 x i1
+      nxv64i1        = 142,   // n x 64 x i1
 
-      nxv1i8         = 142,   // n x  1 x i8
-      nxv2i8         = 143,   // n x  2 x i8
-      nxv4i8         = 144,   // n x  4 x i8
-      nxv8i8         = 145,   // n x  8 x i8
-      nxv16i8        = 146,   // n x 16 x i8
-      nxv32i8        = 147,   // n x 32 x i8
-      nxv64i8        = 148,   // n x 64 x i8
+      nxv1i8         = 143,   // n x  1 x i8
+      nxv2i8         = 144,   // n x  2 x i8
+      nxv4i8         = 145,   // n x  4 x i8
+      nxv8i8         = 146,   // n x  8 x i8
+      nxv16i8        = 147,   // n x 16 x i8
+      nxv32i8        = 148,   // n x 32 x i8
+      nxv64i8        = 149,   // n x 64 x i8
 
-      nxv1i16        = 149,  // n x  1 x i16
-      nxv2i16        = 150,  // n x  2 x i16
-      nxv4i16        = 151,  // n x  4 x i16
-      nxv8i16        = 152,  // n x  8 x i16
-      nxv16i16       = 153,  // n x 16 x i16
-      nxv32i16       = 154,  // n x 32 x i16
+      nxv1i16        = 150,  // n x  1 x i16
+      nxv2i16        = 151,  // n x  2 x i16
+      nxv4i16        = 152,  // n x  4 x i16
+      nxv8i16        = 153,  // n x  8 x i16
+      nxv16i16       = 154,  // n x 16 x i16
+      nxv32i16       = 155,  // n x 32 x i16
 
-      nxv1i32        = 155,  // n x  1 x i32
-      nxv2i32        = 156,  // n x  2 x i32
-      nxv4i32        = 157,  // n x  4 x i32
-      nxv8i32        = 158,  // n x  8 x i32
-      nxv16i32       = 159,  // n x 16 x i32
-      nxv32i32       = 160,  // n x 32 x i32
+      nxv1i32        = 156,  // n x  1 x i32
+      nxv2i32        = 157,  // n x  2 x i32
+      nxv4i32        = 158,  // n x  4 x i32
+      nxv8i32        = 159,  // n x  8 x i32
+      nxv16i32       = 160,  // n x 16 x i32
+      nxv32i32       = 161,  // n x 32 x i32
 
-      nxv1i64        = 161,  // n x  1 x i64
-      nxv2i64        = 162,  // n x  2 x i64
-      nxv4i64        = 163,  // n x  4 x i64
-      nxv8i64        = 164,  // n x  8 x i64
-      nxv16i64       = 165,  // n x 16 x i64
-      nxv32i64       = 166,  // n x 32 x i64
+      nxv1i64        = 162,  // n x  1 x i64
+      nxv2i64        = 163,  // n x  2 x i64
+      nxv4i64        = 164,  // n x  4 x i64
+      nxv8i64        = 165,  // n x  8 x i64
+      nxv16i64       = 166,  // n x 16 x i64
+      nxv32i64       = 167,  // n x 32 x i64
 
       FIRST_INTEGER_SCALABLE_VECTOR_VALUETYPE = nxv1i1,
       LAST_INTEGER_SCALABLE_VECTOR_VALUETYPE = nxv32i64,
 
-      nxv1f16        = 167,  // n x  1 x f16
-      nxv2f16        = 168,  // n x  2 x f16
-      nxv4f16        = 169,  // n x  4 x f16
-      nxv8f16        = 170,  // n x  8 x f16
-      nxv16f16       = 171,  // n x 16 x f16
-      nxv32f16       = 172,  // n x 32 x f16
+      nxv1f16        = 168,  // n x  1 x f16
+      nxv2f16        = 169,  // n x  2 x f16
+      nxv4f16        = 170,  // n x  4 x f16
+      nxv8f16        = 171,  // n x  8 x f16
+      nxv16f16       = 172,  // n x 16 x f16
+      nxv32f16       = 173,  // n x 32 x f16
 
-      nxv1bf16       = 173,  // n x  1 x bf16
-      nxv2bf16       = 174,  // n x  2 x bf16
-      nxv4bf16       = 175,  // n x  4 x bf16
-      nxv8bf16       = 176,  // n x  8 x bf16
-      nxv16bf16      = 177,  // n x 16 x bf16
-      nxv32bf16      = 178,  // n x 32 x bf16
+      nxv1bf16       = 174,  // n x  1 x bf16
+      nxv2bf16       = 175,  // n x  2 x bf16
+      nxv4bf16       = 176,  // n x  4 x bf16
+      nxv8bf16       = 177,  // n x  8 x bf16
+      nxv16bf16      = 178,  // n x 16 x bf16
+      nxv32bf16      = 179,  // n x 32 x bf16
 
-      nxv1f32        = 179,  // n x  1 x f32
-      nxv2f32        = 180,  // n x  2 x f32
-      nxv4f32        = 181,  // n x  4 x f32
-      nxv8f32        = 182,  // n x  8 x f32
-      nxv16f32       = 183,  // n x 16 x f32
+      nxv1f32        = 180,  // n x  1 x f32
+      nxv2f32        = 181,  // n x  2 x f32
+      nxv4f32        = 182,  // n x  4 x f32
+      nxv8f32        = 183,  // n x  8 x f32
+      nxv16f32       = 184,  // n x 16 x f32
 
-      nxv1f64        = 184,  // n x  1 x f64
-      nxv2f64        = 185,  // n x  2 x f64
-      nxv4f64        = 186,  // n x  4 x f64
-      nxv8f64        = 187,  // n x  8 x f64
+      nxv1f64        = 185,  // n x  1 x f64
+      nxv2f64        = 186,  // n x  2 x f64
+      nxv4f64        = 187,  // n x  4 x f64
+      nxv8f64        = 188,  // n x  8 x f64
 
       FIRST_FP_SCALABLE_VECTOR_VALUETYPE = nxv1f16,
       LAST_FP_SCALABLE_VECTOR_VALUETYPE = nxv8f64,
@@ -277,20 +278,20 @@ namespace llvm {
       FIRST_VECTOR_VALUETYPE = v1i1,
       LAST_VECTOR_VALUETYPE  = nxv8f64,
 
-      x86mmx         = 188,    // This is an X86 MMX value
+      x86mmx         = 189,    // This is an X86 MMX value
 
-      Glue           = 189,    // This glues nodes together during pre-RA sched
+      Glue           = 190,    // This glues nodes together during pre-RA sched
 
-      isVoid         = 190,    // This has no value
+      isVoid         = 191,    // This has no value
 
-      Untyped        = 191,    // This value takes a register, but has
+      Untyped        = 192,    // This value takes a register, but has
                                // unspecified type.  The register class
                                // will be determined by the opcode.
 
-      funcref        = 192,    // WebAssembly's funcref type
-      externref      = 193,    // WebAssembly's externref type
-      x86amx         = 194,    // This is an X86 AMX value
-      i64x8          = 195,    // 8 Consecutive GPRs (AArch64)
+      funcref        = 193,    // WebAssembly's funcref type
+      externref      = 194,    // WebAssembly's externref
+      x86amx         = 195,    // This is an X86 AMX value
+      i64x8          = 196,    // 8 Consecutive GPRs (AArch64)
 
       FIRST_VALUETYPE =  1,    // This is always the beginning of the list.
       LAST_VALUETYPE = i64x8,  // This always remains at the end of the list.
@@ -514,6 +515,12 @@ namespace llvm {
       auto EltCnt = getVectorElementCount();
       assert(EltCnt.isKnownEven() && "Splitting vector, but not in half!");
       return getVectorVT(EltVT, EltCnt.divideCoefficientBy(2));
+    }
+
+    /// Return true if the width is a power of 2.
+    bool isPow2Size() {
+      unsigned BitWidth = getSizeInBits();
+      return !(BitWidth & (BitWidth - 1));
     }
 
     /// Returns true if the given vector is a power of 2.
@@ -961,6 +968,7 @@ namespace llvm {
       case nxv1i16:
       case nxv1bf16:
       case nxv1f16: return TypeSize::Scalable(16);
+      case i24: return TypeSize::Fixed(24);
       case f32 :
       case i32 :
       case v32i1:
@@ -1170,6 +1178,18 @@ namespace llvm {
     /// 8-bit byte.
     bool isByteSized() const { return getSizeInBits().isKnownMultipleOf(8); }
 
+    /// getNumParts - Return the number of parts with PartBits bits that make up
+    /// this VT.
+    unsigned getNumParts(unsigned PartBits) const {
+      return divideCeil(getSizeInBits(), PartBits);
+    }
+
+    /// getNumParts - Return the number of parts of type PartVT that make up
+    /// this VT.
+    unsigned getNumParts(MVT PartVT) const {
+      return getNumParts(PartVT.getSizeInBits());
+    }
+
     /// Return true if we know at compile time this has more bits than VT.
     bool knownBitsGT(MVT VT) const {
       return TypeSize::isKnownGT(getSizeInBits(), VT.getSizeInBits());
@@ -1251,6 +1271,8 @@ namespace llvm {
         return MVT::i8;
       case 16:
         return MVT::i16;
+      case 24:
+        return MVT::i24;
       case 32:
         return MVT::i32;
       case 64:

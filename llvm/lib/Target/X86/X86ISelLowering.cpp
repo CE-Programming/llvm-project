@@ -2729,7 +2729,7 @@ bool X86TargetLowering::isSafeMemOpType(MVT VT) const {
     return Subtarget.hasSSE1();
   if (VT == MVT::f64)
     return Subtarget.hasSSE2();
-  return true;
+  return TargetLowering::isSafeMemOpType(VT);
 }
 
 static bool isBitAligned(Align Alignment, uint64_t SizeInBits) {
