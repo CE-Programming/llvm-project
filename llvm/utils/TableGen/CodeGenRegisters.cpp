@@ -1052,7 +1052,8 @@ CodeGenRegisterClass::getMatchingSubClassWithSubRegs(
       SuperRegRCs.emplace_back(&RC);
   llvm::stable_sort(SuperRegRCs, SizeOrder);
 
-  assert(SuperRegRCs.front() == BiggestSuperRegRC &&
+  assert(SuperRegRCs.front()->getMembers().size() ==
+             BiggestSuperRegRC->getMembers().size() &&
          "Biggest class wasn't first");
 
   // Find all the subreg classes and order them by size too.
