@@ -324,6 +324,16 @@ public:
     /// to at most MaxSize bits. If MaxSizeBits is 0 then no maximum is set.
     Register extendRegister(Register ValReg, const CCValAssign &VA,
                             unsigned MaxSizeBits = 0);
+
+    virtual bool finalize(CCState &State) { return true; }
+
+    MachineIRBuilder &MIRBuilder;
+    MachineRegisterInfo &MRI;
+    CCAssignFn *AssignFn;
+
+  private:
+    bool IsIncomingArgumentHandler;
+    virtual void anchor();
   };
 
   /// Base class for ValueHandlers used for arguments coming into the current

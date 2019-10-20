@@ -151,8 +151,8 @@ LegalizerHelper::legalizeInstrStep(MachineInstr &MI,
     return moreElementsVector(MI, Step.TypeIdx, Step.NewType);
   case Custom:
     LLVM_DEBUG(dbgs() << ".. Custom legalization\n");
-    return LI.legalizeCustom(*this, MI, LocObserver) ? Legalized
-                                                     : UnableToLegalize;
+    return LI.legalizeCustomMaybeLegal(*this, MI, LocObserver)
+        ? Legalized : UnableToLegalize;
   default:
     LLVM_DEBUG(dbgs() << ".. Unable to legalize\n");
     return UnableToLegalize;
@@ -410,19 +410,63 @@ static RTLIB::Libcall getRTLibDesc(unsigned Opcode, unsigned Size) {
     }                                                                          \
   } while (0)
 
+#define RTLIBCASE_ALL(LibcallPrefix)                                           \
+  do {                                                                         \
+    switch (Size) {                                                            \
+    case 8:                                                                    \
+      return RTLIB::LibcallPrefix##8;                                          \
+    case 16:                                                                   \
+      return RTLIB::LibcallPrefix##16;                                         \
+    case 24:                                                                   \
+      return RTLIB::LibcallPrefix##24;                                         \
+    case 32:                                                                   \
+      return RTLIB::LibcallPrefix##32;                                         \
+    case 64:                                                                   \
+      return RTLIB::LibcallPrefix##64;                                         \
+    case 128:                                                                  \
+      return RTLIB::LibcallPrefix##128;                                        \
+    default:                                                                   \
+      llvm_unreachable("unexpected size");                                     \
+    }                                                                          \
+  } while (0)
+
   switch (Opcode) {
+  case TargetOpcode::G_ADD:
+    RTLIBCASE_INT(ADD_I);
+  case TargetOpcode::G_SUB:
+    RTLIBCASE_INT(SUB_I);
+  case TargetOpcode::G_AND:
+    RTLIBCASE_ALL(AND_I);
+  case TargetOpcode::G_OR:
+    RTLIBCASE_ALL(OR_I);
+  case TargetOpcode::G_XOR:
+    RTLIBCASE_ALL(XOR_I);
+  case TargetOpcode::G_SHL:
+    RTLIBCASE_ALL(SHL_I);
+  case TargetOpcode::G_LSHR:
+    RTLIBCASE_ALL(SRL_I);
+  case TargetOpcode::G_ASHR:
+    RTLIBCASE_ALL(SRA_I);
   case TargetOpcode::G_MUL:
-    RTLIBCASE_INT(MUL_I);
+    RTLIBCASE_ALL(MUL_I);
   case TargetOpcode::G_SDIV:
-    RTLIBCASE_INT(SDIV_I);
+    RTLIBCASE_ALL(SDIV_I);
   case TargetOpcode::G_UDIV:
-    RTLIBCASE_INT(UDIV_I);
+    RTLIBCASE_ALL(UDIV_I);
   case TargetOpcode::G_SREM:
-    RTLIBCASE_INT(SREM_I);
+    RTLIBCASE_ALL(SREM_I);
   case TargetOpcode::G_UREM:
-    RTLIBCASE_INT(UREM_I);
+    RTLIBCASE_ALL(UREM_I);
+  case TargetOpcode::G_CTPOP:
+    RTLIBCASE_ALL(POPCNT_I);
+  case TargetOpcode::G_BITREVERSE:
+    RTLIBCASE_ALL(BITREV_I);
   case TargetOpcode::G_CTLZ_ZERO_UNDEF:
     RTLIBCASE_INT(CTLZ_I);
+  case TargetOpcode::G_INTRINSIC_TRUNC:
+    RTLIBCASE(TRUNC_F);
+  case TargetOpcode::G_INTRINSIC_ROUND:
+    RTLIBCASE(ROUND_F);
   case TargetOpcode::G_FADD:
     RTLIBCASE(ADD_F);
   case TargetOpcode::G_FSUB:
@@ -491,6 +535,10 @@ static RTLIB::Libcall getRTLibDesc(unsigned Opcode, unsigned Size) {
     RTLIBCASE(LRINT_F);
   case TargetOpcode::G_INTRINSIC_LLRINT:
     RTLIBCASE(LLRINT_F);
+  case TargetOpcode::G_FNEG:
+    RTLIBCASE(NEG_F);
+  case TargetOpcode::G_FABS:
+    RTLIBCASE(ABS_F);
   }
   llvm_unreachable("Unknown libcall function");
 }
@@ -1028,12 +1076,18 @@ LegalizerHelper::libcall(MachineInstr &MI, LostDebugLocObserver &LocObserver) {
   switch (MI.getOpcode()) {
   default:
     return UnableToLegalize;
+  case TargetOpcode::G_ADD:
+  case TargetOpcode::G_SUB:
+  case TargetOpcode::G_AND:
+  case TargetOpcode::G_OR:
+  case TargetOpcode::G_XOR:
   case TargetOpcode::G_MUL:
   case TargetOpcode::G_SDIV:
   case TargetOpcode::G_UDIV:
   case TargetOpcode::G_SREM:
   case TargetOpcode::G_UREM:
-  case TargetOpcode::G_CTLZ_ZERO_UNDEF: {
+  case TargetOpcode::G_CTLZ_ZERO_UNDEF:
+  case TargetOpcode::G_BITREVERSE: {
     LLT LLTy = MRI.getType(MI.getOperand(0).getReg());
     unsigned Size = LLTy.getSizeInBits();
     Type *HLTy = IntegerType::get(Ctx, Size);
@@ -1042,6 +1096,35 @@ LegalizerHelper::libcall(MachineInstr &MI, LostDebugLocObserver &LocObserver) {
       return Status;
     break;
   }
+  case TargetOpcode::G_CTPOP: {
+    LLT LLTy = MRI.getType(MI.getOperand(0).getReg());
+    unsigned Size = LLTy.getSizeInBits();
+    Type *ResTy = IntegerType::get(Ctx, Size);
+    unsigned OpSize = MRI.getType(MI.getOperand(1).getReg()).getSizeInBits();
+    Type *OpTy = IntegerType::get(Ctx, OpSize);
+    RTLIB::Libcall Libcall = getRTLibDesc(MI.getOpcode(), OpSize);
+    createLibcall(MIRBuilder, Libcall, {MI.getOperand(0).getReg(), ResTy, 0},
+                  {{MI.getOperand(1).getReg(), OpTy, 0}}, LocObserver, &MI);
+    break;
+  }
+  case TargetOpcode::G_SHL:
+  case TargetOpcode::G_LSHR:
+  case TargetOpcode::G_ASHR: {
+    LLT LLTy = MRI.getType(MI.getOperand(0).getReg());
+    unsigned Size = LLTy.getSizeInBits();
+    Type *OpTy = IntegerType::get(Ctx, Size);
+    RTLIB::Libcall Libcall = getRTLibDesc(MI.getOpcode(), Size);
+    Register AmountReg = MI.getOperand(2).getReg();
+    Type *AmountTy =
+        IntegerType::get(Ctx, MRI.getType(AmountReg).getSizeInBits());
+    createLibcall(
+        MIRBuilder, Libcall, {MI.getOperand(0).getReg(), OpTy, 0},
+        {{MI.getOperand(1).getReg(), OpTy, 0}, {AmountReg, AmountTy, 1}},
+        LocObserver, &MI);
+    break;
+  }
+  case TargetOpcode::G_INTRINSIC_TRUNC:
+  case TargetOpcode::G_INTRINSIC_ROUND:
   case TargetOpcode::G_FADD:
   case TargetOpcode::G_FSUB:
   case TargetOpcode::G_FMUL:
@@ -1072,7 +1155,9 @@ LegalizerHelper::libcall(MachineInstr &MI, LostDebugLocObserver &LocObserver) {
   case TargetOpcode::G_FSQRT:
   case TargetOpcode::G_FRINT:
   case TargetOpcode::G_FNEARBYINT:
-  case TargetOpcode::G_INTRINSIC_ROUNDEVEN: {
+  case TargetOpcode::G_INTRINSIC_ROUNDEVEN:
+  case TargetOpcode::G_FNEG:
+  case TargetOpcode::G_FABS: {
     LLT LLTy = MRI.getType(MI.getOperand(0).getReg());
     unsigned Size = LLTy.getSizeInBits();
     Type *HLTy = getFloatTypeForLLT(Ctx, LLTy);

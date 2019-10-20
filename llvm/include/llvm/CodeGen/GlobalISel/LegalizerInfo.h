@@ -1312,6 +1312,12 @@ public:
     llvm_unreachable("must implement this if custom action is used");
   }
 
+  virtual bool
+  legalizeCustomMaybeLegal(LegalizerHelper &Helper, MachineInstr &MI,
+                           LostDebugLocObserver &LocObserver) const {
+    return legalizeCustom(Helper, MI, LocObserver);
+  }
+
   /// \returns true if MI is either legal or has been legalized and false if not
   /// legal.
   /// Return true if MI is either legal or has been legalized and false
