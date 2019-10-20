@@ -1954,7 +1954,7 @@ bool AsmPrinter::doFinalization(Module &M) {
 
   // Emit linkage(XCOFF) and visibility info for declarations
   for (const Function &F : M) {
-    if (!F.isDeclarationForLinker())
+    if (!F.isDeclarationForLinker() || F.isIntrinsic())
       continue;
 
     MCSymbol *Name = getSymbol(&F);
@@ -1968,9 +1968,6 @@ bool AsmPrinter::doFinalization(Module &M) {
       emitVisibility(Name, V, false);
       continue;
     }
-
-    if (F.isIntrinsic())
-      continue;
 
     // Handle the XCOFF case.
     // Variable `Name` is the function descriptor symbol (see above). Get the
@@ -2158,6 +2155,8 @@ bool AsmPrinter::doFinalization(Module &M) {
           MAI->getCodePointerSize());
     }
   }
+
+  OutStreamer->Finish();
 
   // Allow the target to emit any magic that it wants at the end of the file,
   // after everything else has gone out.
