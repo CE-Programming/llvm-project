@@ -12,9 +12,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "Z80Subtarget.h"
+#include "GISel/Z80CallLowering.h"
+#include "GISel/Z80LegalizerInfo.h"
+#include "GISel/Z80RegisterBankInfo.h"
+#include "MCTargetDesc/Z80MCTargetDesc.h"
 #include "Z80.h"
 #include "Z80TargetMachine.h"
-#include "MCTargetDesc/Z80MCTargetDesc.h"
+#include "llvm/CodeGen/GlobalISel/InstructionSelect.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "z80-subtarget"
@@ -39,4 +43,11 @@ Z80Subtarget::Z80Subtarget(const Triple &TT, StringRef CPU, StringRef TuneCPU,
       In16BitMode(TT.isArch16Bit() || TT.getEnvironment() == Triple::CODE16),
       In24BitMode(!In16BitMode),
       InstrInfo(initializeSubtargetDependencies(CPU, TuneCPU, FS)),
-      TLInfo(TM, *this), FrameLowering(*this) {}
+      TLInfo(TM, *this), FrameLowering(*this) {
+  CallLoweringInfo.reset(new Z80CallLowering(*getTargetLowering()));
+  Legalizer.reset(new Z80LegalizerInfo(*this, TM));
+
+  auto *RBI = new Z80RegisterBankInfo(*getRegisterInfo());
+  RegBankInfo.reset(RBI);
+  InstSelector.reset(createZ80InstructionSelector(TM, *this, *RBI));
+}
