@@ -587,6 +587,7 @@ public:
     case MCAF_Code32:
       IsThumb = false;
       return; // Change to ARM mode
+    case MCAF_Code24:
     case MCAF_Code64:
       return;
     case MCAF_SubsectionsViaSymbols:

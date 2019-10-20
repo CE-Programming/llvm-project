@@ -271,8 +271,9 @@ MCSymbol *MCContext::createSymbol(StringRef Name, bool AlwaysAddSuffix,
   // Determine whether this is a user written assembler temporary or normal
   // label, if used.
   bool IsTemporary = CanBeUnnamed;
+  auto Prefix = MAI->getPrivateGlobalPrefix();
   if (AllowTemporaryLabels && !IsTemporary)
-    IsTemporary = Name.startswith(MAI->getPrivateGlobalPrefix());
+    IsTemporary = !Prefix.empty() && Name.startswith(Prefix);
 
   SmallString<128> NewName = Name;
   bool AddSuffix = AlwaysAddSuffix;
