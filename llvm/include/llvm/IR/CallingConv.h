@@ -270,7 +270,16 @@ namespace CallingConv {
     /// Preserve X1-X15, X19-X29, SP, Z0-Z31, P0-P15.
     AArch64_SME_ABI_Support_Routines_PreserveMost_From_X1 = 111,
 
-    /// The highest possible ID. Must be some 2^k - 1.
+    /// Calling conventions used for special Z80 rtlib functions
+    /// which pass in registers and save all registers.
+    Z80_LibCall = 112,
+    Z80_LibCall_AB = 113,
+    Z80_LibCall_AC = 114,
+    Z80_LibCall_BC = 115,
+    Z80_LibCall_L = 116,
+    Z80_LibCall_F = 117,
+
+    /// The highest possible calling convention ID. Must be some 2^k - 1.
     MaxID = 1023
   };
 

@@ -107,7 +107,9 @@ public:
     renderscript32, // 32-bit RenderScript
     renderscript64, // 64-bit RenderScript
     ve,             // NEC SX-Aurora Vector Engine
-    LastArchType = ve
+    z80,            // Z80
+    ez80,           // eZ80
+    LastArchType = ez80
   };
   enum SubArchType {
     NoSubArch,
@@ -1069,10 +1071,15 @@ public:
            Env == llvm::Triple::EABIHF;
   }
 
+  /// Tests whether the target is (e)z80.
+  bool isZ80() const {
+    return getArch() == Triple::z80 || getArch() == Triple::ez80;
+  }
+
   /// Tests whether the target supports comdat
   bool supportsCOMDAT() const {
     return !(isOSBinFormatMachO() || isOSBinFormatXCOFF() ||
-             isOSBinFormatDXContainer());
+             isOSBinFormatDXContainer() || isZ80());
   }
 
   /// Tests whether the target uses emulated TLS as default.

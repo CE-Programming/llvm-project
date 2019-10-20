@@ -296,6 +296,15 @@ MCSymbol *MCContext::createRenamableSymbol(const Twine &Name,
   Name.toVector(NewName);
   size_t NameLen = NewName.size();
 
+/* TODO adriweb: figure this out
+  // Determine whether this is a user written assembler temporary or normal
+  // label, if used.
+  bool IsTemporary = CanBeUnnamed;
+  auto Prefix = MAI->getPrivateGlobalPrefix();
+  if (AllowTemporaryLabels && !IsTemporary)
+    IsTemporary = !Prefix.empty() && Name.starts_with(Prefix);
+*/
+
   MCSymbolTableEntry &NameEntry = getSymbolTableEntry(NewName.str());
   MCSymbolTableEntry *EntryPtr = &NameEntry;
   while (AlwaysAddSuffix || EntryPtr->second.Used) {
