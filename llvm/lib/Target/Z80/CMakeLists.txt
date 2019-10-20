@@ -14,11 +14,16 @@ tablegen(LLVM Z80GenSubtargetInfo.inc -gen-subtarget)
 add_public_tablegen_target(Z80CommonTableGen)
 
 set(sources
+  GISel/Z80CallLowering.cpp
+  GISel/Z80InstructionSelector.cpp
+  GISel/Z80LegalizerInfo.cpp
+  GISel/Z80RegisterBankInfo.cpp
   Z80AsmPrinter.cpp
   Z80CallingConv.cpp
   Z80FrameLowering.cpp
-  Z80InstrInfo.cpp
   Z80ISelLowering.cpp
+  Z80InstrInfo.cpp
+  Z80MCInstLower.cpp
   Z80MCInstLower.cpp
   Z80RegisterInfo.cpp
   Z80Subtarget.cpp

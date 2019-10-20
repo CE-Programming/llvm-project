@@ -1249,17 +1249,14 @@ public:
                        const MachineRegisterInfo &MRI) const;
 
   /// Called for instructions with the Custom LegalizationAction.
-  virtual bool legalizeCustom(LegalizerHelper &Helper,
-                              MachineInstr &MI) const {
+  virtual bool legalizeCustom(LegalizerHelper &Helper, MachineInstr &MI) const {
     llvm_unreachable("must implement this if custom action is used");
   }
+
   virtual LegalizerHelper::LegalizeResult
-  legalizeCustom(MachineInstr &MI, MachineRegisterInfo &MRI,
-                 MachineIRBuilder &MIRBuilder, GISelChangeObserver &Observer,
-                 LegalizerHelper &Helper) const {
-    return legalizeCustom(Helper, MI)
-               ? LegalizerHelper::Legalized
-               : LegalizerHelper::UnableToLegalize;
+  legalizeCustomMaybeLegal(LegalizerHelper &Helper, MachineInstr &MI) const {
+    return legalizeCustom(Helper, MI) ? LegalizerHelper::Legalized
+                                      : LegalizerHelper::UnableToLegalize;
   }
 
   /// \returns true if MI is either legal or has been legalized and false if not
