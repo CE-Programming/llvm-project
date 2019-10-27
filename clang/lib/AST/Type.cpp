@@ -3001,6 +3001,8 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
     return "int";
   case Long:
     return "long";
+  case Int48:
+    return "__int48";
   case LongLong:
     return "long long";
   case Int128:
@@ -3013,6 +3015,8 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
     return "unsigned int";
   case ULong:
     return "unsigned long";
+  case UInt48:
+    return "unsigned __int48";
   case ULongLong:
     return "unsigned long long";
   case UInt128:

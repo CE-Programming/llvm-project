@@ -39,6 +39,10 @@ bool Z80FrameLowering::hasFP(const MachineFunction &MF) const {
   return MF.getTarget().Options.DisableFramePointerElim(MF) ||
          MF.getFrameInfo().hasStackObjects();
 }
+bool Z80FrameLowering::isFPSaved(const MachineFunction &MF) const {
+  return hasFP(MF) && MF.getInfo<Z80MachineFunctionInfo>()->getUsesAltFP() ==
+                          Z80MachineFunctionInfo::AFPM_None;
+}
 bool Z80FrameLowering::hasReservedCallFrame(const MachineFunction &MF) const {
   return false; // call frames are not implemented yet
 }
@@ -75,26 +79,28 @@ Z80FrameLowering::getOptimalStackAdjustmentMethod(MachineFunction &MF,
   StackAdjustmentMethod BestMethod = PopPushCount ? SAM_Small : SAM_Tiny;
   unsigned BestCost = PopPushCount * PopPushCost + IncDecCount * IncDecCost;
 
-  if (UnknownOffset || (FPOffset >= 0 && FPOffset == Offset)) {
-    // Optimal if we are trying to set SP = FP, except for tiny Offset
-    unsigned AllCost = 0;
-    //   LD SP, FP
-    AllCost += OptSize || HasEZ80Ops ? 2 : 10;
+  if (isFPSaved(MF)) {
+    if (UnknownOffset || (FPOffset >= 0 && FPOffset == Offset)) {
+      // Optimal if we are trying to set SP = FP, except for tiny Offset
+      unsigned AllCost = 0;
+      //   LD SP, FP
+      AllCost += OptSize || HasEZ80Ops ? 2 : 10;
 
-    return AllCost <= BestCost ? SAM_All : BestMethod;
-  }
+      return AllCost <= BestCost ? SAM_All : BestMethod;
+    }
 
-  if (HasEZ80Ops && FPOffset >= 0 && isInt<8>(Offset - FPOffset) && hasFP(MF)) {
-    // Optimal for medium offsets
-    unsigned MediumCost = 0;
-    //   LEA <scratch>, FP - Offset - FPOffset
-    MediumCost += 3;
-    //   LD SP, <scratch>
-    MediumCost += ScratchIsIndex ? 2 : 1;
+    if (HasEZ80Ops && FPOffset >= 0 && isInt<8>(Offset - FPOffset)) {
+      // Optimal for medium offsets
+      unsigned MediumCost = 0;
+      //   LEA <scratch>, FP - Offset - FPOffset
+      MediumCost += 3;
+      //   LD SP, <scratch>
+      MediumCost += ScratchIsIndex ? 2 : 1;
 
-    if (MediumCost < BestCost) {
-      BestMethod = SAM_Medium;
-      BestCost = MediumCost;
+      if (MediumCost < BestCost) {
+        BestMethod = SAM_Medium;
+        BestCost = MediumCost;
+      }
     }
   }
 
@@ -199,8 +205,9 @@ void Z80FrameLowering::emitPrologue(MachineFunction &MF,
       return;
     }
     Register FrameReg = TRI->getFrameRegister(MF);
-    BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::PUSH24r : Z80::PUSH16r))
-        .addUse(FrameReg);
+    if (isFPSaved(MF))
+      BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::PUSH24r : Z80::PUSH16r))
+          .addUse(FrameReg);
     BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::LD24ri : Z80::LD16ri), FrameReg)
         .addImm(0);
     BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::ADD24SP : Z80::ADD16SP),
@@ -269,7 +276,7 @@ void Z80FrameLowering::emitEpilogue(MachineFunction &MF,
 
   BuildStackAdjustment(MF, MBB, MI, DL, *ScratchReg, StackSize,
                        HasFP ? StackSize : -1, MFI.hasVarSizedObjects());
-  if (HasFP)
+  if (isFPSaved(MF))
     BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::POP24r : Z80::POP16r),
             TRI->getFrameRegister(MF));
 }
@@ -302,11 +309,38 @@ void Z80FrameLowering::shadowCalleeSavedRegisters(
       .setMIFlag(Flag);
 }
 
+static Z80MachineFunctionInfo::AltFPMode
+shouldUseAltFP(MachineFunction &MF, MCRegister AltFPReg,
+               const TargetRegisterInfo *TRI) {
+  if (MF.getFunction().hasOptSize() ||
+      MF.getFrameInfo().hasVarSizedObjects() ||
+      MF.getTarget().Options.DisableFramePointerElim(MF))
+    return Z80MachineFunctionInfo::AFPM_None;
+  if (!MF.getRegInfo().isPhysRegUsed(Z80::UIY))
+    return Z80MachineFunctionInfo::AFPM_Full;
+  MachineBasicBlock::iterator LastFrameIdx;
+  bool AltFPModified = false;
+  for (const MachineBasicBlock &MBB : MF) {
+    for (const MachineInstr &MI : MBB) {
+      if (AltFPModified) {
+        for (const MachineOperand &MO : MI.operands())
+          if (MO.isFI() || (MO.isRegMask() && MO.clobbersPhysReg(AltFPReg)))
+            return Z80MachineFunctionInfo::AFPM_None;
+      } else if (MI.modifiesRegister(AltFPReg, TRI))
+        AltFPModified = true;
+    }
+    AltFPModified = true;
+  }
+  return Z80MachineFunctionInfo::AFPM_Partial;
+}
+
 bool Z80FrameLowering::assignCalleeSavedSpillSlots(
     MachineFunction &MF, const TargetRegisterInfo *TRI,
     std::vector<CalleeSavedInfo> &CSI) const {
-  MF.getInfo<Z80MachineFunctionInfo>()->setCalleeSavedFrameSize(
-      (CSI.size() + hasFP(MF)) * SlotSize);
+  auto &FuncInfo = *MF.getInfo<Z80MachineFunctionInfo>();
+  FuncInfo.setUsesAltFP(shouldUseAltFP(MF, Is24Bit ? Z80::UIY : Z80::IY, TRI));
+  MF.getRegInfo().freezeReservedRegs(MF);
+  FuncInfo.setCalleeSavedFrameSize((CSI.size() + isFPSaved(MF)) * SlotSize);
   return true;
 }
 
@@ -397,7 +431,7 @@ void Z80FrameLowering::processFunctionBeforeFrameFinalized(
     for (int I = MFI.getObjectIndexBegin(); I < 0; ++I)
       MinFixedObjOffset = std::min(MinFixedObjOffset, MFI.getObjectOffset(I));
     int FI = MFI.CreateFixedSpillStackObject(
-        SlotSize, MinFixedObjOffset - SlotSize * (1 + hasFP(MF)));
+        SlotSize, MinFixedObjOffset - SlotSize * (1 + isFPSaved(MF)));
     RS->addScavengingFrameIndex(FI);
   }
 }

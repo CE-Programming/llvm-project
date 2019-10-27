@@ -19,9 +19,12 @@
 #include "Z80TargetMachine.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelector.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelectorImpl.h"
+#include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
 #include "llvm/CodeGen/MachineJumpTableInfo.h"
 #include "llvm/Support/Debug.h"
+
 using namespace llvm;
+using namespace MIPatternMatch;
 
 #define DEBUG_TYPE "Z80-isel"
 
@@ -52,8 +55,8 @@ private:
   bool selectSExt(MachineInstr &I, MachineRegisterInfo &MRI) const;
   bool selectZExt(MachineInstr &I, MachineRegisterInfo &MRI) const;
   bool selectAnyExt(MachineInstr &I, MachineRegisterInfo &MRI) const;
-  bool selectLoadStoreOp(MachineInstr &I, MachineRegisterInfo &MRI,
-                         MachineFunction &MF) const;
+  bool selectLoadStore(MachineInstr &I, MachineRegisterInfo &MRI,
+                       MachineFunction &MF) const;
   bool selectFrameIndexOrGep(MachineInstr &I, MachineRegisterInfo &MRI,
                              MachineFunction &MF) const;
 
@@ -71,6 +74,8 @@ private:
                           MachineRegisterInfo &MRI) const;
   Z80::CondCode foldCond(Register CondReg, MachineIRBuilder &MIB,
                          MachineRegisterInfo &MRI) const;
+  bool selectShift(MachineInstr &I, MachineRegisterInfo &MRI) const;
+  bool selectFunnelShift(MachineInstr &I, MachineRegisterInfo &MRI) const;
   bool selectSetCond(MachineInstr &I, MachineRegisterInfo &MRI) const;
 
   bool selectSelect(MachineInstr &I, MachineRegisterInfo &MRI) const;
@@ -301,7 +306,7 @@ bool Z80InstructionSelector::select(MachineInstr &I) const {
     return selectAnyExt(I, MRI);
   case TargetOpcode::G_LOAD:
   case TargetOpcode::G_STORE:
-    return selectLoadStoreOp(I, MRI, MF);
+    return selectLoadStore(I, MRI, MF);
   case TargetOpcode::G_PTR_ADD:
   case TargetOpcode::G_FRAME_INDEX:
     return selectFrameIndexOrGep(I, MRI, MF);
@@ -311,6 +316,13 @@ bool Z80InstructionSelector::select(MachineInstr &I) const {
     return selectMergeValues(I, MRI, MF);
   case TargetOpcode::G_SELECT:
     return selectSelect(I, MRI);
+  case TargetOpcode::G_SHL:
+  case TargetOpcode::G_LSHR:
+  case TargetOpcode::G_ASHR:
+    return selectShift(I, MRI);
+  case TargetOpcode::G_FSHL:
+  case TargetOpcode::G_FSHR:
+    return selectFunnelShift(I, MRI);
   case TargetOpcode::G_UADDO:
   case TargetOpcode::G_UADDE:
   case TargetOpcode::G_USUBO:
@@ -535,71 +547,271 @@ bool Z80InstructionSelector::selectAnyExt(MachineInstr &I,
   return true;
 }
 
-bool Z80InstructionSelector::selectLoadStoreOp(MachineInstr &I,
-                                               MachineRegisterInfo &MRI,
-                                               MachineFunction &MF) const {
-  bool IsStore = I.getOpcode() == TargetOpcode::G_STORE;
-  assert((IsStore || I.getOpcode() == TargetOpcode::G_LOAD) &&
+static bool canFoldLoad(MachineInstr &LoadMI, MachineInstr &TargetMI,
+                        MachineRegisterInfo &MRI, bool Ordered = false) {
+  assert(LoadMI.mayLoad() && "Expected a load");
+  auto *MBB = LoadMI.getParent();
+  if (!MBB || TargetMI.getParent() != MBB)
+    return false;
+  if (Ordered)
+    for (auto *MI : {&LoadMI, &TargetMI})
+      if (!MRI.hasOneUse(MI->getOperand(0).getReg()))
+          return false;
+  for (MachineBasicBlock::iterator I(LoadMI), E(MBB->end()); ++I != E;) {
+    if (I->isLoadFoldBarrier())
+      return false;
+    if (Ordered)
+      for (auto *MMO : I->memoperands())
+        if (!MMO->isUnordered())
+          return false;
+    if (I == TargetMI)
+      return true;
+  }
+  return false;
+}
+
+bool Z80InstructionSelector::selectLoadStore(MachineInstr &I,
+                                             MachineRegisterInfo &MRI,
+                                             MachineFunction &MF) const {
+  bool IsLoad = I.getOpcode() == TargetOpcode::G_LOAD;
+  assert((IsLoad || I.getOpcode() == TargetOpcode::G_STORE) &&
          "unexpected instruction");
 
-  Register DefReg = I.getOperand(0).getReg();
+  Register ValReg = I.getOperand(0).getReg();
   Register PtrReg = I.getOperand(1).getReg();
   MachineInstr *PtrMI = MRI.getVRegDef(PtrReg);
-  LLT Ty = MRI.getType(DefReg);
+  LLT Ty = MRI.getType(ValReg);
+
+  bool RMWOrdered = false;
+  SmallVector<unsigned, 3> RMWOps;
+  SmallVector<MachineInstr *, 2> MemMOs;
+  MemMOs.push_back(&I);
+  MachineInstr *ValMI = MRI.getVRegDef(ValReg);
+  if (!IsLoad && Ty == LLT::scalar(8) && ValMI) {
+    unsigned ValLastOpIdx = ValMI->getNumExplicitOperands() - 1;
+    if (std::next(MachineBasicBlock::iterator(ValMI)) == I &&
+        ValMI->getNumDefs() == 1 && ValLastOpIdx >= 2) {
+      Register LoadReg = ValMI->getOperand(1).getReg();
+      if (MachineInstr *LoadMI = MRI.getVRegDef(LoadReg)) {
+        for (MachineInstr *MemMI : {&I, LoadMI})
+          for (MachineMemOperand *MMO : MemMI->memoperands())
+            if (!MMO->isUnordered())
+              RMWOrdered = true;
+        if (LoadMI->getOpcode() == TargetOpcode::G_LOAD &&
+            LoadMI->getOperand(1).getReg() == PtrReg &&
+            canFoldLoad(*LoadMI, *ValMI, MRI, RMWOrdered)) {
+          assert(LoadMI->hasOneMemOperand() &&
+                 "Expected load to have one MMO.");
+          MemMOs.push_back(LoadMI);
+          Register ImmReg = ValMI->getOperand(ValLastOpIdx).getReg();
+          if (auto ImmConst = getIConstantVRegVal(ImmReg, MRI)) {
+            switch (ValMI->getOpcode()) {
+            case TargetOpcode::G_FSHL:
+              if (ValMI->getOperand(2).getReg() != LoadReg)
+                break;
+              if (ImmConst->isOneValue())
+                RMWOps = {Z80::RLC8p, Z80::RLC8o};
+              else if (*ImmConst == 7)
+                RMWOps = {Z80::RRC8p, Z80::RRC8o};
+              break;
+            case TargetOpcode::G_FSHR:
+              if (ValMI->getOperand(2).getReg() != LoadReg)
+                break;
+              if (ImmConst->isOneValue())
+                RMWOps = {Z80::RLC8p, Z80::RLC8o};
+              else if (*ImmConst == 7)
+                RMWOps = {Z80::RRC8p, Z80::RRC8o};
+              break;
+            case TargetOpcode::G_SHL:
+              if (ImmConst->isOneValue())
+                RMWOps = {Z80::SLA8p, Z80::SLA8o};
+              break;
+            case TargetOpcode::G_ASHR:
+              if (ImmConst->isOneValue())
+                RMWOps = {Z80::SRA8p, Z80::SRA8o};
+              break;
+            case TargetOpcode::G_LSHR:
+              if (ImmConst->isOneValue())
+                RMWOps = {Z80::SRL8p, Z80::SRL8o};
+              break;
+            case TargetOpcode::G_AND: {
+              auto Bit = (~ImmConst->zextOrTrunc(8)).exactLogBase2();
+              if (Bit >= 0)
+                RMWOps = {Z80::RES8bp, Z80::RES8bo, unsigned(Bit)};
+              break;
+            }
+            case TargetOpcode::G_OR: {
+              auto Bit = ImmConst->zextOrTrunc(8).exactLogBase2();
+              if (Bit >= 0)
+                RMWOps = {Z80::SET8bp, Z80::SET8bo, unsigned(Bit)};
+              break;
+            }
+            case TargetOpcode::G_ADD:
+              if (ImmConst->isOneValue())
+                RMWOps = {Z80::INC8p, Z80::INC8o};
+              else if (ImmConst->isAllOnesValue())
+                RMWOps = {Z80::DEC8p, Z80::DEC8o};
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
 
   I.RemoveOperand(1);
-  if (IsStore)
-    I.RemoveOperand(0);
+  I.RemoveOperand(0);
   MachineInstrBuilder MIB(MF, I);
-  bool IsOff = false;
-  int8_t Off = 0;
-  if (PtrMI) {
+  SmallVector<MachineOperand, 2> MOs;
+  int32_t Off = 0;
+  while (PtrMI) {
     switch (PtrMI->getOpcode()) {
+    case TargetOpcode::G_INTTOPTR:
+      if (MachineInstr *IntMI = MRI.getVRegDef(PtrMI->getOperand(1).getReg()))
+        if (IntMI->getOpcode() == TargetOpcode::G_CONSTANT)
+          MOs.push_back(MachineOperand::CreateImm(
+              IntMI->getOperand(1).getCImm()->getSExtValue() + Off));
+      break;
+    case TargetOpcode::G_GLOBAL_VALUE:
+      MOs.push_back(PtrMI->getOperand(1));
+      MOs.back().setOffset(MOs.back().getOffset() + Off);
+      break;
     case TargetOpcode::G_FRAME_INDEX:
-      IsOff = true;
+      MOs.push_back(PtrMI->getOperand(1));
+      MOs.push_back(MachineOperand::CreateImm(Off));
       break;
     case TargetOpcode::G_PTR_ADD:
       if (auto OffConst =
-              getConstantVRegVal(PtrMI->getOperand(2).getReg(), MRI)) {
-        if (OffConst->isSignedIntN(8)) {
-          IsOff = true;
-          Off = OffConst->getSExtValue();
-          if (MachineInstr *BaseMI =
-                  MRI.getVRegDef(PtrMI->getOperand(1).getReg()))
-            if (BaseMI->getOpcode() == TargetOpcode::G_FRAME_INDEX)
-              PtrMI = BaseMI;
+              getIConstantVRegVal(PtrMI->getOperand(2).getReg(), MRI)) {
+        if ((PtrMI = MRI.getVRegDef(PtrMI->getOperand(1).getReg()))) {
+          Off += OffConst->getSExtValue();
+          continue;
         }
       }
       break;
     }
+    break;
   }
+
   unsigned Opc;
-  switch (Ty.getSizeInBits()) {
-  case 8:
-    Opc = IsOff ? IsStore ? Z80::LD8og : Z80::LD8go
-                : IsStore ? Z80::LD8pg : Z80::LD8gp;
-    break;
-  case 16:
-    Opc = STI.has16BitEZ80Ops() ? IsOff ? IsStore ? Z80::LD16or : Z80::LD16ro
-                                        : IsStore ? Z80::LD16pr : Z80::LD16rp
-                                : IsOff ? IsStore ? Z80::LD88or : Z80::LD88ro
-                                        : IsStore ? Z80::LD88pr : Z80::LD88rp;
-    break;
-  case 24:
-    assert(STI.is24Bit() && "Illegal memory access size.");
-    Opc = IsOff ? IsStore ? Z80::LD24or : Z80::LD24ro
-                : IsStore ? Z80::LD24pr : Z80::LD24rp;
-    break;
-  default:
-    return false;
+  if (MOs.size() == 1 && (MOs[0].isImm() || MOs[0].isGlobal())) {
+    if (RMWOps.empty()) {
+      switch (Ty.getSizeInBits()) {
+      case 8: {
+        MachineIRBuilder Builder(I);
+        MachineInstrBuilder CopyI;
+        if (IsLoad) {
+          Builder.setInsertPt(Builder.getMBB(),
+                              std::next(Builder.getInsertPt()));
+          CopyI = Builder.buildCopy(ValReg, Register(Z80::A));
+          Opc = Z80::LD8am;
+        } else {
+          CopyI = Builder.buildCopy(Register(Z80::A), ValReg);
+          Opc = Z80::LD8ma;
+        }
+        I.setDesc(TII.get(Opc));
+        MIB.add(MOs[0]);
+        MIB.addReg(Z80::A, getDefRegState(IsLoad) | RegState::Implicit);
+        return RBI.constrainGenericRegister(ValReg, Z80::R8RegClass, MRI) &&
+               constrainSelectedInstRegOperands(I, TII, TRI, RBI);
+      }
+      case 16:
+        if (STI.is24Bit())
+          break;
+        I.setDesc(TII.get(IsLoad ? Z80::LD16rm : Z80::LD16mr));
+        if (IsLoad)
+          MIB.addDef(ValReg);
+        MIB.add(MOs[0]);
+        if (!IsLoad)
+          MIB.addReg(ValReg);
+        return constrainSelectedInstRegOperands(I, TII, TRI, RBI);
+      case 24:
+        assert(STI.is24Bit() && "Illegal memory access size.");
+        I.setDesc(TII.get(IsLoad ? Z80::LD24rm : Z80::LD24mr));
+        if (IsLoad)
+          MIB.addDef(ValReg);
+        MIB.add(MOs[0]);
+        if (!IsLoad)
+          MIB.addReg(ValReg);
+        return constrainSelectedInstRegOperands(I, TII, TRI, RBI);
+      }
+    }
+    MOs.clear();
+    Off = 0;
   }
-  I.setDesc(TII.get(Opc));
-  if (IsOff)
-    MIB.add(PtrMI->getOperand(1)).addImm(Off);
-  else
-    MIB.addReg(PtrReg);
-  if (IsStore)
-    MIB.addReg(DefReg);
+
+  if (MOs.empty()) {
+    if (Off && isInt<8>(Off)) {
+      MOs.push_back(
+          MachineOperand::CreateReg(PtrMI->getOperand(0).getReg(), false));
+      MOs.push_back(MachineOperand::CreateImm(Off));
+    } else
+      MOs.push_back(MachineOperand::CreateReg(PtrReg, false));
+  }
+  bool IsOff = MOs.size() == 2;
+  if (RMWOps.empty()) {
+    Optional<APInt> ValConst;
+    switch (Ty.getSizeInBits()) {
+    case 8:
+      if (!IsLoad)
+        ValConst = getIConstantVRegVal(ValReg, MRI);
+      Opc = IsOff ? IsLoad ? Z80::LD8go : ValConst ? Z80::LD8oi : Z80::LD8og
+                  : IsLoad ? Z80::LD8gp : ValConst ? Z80::LD8pi : Z80::LD8pg;
+      break;
+    case 16:
+      Opc = STI.has16BitEZ80Ops() ? IsOff ? IsLoad ? Z80::LD16ro : Z80::LD16or
+                                          : IsLoad ? Z80::LD16rp : Z80::LD16pr
+                                  : IsOff ? IsLoad ? Z80::LD88ro : Z80::LD88or
+                                          : IsLoad ? Z80::LD88rp : Z80::LD88pr;
+      break;
+    case 24:
+      assert(STI.is24Bit() && "Illegal memory access size.");
+      Opc = IsOff ? IsLoad ? Z80::LD24ro : Z80::LD24or
+                  : IsLoad ? Z80::LD24rp : Z80::LD24pr;
+      break;
+    default:
+      return false;
+    }
+    I.setDesc(TII.get(Opc));
+    if (IsLoad)
+      MIB.addDef(ValReg);
+    for (auto &MO : MOs)
+      MIB.add(MO);
+    if (!IsLoad) {
+      if (ValConst)
+        MIB.addImm(ValConst->getSExtValue());
+      else
+        MIB.addReg(ValReg);
+    }
+  } else {
+    assert(Ty == LLT::scalar(8) && "Expected RMW operation to be 8 bits");
+    I.setDesc(TII.get(RMWOps[IsOff]));
+    if (RMWOps.size() > 2)
+      MIB.addImm(RMWOps[2]);
+    for (auto &MO : MOs)
+      MIB.add(MO);
+    I.addImplicitDefUseOperands(MF);
+    MIB.cloneMergedMemRefs(MemMOs);
+    if (!MRI.use_empty(ValReg)) {
+      assert(!RMWOrdered && "Value of ordered RMW operation has too many uses");
+      MachineIRBuilder MIB(I);
+      MIB.setInsertPt(MIB.getMBB(), ++MIB.getInsertPt());
+      auto Reload =
+          MIB.buildInstr(IsOff ? Z80::LD8go : Z80::LD8gp, {ValReg}, {});
+      for (auto &MO : MOs)
+        Reload.add(MO);
+      Reload.cloneMemRefs(I);
+      if (!constrainSelectedInstRegOperands(*Reload, TII, TRI, RBI))
+        return false;
+      ValMI->getOperand(0).setReg(MRI.cloneVirtualRegister(ValReg));
+    } else if (RMWOrdered) {
+      MachineInstr &LoadMI = *MemMOs[1];
+      LoadMI.setDesc(TII.get(TargetOpcode::IMPLICIT_DEF));
+      while (LoadMI.getNumOperands() > 1)
+        LoadMI.RemoveOperand(1);
+      LoadMI.dropMemRefs(MF);
+    }
+  }
 
   return constrainSelectedInstRegOperands(I, TII, TRI, RBI);
 }
@@ -615,7 +827,7 @@ bool Z80InstructionSelector::selectFrameIndexOrGep(MachineInstr &I,
       "unexpected instruction");
 
   if (Opc == TargetOpcode::G_PTR_ADD) {
-    auto OffConst = getConstantVRegVal(I.getOperand(2).getReg(), MRI);
+    auto OffConst = getIConstantVRegVal(I.getOperand(2).getReg(), MRI);
     if (OffConst && OffConst->sge(-1) && OffConst->sle(1)) {
       I.RemoveOperand(2);
       if (OffConst->isNullValue()) {
@@ -652,59 +864,37 @@ bool Z80InstructionSelector::selectUnmergeValues(MachineInstr &I,
                                                  MachineFunction &MF) const {
   assert((I.getOpcode() == TargetOpcode::G_UNMERGE_VALUES) &&
          "unexpected instruction");
-
-  switch (MRI.getType(I.getOperand(I.getNumOperands() - 1).getReg())
-              .getSizeInBits()) {
+  MachineIRBuilder MIB(I);
+  Register LoReg = I.getOperand(0).getReg();
+  Register HiReg = I.getOperand(1).getReg();
+  Register SrcReg = I.getOperand(I.getNumOperands() - 1).getReg();
+  LLT Ty = MRI.getType(SrcReg);
+  assert(MRI.getType(LoReg) == LLT::scalar(8) &&
+         MRI.getType(HiReg) == LLT::scalar(8) && Ty.isScalar() &&
+         "Illegal type");
+  const TargetRegisterClass *RC;
+  switch (Ty.getSizeInBits()) {
   case 16:
-    assert(I.getNumOperands() == 3 &&
-           MRI.getType(I.getOperand(0).getReg()) == LLT::scalar(8) &&
-           MRI.getType(I.getOperand(1).getReg()) == LLT::scalar(8) &&
-           "Illegal instruction");
-    BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(TargetOpcode::COPY))
-        .add(I.getOperand(0))
-        .addReg(I.getOperand(2).getReg(), 0, Z80::sub_low);
-    BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(TargetOpcode::COPY))
-        .add(I.getOperand(1))
-        .addReg(I.getOperand(2).getReg(), 0, Z80::sub_high);
-    if (!RBI.constrainGenericRegister(I.getOperand(0).getReg(), Z80::R8RegClass,
-                                      MRI) ||
-        !RBI.constrainGenericRegister(I.getOperand(1).getReg(), Z80::R8RegClass,
-                                      MRI) ||
-        !RBI.constrainGenericRegister(
-            I.getOperand(2).getReg(),
-            *(STI.is24Bit() ? &Z80::R16RegClass : &Z80::G16RegClass), MRI))
-      return false;
+    assert(I.getNumOperands() == 3 && "Illegal instruction");
+    RC = STI.hasIndexHalfRegs() ? &Z80::R16RegClass : &Z80::G16RegClass;
+    MIB.buildInstr(TargetOpcode::COPY, {LoReg}, {})
+        .addReg(SrcReg, 0, Z80::sub_low);
+    MIB.buildInstr(TargetOpcode::COPY, {HiReg}, {})
+        .addReg(SrcReg, 0, Z80::sub_high);
     break;
   case 24: {
-    assert(STI.is24Bit() && "Illegal memory access size.");
-    assert(I.getNumOperands() == 4 &&
-           MRI.getType(I.getOperand(0).getReg()) == LLT::scalar(8) &&
-           MRI.getType(I.getOperand(1).getReg()) == LLT::scalar(8) &&
-           MRI.getType(I.getOperand(2).getReg()) == LLT::scalar(8) &&
-           "Illegal instruction");
+    Register UpReg = I.getOperand(2).getReg();
+    assert(STI.is24Bit() && I.getNumOperands() == 4 &&
+           MRI.getType(UpReg) == LLT::scalar(8) && "Illegal instruction");
+    RC = &Z80::R24RegClass;
     int FI = MF.getFrameInfo().CreateStackObject(3, Align(1), false);
-    BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(Z80::LD24or))
-        .addFrameIndex(FI)
-        .addImm(0)
-        .add(I.getOperand(3));
-    BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(Z80::LD8ro))
-        .add(I.getOperand(2))
-        .addFrameIndex(FI)
-        .addImm(2);
-    BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(TargetOpcode::COPY))
-        .add(I.getOperand(1))
-        .addReg(I.getOperand(3).getReg(), 0, Z80::sub_high);
-    BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(TargetOpcode::COPY))
-        .add(I.getOperand(0))
-        .addReg(I.getOperand(3).getReg(), 0, Z80::sub_low);
-    if (!RBI.constrainGenericRegister(I.getOperand(0).getReg(), Z80::R8RegClass,
-                                      MRI) ||
-        !RBI.constrainGenericRegister(I.getOperand(1).getReg(), Z80::R8RegClass,
-                                      MRI) ||
-        !RBI.constrainGenericRegister(I.getOperand(2).getReg(), Z80::R8RegClass,
-                                      MRI) ||
-        !RBI.constrainGenericRegister(I.getOperand(3).getReg(),
-                                      Z80::R24RegClass, MRI))
+    MIB.buildInstr(Z80::LD24or).addFrameIndex(FI).addImm(0).addReg(SrcReg);
+    MIB.buildInstr(Z80::LD8ro, {UpReg}, {}).addFrameIndex(FI).addImm(2);
+    MIB.buildInstr(TargetOpcode::COPY, {HiReg}, {})
+        .addReg(SrcReg, 0, Z80::sub_high);
+    MIB.buildInstr(TargetOpcode::COPY, {LoReg}, {})
+        .addReg(SrcReg, 0, Z80::sub_low);
+    if (!RBI.constrainGenericRegister(UpReg, Z80::R8RegClass, MRI))
       return false;
     break;
   }
@@ -712,7 +902,9 @@ bool Z80InstructionSelector::selectUnmergeValues(MachineInstr &I,
     llvm_unreachable("Illegal instruction");
   }
   I.eraseFromParent();
-  return true;
+  return RBI.constrainGenericRegister(LoReg, Z80::R8RegClass, MRI) &&
+         RBI.constrainGenericRegister(HiReg, Z80::R8RegClass, MRI) &&
+         RBI.constrainGenericRegister(SrcReg, *RC, MRI);
 }
 
 bool Z80InstructionSelector::selectMergeValues(MachineInstr &I,
@@ -720,26 +912,23 @@ bool Z80InstructionSelector::selectMergeValues(MachineInstr &I,
                                                MachineFunction &MF) const {
   assert((I.getOpcode() == TargetOpcode::G_MERGE_VALUES) &&
          "unexpected instruction");
+  MachineIRBuilder MIB(I);
   Register DstReg = I.getOperand(0).getReg();
-  MachineInstr *NewI;
+  const TargetRegisterClass *RC;
   switch (MRI.getType(DstReg).getSizeInBits()) {
-  case 16:
+  case 16: {
     assert(I.getNumOperands() == 3 &&
            MRI.getType(I.getOperand(1).getReg()) == LLT::scalar(8) &&
            MRI.getType(I.getOperand(2).getReg()) == LLT::scalar(8) &&
            "Illegal instruction");
-
-    NewI = BuildMI(*I.getParent(), I, I.getDebugLoc(),
-                   TII.get(TargetOpcode::REG_SEQUENCE), DstReg)
-               .add(I.getOperand(1))
-               .addImm(Z80::sub_low)
-               .add(I.getOperand(2))
-               .addImm(Z80::sub_high);
-    if (!RBI.constrainGenericRegister(
-            DstReg, *(STI.is24Bit() ? &Z80::R16RegClass : &Z80::G16RegClass),
-            MRI))
+    RC = STI.hasIndexHalfRegs() ? &Z80::R16RegClass : &Z80::G16RegClass;
+    auto SeqI = MIB.buildInstr(TargetOpcode::REG_SEQUENCE, {DstReg},
+                               {I.getOperand(1), int64_t(Z80::sub_low),
+                                I.getOperand(2), int64_t(Z80::sub_high)});
+    if (!constrainSelectedInstRegOperands(*SeqI, TII, TRI, RBI))
       return false;
     break;
+  }
   case 24: {
     assert(STI.is24Bit() && "Illegal memory access size.");
     assert(I.getNumOperands() == 4 &&
@@ -747,40 +936,52 @@ bool Z80InstructionSelector::selectMergeValues(MachineInstr &I,
            MRI.getType(I.getOperand(2).getReg()) == LLT::scalar(8) &&
            MRI.getType(I.getOperand(3).getReg()) == LLT::scalar(8) &&
            "Illegal instruction");
-    int FI = MF.getFrameInfo().CreateStackObject(1, Align(1), false);
-    auto Store =
-        BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(Z80::LD8or))
-            .addFrameIndex(FI)
-            .addImm(0)
-            .add(I.getOperand(3));
-    if (!constrainSelectedInstRegOperands(*Store, TII, TRI, RBI))
-      return false;
-    Register Temp1Reg = MRI.createVirtualRegister(&Z80::R24RegClass);
-    Register Temp2Reg = MRI.createVirtualRegister(&Z80::R24RegClass);
-    BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(Z80::LD24ro), Temp1Reg)
-        .addFrameIndex(FI)
-        .addImm(-2);
-    BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(Z80::INSERT_SUBREG),
-            Temp2Reg)
-        .addReg(Temp1Reg)
-        .add(I.getOperand(2))
-        .addImm(Z80::sub_high);
-    NewI = BuildMI(*I.getParent(), I, I.getDebugLoc(),
-                   TII.get(Z80::INSERT_SUBREG), DstReg)
-               .addReg(Temp2Reg)
-               .add(I.getOperand(1))
-               .addImm(Z80::sub_low);
-    if (!RBI.constrainGenericRegister(DstReg, Z80::R24RegClass, MRI))
-      return false;
+    RC = &Z80::R24RegClass;
+    Register UpReg = I.getOperand(3).getReg(), TmpReg;
+    unsigned Amt;
+    if (mi_match(UpReg, MRI, m_GAShr(m_Reg(TmpReg), m_ICst(Amt))) &&
+        Amt == 7) {
+      auto AddI = MIB.buildInstr(Z80::RLC8r, {LLT::scalar(8)}, {TmpReg});
+      auto SbcI = MIB.buildInstr(Z80::SBC24aa);
+      SbcI->findRegisterUseOperand(Z80::UHL)->setIsUndef();
+      TmpReg = MIB.buildCopy(RC, Register(Z80::UHL)).getReg(0);
+      if (!constrainSelectedInstRegOperands(*AddI, TII, TRI, RBI) ||
+          !constrainSelectedInstRegOperands(*SbcI, TII, TRI, RBI))
+        return false;
+    } else {
+      UpReg = {};
+      int FI = MF.getFrameInfo().CreateStackObject(1, Align(1), false);
+      auto Store = MIB.buildInstr(Z80::LD8or).addFrameIndex(FI).addImm(0)
+                       .add(I.getOperand(3));
+      if (!constrainSelectedInstRegOperands(*Store, TII, TRI, RBI))
+        return false;
+      TmpReg = MIB.buildInstr(Z80::LD24ro, {RC}, {})
+                   .addFrameIndex(FI).addImm(-2).getReg(0);
+    }
+    if (I.getOperand(2).getReg() != UpReg) {
+      auto InsertI =
+          MIB.buildInstr(Z80::INSERT_SUBREG, {RC},
+                         {TmpReg, I.getOperand(2), int64_t(Z80::sub_high)});
+      if (!constrainSelectedInstRegOperands(*InsertI, TII, TRI, RBI))
+        return false;
+      TmpReg = InsertI.getReg(0);
+    }
+    if (I.getOperand(1).getReg() != UpReg) {
+      auto InsertI =
+          MIB.buildInstr(Z80::INSERT_SUBREG, {RC},
+                         {TmpReg, I.getOperand(1), int64_t(Z80::sub_low)});
+      if (!constrainSelectedInstRegOperands(*InsertI, TII, TRI, RBI))
+        return false;
+      TmpReg = InsertI.getReg(0);
+    }
+    MIB.buildCopy(DstReg, TmpReg);
     break;
   }
   default:
     llvm_unreachable("Illegal instruction");
   }
-  if (!constrainSelectedInstRegOperands(*NewI, TII, TRI, RBI))
-    return false;
   I.eraseFromParent();
-  return true;
+  return RBI.constrainGenericRegister(DstReg, *RC, MRI);
 }
 
 Z80::CondCode
@@ -801,8 +1002,15 @@ Z80InstructionSelector::foldCompare(MachineInstr &I, MachineIRBuilder &MIB,
   bool IsSigned, IsSwapped, IsConst;
   Z80::CondCode CC =
       Z80::GetBranchConditionForPredicate(Pred, IsSigned, IsSwapped, IsConst);
-  if (IsSwapped)
-    std::swap(LHSReg, RHSReg);
+  auto ConstRHS = getIConstantVRegValWithLookThrough(RHSReg, MRI);
+  if (IsSwapped) {
+    if (ConstRHS && ConstRHS->Value != int64_t(IsSigned ? maxIntN(OpSize)
+                                                        : maxUIntN(OpSize))) {
+      ++ConstRHS->Value;
+      CC = Z80::GetOppositeBranchCondition(CC);
+    } else
+      std::swap(LHSReg, RHSReg);
+  }
 
   unsigned Opc, LDIOpc, AddOpc;
   Register Reg;
@@ -828,22 +1036,26 @@ Z80InstructionSelector::foldCompare(MachineInstr &I, MachineIRBuilder &MIB,
   }
 
   if (IsSigned && !OptSize) {
-    int64_t Off = 1 << (OpSize - 1);
+    int64_t Sign = minIntN(OpSize);
     if (OpSize == 8) {
-      auto CopyRHSToA = MIB.buildCopy(Register(Z80::A), RHSReg);
-      if (!constrainSelectedInstRegOperands(*CopyRHSToA, TII, TRI, RBI))
-        return Z80::COND_INVALID;
-      auto AddRHS = MIB.buildInstr(Z80::ADD8ai, {}, {Off});
-      if (!constrainSelectedInstRegOperands(*AddRHS, TII, TRI, RBI))
-        return Z80::COND_INVALID;
-      auto CopyRHSFromA = MIB.buildCopy(OpTy, Register(Z80::A));
-      if (!constrainSelectedInstRegOperands(*CopyRHSFromA, TII, TRI, RBI))
-        return Z80::COND_INVALID;
-      RHSReg = CopyRHSFromA.getReg(0);
+      if (ConstRHS)
+        ConstRHS->Value += Sign;
+      else {
+        auto CopyRHSToA = MIB.buildCopy(Register(Z80::A), RHSReg);
+        if (!constrainSelectedInstRegOperands(*CopyRHSToA, TII, TRI, RBI))
+          return Z80::COND_INVALID;
+        auto AddRHS = MIB.buildInstr(Z80::ADD8ai, {}, {Sign});
+        if (!constrainSelectedInstRegOperands(*AddRHS, TII, TRI, RBI))
+          return Z80::COND_INVALID;
+        auto CopyRHSFromA = MIB.buildCopy(OpTy, Register(Z80::A));
+        if (!constrainSelectedInstRegOperands(*CopyRHSFromA, TII, TRI, RBI))
+          return Z80::COND_INVALID;
+        RHSReg = CopyRHSFromA.getReg(0);
+      }
       auto CopyLHSToA = MIB.buildCopy(Register(Z80::A), LHSReg);
       if (!constrainSelectedInstRegOperands(*CopyLHSToA, TII, TRI, RBI))
         return Z80::COND_INVALID;
-      auto AddLHS = MIB.buildInstr(Z80::ADD8ai, {}, {Off});
+      auto AddLHS = MIB.buildInstr(Z80::ADD8ai, {}, {Sign});
       if (!constrainSelectedInstRegOperands(*AddLHS, TII, TRI, RBI))
         return Z80::COND_INVALID;
       auto CopyLHSFromA = MIB.buildCopy(OpTy, Register(Z80::A));
@@ -853,17 +1065,21 @@ Z80InstructionSelector::foldCompare(MachineInstr &I, MachineIRBuilder &MIB,
       if (!RBI.constrainGenericRegister(LHSReg, Z80::R8RegClass, MRI))
         return Z80::COND_INVALID;
     } else {
-      auto LDI = MIB.buildInstr(LDIOpc, {OpTy}, {Off});
+      auto LDI = MIB.buildInstr(LDIOpc, {OpTy}, {Sign});
       if (!constrainSelectedInstRegOperands(*LDI, TII, TRI, RBI))
         return Z80::COND_INVALID;
+      if (ConstRHS)
+        ConstRHS->Value += Sign;
+      else {
+        auto AddRHS = MIB.buildInstr(AddOpc, {OpTy}, {RHSReg, LDI});
+        if (!constrainSelectedInstRegOperands(*AddRHS, TII, TRI, RBI))
+          return Z80::COND_INVALID;
+        RHSReg = AddRHS.getReg(0);
+      }
       auto AddLHS = MIB.buildInstr(AddOpc, {OpTy}, {LHSReg, LDI});
       if (!constrainSelectedInstRegOperands(*AddLHS, TII, TRI, RBI))
         return Z80::COND_INVALID;
       LHSReg = AddLHS.getReg(0);
-      auto AddRHS = MIB.buildInstr(AddOpc, {OpTy}, {RHSReg, LDI});
-      if (!constrainSelectedInstRegOperands(*AddRHS, TII, TRI, RBI))
-        return Z80::COND_INVALID;
-      RHSReg = AddRHS.getReg(0);
     }
     switch (CC) {
     default:
@@ -877,19 +1093,55 @@ Z80InstructionSelector::foldCompare(MachineInstr &I, MachineIRBuilder &MIB,
     }
   }
 
-  auto Copy = MIB.buildCopy(Reg, LHSReg);
-  if (!constrainSelectedInstRegOperands(*Copy, TII, TRI, RBI))
-    return Z80::COND_INVALID;
-  auto Cmp = MIB.buildInstr(Opc, {}, {RHSReg});
+  SmallVector<SrcOp, 2> Ops = {RHSReg};
+  if (ConstRHS) {
+    if (!ConstRHS->Value && (CC == Z80::COND_Z || CC == Z80::COND_NZ)) {
+      if (OpSize == 8) {
+        Register SrcReg;
+        uint8_t Mask;
+        if (mi_match(LHSReg, MRI,
+                     m_OneUse(m_GAnd(m_Reg(SrcReg), m_ICst(Mask)))) &&
+            isPowerOf2_32(Mask)) {
+          Opc = Z80::BIT8bg;
+          Reg = {};
+          Ops = {uint64_t(findFirstSet(Mask)), SrcReg};
+        } else {
+          Opc = Z80::OR8ar;
+          Ops = {Reg};
+        }
+      } else {
+        Opc = OpSize == 24 ? Z80::CP24a0 : Z80::CP16a0;
+        Ops.clear();
+      }
+    } else if (OpSize == 8) {
+      Opc = Z80::CP8ai;
+      Ops = {ConstRHS->Value.getSExtValue()};
+    } else {
+      auto LDI =
+          MIB.buildInstr(LDIOpc, {OpTy}, {ConstRHS->Value.getSExtValue()});
+      if (!constrainSelectedInstRegOperands(*LDI, TII, TRI, RBI))
+        return Z80::COND_INVALID;
+      Ops = {LDI.getReg(0)};
+    }
+  }
+
+  if (Reg.isValid()) {
+    auto Copy = MIB.buildCopy(Reg, LHSReg);
+    if (!constrainSelectedInstRegOperands(*Copy, TII, TRI, RBI))
+      return Z80::COND_INVALID;
+  }
+  auto Cmp = MIB.buildInstr(Opc, {}, Ops);
   if (!constrainSelectedInstRegOperands(*Cmp, TII, TRI, RBI))
     return Z80::COND_INVALID;
   if (IsSigned && OptSize) {
     LLT s8 = LLT::scalar(8);
     Type *Int8Ty = Type::getInt8Ty(F.getContext());
     Register FlagsReg = MIB.buildCopy(s8, Register(Z80::F)).getReg(0);
-    CallLowering::ArgInfo FlagsArg(FlagsReg, Int8Ty);
+    CallLowering::ArgInfo FlagsArg(FlagsReg, Int8Ty,
+                                   CallLowering::ArgInfo::NoArgIndex);
     Register SignedFlagsReg = MRI.createGenericVirtualRegister(s8);
-    CallLowering::ArgInfo SignedFlagsArg(SignedFlagsReg, Int8Ty);
+    CallLowering::ArgInfo SignedFlagsArg(SignedFlagsReg, Int8Ty,
+                                         CallLowering::ArgInfo::NoArgIndex);
     createLibcall(MIB, RTLIB::SCMP, SignedFlagsArg, FlagsArg);
     MIB.buildCopy(Register(Z80::F), SignedFlagsReg);
     if (!RBI.constrainGenericRegister(FlagsReg, Z80::F8RegClass, MRI) ||
@@ -995,8 +1247,8 @@ Z80::CondCode Z80InstructionSelector::foldCond(Register CondReg,
 
   MachineInstr *CondDef = nullptr;
   while (MachineInstr *LookthroughDef = MRI.getVRegDef(CondReg)) {
-    //if (LookthroughDef != MIB.getInsertPt() && !MRI.hasOneUse(CondReg))
-    //  break;
+    if (LookthroughDef != MIB.getInsertPt() && !MRI.hasOneUse(CondReg))
+      break;
     CondDef = LookthroughDef;
     unsigned Opc = CondDef->getOpcode();
     if (Opc != TargetOpcode::COPY && Opc != TargetOpcode::G_TRUNC)
@@ -1008,7 +1260,7 @@ Z80::CondCode Z80InstructionSelector::foldCond(Register CondReg,
   }
 
   Z80::CondCode CC = Z80::COND_INVALID;
-  if (CondDef && MIB.getInsertPt() == *CondDef) {
+  if (CondDef) {
     switch (CondDef->getOpcode()) {
     case TargetOpcode::G_ICMP:
       CC = foldCompare(*CondDef, MIB, MRI);
@@ -1041,6 +1293,85 @@ Z80::CondCode Z80InstructionSelector::foldCond(Register CondReg,
   return CC;
 }
 
+bool Z80InstructionSelector::selectShift(MachineInstr &I,
+                                         MachineRegisterInfo &MRI) const {
+  assert(I.getOpcode() == Z80::G_ASHR && "Unexpected opcode");
+  Register DstReg = I.getOperand(0).getReg();
+  Register SrcReg = I.getOperand(1).getReg();
+  auto Amt = getIConstantVRegValWithLookThrough(I.getOperand(2).getReg(), MRI);
+  assert(Amt && "Expected constant shift amount");
+  LLT Ty = MRI.getType(DstReg);
+  assert(Ty.isScalar() && "Illegal type");
+  if (Amt->Value == Ty.getSizeInBits() - 1) {
+    MachineIRBuilder MIB(I);
+    Register Reg;
+    unsigned AddOpc, SbcOpc;
+    const TargetRegisterClass *RC;
+    switch (Ty.getSizeInBits()) {
+    default:
+      llvm_unreachable("Illegal type");
+    case 8:
+      Reg = Z80::A;
+      AddOpc = Z80::RLC8r;
+      SbcOpc = Z80::SBC8ar;
+      RC = &Z80::R8RegClass;
+      break;
+    case 16:
+      Reg = Z80::HL;
+      AddOpc = Z80::ADD16aa;
+      SbcOpc = Z80::SBC16aa;
+      RC = &Z80::R16RegClass;
+      break;
+    case 24:
+      assert(STI.is24Bit() && "Illegal type");
+      Reg = Z80::UHL;
+      AddOpc = Z80::ADD24aa;
+      SbcOpc = Z80::SBC24aa;
+      RC = &Z80::R24RegClass;
+      break;
+    }
+    if (Ty != LLT::scalar(8)) {
+      MIB.buildCopy(Reg, SrcReg);
+      if (!RBI.constrainGenericRegister(SrcReg, *RC, MRI))
+        return false;
+    }
+    auto AddI = MIB.buildInstr(AddOpc, {Ty}, {SrcReg});
+    auto SbcI = MIB.buildInstr(SbcOpc);
+    if (Ty == LLT::scalar(8)) {
+      SbcI->findRegisterUseOperand(Reg)->setIsUndef();
+      SbcI.addReg(Reg, RegState::Undef);
+    }
+    MIB.buildCopy(DstReg, Reg);
+    I.eraseFromParent();
+    return constrainSelectedInstRegOperands(*AddI, TII, TRI, RBI) &&
+           constrainSelectedInstRegOperands(*SbcI, TII, TRI, RBI) &&
+           RBI.constrainGenericRegister(DstReg, *RC, MRI);
+  }
+  llvm_unreachable("Illegal shift amount");
+}
+
+bool Z80InstructionSelector::selectFunnelShift(MachineInstr &I,
+                                               MachineRegisterInfo &MRI) const {
+  bool IsLeft = I.getOpcode() == Z80::G_FSHL;
+  assert((IsLeft || I.getOpcode() == Z80::G_FSHR) && "Unexpected opcode");
+  Register DstReg = I.getOperand(0).getReg();
+  Register HiReg = I.getOperand(1).getReg();
+  Register LoReg = I.getOperand(2).getReg();
+  auto Amt = getIConstantVRegValWithLookThrough(I.getOperand(3).getReg(), MRI);
+  LLT Ty = MRI.getType(DstReg);
+  assert(Ty == LLT::scalar(8) && "Illegal type");
+  assert(Amt && (Amt->Value == 1 || Amt->Value == 7) && "Illegal shift amount");
+  IsLeft ^= Amt->Value == 7;
+  MachineIRBuilder MIB(I);
+  auto ShiftI = MIB.buildInstr(IsLeft ? Z80::RLC8r : Z80::RRC8r, {Ty},
+                               {IsLeft ? LoReg : HiReg});
+  auto RotateI = MIB.buildInstr(IsLeft ? Z80::RL8r : Z80::RR8r, {DstReg},
+                                {IsLeft ? HiReg : LoReg});
+  I.eraseFromParent();
+  return constrainSelectedInstRegOperands(*ShiftI, TII, TRI, RBI) &&
+         constrainSelectedInstRegOperands(*RotateI, TII, TRI, RBI);
+}
+
 bool Z80InstructionSelector::selectSetCond(MachineInstr &I,
                                            MachineRegisterInfo &MRI) const {
   Register CondReg = I.getOperand(I.getNumExplicitDefs() - 1).getReg();
@@ -1070,19 +1401,15 @@ bool Z80InstructionSelector::selectSelect(MachineInstr &I,
 
   LLT OpTy = MRI.getType(I.getOperand(2).getReg());
   unsigned Select;
-  const TargetRegisterClass *RC;
   switch (OpTy.getSizeInBits()) {
   case 8:
     Select = Z80::Select8;
-    RC = &Z80::R8RegClass;
     break;
   case 16:
     Select = Z80::Select16;
-    RC = &Z80::R16RegClass;
     break;
   case 24:
     Select = Z80::Select24;
-    RC = &Z80::R24RegClass;
     break;
   default:
     return false;

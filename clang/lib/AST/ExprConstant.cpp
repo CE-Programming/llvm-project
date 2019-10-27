@@ -11318,6 +11318,7 @@ EvaluateBuiltinClassifyType(QualType T, const LangOptions &LangOpts) {
     case BuiltinType::UShort:
     case BuiltinType::UInt:
     case BuiltinType::ULong:
+    case BuiltinType::UInt48:
     case BuiltinType::ULongLong:
     case BuiltinType::UInt128:
       return GCCTypeClass::Integer;

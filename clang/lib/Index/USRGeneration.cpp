@@ -796,6 +796,10 @@ void USRGenerator::VisitType(QualType T) {
           Out << "@BT@__bf16"; break;
         case BuiltinType::Ibm128:
           Out << "@BT@__ibm128"; break;
+        case BuiltinType::UInt48:
+          Out << "@BT@__ui48"; break;
+        case BuiltinType::Int48:
+          Out << "@BT@__i48"; break;
         case BuiltinType::ObjCId:
           Out << 'o'; break;
         case BuiltinType::ObjCClass:

@@ -907,6 +907,37 @@ void CombinerHelper::applySextInRegOfLoad(
   MI.eraseFromParent();
 }
 
+bool CombinerHelper::dominates(MachineBasicBlock &DefMBB,
+                               MachineBasicBlock &UseMBB) {
+  if (MDT)
+    return MDT->dominates(&DefMBB, &UseMBB);
+  return &DefMBB == &UseMBB;
+}
+
+bool CombinerHelper::canMove(MachineInstr &MI, MachineBasicBlock &MBB,
+                             bool &SawStore) {
+  if (MI.isConvergent() || !MI.isSafeToMove(nullptr, SawStore))
+    return false;
+  for (auto &MO : MI.operands()) {
+    if (!MO.isReg())
+      continue;
+    Register Reg = MO.getReg();
+    if (!Reg.isVirtual())
+      return false;
+    if (!MO.isDef() || MO.isImplicit())
+      continue;
+    for (auto &UseMO : MRI.use_nodbg_operands(Reg)) {
+      auto &UseMI = *UseMO.getParent();
+      auto *UseMBB = UseMI.getParent();
+      if (UseMI.isPHI())
+        UseMBB = UseMI.getOperand(UseMI.getOperandNo(&UseMO) + 1).getMBB();
+      if (!dominates(MBB, *UseMBB))
+        return false;
+    }
+  }
+  return true;
+}
+
 bool CombinerHelper::findPostIndexCandidate(MachineInstr &MI, Register &Addr,
                                             Register &Base, Register &Offset) {
   auto &MF = *MI.getParent()->getParent();
@@ -1412,9 +1443,9 @@ bool CombinerHelper::matchPtrAddImmedChain(MachineInstr &MI,
 void CombinerHelper::applyPtrAddImmedChain(MachineInstr &MI,
                                            PtrAddChain &MatchInfo) {
   assert(MI.getOpcode() == TargetOpcode::G_PTR_ADD && "Expected G_PTR_ADD");
-  MachineIRBuilder MIB(MI);
+  Builder.setInstr(MI);
   LLT OffsetTy = MRI.getType(MI.getOperand(2).getReg());
-  auto NewOffset = MIB.buildConstant(OffsetTy, MatchInfo.Imm);
+  auto NewOffset = Builder.buildConstant(OffsetTy, MatchInfo.Imm);
   setRegBank(NewOffset.getReg(0), MatchInfo.Bank);
   Observer.changingInstr(MI);
   MI.getOperand(1).setReg(MatchInfo.Base);
@@ -1636,11 +1667,11 @@ bool CombinerHelper::matchCombineMulToShl(MachineInstr &MI,
 void CombinerHelper::applyCombineMulToShl(MachineInstr &MI,
                                           unsigned &ShiftVal) {
   assert(MI.getOpcode() == TargetOpcode::G_MUL && "Expected a G_MUL");
-  MachineIRBuilder MIB(MI);
+  Builder.setInstr(MI);
   LLT ShiftTy = MRI.getType(MI.getOperand(0).getReg());
-  auto ShiftCst = MIB.buildConstant(ShiftTy, ShiftVal);
+  auto ShiftCst = Builder.buildConstant(ShiftTy, ShiftVal);
   Observer.changingInstr(MI);
-  MI.setDesc(MIB.getTII().get(TargetOpcode::G_SHL));
+  MI.setDesc(Builder.getTII().get(TargetOpcode::G_SHL));
   MI.getOperand(2).setReg(ShiftCst.getReg(0));
   Observer.changedInstr(MI);
 }
@@ -6183,6 +6214,390 @@ bool CombinerHelper::matchRedundantBinOpInEquality(MachineInstr &MI,
     B.buildICmp(Pred, Dst, Y, Zero);
   };
   return CmpInst::isEquality(Pred) && Y.isValid();
+}
+
+bool CombinerHelper::matchPtrAddGlobalImmed(
+    MachineInstr &MI, std::pair<const GlobalValue *, int64_t> &MatchInfo) {
+  // We're trying to match the following pattern:
+  //   %t1 = G_GLOBAL_VALUE @global+offset
+  //   %root = G_PTR_ADD %t1, G_CONSTANT imm
+  // -->
+  //   %root = G_GLOBAL_VALUE @global+offset+imm
+
+  if (MI.getOpcode() != TargetOpcode::G_PTR_ADD)
+    return false;
+
+  Register Global = MI.getOperand(1).getReg();
+  Register Imm = MI.getOperand(2).getReg();
+  auto MaybeImmVal = getIConstantVRegValWithLookThrough(Imm, MRI);
+  if (!MaybeImmVal)
+    return false;
+
+  MachineInstr *GlobalDef = MRI.getUniqueVRegDef(Global);
+  if (!GlobalDef || GlobalDef->getOpcode() != TargetOpcode::G_GLOBAL_VALUE)
+    return false;
+
+  // Pass the combined immediate to the apply function.
+  MatchInfo.first = GlobalDef->getOperand(1).getGlobal();
+  MatchInfo.second =
+      MaybeImmVal->Value.getSExtValue() + GlobalDef->getOperand(1).getOffset();
+  return true;
+}
+
+bool CombinerHelper::applyPtrAddGlobalImmed(
+    MachineInstr &MI,
+    const std::pair<const GlobalValue *, int64_t> &MatchInfo) {
+  assert(MI.getOpcode() == TargetOpcode::G_PTR_ADD && "Expected G_PTR_ADD");
+  Builder.setInstr(MI);
+  Observer.changingInstr(MI);
+  MI.setDesc(Builder.getTII().get(TargetOpcode::G_GLOBAL_VALUE));
+  MI.getOperand(1).ChangeToGA(MatchInfo.first, MatchInfo.second);
+  MI.removeOperand(2);
+  Observer.changedInstr(MI);
+  return true;
+}
+
+bool CombinerHelper::matchPtrAddConstImmed(MachineInstr &MI, APInt &Offset) {
+  // We're trying to match the following pattern:
+  //   %t1 = G_INTTOPTR G_CONSTANT imm2
+  //   %root = G_PTR_ADD %t1, G_CONSTANT imm
+  // -->
+  //   %root = G_INTTOPTR G_CONSTANT imm+imm2
+
+  if (MI.getOpcode() != TargetOpcode::G_PTR_ADD)
+    return false;
+
+  Register IntToPtr = MI.getOperand(1).getReg();
+  Register Imm = MI.getOperand(2).getReg();
+  auto MaybeImmVal = getIConstantVRegValWithLookThrough(Imm, MRI);
+  if (!MaybeImmVal)
+    return false;
+
+  MachineInstr *IntToPtrDef = MRI.getUniqueVRegDef(IntToPtr);
+  if (!IntToPtrDef || IntToPtrDef->getOpcode() != TargetOpcode::G_INTTOPTR)
+    return false;
+
+  Register Imm2 = IntToPtrDef->getOperand(1).getReg();
+  auto MaybeImm2Val = getIConstantVRegValWithLookThrough(Imm2, MRI);
+  if (!MaybeImm2Val)
+    return false;
+
+  // Pass the combined immediate to the apply function.
+  Offset = MaybeImmVal->Value + MaybeImm2Val->Value;
+  return true;
+}
+
+bool CombinerHelper::applyPtrAddConstImmed(MachineInstr &MI,
+                                           const APInt &Offset) {
+  assert(MI.getOpcode() == TargetOpcode::G_PTR_ADD && "Expected G_PTR_ADD");
+  Builder.setInstr(MI);
+  auto NewConst =
+      Builder.buildConstant(LLT::scalar(Offset.getBitWidth()), Offset);
+  Observer.changingInstr(MI);
+  MI.setDesc(Builder.getTII().get(TargetOpcode::G_INTTOPTR));
+  MI.getOperand(1).setReg(NewConst.getReg(0));
+  MI.removeOperand(2);
+  Observer.changedInstr(MI);
+  return true;
+}
+
+bool CombinerHelper::matchCombineShlToAdd(MachineInstr &MI,
+                                          unsigned &ShiftVal) {
+  if (MI.getOpcode() != TargetOpcode::G_SHL)
+    return false;
+  Register RHSReg = MI.getOperand(2).getReg();
+  auto RHSImm = getIConstantVRegValWithLookThrough(RHSReg, MRI);
+  if (!RHSImm || !RHSImm->Value || RHSImm->Value.uge(8))
+    return false;
+  ShiftVal = RHSImm->Value.getZExtValue();
+  return true;
+}
+
+bool CombinerHelper::applyCombineShlToAdd(MachineInstr &MI, unsigned ShiftVal) {
+  assert(MI.getOpcode() == TargetOpcode::G_SHL && "Expected a G_SHL");
+  Register Reg = MI.getOperand(1).getReg();
+  LLT RegTy = MRI.getType(Reg);
+  Builder.setInstr(MI);
+  while (--ShiftVal)
+    Reg = Builder.buildAdd(RegTy, Reg, Reg).getReg(0);
+  Observer.changingInstr(MI);
+  MI.setDesc(Builder.getTII().get(TargetOpcode::G_ADD));
+  MI.getOperand(1).setReg(Reg);
+  MI.getOperand(2).setReg(Reg);
+  Observer.changedInstr(MI);
+  return true;
+}
+
+bool CombinerHelper::matchCombineSExtToZExt(MachineInstr &MI) {
+  if (MI.getOpcode() != TargetOpcode::G_SEXT)
+    return false;
+  return KB->getKnownBits(MI.getOperand(1).getReg()).isNonNegative();
+}
+
+bool CombinerHelper::applyCombineSExtToZExt(MachineInstr &MI) {
+  assert(MI.getOpcode() == TargetOpcode::G_SEXT && "Expected a G_SEXT");
+  Builder.setInstr(MI);
+  Observer.changingInstr(MI);
+  MI.setDesc(Builder.getTII().get(TargetOpcode::G_ZEXT));
+  Observer.changedInstr(MI);
+  return true;
+}
+
+bool CombinerHelper::matchCombineOrToAdd(MachineInstr &MI) {
+  if (MI.getOpcode() != TargetOpcode::G_OR)
+    return false;
+  APInt Zeroes = KB->getKnownZeroes(MI.getOperand(1).getReg());
+  Zeroes |= KB->getKnownZeroes(MI.getOperand(2).getReg());
+  return Zeroes.isAllOnesValue();
+}
+
+bool CombinerHelper::applyCombineOrToAdd(MachineInstr &MI) {
+  assert(MI.getOpcode() == TargetOpcode::G_OR && "Expected a G_OR");
+  Builder.setInstr(MI);
+  Observer.changingInstr(MI);
+  MI.setDesc(Builder.getTII().get(TargetOpcode::G_ADD));
+  Observer.changedInstr(MI);
+  return true;
+}
+
+bool CombinerHelper::matchCombineFunnelShift(MachineInstr &MI,
+                                             FunnelShift &MatchInfo) {
+  Register DstReg = MI.getOperand(0).getReg();
+  uint64_t ShiftRightAmt;
+  return mi_match(DstReg, MRI,
+                  m_GAdd(m_GShl(m_Reg(MatchInfo.ShiftLeftReg),
+                                m_ICst(MatchInfo.ShiftLeftAmt)),
+                         m_GLShr(m_Reg(MatchInfo.ShiftRightReg),
+                                 m_ICst(ShiftRightAmt)))) &&
+         MatchInfo.ShiftLeftAmt + ShiftRightAmt ==
+             MRI.getType(DstReg).getSizeInBits();
+}
+
+void CombinerHelper::applyCombineFunnelShift(MachineInstr &MI,
+                                             const FunnelShift &MatchInfo) {
+  MachineIRBuilder MIB(MI);
+  Register DstReg = MI.getOperand(0).getReg();
+  auto AmtI = MIB.buildConstant(MRI.getType(DstReg), MatchInfo.ShiftLeftAmt);
+  MIB.buildInstr(
+      TargetOpcode::G_FSHL, {DstReg},
+      {MatchInfo.ShiftLeftReg, MatchInfo.ShiftRightReg, AmtI.getReg(0)});
+  MI.eraseFromParent();
+}
+
+bool CombinerHelper::matchCombineIdentity(MachineInstr &MI) {
+  int64_t IdentityElement;
+  switch (MI.getOpcode()) {
+  case TargetOpcode::G_ADD:
+  case TargetOpcode::G_SUB:
+  case TargetOpcode::G_OR:
+  case TargetOpcode::G_XOR:
+  case TargetOpcode::G_SHL:
+  case TargetOpcode::G_LSHR:
+  case TargetOpcode::G_ASHR:
+  case TargetOpcode::G_PTR_ADD:
+    IdentityElement = 0;
+    break;
+  case TargetOpcode::G_MUL:
+  case TargetOpcode::G_SDIV:
+  case TargetOpcode::G_UDIV:
+    IdentityElement = 1;
+    break;
+  case TargetOpcode::G_AND:
+  case TargetOpcode::G_PTRMASK:
+    IdentityElement = -1;
+    break;
+  default:
+    return false;
+  }
+  auto MaybeImmVal =
+      getIConstantVRegValWithLookThrough(MI.getOperand(2).getReg(), MRI);
+  return MaybeImmVal && MaybeImmVal->Value == IdentityElement;
+}
+
+bool CombinerHelper::applyCombineIdentity(MachineInstr &MI) {
+  Builder.setInstr(MI);
+  Observer.changingInstr(MI);
+  MI.setDesc(Builder.getTII().get(TargetOpcode::COPY));
+  MI.removeOperand(2);
+  Observer.changedInstr(MI);
+  return true;
+}
+
+bool CombinerHelper::matchSplitConditions(MachineInstr &MI) {
+  if (MI.getOpcode() != TargetOpcode::G_BRCOND)
+    return false;
+  Register CondReg = MI.getOperand(0).getReg();
+  MachineInstr *CondMI = MRI.getVRegDef(CondReg);
+  return MRI.hasOneUse(CondReg) && CondMI &&
+         (CondMI->getOpcode() == TargetOpcode::G_AND ||
+          CondMI->getOpcode() == TargetOpcode::G_OR);
+}
+
+void CombinerHelper::applySplitConditions(MachineInstr &MI) {
+  MachineInstr &CondMI = *MRI.getVRegDef(MI.getOperand(0).getReg());
+  bool IsAnd = CondMI.getOpcode() == TargetOpcode::G_AND;
+  Register CondLHSReg = CondMI.getOperand(1).getReg();
+  Register CondRHSReg = CondMI.getOperand(2).getReg();
+  CondMI.eraseFromParent();
+
+  MachineBasicBlock::iterator II(MI);
+  MachineBasicBlock &CurMBB = *MI.getParent();
+  MachineFunction &MF = *CurMBB.getParent();
+  Builder.setMBB(CurMBB);
+  auto NextMBB = std::next(CurMBB.getIterator());
+
+  auto &NewMBB = *MF.CreateMachineBasicBlock(CurMBB.getBasicBlock());
+  MF.insert(NextMBB, &NewMBB);
+  NewMBB.splice(NewMBB.begin(), &CurMBB, II, CurMBB.end());
+  NewMBB.transferSuccessorsAndUpdatePHIs(&CurMBB);
+
+  MachineBasicBlock *CommonMBB = MI.getOperand(1).getMBB(), *SuccMBB;
+  MachineInstr &Term = NewMBB.back();
+  if (II != Term) {
+    assert(std::next(II) == Term && Term.getOpcode() == TargetOpcode::G_BR &&
+           "Expected unconditional branch or nothing after conditional one.");
+    SuccMBB = Term.getOperand(0).getMBB();
+  } else
+    SuccMBB = &*NextMBB;
+  if (IsAnd) {
+    std::swap(CommonMBB, SuccMBB);
+    II = Builder.buildBrCond(CondLHSReg, NewMBB);
+    Builder.buildBr(*CommonMBB);
+  } else
+    II = Builder.buildBrCond(CondLHSReg, *CommonMBB);
+
+  CurMBB.addSuccessor(&NewMBB);
+  CurMBB.addSuccessor(CommonMBB);
+  if (MDT) {
+    if (SuccMBB->pred_size() == 1) {
+      MDT->addNewBlock(&NewMBB, &CurMBB);
+      MDT->changeImmediateDominator(SuccMBB, &NewMBB);
+    } else
+      MDT->recordSplitCriticalEdge(&CurMBB, SuccMBB, &NewMBB);
+  }
+  for (MachineInstr &PhiMI : CommonMBB->phis()) {
+    for (unsigned I = 1, E = PhiMI.getNumOperands(); I != E; I += 2) {
+      if (PhiMI.getOperand(I + 1).getMBB() == &NewMBB) {
+        MachineInstrBuilder(MF, PhiMI).add(PhiMI.getOperand(I)).addMBB(&CurMBB);
+        break;
+      }
+    }
+  }
+  MI.getOperand(0).setReg(CondRHSReg);
+
+  bool SawStore = false;
+  while (II != CurMBB.begin()) {
+    auto PrevII = II;
+    --PrevII;
+    if (canMove(*PrevII, NewMBB, SawStore))
+      NewMBB.splice(NewMBB.begin(), &CurMBB, PrevII);
+    else
+      II = PrevII;
+  }
+}
+
+bool CombinerHelper::matchFlipCondition(MachineInstr &MI, MachineInstr *&CmpI) {
+  Register DstReg = MI.getOperand(0).getReg();
+  int64_t Cst;
+  return mi_match(DstReg, MRI, m_GXor(m_MInstr(CmpI), m_ICst(Cst))) &&
+         (CmpI->getOpcode() == TargetOpcode::G_ICMP ||
+          CmpI->getOpcode() == TargetOpcode::G_FCMP) && Cst;
+}
+
+void CombinerHelper::applyFlipCondition(MachineInstr &MI, MachineInstr &CmpI) {
+  Builder.setInsertPt(*MI.getParent(), MI);
+  Builder.buildInstr(CmpI.getOpcode(), {MI.getOperand(0)},
+                     {CmpInst::getInversePredicate(CmpInst::Predicate(
+                          CmpI.getOperand(1).getPredicate())),
+                      CmpI.getOperand(2), CmpI.getOperand(3)});
+  MI.eraseFromParent();
+}
+
+bool CombinerHelper::matchLowerIsPowerOfTwo(MachineInstr &MI) {
+  if (MI.getOpcode() != TargetOpcode::G_ICMP)
+    return false;
+  auto Pred = CmpInst::Predicate(MI.getOperand(1).getPredicate());
+  MachineInstr *CtPop = MRI.getVRegDef(MI.getOperand(2).getReg());
+  Register RHSReg = MI.getOperand(3).getReg();
+  auto RHSConst = getIConstantVRegVal(RHSReg, MRI);
+  if (!CtPop || CtPop->getOpcode() != TargetOpcode::G_CTPOP || !RHSConst)
+    return false;
+  if (((Pred == CmpInst::ICMP_EQ || Pred == CmpInst::ICMP_NE) &&
+       *RHSConst == 1) ||
+      (Pred == CmpInst::ICMP_ULT && *RHSConst == 2) ||
+      (Pred == CmpInst::ICMP_UGT && *RHSConst == 1))
+    return true;
+  return false;
+}
+
+void CombinerHelper::applyLowerIsPowerOfTwo(MachineInstr &MI) {
+  Builder.setInsertPt(*MI.getParent(), MI);
+  Register ResReg = MI.getOperand(0).getReg();
+  auto Pred = CmpInst::Predicate(MI.getOperand(1).getPredicate());
+  MachineInstr *CtPop = MRI.getVRegDef(MI.getOperand(2).getReg());
+  Register SrcReg = CtPop->getOperand(1).getReg();
+  LLT Ty = MRI.getType(SrcReg);
+  auto NegOne = Builder.buildConstant(Ty, -1);
+  auto Add = Builder.buildAdd(Ty, SrcReg, NegOne);
+  auto And = Builder.buildAnd(Ty, SrcReg, Add);
+  auto Zero = Builder.buildConstant(Ty, 0);
+  if (Pred == CmpInst::ICMP_EQ || Pred == CmpInst::ICMP_NE) {
+    auto IsNotZero = Builder.buildICmp(CmpInst::getInversePredicate(Pred),
+                                       LLT::scalar(1), SrcReg, Zero);
+    auto IsPowerOfTwo = Builder.buildICmp(Pred, LLT::scalar(1), And, Zero);
+    Builder.buildInstr(Pred == CmpInst::ICMP_EQ ? TargetOpcode::G_AND
+                                                : TargetOpcode::G_OR,
+                       {ResReg}, {IsNotZero, IsPowerOfTwo});
+  } else
+    Builder.buildICmp(Pred == CmpInst::ICMP_ULT ? CmpInst::ICMP_EQ
+                                                : CmpInst::ICMP_NE,
+                      ResReg, And, Zero);
+  MI.eraseFromParent();
+}
+
+bool CombinerHelper::matchSinkConstant(MachineInstr &MI,
+                                       MachineInstr *&DomUseMI) {
+  if (MI.getOpcode() != TargetOpcode::G_CONSTANT)
+    return false;
+  Register Reg = MI.getOperand(0).getReg();
+  SmallVector<MachineInstr *, 4> DomMIs;
+  for (MachineInstr &UseMI : MRI.use_instructions(Reg)) {
+    if (UseMI.isPHI())
+      return false;
+    bool Dominated = false;
+    for (unsigned I = 0; I != DomMIs.size();) {
+      MachineInstr &DomMI = *DomMIs[I];
+      if (dominates(DomMI, UseMI)) {
+        Dominated = true;
+        break;
+      }
+      if (dominates(UseMI, DomMI)) {
+        if (I != DomMIs.size() - 1)
+          DomMIs[I] = DomMIs.pop_back_val();
+        else
+          DomMIs.pop_back();
+        continue;
+      }
+      ++I;
+    }
+    if (!Dominated)
+      DomMIs.push_back(&UseMI);
+  }
+  if (DomMIs.size() != 1)
+    return false;
+  DomUseMI = DomMIs[0];
+  if (MI.getParent() != DomUseMI->getParent())
+    return true;
+  for (MachineBasicBlock::iterator I(MI), E(DomUseMI); I != E; ++I)
+    if (I->getOpcode() != TargetOpcode::G_CONSTANT)
+      return true;
+  return false;
+}
+
+void CombinerHelper::applySinkConstant(MachineInstr &MI,
+                                       MachineInstr &DomUseMI) {
+  MI.removeFromParent();
+  DomUseMI.getParent()->insert(DomUseMI, &MI);
 }
 
 bool CombinerHelper::tryCombine(MachineInstr &MI) {

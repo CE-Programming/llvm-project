@@ -32,6 +32,11 @@ class APInt;
 class GPtrAdd;
 class GStore;
 class GZExtLoad;
+class GISelKnownBits;
+class GlobalValue;
+class LegalizerInfo;
+class MachineBasicBlock;
+class MachineDominatorTree;
 class MachineIRBuilder;
 class MachineInstrBuilder;
 class MachineRegisterInfo;
@@ -63,6 +68,11 @@ struct PtrAddChain {
   int64_t Imm;
   Register Base;
   const RegisterBank *Bank;
+};
+
+struct FunnelShift {
+  Register ShiftLeftReg, ShiftRightReg;
+  uint64_t ShiftLeftAmt;
 };
 
 struct RegisterImmPair {
@@ -190,6 +200,19 @@ public:
   /// construction, this function returns a conservative result that tracks just
   /// a single basic block.
   bool dominates(const MachineInstr &DefMI, const MachineInstr &UseMI);
+
+  /// Returns true if \p DefMBB dominates \p UseMBB. By definition a block
+  /// dominates itself.
+  ///
+  /// If we haven't been provided with a MachineDominatorTree during
+  /// construction, this function returns a conservative result that just checks
+  /// for equality.
+  bool dominates(MachineBasicBlock &DefMBB, MachineBasicBlock &UseMBB);
+
+  /// Checks if MI can be moved to the beginning of MBB.
+  ///
+  /// \returns true if the instruction can be moved.
+  bool canMove(MachineInstr &MI, MachineBasicBlock &MBB, bool &SawStore);
 
   /// If \p MI is extend that consumes the result of a load, try to combine it.
   /// Returns true if MI changed.
@@ -503,6 +526,44 @@ public:
   /// Replace \p MI with a series of instructions described in \p MatchInfo.
   void applyBuildInstructionSteps(MachineInstr &MI,
                                   InstructionStepsMatchInfo &MatchInfo);
+  bool
+  matchPtrAddGlobalImmed(MachineInstr &MI,
+                         std::pair<const GlobalValue *, int64_t> &MatchInfo);
+  bool applyPtrAddGlobalImmed(
+      MachineInstr &MI,
+      const std::pair<const GlobalValue *, int64_t> &MatchInfo);
+
+  bool matchPtrAddConstImmed(MachineInstr &MI, APInt &Offset);
+  bool applyPtrAddConstImmed(MachineInstr &MI, const APInt &Offset);
+
+  bool matchCombineShlToAdd(MachineInstr &MI, unsigned &ShiftVal);
+  bool applyCombineShlToAdd(MachineInstr &MI, unsigned ShiftVal);
+
+  bool matchCombineSExtToZExt(MachineInstr &MI);
+  bool applyCombineSExtToZExt(MachineInstr &MI);
+
+  bool matchCombineOrToAdd(MachineInstr &MI);
+  bool applyCombineOrToAdd(MachineInstr &MI);
+
+  bool matchCombineFunnelShift(MachineInstr &MI, FunnelShift &MatchInfo);
+  void applyCombineFunnelShift(MachineInstr &MI, const FunnelShift &MatchInfo);
+
+  bool matchCombineIdentity(MachineInstr &MI);
+  bool applyCombineIdentity(MachineInstr &MI);
+
+  /// Split branches on conditions combined with and/or into multiple branches.
+  bool matchSplitConditions(MachineInstr &MI);
+  void applySplitConditions(MachineInstr &MI);
+
+  bool matchFlipCondition(MachineInstr &MI, MachineInstr *&CmpI);
+  void applyFlipCondition(MachineInstr &MI, MachineInstr &CmpI);
+
+  /// Undo combines involving popcnt.
+  bool matchLowerIsPowerOfTwo(MachineInstr &MI);
+  void applyLowerIsPowerOfTwo(MachineInstr &MI);
+
+  bool matchSinkConstant(MachineInstr &MI, MachineInstr *&DomUseMI);
+  void applySinkConstant(MachineInstr &MI, MachineInstr &DomUseMI);
 
   /// Match ashr (shl x, C), C -> sext_inreg (C)
   bool matchAshrShlToSextInreg(MachineInstr &MI,

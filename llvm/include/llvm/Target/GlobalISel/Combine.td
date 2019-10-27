@@ -1036,6 +1036,81 @@ def select_to_minmax: GICombineRule<
          [{ return Helper.matchSimplifySelectToMinMax(*${root}, ${info}); }]),
   (apply [{ Helper.applyBuildFn(*${root}, ${info}); }])>;
 
+def ptr_add_global_matchdata :
+    GIDefMatchData<"std::pair<const GlobalValue *, int64_t>">;
+def ptr_add_global_immed : GICombineRule<
+  (defs root:$mi, ptr_add_global_matchdata:$matchinfo),
+  (match (wip_match_opcode G_PTR_ADD):$mi,
+         [{ return Helper.matchPtrAddGlobalImmed(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyPtrAddGlobalImmed(*${mi}, ${matchinfo}); }])>;
+
+def ptr_add_const_matchdata : GIDefMatchData<"APInt">;
+def ptr_add_const_immed : GICombineRule<
+  (defs root:$mi, ptr_add_const_matchdata:$matchinfo),
+  (match (wip_match_opcode G_PTR_ADD):$mi,
+         [{ return Helper.matchPtrAddConstImmed(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyPtrAddConstImmed(*${mi}, ${matchinfo}); }])>;
+
+def shl_to_add_matchdata : GIDefMatchData<"unsigned">;
+def shl_to_add : GICombineRule<
+  (defs root:$mi, shl_to_add_matchdata:$matchinfo),
+  (match (wip_match_opcode G_SHL):$mi,
+         [{ return Helper.matchCombineShlToAdd(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyCombineShlToAdd(*${mi}, ${matchinfo}); }])>;
+
+def sext_to_zext : GICombineRule<
+  (defs root:$mi),
+  (match (wip_match_opcode G_SEXT):$mi,
+         [{ return Helper.matchCombineSExtToZExt(*${mi}); }]),
+  (apply [{ Helper.applyCombineSExtToZExt(*${mi}); }])>;
+
+def or_to_add : GICombineRule<
+  (defs root:$mi),
+  (match (wip_match_opcode G_OR):$mi,
+         [{ return Helper.matchCombineOrToAdd(*${mi}); }]),
+  (apply [{ Helper.applyCombineOrToAdd(*${mi}); }])>;
+
+def funnel_shift_matchdata : GIDefMatchData<"FunnelShift">;
+def funnel_shift : GICombineRule<
+  (defs root:$mi, funnel_shift_matchdata:$matchinfo),
+  (match (wip_match_opcode G_ADD):$mi,
+         [{ return Helper.matchCombineFunnelShift(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyCombineFunnelShift(*${mi}, ${matchinfo}); }])>;
+
+def combine_identity : GICombineRule<
+  (defs root:$mi),
+  (match (wip_match_opcode G_ADD, G_SUB, G_MUL, G_SDIV, G_UDIV,
+                           G_AND, G_OR, G_XOR, G_SHL, G_LSHR, G_ASHR,
+                           G_PTR_ADD, G_PTRMASK):$mi,
+         [{ return Helper.matchCombineIdentity(*${mi}); }]),
+  (apply [{ Helper.applyCombineIdentity(*${mi}); }])>;
+
+def split_conditions : GICombineRule<
+  (defs root:$mi),
+  (match (wip_match_opcode G_BRCOND):$mi,
+         [{ return Helper.matchSplitConditions(*${mi}); }]),
+  (apply [{ Helper.applySplitConditions(*${mi}); }])>;
+
+def flip_condition_matchdata : GIDefMatchData<"MachineInstr *">;
+def flip_condition : GICombineRule<
+  (defs root:$mi, flip_condition_matchdata:$matchinfo),
+  (match (wip_match_opcode G_XOR):$mi,
+         [{ return Helper.matchFlipCondition(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyFlipCondition(*${mi}, *${matchinfo}); }])>;
+
+def lower_is_power_of_two : GICombineRule<
+  (defs root:$mi),
+  (match (wip_match_opcode G_ICMP):$mi,
+         [{ return Helper.matchLowerIsPowerOfTwo(*${mi}); }]),
+  (apply [{ Helper.applyLowerIsPowerOfTwo(*${mi}); }])>;
+
+def sink_const_matchdata : GIDefMatchData<"MachineInstr *">;
+def sink_const : GICombineRule<
+  (defs root:$mi, sink_const_matchdata:$matchinfo),
+  (match (wip_match_opcode G_CONSTANT):$mi,
+         [{ return Helper.matchSinkConstant(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applySinkConstant(*${mi}, *${matchinfo}); }])>;
+
 // FIXME: These should use the custom predicate feature once it lands.
 def undef_combines : GICombineGroup<[undef_to_fp_zero, undef_to_int_zero,
                                      undef_to_negative_one,

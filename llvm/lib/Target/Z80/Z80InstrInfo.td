@@ -822,8 +822,13 @@ defm CP  : BinOp8F  <NoPre, 7, "cp",  1>;
 defm TST : BinOp8F  <EDPre, 4, "tst", 1>,
            Requires<[HaveEZ80Ops]>;
 
-def : Pat<(add R8:$reg,  1), (INC8r R8:$reg)>;
-def : Pat<(add R8:$reg, -1), (DEC8r R8:$reg)>;
+def : Pat<(fshl G8:$reg, G8:$reg, (i8  1)), (RLC8r G8:$reg)>;
+def : Pat<(fshl G8:$reg, G8:$reg, (i8  7)), (RRC8r G8:$reg)>;
+def : Pat<(shl G8:$reg, (i8  1)), (SLA8r G8:$reg)>;
+def : Pat<(sra G8:$reg, (i8  1)), (SRA8r G8:$reg)>;
+def : Pat<(srl G8:$reg, (i8  1)), (SRL8r G8:$reg)>;
+def : Pat<(add R8:$reg, (i8  1)), (INC8r R8:$reg)>;
+def : Pat<(add R8:$reg, (i8 -1)), (DEC8r R8:$reg)>;
 
 def INC16r : I16<Idx0Pre, 0x03, "inc", "\t$dst", "$imp = $dst",
                  (outs R16:$dst), (ins R16:$imp),
@@ -855,12 +860,14 @@ def : Pat<(add R24:$imp,  1), (INC24r R24:$imp)>;
 def : Pat<(add R24:$imp, -1), (DEC24r R24:$imp)>;
 
 let Defs = [F] in {
-  def ADD16aa : I16<Idx0Pre, 0x29, "add", "\t$dst, $imp", "$imp = $dst",
-                    (outs A16:$dst), (ins A16:$imp),
-                    [(set A16:$dst, F, (Z80add_flag A16:$imp, A16:$imp))]>;
-  def ADD24aa : I24<Idx0Pre, 0x29, "add", "\t$dst, $imp", "$imp = $dst",
-                    (outs A24:$dst), (ins A24:$imp),
-                    [(set A24:$dst, F, (Z80add_flag A24:$imp, A24:$imp))]>;
+  let AddedComplexity = 1 in {
+    def ADD16aa : I16<Idx0Pre, 0x29, "add", "\t$dst, $imp", "$imp = $dst",
+                      (outs A16:$dst), (ins A16:$imp),
+                      [(set A16:$dst, F, (Z80add_flag A16:$imp, A16:$imp))]>;
+    def ADD24aa : I24<Idx0Pre, 0x29, "add", "\t$dst, $imp", "$imp = $dst",
+                      (outs A24:$dst), (ins A24:$imp),
+                      [(set A24:$dst, F, (Z80add_flag A24:$imp, A24:$imp))]>;
+  }
   def ADD16ao : I16<Idx0Pre, 0x09, "add", "\t$dst, $src", "$imp = $dst",
                     (outs A16:$dst), (ins A16:$imp, O16:$src),
                     [(set A16:$dst, F, (Z80add_flag A16:$imp, O16:$src))]>;
@@ -876,10 +883,14 @@ let Defs = [F] in {
                    (outs A24:$dst), (ins A24:$imp),
                    [(set A24:$dst, F, (Z80add_flag A24:$imp, SPL))]>;
 }
-def : Pat<(add  A16:$imp, A16:$imp), (ADD16aa A16:$imp)>;
-def : Pat<(add  A24:$imp, A24:$imp), (ADD24aa A24:$imp)>;
-def : Pat<(addc A16:$imp, A16:$imp), (ADD16aa A16:$imp)>;
-def : Pat<(addc A24:$imp, A24:$imp), (ADD24aa A24:$imp)>;
+let AddedComplexity = 1 in {
+  def : Pat<(add  A16:$imp, A16:$imp), (ADD16aa A16:$imp)>;
+  def : Pat<(add  A24:$imp, A24:$imp), (ADD24aa A24:$imp)>;
+  def : Pat<(shl  A16:$reg,   (i8 1)), (ADD16aa A16:$reg)>;
+  def : Pat<(shl  A24:$reg,   (i8 1)), (ADD24aa A24:$reg)>;
+  def : Pat<(addc A16:$imp, A16:$imp), (ADD16aa A16:$imp)>;
+  def : Pat<(addc A24:$imp, A24:$imp), (ADD24aa A24:$imp)>;
+}
 def : Pat<(add  A16:$imp, O16:$src), (ADD16ao A16:$imp, O16:$src)>;
 def : Pat<(add  A24:$imp, O24:$src), (ADD24ao A24:$imp, O24:$src)>;
 def : Pat<(addc A16:$imp, O16:$src), (ADD16ao A16:$imp, O16:$src)>;

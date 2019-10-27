@@ -102,6 +102,8 @@ Z80RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
   case CallingConv::Z80_LibCall_L:
   case CallingConv::Z80_LibCall_F:
     return Is24Bit ? CSR_EZ80_AllRegs_SaveList : CSR_Z80_AllRegs_SaveList;
+  case CallingConv::Z80_TIFlags:
+    return Is24Bit ? CSR_EZ80_TIFlags_SaveList : CSR_Z80_TIFlags_SaveList;
   }
 }
 
@@ -121,6 +123,8 @@ Z80RegisterInfo::getCallPreservedMask(const MachineFunction &MF,
   case CallingConv::Z80_LibCall_L:
   case CallingConv::Z80_LibCall_F:
     return Is24Bit ? CSR_EZ80_AllRegs_RegMask : CSR_Z80_AllRegs_RegMask;
+  case CallingConv::Z80_TIFlags:
+    return Is24Bit ? CSR_EZ80_TIFlags_RegMask : CSR_Z80_TIFlags_RegMask;
   }
 }
 const uint32_t *Z80RegisterInfo::getNoPreservedMask() const {
@@ -181,6 +185,7 @@ void Z80RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   unsigned Opc = MI.getOpcode();
   MachineBasicBlock &MBB = *MI.getParent();
   MachineFunction &MF = *MBB.getParent();
+  auto &FuncInfo = *MF.getInfo<Z80MachineFunctionInfo>();
   const Z80Subtarget &STI = MF.getSubtarget<Z80Subtarget>();
   const Z80InstrInfo &TII = *STI.getInstrInfo();
   const Z80FrameLowering *TFI = getFrameLowering(MF);
@@ -194,8 +199,7 @@ void Z80RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   int BaseOff = MF.getFrameInfo().getObjectOffset(FrameIndex);
   int SlotSize = Is24Bit ? 3 : 2;
   // Skip any saved callee saved registers
-  if (TFI->hasFP(MF))
-    BaseOff += SlotSize;
+  BaseOff += FuncInfo.getCalleeSavedFrameSize();
   // Skip return address for arguments
   if (FrameIndex < 0)
     BaseOff += SlotSize;
@@ -203,7 +207,11 @@ void Z80RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   if (isFrameOffsetLegal(&MI, BasePtr, BaseOff) &&
       (Opc != Z80::LEA16ro || STI.hasEZ80Ops())) {
     MI.getOperand(FIOperandNum).ChangeToRegister(BasePtr, false);
-    MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Off);
+    if (!Off && (Opc == Z80::PEA24o || Opc == Z80::PEA16o)) {
+      MI.setDesc(TII.get(Opc == Z80::PEA24o ? Z80::PUSH24r : Z80::PUSH16r));
+      MI.RemoveOperand(FIOperandNum + 1);
+    } else
+      MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Off);
     return;
   }
   bool SaveFlags = RS->isRegUsed(Z80::F);
@@ -318,8 +326,11 @@ void Z80RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
 }
 
 Register Z80RegisterInfo::getFrameRegister(const MachineFunction &MF) const {
-  return getFrameLowering(MF)->hasFP(MF) ? (Is24Bit ? Z80::UIX : Z80::IX)
-                                         : (Is24Bit ? Z80::SPL : Z80::SPS);
+  return getFrameLowering(MF)->hasFP(MF)
+             ? MF.getInfo<Z80MachineFunctionInfo>()->getUsesAltFP()
+                   ? Is24Bit ? Z80::UIY : Z80::IY
+                   : Is24Bit ? Z80::UIX : Z80::IX
+             : Is24Bit ? Z80::SPL : Z80::SPS;
 }
 
 bool Z80RegisterInfo::
