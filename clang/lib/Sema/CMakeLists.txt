@@ -90,6 +90,7 @@ add_clang_library(clangSema
   SemaType.cpp
   SemaWasm.cpp
   SemaX86.cpp
+  SemaZ80.cpp
   TypeLocBuilder.cpp
 
   DEPENDS

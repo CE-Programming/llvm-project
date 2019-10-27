@@ -122,7 +122,8 @@ LegalizerHelper::legalizeInstrStep(MachineInstr &MI,
   MIRBuilder.setInstrAndDebugLoc(MI);
 
   if (isa<GIntrinsic>(MI))
-    return LI.legalizeIntrinsic(*this, MI) ? Legalized : UnableToLegalize;
+    return LI.legalizeIntrinsic(*this, MI, LocObserver) ? Legalized
+                                                        : UnableToLegalize;
   auto Step = LI.getAction(MI, MRI);
   switch (Step.Action) {
   case Legal:
@@ -535,6 +536,8 @@ static RTLIB::Libcall getRTLibDesc(unsigned Opcode, unsigned Size) {
     RTLIBCASE(LRINT_F);
   case TargetOpcode::G_INTRINSIC_LLRINT:
     RTLIBCASE(LLRINT_F);
+  case TargetOpcode::G_FCOPYSIGN:
+    RTLIBCASE(COPYSIGN_F);
   case TargetOpcode::G_FNEG:
     RTLIBCASE(NEG_F);
   case TargetOpcode::G_FABS:
@@ -1156,6 +1159,7 @@ LegalizerHelper::libcall(MachineInstr &MI, LostDebugLocObserver &LocObserver) {
   case TargetOpcode::G_FRINT:
   case TargetOpcode::G_FNEARBYINT:
   case TargetOpcode::G_INTRINSIC_ROUNDEVEN:
+  case TargetOpcode::G_FCOPYSIGN:
   case TargetOpcode::G_FNEG:
   case TargetOpcode::G_FABS: {
     LLT LLTy = MRI.getType(MI.getOperand(0).getReg());

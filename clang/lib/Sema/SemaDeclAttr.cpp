@@ -59,6 +59,7 @@
 #include "clang/Sema/SemaSwift.h"
 #include "clang/Sema/SemaWasm.h"
 #include "clang/Sema/SemaX86.h"
+#include "clang/Sema/SemaZ80.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/STLForwardCompat.h"
 #include "llvm/ADT/StringExtras.h"
@@ -5528,6 +5529,10 @@ static void handleInterruptAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   case llvm::Triple::riscv64:
     S.RISCV().handleInterruptAttr(D, AL);
     break;
+  case llvm::Triple::z80:
+  case llvm::Triple::ez80:
+    S.Z80().handleZ80InterruptAttr(D, AL);
+    break;
   default:
     S.ARM().handleInterruptAttr(D, AL);
     break;
@@ -6589,6 +6594,9 @@ ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D, const ParsedAttr &AL,
     break;
   case ParsedAttr::AT_AnyX86NoCfCheck:
     handleNoCfCheckAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_AnyZ80TIFlags:
+    handleSimpleAttribute<AnyZ80TIFlagsAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_NoThrow:
     if (!AL.isUsedAsTypeAttr())

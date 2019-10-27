@@ -1,0 +1,40 @@
+//===------ SemaZ80.cpp ---------- Z80 target-specific routines -----------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+//
+//  This file implements semantic analysis functions specific to Z80.
+//
+//===----------------------------------------------------------------------===//
+
+#include "clang/Sema/SemaZ80.h"
+#include "clang/Basic/DiagnosticSema.h"
+#include "clang/Basic/TargetBuiltins.h"
+#include "clang/Sema/Attr.h"
+#include "clang/Sema/ParsedAttr.h"
+#include "clang/Sema/Sema.h"
+#include "llvm/ADT/APSInt.h"
+#include "llvm/TargetParser/Triple.h"
+#include <bitset>
+
+namespace clang {
+
+SemaZ80::SemaZ80(Sema &S) : SemaBase(S) {}
+
+void SemaZ80::handleAnyInterruptAttr(Decl *D, const ParsedAttr &AL) {
+  if (!isFunctionOrMethod(D)) {
+    Diag(D->getLocation(), diag::warn_attribute_wrong_decl_type)
+        << "'interrupt'" << ExpectedFunction;
+    return;
+  }
+
+  if (!AL.checkExactlyNumArgs(S, 0))
+    return;
+
+  handleSimpleAttribute<AnyZ80InterruptAttr>(*this, D, AL);
+}
+
+} // namespace clang

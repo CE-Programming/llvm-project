@@ -4395,6 +4395,8 @@ public:
 
     // |  CC  |noreturn|produces|nocallersavedregs|regparm|nocfcheck|cmsenscall|
     // |0 .. 4|   5    |    6   |       7         |8 .. 10|    11   |    12    |
+    // |tiflags|
+    // |   13  |
     //
     // regparm is either 0 (no regparm attribute) or the regparm value+1.
     enum { CallConvMask = 0x1F };
@@ -4407,6 +4409,7 @@ public:
     };
     enum { NoCfCheckMask = 0x800 };
     enum { CmseNSCallMask = 0x1000 };
+    enum { TIFlagsMask = 0x2000 };
     uint16_t Bits = CC_C;
 
     ExtInfo(unsigned Bits) : Bits(static_cast<uint16_t>(Bits)) {}
@@ -4416,14 +4419,14 @@ public:
     // have all the elements (when reading an AST file for example).
     ExtInfo(bool noReturn, bool hasRegParm, unsigned regParm, CallingConv cc,
             bool producesResult, bool noCallerSavedRegs, bool NoCfCheck,
-            bool cmseNSCall) {
+            bool cmseNSCall, bool tiFlags) {
       assert((!hasRegParm || regParm < 7) && "Invalid regparm value");
       Bits = ((unsigned)cc) | (noReturn ? NoReturnMask : 0) |
              (producesResult ? ProducesResultMask : 0) |
              (noCallerSavedRegs ? NoCallerSavedRegsMask : 0) |
              (hasRegParm ? ((regParm + 1) << RegParmOffset) : 0) |
              (NoCfCheck ? NoCfCheckMask : 0) |
-             (cmseNSCall ? CmseNSCallMask : 0);
+             (cmseNSCall ? CmseNSCallMask : 0) | (tiFlags ? TIFlagsMask : 0);
     }
 
     // Constructor with all defaults. Use when for example creating a
@@ -4439,6 +4442,7 @@ public:
     bool getCmseNSCall() const { return Bits & CmseNSCallMask; }
     bool getNoCallerSavedRegs() const { return Bits & NoCallerSavedRegsMask; }
     bool getNoCfCheck() const { return Bits & NoCfCheckMask; }
+    bool getTIFlags() const { return Bits & TIFlagsMask; }
     bool getHasRegParm() const { return ((Bits & RegParmMask) >> RegParmOffset) != 0; }
 
     unsigned getRegParm() const {
@@ -4493,6 +4497,13 @@ public:
         return ExtInfo(Bits | NoCfCheckMask);
       else
         return ExtInfo(Bits & ~NoCfCheckMask);
+    }
+
+    ExtInfo withTIFlags(bool tiFlags) const {
+      if (tiFlags)
+        return ExtInfo(Bits | TIFlagsMask);
+      else
+        return ExtInfo(Bits & ~TIFlagsMask);
     }
 
     ExtInfo withRegParm(unsigned RegParm) const {

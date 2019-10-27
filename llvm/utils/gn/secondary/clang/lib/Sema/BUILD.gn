@@ -114,6 +114,7 @@ static_library("Sema") {
     "SemaType.cpp",
     "SemaWasm.cpp",
     "SemaX86.cpp",
+    "SemaZ80.cpp",
     "TypeLocBuilder.cpp",
   ]
 }

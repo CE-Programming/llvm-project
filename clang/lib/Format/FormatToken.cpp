@@ -36,9 +36,10 @@ const char *getTokenTypeName(TokenType Type) {
 
 // Sorted common C++ non-keyword types.
 static SmallVector<StringRef> CppNonKeywordTypes = {
-    "clock_t",  "int16_t",   "int32_t", "int64_t",   "int8_t",
-    "intptr_t", "ptrdiff_t", "size_t",  "time_t",    "uint16_t",
-    "uint32_t", "uint64_t",  "uint8_t", "uintptr_t",
+    "clock_t",  "int16_t", "int32_t",  "int48_t",
+    "int64_t",  "int8_t",  "intptr_t", "ptrdiff_t",
+    "size_t",  "time_t",    "uint16_t", "uint32_t",
+    "uint64_t",  "uint8_t", "uintptr_t",
 };
 
 bool FormatToken::isTypeName(const LangOptions &LangOpts) const {

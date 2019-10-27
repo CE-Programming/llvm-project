@@ -119,7 +119,7 @@ def I24 : Z80RC24<(add UIY, UIX)>;
 def A24 : Z80RC24<(add UHL, I24)>;
 def R24 : Z80RC24<(add G24, I24)>;
 let CopyCost = -1 in
-def Z24 : Z80RC24<(add SPL)>;
+def Z24 : Z80RC24<(add SPL, PC)>;
 //def S24 : Z80RC24<(add R24, AF)>;
 //def L24 : Z80RC24<(add G24, I24)>;
 //def R24 : Z80RC24<(add L24, SPL)>;

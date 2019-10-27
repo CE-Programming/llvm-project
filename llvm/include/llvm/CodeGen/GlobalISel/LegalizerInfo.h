@@ -1318,6 +1318,12 @@ public:
     return legalizeCustom(Helper, MI, LocObserver);
   }
 
+  virtual LegalizerHelper::LegalizeResult
+  legalizeCustomMaybeLegal(LegalizerHelper &Helper, MachineInstr &MI,
+                           LostDebugLocObserver &) const {
+    return legalizeCustomMaybeLegal(Helper, MI);
+  }
+
   /// \returns true if MI is either legal or has been legalized and false if not
   /// legal.
   /// Return true if MI is either legal or has been legalized and false
@@ -1325,6 +1331,11 @@ public:
   virtual bool legalizeIntrinsic(LegalizerHelper &Helper,
                                  MachineInstr &MI) const {
     return true;
+  }
+
+  virtual bool legalizeIntrinsic(LegalizerHelper &Helper, MachineInstr &MI,
+                                 LostDebugLocObserver &) const {
+    return legalizeIntrinsic(Helper, MI);
   }
 
   /// Return the opcode (SEXT/ZEXT/ANYEXT) that should be performed while

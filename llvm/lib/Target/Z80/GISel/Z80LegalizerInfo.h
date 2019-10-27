@@ -32,19 +32,23 @@ public:
   Z80LegalizerInfo(const Z80Subtarget &STI, const Z80TargetMachine &TM);
 
   LegalizerHelper::LegalizeResult
-  legalizeCustomMaybeLegal(LegalizerHelper &Helper,
-                           MachineInstr &MI) const override;
+  legalizeCustomMaybeLegal(LegalizerHelper &Helper, MachineInstr &MI,
+                           LostDebugLocObserver &LocObserver) const override;
 
-  bool legalizeIntrinsic(LegalizerHelper &Helper,
-                         MachineInstr &MI) const override;
+  bool legalizeIntrinsic(LegalizerHelper &Helper, MachineInstr &MI,
+                         LostDebugLocObserver &LocObserver) const override;
 
 private:
-  LegalizerHelper::LegalizeResult legalizeBitwise(LegalizerHelper &Helper,
-                                                  MachineInstr &MI) const;
+  LegalizerHelper::LegalizeResult
+  legalizeBitwise(LegalizerHelper &Helper, MachineInstr &MI,
+                  LostDebugLocObserver &LocObserver) const;
   LegalizerHelper::LegalizeResult legalizeFConstant(LegalizerHelper &Helper,
                                                     MachineInstr &MI) const;
   LegalizerHelper::LegalizeResult legalizeVAStart(LegalizerHelper &Helper,
                                                   MachineInstr &MI) const;
+  LegalizerHelper::LegalizeResult
+  legalizeShift(LegalizerHelper &Helper, MachineInstr &MI,
+                LostDebugLocObserver &LocObserver) const;
   LegalizerHelper::LegalizeResult legalizeFunnelShift(LegalizerHelper &Helper,
                                                       MachineInstr &MI) const;
   LegalizerHelper::LegalizeResult legalizeCompare(LegalizerHelper &Helper,

@@ -105,6 +105,9 @@ public:
   };
 
   struct CallLoweringInfo {
+    /// Attributes attached to the call.
+    AttributeList CallAttributes;
+
     /// Calling convention to be used for the call.
     CallingConv::ID CallConv = CallingConv::C;
 
@@ -240,10 +243,6 @@ public:
   };
 
   struct ValueHandler {
-    MachineIRBuilder &MIRBuilder;
-    MachineRegisterInfo &MRI;
-    const bool IsIncomingArgumentHandler;
-
     ValueHandler(bool IsIncoming, MachineIRBuilder &MIRBuilder,
                  MachineRegisterInfo &MRI)
         : MIRBuilder(MIRBuilder), MRI(MRI),
@@ -333,7 +332,6 @@ public:
 
   private:
     bool IsIncomingArgumentHandler;
-    virtual void anchor();
   };
 
   /// Base class for ValueHandlers used for arguments coming into the current

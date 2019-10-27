@@ -41,6 +41,7 @@
 #include "Targets/WebAssembly.h"
 #include "Targets/X86.h"
 #include "Targets/XCore.h"
+#include "Targets/Z80.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticFrontend.h"
 #include "llvm/ADT/StringExtras.h"
@@ -752,6 +753,10 @@ std::unique_ptr<TargetInfo> AllocateTarget(const llvm::Triple &Triple,
     default:
         return std::make_unique<LoongArch64TargetInfo>(Triple, Opts);
     }
+  case llvm::Triple::z80:
+    return std::make_unique<Z80TargetInfo>(Triple, Opts);
+  case llvm::Triple::ez80:
+    return std::make_unique<EZ80TargetInfo>(Triple, Opts);
   }
 }
 } // namespace targets

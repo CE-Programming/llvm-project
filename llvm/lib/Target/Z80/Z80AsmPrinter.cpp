@@ -18,7 +18,7 @@
 #include "MCTargetDesc/Z80TargetStreamer.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCStreamer.h"
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetMachine.h"
 using namespace llvm;

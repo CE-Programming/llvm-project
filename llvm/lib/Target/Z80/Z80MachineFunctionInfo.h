@@ -21,6 +21,14 @@ namespace llvm {
 /// Z80MachineFunctionInfo - This class is derived from MachineFunction and
 /// contains private Z80 target-specific information for each MachineFunction.
 class Z80MachineFunctionInfo : public MachineFunctionInfo {
+public:
+  enum AltFPMode { AFPM_None = 0, AFPM_Partial, AFPM_Full };
+
+private:
+  /// Number of bytes of arguments this function has on the stack. All usable
+  /// during a tail call.
+  unsigned ArgFrameSize = 0;
+
   /// CalleeSavedFrameSize - Size of the callee-saved register portion of the
   /// stack frame in bytes.
   unsigned CalleeSavedFrameSize = 0;
@@ -38,10 +46,16 @@ class Z80MachineFunctionInfo : public MachineFunctionInfo {
   /// created.
   bool HasIllegalLEA = false;
 
+  /// UsesAltFP - We use an alternate frame pointer as an optimization.
+  AltFPMode UsesAltFP = AFPM_None;
+
 public:
   Z80MachineFunctionInfo() = default;
 
   explicit Z80MachineFunctionInfo(MachineFunction &MF) {}
+
+  unsigned getArgFrameSize() const { return ArgFrameSize; }
+  void setArgFrameSize(unsigned Bytes) { ArgFrameSize = Bytes; }
 
   unsigned getCalleeSavedFrameSize() const { return CalleeSavedFrameSize; }
   void setCalleeSavedFrameSize(unsigned Bytes) { CalleeSavedFrameSize = Bytes; }
@@ -54,6 +68,9 @@ public:
 
   bool getHasIllegalLEA() const { return HasIllegalLEA; }
   void setHasIllegalLEA(bool V = true) { HasIllegalLEA = V; }
+
+  AltFPMode getUsesAltFP() const { return UsesAltFP; }
+  void setUsesAltFP(AltFPMode V) { UsesAltFP = V; }
 };
 
 } // End llvm namespace

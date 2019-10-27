@@ -846,6 +846,8 @@ void USRGenerator::VisitType(QualType T) {
 #define BUILTIN_TYPE(Id, SingletonId)
 #define PLACEHOLDER_TYPE(Id, SingletonId) case BuiltinType::Id:
 #include "clang/AST/BuiltinTypes.def"
+        case BuiltinType::UInt48:
+        case BuiltinType::Int48:
         case BuiltinType::Dependent:
           // If you're adding a new builtin type, please add its name prefixed
           // with "@BT@" to `Out` (see cases above).
