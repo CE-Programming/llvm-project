@@ -141,7 +141,7 @@ bool CallLowering::lowerCall(MachineIRBuilder &MIRBuilder, const CallBase &CB,
   Register ReturnHintAlignReg;
   Align ReturnHintAlign;
 
-  Info.OrigRet = ArgInfo{ResRegs, CB, ISD::ArgFlagsTy{}};
+  Info.OrigRet = ArgInfo{ResRegs, CB, 0, ISD::ArgFlagsTy{}};
 
   if (!Info.OrigRet.Ty->isVoidTy()) {
     setArgFlags(Info.OrigRet, AttributeList::ReturnIndex, DL, CB);
@@ -528,7 +528,6 @@ static void buildCopyToRegs(MachineIRBuilder &B, ArrayRef<Register> DstRegs,
   }
 
   const unsigned DstSize = DstTy.getSizeInBits();
-  const unsigned SrcSize = SrcTy.getSizeInBits();
   unsigned CoveringSize = LCMTy.getSizeInBits();
 
   Register UnmergeSrc = SrcReg;
@@ -632,10 +631,9 @@ bool CallLowering::determineAssignments(ValueAssigner &Assigner,
           Flags.setSplitEnd();
           if (!Exact && !CurVT.isVector())
             PartVT = TLI->getRegisterTypeForCallingConv(
-                F.getContext(), CCInfo.getCallingConv(),
-                EVT::getIntegerVT(F.getContext(),
-                                  CurVT.getSizeInBits() -
-                                      NewVT.getSizeInBits() * Part));
+                Ctx, CCInfo.getCallingConv(),
+                EVT::getIntegerVT(Ctx, CurVT.getSizeInBits() -
+                                           NewVT.getSizeInBits() * Part));
         }
       }
 
@@ -724,9 +722,9 @@ bool CallLowering::handleAssignments(ValueHandler &Handler,
         ArgReg = MRI.createGenericVirtualRegister(p0);
       else {
         MachineFrameInfo &MFI = MF.getFrameInfo();
-        unsigned Size = ValVT.getStoreSize();
-        int FI =
-            MFI.CreateStackObject(Size, DL.getPrefTypeAlign(Args[i].Ty), false);
+        LLT MemTy = Handler.getStackValueStoreType(DL, VA, Args[i].Flags[0]);
+        int FI = MFI.CreateStackObject(MemTy.getSizeInBytes(),
+                                       DL.getPrefTypeAlign(Args[i].Ty), false);
         auto StackSlot = MIRBuilder.buildFrameIndex(p0, FI);
         LLT sIndex = LLT::scalar(DL.getIndexSizeInBits(0));
         ArgReg = {};
@@ -735,9 +733,9 @@ bool CallLowering::handleAssignments(ValueHandler &Handler,
         MachinePointerInfo MPO = MachinePointerInfo::getFixedStack(MF, FI);
         CCValAssign IndirectVA = CCValAssign::getMem(i, ValVT, IndirectOffset,
                                                      ValVT, CCValAssign::Full);
-        Handler.assignValueToAddress(Args[i].OrigRegs[0], ArgReg, Size, MPO,
+        Handler.assignValueToAddress(Args[i].OrigRegs[0], ArgReg, MemTy, MPO,
                                      IndirectVA);
-        IndirectOffset += Size;
+        IndirectOffset += MemTy.getSizeInBytes();
       }
       Args[i].Regs[0] = ArgReg;
     }
@@ -865,16 +863,16 @@ bool CallLowering::handleAssignments(ValueHandler &Handler,
 
       if (VA.getLocInfo() == CCValAssign::Indirect) {
         Register AddrReg;
-        unsigned Size = ValVT.getStoreSize();
+        LLT MemTy = Handler.getStackValueStoreType(DL, VA, Args[i].Flags[0]);
         LLT sIndex = LLT::scalar(DL.getIndexSizeInBits(0));
         MIRBuilder.materializePtrAdd(AddrReg, Args[i].Regs[0], sIndex,
                                      IndirectOffset);
         MachinePointerInfo MPO(Args[i].OrigValue, IndirectOffset);
         CCValAssign IndirectVA =
           CCValAssign::getMem(i, ValVT, IndirectOffset, ValVT, CCValAssign::Full);
-        Handler.assignValueToAddress(Args[i].OrigRegs[0], AddrReg, Size, MPO,
+        Handler.assignValueToAddress(Args[i].OrigRegs[0], AddrReg, MemTy, MPO,
                                      IndirectVA);
-        IndirectOffset += Size;
+        IndirectOffset += MemTy.getSizeInBytes();
       }
     }
 

@@ -28,7 +28,7 @@
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/MC/TargetRegistry.h"
 using namespace llvm;
 
 extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeZ80Target() {
@@ -37,7 +37,10 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeZ80Target() {
   RegisterTargetMachine<Z80TargetMachine> Y(getTheEZ80Target());
 
   PassRegistry &PR = *PassRegistry::getPassRegistry();
+  initializeZ80PreLegalizerCombinerPass(PR);
   initializeGlobalISel(PR);
+  initializeZ80PostSelectCombinerPass(PR);
+  initializeZ80MachineLateOptimizationPass(PR);
 }
 
 static std::string computeDataLayout(const Triple &TT) {
@@ -135,10 +138,15 @@ public:
   }
 
   bool addIRTranslator() override;
+  void addPreLegalizeMachineIR() override;
   bool addLegalizeMachineIR() override;
   bool addRegBankSelect() override;
   bool addGlobalInstructionSelect() override;
+  void addMachineSSAOptimization() override;
   void addFastRegAlloc() override;
+  void addMachineLateOptimization() override;
+
+  std::unique_ptr<CSEConfigBase> getCSEConfig() const override;
 };
 } // end anonymous namespace
 
@@ -149,6 +157,11 @@ TargetPassConfig *Z80TargetMachine::createPassConfig(PassManagerBase &PM) {
 bool Z80PassConfig::addIRTranslator() {
   addPass(new IRTranslator);
   return false;
+}
+
+void Z80PassConfig::addPreLegalizeMachineIR() {
+  bool IsOptNone = getOptLevel() == CodeGenOpt::None;
+  addPass(createZ80PreLegalizeCombiner(IsOptNone));
 }
 
 bool Z80PassConfig::addLegalizeMachineIR() {
@@ -166,10 +179,23 @@ bool Z80PassConfig::addGlobalInstructionSelect() {
   return false;
 }
 
+void Z80PassConfig::addMachineSSAOptimization() {
+  addPass(createZ80PostSelectCombiner());
+  TargetPassConfig::addMachineSSAOptimization();
+}
+
 void Z80PassConfig::addFastRegAlloc() {
   // FastRegAlloc can't handle the register pressure on the Z80
   if (usingDefaultRegAlloc())
     addOptimizedRegAlloc();
   else
     TargetPassConfig::addFastRegAlloc();
+}
+
+void Z80PassConfig::addMachineLateOptimization() {
+  addPass(createZ80MachineLateOptimizationPass());
+}
+
+std::unique_ptr<CSEConfigBase> Z80PassConfig::getCSEConfig() const {
+  return getStandardCSEConfigForOpt(TM->getOptLevel());
 }

@@ -24,12 +24,16 @@ class Z80RegisterBankInfo;
 class Z80Subtarget;
 class Z80TargetMachine;
 
+FunctionPass *createZ80PreLegalizeCombiner(bool IsOptNone);
 InstructionSelector *createZ80InstructionSelector(const Z80TargetMachine &TM,
                                                   Z80Subtarget &,
                                                   Z80RegisterBankInfo &);
+FunctionPass *createZ80PostSelectCombiner();
+FunctionPass *createZ80MachineLateOptimizationPass();
 
 void initializeZ80PreLegalizerCombinerPass(PassRegistry &);
 void initializeZ80PostSelectCombinerPass(PassRegistry &);
+void initializeZ80MachineLateOptimizationPass(PassRegistry &);
 
 } // namespace llvm
 

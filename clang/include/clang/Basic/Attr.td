@@ -397,6 +397,7 @@ def TargetM68k : TargetArch<["m68k"]>;
 def TargetRISCV : TargetArch<["riscv32", "riscv64"]>;
 def TargetX86 : TargetArch<["x86"]>;
 def TargetAnyX86 : TargetArch<["x86", "x86_64"]>;
+def TargetAnyZ80 : TargetArch<["z80", "ez80"]>;
 def TargetWebAssembly : TargetArch<["wasm32", "wasm64"]>;
 def TargetHasDLLImportExport : TargetSpec {
   let CustomCode = [{ Target.getTriple().hasDLLImportExport() }];
@@ -829,8 +830,8 @@ def AnnotateType : TypeAttr {
 
 def ARMInterrupt : InheritableAttr, TargetSpecificAttr<TargetARM> {
   // NOTE: If you add any additional spellings, M68kInterrupt's,
-  // MSP430Interrupt's, MipsInterrupt's and AnyX86Interrupt's spellings
-  // must match.
+  // MSP430Interrupt's, MipsInterrupt's, AnyX86Interrupt's, and Z80Interrupt's
+  // spellings must match.
   let Spellings = [GCC<"interrupt">];
   let Args = [EnumArgument<"Interrupt", "InterruptType",
                            ["IRQ", "FIQ", "SWI", "ABORT", "UNDEF", ""],
@@ -1621,7 +1622,7 @@ def MSABI : DeclOrTypeAttr {
 
 def MSP430Interrupt : InheritableAttr, TargetSpecificAttr<TargetMSP430> {
   // NOTE: If you add any additional spellings, ARMInterrupt's, M68kInterrupt's,
-  // MipsInterrupt's and AnyX86Interrupt's spellings must match.
+  // MipsInterrupt's, AnyX86Interrupt's and Z80Interrupt's spellings must match.
   let Spellings = [GCC<"interrupt">];
   let Args = [UnsignedArgument<"Number">];
   let ParseKind = "Interrupt";
@@ -1638,8 +1639,8 @@ def Mips16 : InheritableAttr, TargetSpecificAttr<TargetMips32> {
 
 def MipsInterrupt : InheritableAttr, TargetSpecificAttr<TargetMips32> {
   // NOTE: If you add any additional spellings, ARMInterrupt's,
-  // M68kInterrupt's, MSP430Interrupt's and AnyX86Interrupt's spellings
-  // must match.
+  // M68kInterrupt's, MSP430Interrupt's, AnyX86Interrupt's and Z80Interrupt's
+  // spellings must match.
   let Spellings = [GCC<"interrupt">];
   let Subjects = SubjectList<[Function]>;
   let Args = [EnumArgument<"Interrupt", "InterruptType",
@@ -1685,6 +1686,26 @@ def M68kInterrupt : InheritableAttr, TargetSpecificAttr<TargetM68k> {
   let ParseKind = "Interrupt";
   let HasCustomParsing = 1;
   let Documentation = [Undocumented];
+}
+
+def AnyZ80Interrupt : InheritableAttr, TargetSpecificAttr<TargetAnyZ80> {
+  // NOTE: If you add any additional spellings, MSP430Interrupt's,
+  // MipsInterrupt's and AnyX86Interrupt's spellings must match.
+  let Spellings = [GNU<"interrupt">];
+  let Subjects = SubjectList<[Function]>;
+  let Args = [EnumArgument<"Interrupt", "InterruptType",
+                           ["", "nested", "nmi"],
+                           ["Generic", "Nested", "NMI"],
+                           1>];
+  let ParseKind = "Interrupt";
+  let HasCustomParsing = 1;
+  let Documentation = [Undocumented];
+}
+
+def AnyZ80TIFlags : DeclOrTypeAttr, TargetSpecificAttr<TargetAnyZ80> {
+  let Spellings = [Clang<"tiflags">];
+  let Subjects = SubjectList<[FunctionLike]>;
+  let Documentation = [AnyZ80TIFlagsDocs];
 }
 
 def Mode : Attr {
@@ -3010,7 +3031,8 @@ def LTOVisibilityPublic : InheritableAttr {
 
 def AnyX86Interrupt : InheritableAttr, TargetSpecificAttr<TargetAnyX86> {
   // NOTE: If you add any additional spellings, ARMInterrupt's,
-  // M68kInterrupt's, MSP430Interrupt's and MipsInterrupt's spellings must match.
+  // M68kInterrupt's, MSP430Interrupt's, MipsInterrupt's and Z80Interrupt's
+  // spellings must match.
   let Spellings = [GCC<"interrupt">];
   let Subjects = SubjectList<[HasFunctionProto]>;
   let ParseKind = "Interrupt";

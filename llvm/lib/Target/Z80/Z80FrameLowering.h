@@ -62,6 +62,7 @@ public:
                                 MachineBasicBlock::iterator MI) const override;
 
   bool hasFP(const MachineFunction &MF) const override;
+  bool isFPSaved(const MachineFunction &MF) const;
   bool hasReservedCallFrame(const MachineFunction &MF) const override;
   bool needsFrameIndexResolution(const MachineFunction &MF) const override;
 

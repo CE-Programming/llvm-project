@@ -121,7 +121,7 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .clampScalar(0, s8, s32);
 
   getActionDefinitionsBuilder({G_SHL, G_LSHR, G_ASHR})
-      .libcallForCartesianProduct(LegalLibcallScalars, {s8})
+      .customForCartesianProduct(LegalLibcallScalars, {s8})
       .clampScalar(1, s8, s8)
       .clampScalar(0, s8, s64);
 
@@ -133,6 +133,12 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
                                G_FCEIL, G_FCOS, G_FSIN, G_FSQRT, G_FFLOOR,
                                G_FRINT, G_FNEARBYINT})
       .libcallFor({s32, s64});
+
+  getActionDefinitionsBuilder(G_FCOPYSIGN)
+      .libcallFor({{s32, s32}, {s64, s64}});
+
+  //getActionDefinitionsBuilder({G_FNEG, G_FABS)
+  //    .customFor({s32, s64});
 
   getActionDefinitionsBuilder(G_FPTRUNC)
       .libcallFor({{s32, s64}});
@@ -152,8 +158,8 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .legalForCartesianProduct(LegalTypes, {p0})
       .clampScalar(0, s8, sMax);
   for (unsigned MemOp : {G_LOAD, G_STORE})
-    setLegalizeScalarToDifferentSizeStrategy(MemOp, 0,
-                                             narrowToSmallerAndWidenToSmallest);
+    getLegacyLegalizerInfo().setLegalizeScalarToDifferentSizeStrategy(
+        MemOp, 0, LegacyLegalizerInfo::narrowToSmallerAndWidenToSmallest);
 
   getActionDefinitionsBuilder(
       {G_FRAME_INDEX, G_GLOBAL_VALUE, G_BRINDIRECT, G_JUMP_TABLE})
@@ -196,13 +202,13 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .libcallFor(LegalLibcallScalars)
       .clampScalar(0, s8, s64);
 
-  computeTables();
+  getLegacyLegalizerInfo().computeTables();
   verify(*STI.getInstrInfo());
 }
 
-LegalizerHelper::LegalizeResult
-Z80LegalizerInfo::legalizeCustomMaybeLegal(LegalizerHelper &Helper,
-                                           MachineInstr &MI) const {
+LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeCustomMaybeLegal(
+    LegalizerHelper &Helper, MachineInstr &MI,
+    LostDebugLocObserver &LocObserver) const {
   Helper.MIRBuilder.setInstr(MI);
   switch (MI.getOpcode()) {
   default:
@@ -211,11 +217,15 @@ Z80LegalizerInfo::legalizeCustomMaybeLegal(LegalizerHelper &Helper,
   case TargetOpcode::G_AND:
   case TargetOpcode::G_OR:
   case TargetOpcode::G_XOR:
-    return legalizeBitwise(Helper, MI);
+    return legalizeBitwise(Helper, MI, LocObserver);
   case TargetOpcode::G_FCONSTANT:
     return legalizeFConstant(Helper, MI);
   case TargetOpcode::G_VASTART:
     return legalizeVAStart(Helper, MI);
+  case TargetOpcode::G_SHL:
+  case TargetOpcode::G_LSHR:
+  case TargetOpcode::G_ASHR:
+    return legalizeShift(Helper, MI, LocObserver);
   case TargetOpcode::G_FSHL:
   case TargetOpcode::G_FSHR:
     return legalizeFunnelShift(Helper, MI);
@@ -226,8 +236,8 @@ Z80LegalizerInfo::legalizeCustomMaybeLegal(LegalizerHelper &Helper,
 }
 
 LegalizerHelper::LegalizeResult
-Z80LegalizerInfo::legalizeBitwise(LegalizerHelper &Helper,
-                                  MachineInstr &MI) const {
+Z80LegalizerInfo::legalizeBitwise(LegalizerHelper &Helper, MachineInstr &MI,
+                                  LostDebugLocObserver &LocObserver) const {
   assert((MI.getOpcode() == TargetOpcode::G_AND ||
           MI.getOpcode() == TargetOpcode::G_OR ||
           MI.getOpcode() == TargetOpcode::G_XOR) &&
@@ -238,7 +248,7 @@ Z80LegalizerInfo::legalizeBitwise(LegalizerHelper &Helper,
     if (Helper.narrowScalar(MI, 0, LLT::scalar(8)) ==
         LegalizerHelper::Legalized)
       return LegalizerHelper::Legalized;
-  return Helper.libcall(MI);
+  return Helper.libcall(MI, LocObserver);
 }
 
 LegalizerHelper::LegalizeResult
@@ -272,6 +282,36 @@ Z80LegalizerInfo::legalizeVAStart(LegalizerHelper &Helper,
 }
 
 LegalizerHelper::LegalizeResult
+Z80LegalizerInfo::legalizeShift(LegalizerHelper &Helper, MachineInstr &MI,
+                                LostDebugLocObserver &LocObserver) const {
+  assert((MI.getOpcode() == TargetOpcode::G_SHL ||
+          MI.getOpcode() == TargetOpcode::G_LSHR ||
+          MI.getOpcode() == TargetOpcode::G_ASHR) &&
+         "Unexpected opcode");
+  MachineRegisterInfo &MRI = *Helper.MIRBuilder.getMRI();
+  Register DstReg = MI.getOperand(0).getReg();
+  LLT Ty = MRI.getType(DstReg);
+  if (auto Amt =
+          getIConstantVRegValWithLookThrough(MI.getOperand(2).getReg(), MRI)) {
+    if (Ty == LLT::scalar(8) && Amt->Value == 1)
+      return LegalizerHelper::AlreadyLegal;
+    if (MI.getOpcode() == TargetOpcode::G_SHL && Amt->Value == 1) {
+      Helper.Observer.changingInstr(MI);
+      MI.setDesc(Helper.MIRBuilder.getTII().get(TargetOpcode::G_ADD));
+      MI.getOperand(2).setReg(MI.getOperand(1).getReg());
+      Helper.Observer.changedInstr(MI);
+      return LegalizerHelper::Legalized;
+    }
+    if (MI.getOpcode() == TargetOpcode::G_ASHR &&
+        Amt->Value == Ty.getSizeInBits() - 1 &&
+        (Ty == LLT::scalar(8) || Ty == LLT::scalar(16) ||
+         (Subtarget.is24Bit() && Ty == LLT::scalar(24))))
+      return LegalizerHelper::Legalized;
+  }
+  return Helper.libcall(MI, LocObserver);
+}
+
+LegalizerHelper::LegalizeResult
 Z80LegalizerInfo::legalizeFunnelShift(LegalizerHelper &Helper,
                                       MachineInstr &MI) const {
   assert((MI.getOpcode() == TargetOpcode::G_FSHL ||
@@ -284,6 +324,9 @@ Z80LegalizerInfo::legalizeFunnelShift(LegalizerHelper &Helper,
   Register RevReg = MI.getOperand(2).getReg();
   Register AmtReg = MI.getOperand(3).getReg();
   LLT Ty = MRI.getType(DstReg);
+  if (auto Amt = getIConstantVRegValWithLookThrough(AmtReg, MRI))
+    if (Ty == LLT::scalar(8) && (Amt->Value == 1 || Amt->Value == 7))
+        return LegalizerHelper::AlreadyLegal;
 
   unsigned FwdShiftOpc = TargetOpcode::G_SHL;
   unsigned RevShiftOpc = TargetOpcode::G_LSHR;
@@ -329,7 +372,7 @@ Z80LegalizerInfo::legalizeCompare(LegalizerHelper &Helper,
   bool ZeroRHS = false;
   if (MI.getOpcode() == TargetOpcode::G_ICMP) {
     Ty = IntegerType::get(Ctx, OpSize);
-    if (auto C = getConstantVRegVal(RHSReg, MRI))
+    if (auto C = getIConstantVRegVal(RHSReg, MRI))
       ZeroRHS = *C == 0;
     switch (OpSize) {
     case 32:
@@ -361,13 +404,15 @@ Z80LegalizerInfo::legalizeCompare(LegalizerHelper &Helper,
     LLT s8 = LLT::scalar(8);
     Type *Int8Ty = Type::getInt8Ty(Ctx);
     Register FlagsReg = MRI.createGenericVirtualRegister(s8);
-    CallLowering::ArgInfo FlagsArg(FlagsReg, Int8Ty);
-    CallLowering::ArgInfo Args[2] = {{LHSReg, Ty}, {RHSReg, Ty}};
+    CallLowering::ArgInfo FlagsArg(FlagsReg, Int8Ty,
+                                   CallLowering::ArgInfo::NoArgIndex);
+    CallLowering::ArgInfo Args[2] = {{LHSReg, Ty, 0}, {RHSReg, Ty, 1}};
     createLibcall(MIRBuilder, Libcall, FlagsArg,
                   makeArrayRef(Args, 2 - ZeroRHS));
     if (IsSigned) {
       Register SignedFlagsReg = MRI.createGenericVirtualRegister(s8);
-      CallLowering::ArgInfo SignedFlagsArg(SignedFlagsReg, Int8Ty);
+      CallLowering::ArgInfo SignedFlagsArg(SignedFlagsReg, Int8Ty,
+                                           CallLowering::ArgInfo::NoArgIndex);
       createLibcall(MIRBuilder, RTLIB::SCMP, SignedFlagsArg, FlagsArg);
       FlagsReg = SignedFlagsReg;
     }
@@ -379,8 +424,9 @@ Z80LegalizerInfo::legalizeCompare(LegalizerHelper &Helper,
   return LegalizerHelper::Legalized;
 }
 
-bool Z80LegalizerInfo::legalizeIntrinsic(LegalizerHelper &Helper,
-                                         MachineInstr &MI) const {
+bool Z80LegalizerInfo::legalizeIntrinsic(
+    LegalizerHelper &Helper, MachineInstr &MI,
+    LostDebugLocObserver &LocObserver) const {
   MachineIRBuilder &MIRBuilder = Helper.MIRBuilder;
   MachineFunction &MF = MIRBuilder.getMF();
   MachineRegisterInfo &MRI = *MIRBuilder.getMRI();
@@ -401,7 +447,7 @@ bool Z80LegalizerInfo::legalizeIntrinsic(LegalizerHelper &Helper,
     // We need to make sure the number of bytes is non-zero for this lowering to
     // be correct.  Since we only need to lower constant-length intrinsics for
     // now, just support those.
-    if (auto Len = getConstantVRegVal(LenReg, MRI)) {
+    if (auto Len = getIConstantVRegVal(LenReg, MRI)) {
       // Doing something with zero bytes is a noop anyway.
       if (!*Len)
         break;
@@ -448,7 +494,7 @@ bool Z80LegalizerInfo::legalizeIntrinsic(LegalizerHelper &Helper,
     }
   MemLibcall:
     MI.getOperand(3).setReg(LenReg);
-    if (createMemLibcall(MIRBuilder, MRI, MI) ==
+    if (createMemLibcall(MIRBuilder, MRI, MI, LocObserver) ==
         LegalizerHelper::UnableToLegalize)
       return false;
     break;
@@ -457,7 +503,7 @@ bool Z80LegalizerInfo::legalizeIntrinsic(LegalizerHelper &Helper,
     CallLowering::CallLoweringInfo Info;
     Info.CallConv = CallingConv::C;
     Info.Callee = MachineOperand::CreateES("abort");
-    Info.OrigRet = CallLowering::ArgInfo({0}, Type::getVoidTy(Ctx));
+    Info.OrigRet = CallLowering::ArgInfo{None, Type::getVoidTy(Ctx), 0};
     if (!CLI.lowerCall(MIRBuilder, Info))
       return false;
     break;

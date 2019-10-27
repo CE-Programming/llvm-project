@@ -37,6 +37,24 @@ void LiveRegUnits::addRegsInMask(const uint32_t *RegMask) {
   }
 }
 
+void LiveRegUnits::stepForward(const MachineInstr &MI) {
+  // Remove killed registers and regmask kills from the set.
+  for (const MachineOperand &MOP : phys_regs_and_masks(MI)) {
+    if (MOP.isRegMask()) {
+      removeRegsNotPreserved(MOP.getRegMask());
+      continue;
+    }
+
+    if (MOP.isKill())
+      removeReg(MOP.getReg());
+  }
+
+  // Add live defs to the set.
+  for (const MachineOperand &MOP : phys_regs_and_masks(MI))
+    if (MOP.isReg() && MOP.isDef() && !MOP.isDead())
+      addReg(MOP.getReg());
+}
+
 void LiveRegUnits::stepBackward(const MachineInstr &MI) {
   // Remove defined registers and regmask kills from the set.
   for (const MachineOperand &MOP : phys_regs_and_masks(MI)) {

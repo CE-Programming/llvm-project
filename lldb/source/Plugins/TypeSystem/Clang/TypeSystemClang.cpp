@@ -4805,6 +4805,7 @@ lldb::Encoding TypeSystemClang::GetEncoding(lldb::opaque_compiler_type_t type,
     case clang::BuiltinType::Short:
     case clang::BuiltinType::Int:
     case clang::BuiltinType::Long:
+    case clang::BuiltinType::Int48:
     case clang::BuiltinType::LongLong:
     case clang::BuiltinType::Int128:
       return lldb::eEncodingSint;
@@ -4819,6 +4820,7 @@ lldb::Encoding TypeSystemClang::GetEncoding(lldb::opaque_compiler_type_t type,
     case clang::BuiltinType::UShort:
     case clang::BuiltinType::UInt:
     case clang::BuiltinType::ULong:
+    case clang::BuiltinType::UInt48:
     case clang::BuiltinType::ULongLong:
     case clang::BuiltinType::UInt128:
       return lldb::eEncodingUint;

@@ -61,18 +61,17 @@ inline OneNonDBGUse_match<SubPat> m_OneNonDBGUse(const SubPat &SP) {
 }
 
 template <typename ConstT>
-inline Optional<ConstT> matchConstant(Register, const MachineRegisterInfo &);
+inline Optional<ConstT> matchConstant(Register Reg,
+                                      const MachineRegisterInfo &MRI) {
+  if (auto Res = getIConstantVRegSExtVal(Reg, MRI))
+    return *Res;
+  return None;
+}
 
 template <>
 inline Optional<APInt> matchConstant(Register Reg,
                                      const MachineRegisterInfo &MRI) {
   return getIConstantVRegVal(Reg, MRI);
-}
-
-template <>
-inline Optional<int64_t> matchConstant(Register Reg,
-                                       const MachineRegisterInfo &MRI) {
-  return getIConstantVRegSExtVal(Reg, MRI);
 }
 
 template <typename ConstT> struct ConstantMatch {
@@ -87,12 +86,8 @@ template <typename ConstT> struct ConstantMatch {
   }
 };
 
-inline ConstantMatch<APInt> m_ICst(APInt &Cst) {
-  return ConstantMatch<APInt>(Cst);
-}
-inline ConstantMatch<int64_t> m_ICst(int64_t &Cst) {
-  return ConstantMatch<int64_t>(Cst);
-}
+template <typename ConstT>
+inline ConstantMatch<ConstT> m_ICst(ConstT &Cst) { return {Cst}; }
 
 template <typename ConstT>
 inline Optional<ConstT> matchConstantSplat(Register,

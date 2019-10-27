@@ -37,9 +37,23 @@ public:
                    FunctionLoweringInfo &FLI) const override;
 
 private:
-  void splitToValueTypes(const ArgInfo &OrigArg,
-                         SmallVectorImpl<ArgInfo> &SplitArgs,
-                         const DataLayout &DL, MachineRegisterInfo &MRI) const;
+  bool
+  doCallerAndCalleePassArgsTheSameWay(CallLoweringInfo &Info,
+                                      MachineFunction &MF,
+                                      SmallVectorImpl<ArgInfo> &InArgs) const;
+
+  bool
+  areCalleeOutgoingArgsTailCallable(CallLoweringInfo &Info, MachineFunction &MF,
+                                    SmallVectorImpl<ArgInfo> &OutArgs) const;
+
+  bool
+  isEligibleForTailCallOptimization(MachineIRBuilder &MIRBuilder,
+                                    CallLoweringInfo &Info,
+                                    SmallVectorImpl<ArgInfo> &InArgs,
+                                    SmallVectorImpl<ArgInfo> &OutArgs) const;
+
+  bool lowerTailCall(MachineIRBuilder &MIRBuilder, CallLoweringInfo &Info,
+                     SmallVectorImpl<ArgInfo> &OutArgs) const;
 };
 
 } // end namespace llvm

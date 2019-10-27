@@ -16,6 +16,7 @@
 #include "Arch/SystemZ.h"
 #include "Arch/VE.h"
 #include "Arch/X86.h"
+#include "Arch/Z80.h"
 #include "HIPAMD.h"
 #include "Hexagon.h"
 #include "clang/Basic/CharInfo.h"
@@ -462,6 +463,10 @@ std::string tools::getCPUName(const Driver &D, const ArgList &Args,
   case llvm::Triple::wasm32:
   case llvm::Triple::wasm64:
     return std::string(getWebAssemblyTargetCPU(Args));
+
+  case llvm::Triple::z80:
+  case llvm::Triple::ez80:
+    return std::string(z80::getZ80TargetCPU(Args, T));
   }
 }
 

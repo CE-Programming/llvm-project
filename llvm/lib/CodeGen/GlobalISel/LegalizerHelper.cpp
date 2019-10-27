@@ -122,7 +122,8 @@ LegalizerHelper::legalizeInstrStep(MachineInstr &MI,
     return AlreadyLegal;
   if (MI.getOpcode() == TargetOpcode::G_INTRINSIC ||
       MI.getOpcode() == TargetOpcode::G_INTRINSIC_W_SIDE_EFFECTS)
-    return LI.legalizeIntrinsic(*this, MI) ? Legalized : UnableToLegalize;
+    return LI.legalizeIntrinsic(*this, MI, LocObserver) ? Legalized
+                                                        : UnableToLegalize;
   auto Step = LI.getAction(MI, MRI);
   switch (Step.Action) {
   case Legal:
@@ -151,7 +152,7 @@ LegalizerHelper::legalizeInstrStep(MachineInstr &MI,
     return moreElementsVector(MI, Step.TypeIdx, Step.NewType);
   case Custom:
     LLVM_DEBUG(dbgs() << ".. Custom legalization\n");
-    return LI.legalizeCustomMaybeLegal(*this, MI);
+    return LI.legalizeCustomMaybeLegal(*this, MI, LocObserver);
   default:
     LLVM_DEBUG(dbgs() << ".. Unable to legalize\n");
     return UnableToLegalize;
@@ -608,6 +609,8 @@ static RTLIB::Libcall getRTLibDesc(unsigned Opcode, unsigned Size) {
     RTLIBCASE(NEARBYINT_F);
   case TargetOpcode::G_INTRINSIC_ROUNDEVEN:
     RTLIBCASE(ROUNDEVEN_F);
+  case TargetOpcode::G_FCOPYSIGN:
+    RTLIBCASE(COPYSIGN_F);
   case TargetOpcode::G_FNEG:
     RTLIBCASE(NEG_F);
   case TargetOpcode::G_FABS:
@@ -920,6 +923,7 @@ LegalizerHelper::libcall(MachineInstr &MI, LostDebugLocObserver &LocObserver) {
   case TargetOpcode::G_FRINT:
   case TargetOpcode::G_FNEARBYINT:
   case TargetOpcode::G_INTRINSIC_ROUNDEVEN:
+  case TargetOpcode::G_FCOPYSIGN:
   case TargetOpcode::G_FNEG:
   case TargetOpcode::G_FABS: {
     Type *HLTy = getFloatTypeForLLT(Ctx, LLTy);
