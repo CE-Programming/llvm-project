@@ -8856,3 +8856,11 @@ def wasm_opt : Flag<["--"], "wasm-opt">,
   Group<m_Group>,
   HelpText<"Enable the wasm-opt optimizer (default)">,
   MarshallingInfoNegativeFlag<LangOpts<"NoWasmOpt">>;
+
+//===----------------------------------------------------------------------===//
+// Temp Debug Options
+//===----------------------------------------------------------------------===//
+
+def test_ez80_hack : Flag<["-"], "test-ez80-hack">,
+  Flags<[CC1Option]>, HelpText<"Enable hack for testing ez80 code generation.">,
+  MarshallingInfoFlag<TargetOpts<"TestEZ80Hack">>;

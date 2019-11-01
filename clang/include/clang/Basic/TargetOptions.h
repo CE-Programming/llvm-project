@@ -125,6 +125,9 @@ public:
 
   /// The entry point name for HLSL shader being compiled as specified by -E.
   std::string HLSLEntry;
+
+  /// Very specific hack for testing the ez80 backend.
+  bool TestEZ80Hack;
 };
 
 } // end namespace clang
