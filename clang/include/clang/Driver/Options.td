@@ -7114,3 +7114,11 @@ def dxc_entrypoint : Option<["--", "/", "-"], "E", KIND_JOINED_OR_SEPARATE>,
                      Group<dxc_Group>,
                      Flags<[DXCOption, NoXarchOption]>,
                      HelpText<"Entry point name">;
+
+//===----------------------------------------------------------------------===//
+// Temp Debug Options
+//===----------------------------------------------------------------------===//
+
+def test_ez80_hack : Flag<["-"], "test-ez80-hack">,
+  Flags<[CC1Option]>, HelpText<"Enable hack for testing ez80 code generation.">,
+  MarshallingInfoFlag<TargetOpts<"TestEZ80Hack">>;
