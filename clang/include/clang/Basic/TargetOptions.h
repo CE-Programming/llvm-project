@@ -113,6 +113,9 @@ public:
 
   /// The validator version for dxil.
   std::string DxilValidatorVersion;
+
+  /// Very specific hack for testing the ez80 backend.
+  bool TestEZ80Hack;
 };
 
 } // end namespace clang

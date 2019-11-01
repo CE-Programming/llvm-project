@@ -6915,3 +6915,11 @@ def fcgl : DXCFlag<"fcgl">, Alias<emit_pristine_llvm>;
 def enable_16bit_types : DXCFlag<"enable-16bit-types">, Alias<fnative_half_type>,
   HelpText<"Enable 16-bit types and disable min precision types."
            "Available in HLSL 2018 and shader model 6.2.">;
+
+//===----------------------------------------------------------------------===//
+// Temp Debug Options
+//===----------------------------------------------------------------------===//
+
+def test_ez80_hack : Flag<["-"], "test-ez80-hack">,
+  Flags<[CC1Option]>, HelpText<"Enable hack for testing ez80 code generation.">,
+  MarshallingInfoFlag<TargetOpts<"TestEZ80Hack">>;
