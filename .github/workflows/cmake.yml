@@ -1,0 +1,319 @@
+name: CMake
+
+on:
+  push:
+    branches: [z80]
+
+jobs:
+  build-llvm:
+    needs: []
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on: [ubuntu-latest, macos-latest, windows-latest]
+        build-type: [Debug, Release]
+    if: always()
+    runs-on: ${{matrix.runs-on}}
+    steps:
+      - name: Uninstall Unused Packages
+        if: runner.os == 'Linux'
+        run: sudo apt-get remove ^ghc-[0-9.]+$ azure-cli google-cloud-sdk ^adoptopenjdk-[0-9]+-hotspot$ hhvm libgl1-mesa-dri ^google-chrome.*$ ^dotnet-sdk-[0-9.]+$ firefox
+
+      - name: Bootstrap Build Environment
+        if: runner.os == 'Windows'
+        run: "cmake -E echo >> $env:GITHUB_ENV ENV=env:"
+      - name: Prepare Build Environment
+        if: runner.os != 'Windows'
+        run: |
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CC=clang
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CFLAGS=-std=c17
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CXX=clang++
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CXXFLAGS=-std=c++17
+      - name: Prepare Build Environment
+        if: runner.os == 'Windows'
+        run: |
+          git config --global core.autocrlf false
+          $path = vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          cmake -E echo >> $${{env.ENV}}GITHUB_PATH "$(join-path $path 'VC\Tools\Llvm\bin')"
+          cmd /s /c >> $${{env.ENV}}GITHUB_ENV """$(join-path $path 'Common7\Tools\vsdevcmd.bat')"" > nul && set"
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CC=clang-cl
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CXX=clang-cl
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV EXE=.exe
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV PY=.py
+
+      - name: Prepare Build Environment
+        if: matrix.build-type == 'Debug'
+        run: cmake -E echo >> $${{env.ENV}}GITHUB_ENV DYLIB=ON
+      - name: Prepare Build Environment
+        if: matrix.build-type != 'Debug'
+        run: cmake -E echo >> $${{env.ENV}}GITHUB_ENV DYLIB=OFF
+
+      - name: Install Build Dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y ninja-build
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV LD=lld-11
+      - name: Install Build Dependencies
+        if: runner.os == 'macOS'
+        run: |
+          brew install ninja
+          cmake -E echo >> $${{env.ENV}}GITHUB_PATH /usr/local/opt/llvm/bin
+      - name: Install Build Dependencies
+        if: runner.os == 'Windows'
+        run: pip install ninja
+
+      - name: Checkout Project
+        uses: actions/checkout@v2
+        with:
+          path: src
+      - name: Sparse Checkout
+        working-directory: src
+        run: |
+          git version
+          git sparse-checkout init --cone
+          git sparse-checkout set llvm clang
+
+      - name: Configure LLVM
+        run: cmake -Ssrc/llvm -Bbuild -GNinja -DCMAKE_BUILD_TYPE:STRING=${{matrix.build-type}} -DCMAKE_INSTALL_PREFIX:PATH="${{github.workspace}}/llvm" -DCMAKE_C_COMPILER:FILEPATH="${{env.CC}}" -DCMAKE_C_FLAGS:STRING="${{env.CFLAGS}}" -DCMAKE_CXX_COMPILER:FILEPATH="${{env.CXX}}" -DCMAKE_CXX_FLAGS:STRING="${{env.CXXFLAGS}}" -DLLVM_PARALLEL_LINK_JOBS:STRING=1 -DLLVM_USE_LINKER="${{env.LD}}" -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD:STRING="Z80" -DLLVM_LINK_LLVM_DYLIB:BOOL=${{env.DYLIB}} -DLLVM_INCLUDE_EXAMPLES:BOOL=OFF -DLLVM_INCLUDE_TESTS:BOOL=OFF -DLLVM_TOOL_DSYMUTIL_BUILD:BOOL=OFF -DLLVM_TOOL_GOLD_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_AS_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_CFI_VERIFY_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_CVTRES_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_DWP_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_ELFABI_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_EXEGESIS_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_GSYMUTIL_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_IFS_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_ISEL_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_ITANIUM_DEMANGLE_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_JITLINK_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_JITLISTENER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_LIPO_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_LTO2_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_LTO_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_MCA_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_MC_ASSEMBLE_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_MC_DISASSEMBLE_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_MICROSOFT_DEMANGLE_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_MT_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_OPT_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_PDBUTIL_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_PROFDATA_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_RC_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_SPECIAL_CASE_LIST_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_UNDNAME_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_XRAY_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_YAML_NUMERIC_PARSER_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LTO_BUILD:BOOL=OFF -DLLVM_TOOL_SANCOV_BUILD:BOOL=OFF -DLLVM_TOOL_SANSTATS_BUILD:BOOL=OFF -DLLVM_TOOL_VFABI_DEMANGLE_FUZZER_BUILD:BOOL=OFF
+      - name: Build LLVM
+        run: cmake --build build --config ${{matrix.build-type}}
+
+      - name: Install LLVM
+        run: |
+          cmake --build build --config ${{matrix.build-type}} --target install
+          cmake -E copy build/include/llvm/Config/config.h llvm/include/llvm/Config
+      - name: Upload LLVM
+        uses: actions/upload-artifact@v2
+        with:
+          name: LLVM${{runner.os}}${{matrix.build-type}}
+          path: llvm
+
+      - name: Configure Test
+        run: cmake build -DLLVM_LINK_LLVM_DYLIB:BOOL=${{env.DYLIB}} -DLLVM_ENABLE_PROJECTS:STRING=clang -DLLVM_INCLUDE_EXAMPLES:BOOL=OFF -DLLVM_INCLUDE_TESTS:BOOL=ON -DLLVM_TOOL_DSYMUTIL_BUILD:BOOL=ON -DLLVM_TOOL_GOLD_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_AS_FUZZER_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_CFI_VERIFY_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_CVTRES_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_DWP_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_ELFABI_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_EXEGESIS_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_GSYMUTIL_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_IFS_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_ISEL_FUZZER_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_ITANIUM_DEMANGLE_FUZZER_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_JITLINK_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_JITLISTENER_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_LIPO_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_LTO2_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_LTO_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_MCA_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_MC_ASSEMBLE_FUZZER_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_MC_DISASSEMBLE_FUZZER_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_MICROSOFT_DEMANGLE_FUZZER_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_MT_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_OPT_FUZZER_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_PDBUTIL_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_PROFDATA_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_RC_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_SPECIAL_CASE_LIST_FUZZER_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_UNDNAME_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_XRAY_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_YAML_NUMERIC_PARSER_FUZZER_BUILD:BOOL=ON -DLLVM_TOOL_LTO_BUILD:BOOL=ON -DLLVM_TOOL_SANCOV_BUILD:BOOL=ON -DLLVM_TOOL_SANSTATS_BUILD:BOOL=ON -DLLVM_TOOL_VFABI_DEMANGLE_FUZZER_BUILD:BOOL=ON
+      - name: Install Test
+        run: |
+          cmake -E make_directory test/bin test/test/Unit test/tools/clang/bin test/tools/clang/test/Unit
+          cmake -E copy build/bin/not${{env.EXE}} build/bin/FileCheck${{env.EXE}} build/bin/llvm-PerfectShuffle${{env.EXE}} build/bin/lli-child-target${{env.EXE}} build/bin/llvm-lit${{env.PY}} build/bin/llvm-locstats build/bin/count${{env.EXE}} build/bin/yaml-bench${{env.EXE}} test/bin
+          cmake -E copy build/test/lit.site.cfg.py test/test
+          cmake -E copy build/test/Unit/lit.site.cfg.py test/test/Unit
+          cmake -E copy build/tools/clang/bin/gen_ast_dump_json_test.py test/tools/clang/bin
+          cmake -E copy build/tools/clang/test/lit.site.cfg.py test/tools/clang/test
+          cmake -E copy build/tools/clang/test/Unit/lit.site.cfg.py test/tools/clang/test/Unit
+      - name: Upload Test
+        uses: actions/upload-artifact@v2
+        with:
+          name: Test${{runner.os}}${{matrix.build-type}}
+          path: test
+
+      - name: Disk Usage
+        if: always() && runner.os != 'Windows'
+        run: df -h
+      - name: Disk Usage
+        if: always() && runner.os == 'Windows'
+        run: wmic logicaldisk get size,freespace,caption
+
+  build-clang:
+    needs: [build-llvm]
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on: [ubuntu-latest, macos-latest, windows-latest]
+        build-type: [Debug, Release]
+    if: always()
+    runs-on: ${{matrix.runs-on}}
+    steps:
+      - name: Uninstall Unused Packages
+        if: runner.os == 'Linux'
+        run: sudo apt-get remove ^ghc-[0-9.]+$ azure-cli google-cloud-sdk ^adoptopenjdk-[0-9]+-hotspot$ hhvm libgl1-mesa-dri ^google-chrome.*$ ^dotnet-sdk-[0-9.]+$ firefox
+
+      - name: Bootstrap Build Environment
+        if: runner.os == 'Windows'
+        run: "cmake -E echo >> $env:GITHUB_ENV ENV=env:"
+      - name: Prepare Build Environment
+        if: runner.os != 'Windows'
+        run: |
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CC=clang
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CFLAGS=-std=c17
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CXX=clang++
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CXXFLAGS=-std=c++17
+      - name: Prepare Build Environment
+        if: runner.os == 'Windows'
+        run: |
+          git config --global core.autocrlf false
+          $path = vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          cmake -E echo >> $${{env.ENV}}GITHUB_PATH "$(join-path $path 'VC\Tools\Llvm\bin')"
+          cmd /s /c >> $${{env.ENV}}GITHUB_ENV """$(join-path $path 'Common7\Tools\vsdevcmd.bat')"" > nul && set"
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CC=clang-cl
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CXX=clang-cl
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV EXE=.exe
+
+      - name: Prepare Build Environment
+        if: matrix.build-type == 'Debug'
+        run: cmake -E echo >> $${{env.ENV}}GITHUB_ENV DYLIB=ON
+      - name: Prepare Build Environment
+        if: matrix.build-type != 'Debug'
+        run: cmake -E echo >> $${{env.ENV}}GITHUB_ENV DYLIB=OFF
+
+      - name: Install Build Dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y ninja-build
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV LD=lld-11
+      - name: Install Build Dependencies
+        if: runner.os == 'macOS'
+        run: |
+          brew install ninja
+          cmake -E echo >> $${{env.ENV}}GITHUB_PATH /usr/local/opt/llvm/bin
+      - name: Install Build Dependencies
+        if: runner.os == 'Windows'
+        run: pip install ninja
+
+      - name: Checkout Project
+        uses: actions/checkout@v2
+        with:
+          path: src
+      - name: Sparse Checkout
+        working-directory: src
+        run: |
+          git version
+          git sparse-checkout init --cone
+          git sparse-checkout set clang
+
+      - name: Download LLVM
+        uses: actions/download-artifact@v2
+        with:
+          name: LLVM${{runner.os}}${{matrix.build-type}}
+          path: llvm
+      - name: Set Executable
+        if: runner.os != 'Windows'
+        run: chmod +x llvm/bin/*
+
+      - name: Configure Clang
+        run: cmake -Ssrc/clang -Bbuild -GNinja -DCMAKE_BUILD_TYPE:STRING=${{matrix.build-type}} -DCMAKE_INSTALL_PREFIX:PATH="${{github.workspace}}/clang" -DCMAKE_C_COMPILER:FILEPATH="${{env.CC}}" -DCMAKE_C_FLAGS:STRING="${{env.CFLAGS}}" -DCMAKE_CXX_COMPILER:FILEPATH="${{env.CXX}}" -DCMAKE_CXX_FLAGS:STRING="${{env.CXXFLAGS}}" -DLLVM_USE_LINKER="${{env.LD}}" -DLLVM_DIR:PATH="${{github.workspace}}/llvm/lib/cmake/llvm" -DCLANG_LINK_CLANG_DYLIB:BOOL=${{env.DYLIB}}
+      - name: Build Clang
+        run: cmake --build build --config ${{matrix.build-type}}
+
+      - name: Install Clang
+        run: cmake --build build --config ${{matrix.build-type}} --target install
+      - name: Upload Clang
+        uses: actions/upload-artifact@v2
+        with:
+          name: Clang${{runner.os}}${{matrix.build-type}}
+          path: clang
+
+      - name: Install Executable
+        run: cmake -E copy clang/bin/clang${{env.EXE}} ez80-clang${{env.EXE}}
+      - name: Upload Executable
+        uses: actions/upload-artifact@v2
+        with:
+          name: ez80-clang${{env.EXE}}-${{runner.os}}${{matrix.build-type}}
+          path: ez80-clang${{env.EXE}}
+
+      - name: Download Test
+        uses: actions/download-artifact@v2
+        with:
+          name: Test${{runner.os}}${{matrix.build-type}}
+          path: test
+      - name: Install Test
+        run: cmake -E copy build/bin/arcmt-test${{env.EXE}} build/bin/c-arcmt-test${{env.EXE}} build/bin/clang-diff${{env.EXE}} build/bin/clang-tblgen${{env.EXE}} test/bin
+      - name: Upload Test
+        uses: actions/upload-artifact@v2
+        with:
+          name: Test${{runner.os}}${{matrix.build-type}}
+          path: test
+
+      - name: Disk Usage
+        if: always() && runner.os != 'Windows'
+        run: df -h
+      - name: Disk Usage
+        if: always() && runner.os == 'Windows'
+        run: wmic logicaldisk get size,freespace,caption
+
+  test-llvm:
+    needs: [build-llvm]
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on: [ubuntu-latest, macos-latest, windows-latest]
+        build-type: [Debug]
+    if: always()
+    runs-on: ${{matrix.runs-on}}
+    steps:
+      - name: Uninstall Unused Packages
+        if: runner.os == 'Linux'
+        run: sudo apt-get remove ^ghc-[0-9.]+$ azure-cli google-cloud-sdk ^adoptopenjdk-[0-9]+-hotspot$ hhvm libgl1-mesa-dri ^google-chrome.*$ ^dotnet-sdk-[0-9.]+$ firefox
+
+      - name: Checkout Project
+        uses: actions/checkout@v2
+        with:
+          path: src
+      - name: Sparse Checkout
+        working-directory: src
+        run: |
+          git version
+          git sparse-checkout init --cone
+          git sparse-checkout set llvm/test llvm/utils/lit/lit
+
+      - name: Download Test
+        uses: actions/download-artifact@v2
+        with:
+          name: Test${{runner.os}}${{matrix.build-type}}
+          path: build
+      - name: Download LLVM
+        uses: actions/download-artifact@v2
+        with:
+          name: LLVM${{runner.os}}${{matrix.build-type}}
+          path: build
+      - name: Set Executable
+        if: runner.os != 'Windows'
+        run: chmod +x build/bin/*
+
+      - name: Test LLVM
+        run: build/bin/llvm-lit -v src/llvm/test
+
+  test-clang:
+    needs: [build-llvm, build-clang]
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on: [ubuntu-latest, macos-latest, windows-latest]
+        build-type: [Debug]
+    if: always()
+    runs-on: ${{matrix.runs-on}}
+    steps:
+      - name: Uninstall Unused Packages
+        if: runner.os == 'Linux'
+        run: sudo apt-get remove ^ghc-[0-9.]+$ azure-cli google-cloud-sdk ^adoptopenjdk-[0-9]+-hotspot$ hhvm libgl1-mesa-dri ^google-chrome.*$ ^dotnet-sdk-[0-9.]+$ firefox
+
+      - name: Checkout Project
+        uses: actions/checkout@v2
+        with:
+          path: src
+      - name: Sparse Checkout
+        working-directory: src
+        run: |
+          git version
+          git sparse-checkout init --cone
+          git sparse-checkout set clang/test llvm/utils/lit/lit
+
+      - name: Download Test
+        uses: actions/download-artifact@v2
+        with:
+          name: Test${{runner.os}}${{matrix.build-type}}
+          path: build
+      - name: Download LLVM
+        uses: actions/download-artifact@v2
+        with:
+          name: LLVM${{runner.os}}${{matrix.build-type}}
+          path: build
+      - name: Download Clang
+        uses: actions/download-artifact@v2
+        with:
+          name: Clang${{runner.os}}${{matrix.build-type}}
+          path: build
+      - name: Set Executable
+        if: runner.os != 'Windows'
+        run: chmod +x build/bin/*
+
+      - name: Test Clang
+        run: build/bin/llvm-lit -v src/clang/test
