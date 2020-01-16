@@ -13,9 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "Z80AsmPrinter.h"
-#include "Z80.h"
 #include "MCTargetDesc/Z80MCTargetDesc.h"
 #include "MCTargetDesc/Z80TargetStreamer.h"
+#include "Z80.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/TargetRegistry.h"
@@ -84,7 +84,11 @@ void Z80AsmPrinter::emitGlobalVariable(const GlobalVariable *GV) {
   // sections and expected to be contiguous (e.g. ObjC metadata).
   TS->emitAlign(DL.getPreferredAlign(GV));
 
-  if (!GV->hasLocalLinkage())
+  if (GV->hasLocalLinkage())
+    TS->emitLocal(GVSym);
+  else if (GV->isWeakForLinker())
+    TS->emitWeakGlobal(GVSym);
+  else
     TS->emitGlobal(GVSym);
   OutStreamer->emitLabel(GVSym);
   if (GVKind.isBSS())

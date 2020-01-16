@@ -1267,7 +1267,8 @@ void MCStreamer::switchSection(MCSection *Section, uint32_t Subsection) {
     MCSymbol *Sym = Section->getBeginSymbol();
     if (Sym && !Sym->isInSection())
       emitLabel(Sym);
-  }
+  } else if (Context.getAsmInfo()->shouldAlwaysChangeSection())
+    changeSection(Section, Subsection);
 }
 
 bool MCStreamer::switchSection(MCSection *Section, const MCExpr *SubsecExpr) {

@@ -61,7 +61,7 @@ void MCSectionELF::printSwitchToSection(const MCAsmInfo &MAI, const Triple &T,
     return;
   }
 
-  OS << "\t.section\t";
+  OS << MAI.getSectionDirective();
   printName(OS, getName());
 
   // Handle the weird solaris syntax if desired.

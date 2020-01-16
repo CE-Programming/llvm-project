@@ -15,6 +15,7 @@
 #include "TargetInfo/Z80TargetInfo.h"
 #include "Z80.h"
 #include "Z80Subtarget.h"
+#include "Z80TargetObjectFile.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/CodeGen/GlobalISel/CallLowering.h"
@@ -79,7 +80,7 @@ Z80TargetMachine::Z80TargetMachine(const Target &T, const Triple &TT,
     : LLVMTargetMachine(T, computeDataLayout(TT), TT, CPU, FS, Options,
                         getEffectiveRelocModel(RM),
                         getEffectiveCodeModel(CM, CodeModel::Small), OL),
-      TLOF(std::make_unique<TargetLoweringObjectFileELF>()) {
+      TLOF(std::make_unique<Z80ELFTargetObjectFile>()) {
   initAsmInfo();
 
   setGlobalISel(true);

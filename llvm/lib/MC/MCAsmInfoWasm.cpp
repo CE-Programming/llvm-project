@@ -17,7 +17,7 @@ using namespace llvm;
 void MCAsmInfoWasm::anchor() {}
 
 MCAsmInfoWasm::MCAsmInfoWasm() {
-  HasIdentDirective = true;
+  IdentDirective = "\t.ident\t";
   HasNoDeadStrip = true;
   WeakRefDirective = "\t.weak\t";
   PrivateGlobalPrefix = ".L";
