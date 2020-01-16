@@ -24,24 +24,42 @@ Z80TargetAsmStreamer::Z80TargetAsmStreamer(MCStreamer &S,
                                            formatted_raw_ostream &OS)
     : Z80TargetStreamer(S), MAI(S.getContext().getAsmInfo()), OS(OS) {}
 
+void Z80TargetAsmStreamer::emitLabel(MCSymbol *Symbol) {
+  if (Symbol->isTemporary())
+    emitLocal(Symbol);
+}
+
 void Z80TargetAsmStreamer::emitAlign(Align Alignment) {
-  if (Alignment > Align())
-    OS << "\tALIGN\t" << Alignment.value() << '\n';
+  if (auto Mask = Alignment.value() - 1)
+    OS << "\trb\t" << Mask << " - ($ - $$ + " << Mask << ") and not " << Mask
+       << "\n";
 }
 
 void Z80TargetAsmStreamer::emitBlock(uint64_t NumBytes) {
   if (NumBytes)
-    OS << "\tDS\t" << NumBytes << '\n';
+    OS << "\trb\t" << NumBytes << '\n';
+}
+
+void Z80TargetAsmStreamer::emitLocal(MCSymbol *Symbol) {
+  OS << "\tprivate\t";
+  Symbol->print(OS, MAI);
+  OS << '\n';
+}
+
+void Z80TargetAsmStreamer::emitWeakGlobal(MCSymbol *Symbol) {
+  OS << "\tweak\t";
+  Symbol->print(OS, MAI);
+  OS << '\n';
 }
 
 void Z80TargetAsmStreamer::emitGlobal(MCSymbol *Symbol) {
-  OS << "\tXDEF\t";
+  OS << "\tpublic\t";
   Symbol->print(OS, MAI);
   OS << '\n';
 }
 
 void Z80TargetAsmStreamer::emitExtern(MCSymbol *Symbol) {
-  OS << "\tXREF\t";
+  OS << "\textern\t";
   Symbol->print(OS, MAI);
   OS << '\n';
 }

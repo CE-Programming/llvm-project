@@ -25,6 +25,12 @@ class Z80MCAsmInfoELF : public MCAsmInfoELF {
 public:
   explicit Z80MCAsmInfoELF(const Triple &Triple);
 
+  MCSection *getNonexecutableStackSection(MCContext &Ctx) const override;
+
+  bool isAcceptableChar(char C) const override;
+
+  bool shouldOmitSectionDirective(StringRef SectionName) const override;
+
   const char *getBlockDirective(int64_t Size) const override;
 };
 } // End llvm namespace

@@ -52,6 +52,7 @@ MCAsmInfo::MCAsmInfo() {
   Code32Directive = ".code32";
   Code64Directive = ".code64";
   ZeroDirective = "\t.zero\t";
+  BlockSeparator = ", ";
   AsciiDirective = "\t.ascii\t";
   AscizDirective = "\t.asciz\t";
   Data8bitsDirective = "\t.byte\t";
@@ -59,10 +60,17 @@ MCAsmInfo::MCAsmInfo() {
   Data16bitsDirective = "\t.short\t";
   Data32bitsDirective = "\t.long\t";
   Data64bitsDirective = "\t.quad\t";
+  DataULEB128Directive = "\t.uleb128 ";
+  DataSLEB128Directive = "\t.sleb128 ";
+  SectionDirective = "\t.section\t";
   GlobalDirective = "\t.globl\t";
+  SetDirective = ".set ";
+  SetSeparator = ", ";
   WeakDirective = "\t.weak\t";
   if (DwarfExtendedLoc != Default)
     SupportsExtendedDwarfLocDirective = DwarfExtendedLoc == Enable;
+  DwarfFileDirective = "\t.file\t";
+  DwarfLocDirective = "\t.loc\t";
   if (UseLEB128Directives != cl::BOU_UNSET)
     HasLEB128Directives = UseLEB128Directives == cl::BOU_TRUE;
 
