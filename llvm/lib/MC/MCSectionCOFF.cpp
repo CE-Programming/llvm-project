@@ -8,6 +8,7 @@
 
 #include "llvm/MC/MCSectionCOFF.h"
 #include "llvm/BinaryFormat/COFF.h"
+#include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cassert>
@@ -43,7 +44,7 @@ void MCSectionCOFF::printSwitchToSection(const MCAsmInfo &MAI, const Triple &T,
     return;
   }
 
-  OS << "\t.section\t" << getName() << ",\"";
+  OS << MAI.getSectionDirective() << getName() << ",\"";
   if (getCharacteristics() & COFF::IMAGE_SCN_CNT_INITIALIZED_DATA)
     OS << 'd';
   if (getCharacteristics() & COFF::IMAGE_SCN_CNT_UNINITIALIZED_DATA)
