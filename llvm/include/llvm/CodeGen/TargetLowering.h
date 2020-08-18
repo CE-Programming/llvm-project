@@ -4348,6 +4348,15 @@ public:
     return isTypeLegal(VT);
   }
 
+  /// Return true if the target has native support for the specified value type
+  /// and it is 'desirable' to use the type for the given generic opcode. e.g.
+  /// On x86 i16 is legal, but undesirable since i16 instruction encodings are
+  /// longer and some i16 instructions are slow.
+  virtual bool isTypeDesirableForGOp(unsigned /*Opc*/, LLT Ty) const {
+    // By default, assume all legal types are desirable.
+    return isTypeLegal(getMVTForLLT(Ty));
+  }
+
   /// Return true if it is profitable for dag combiner to transform a floating
   /// point op of specified opcode to a equivalent op of an integer
   /// type. e.g. f32 load -> i32 load can be profitable on ARM.
