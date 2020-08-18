@@ -5908,6 +5908,241 @@ bool CombinerHelper::applyCombineIdentity(MachineInstr &MI) {
   return true;
 }
 
+bool CombinerHelper::matchNarrowOp(MachineInstr &MI) {
+  if (MI.getOpcode() != TargetOpcode::G_TRUNC)
+    return false;
+
+  auto &MF = *MI.getParent()->getParent();
+  const auto &TLI = *MF.getSubtarget().getTargetLowering();
+
+  LLT NarrowTy = MRI.getType(MI.getOperand(0).getReg());
+  Register OpReg = MI.getOperand(1).getReg();
+  MachineInstr *OpMI = getDefIgnoringCopies(OpReg, MRI);
+  if (!MRI.hasOneUse(OpReg) || !OpMI)
+    return false;
+
+  switch (unsigned Opc = OpMI->getOpcode()) {
+  case TargetOpcode::G_ADD:
+  case TargetOpcode::G_SUB:
+  case TargetOpcode::G_MUL:
+  case TargetOpcode::G_AND:
+  case TargetOpcode::G_OR:
+  case TargetOpcode::G_XOR:
+  case TargetOpcode::G_LOAD:
+  case TargetOpcode::G_SEXTLOAD:
+  case TargetOpcode::G_ZEXTLOAD:
+    return TLI.isTypeDesirableForGOp(Opc, NarrowTy);
+  default:
+    return false;
+  }
+}
+
+void CombinerHelper::applyNarrowOp(MachineInstr &MI) {
+  assert(MI.getOpcode() == TargetOpcode::G_TRUNC && "Expected a G_TRUNC");
+
+  Register TruncReg = MI.getOperand(0).getReg();
+  LLT NarrowTy = MRI.getType(TruncReg);
+  Register OpReg = MI.getOperand(1).getReg();
+  MachineInstr &OpMI = *getDefIgnoringCopies(OpReg, MRI);
+
+  Observer.erasingInstr(MI);
+  MI.eraseFromParent();
+
+  Builder.setInstr(OpMI);
+  Observer.changingInstr(OpMI);
+  OpMI.getOperand(0).setReg(TruncReg);
+  if (OpMI.mayLoad()) {
+    assert(OpMI.hasOneMemOperand() &&
+           "Expected generic load to have exactly one MMO.");
+    MachineFunction &MF = Builder.getMF();
+    OpMI.setMemRefs(MF, MF.getMachineMemOperand(*OpMI.memoperands_begin(), 0,
+                                                NarrowTy.getSizeInBytes()));
+  } else
+    for (auto &MO : OpMI.explicit_uses())
+      if (MO.isReg())
+        MO.setReg(Builder.buildTrunc(NarrowTy, MO.getReg()).getReg(0));
+  Observer.changedInstr(OpMI);
+}
+
+bool CombinerHelper::matchNarrowLoad(MachineInstr &MI,
+                                     InstrImmPair &MatchInfo) {
+  Register DstReg = MI.getOperand(0).getReg();
+  LLT DstTy = MRI.getType(DstReg);
+  if (!DstTy.isScalar())
+    return false;
+  unsigned DstSize = DstTy.getSizeInBits();
+
+  MatchInfo.Imm = 0;
+  if (!mi_match(
+          DstReg, MRI,
+          m_GTrunc(m_OneUse(m_any_of(
+              m_GLShr(m_OneUse(m_MInstr(MatchInfo.MI)), m_ICst(MatchInfo.Imm)),
+              m_GAShr(m_OneUse(m_MInstr(MatchInfo.MI)), m_ICst(MatchInfo.Imm)),
+              m_MInstr(MatchInfo.MI))))) ||
+      MatchInfo.Imm & 7)
+    return false;
+
+  unsigned LoadOpc = MatchInfo.MI->getOpcode();
+  if (LoadOpc != TargetOpcode::G_LOAD &&
+      LoadOpc != TargetOpcode::G_SEXTLOAD &&
+      LoadOpc != TargetOpcode::G_ZEXTLOAD)
+    return false;
+
+  assert(MatchInfo.MI->hasOneMemOperand() &&
+         "Expected generic load to have exactly one MMO.");
+  const auto *MMO = MatchInfo.MI->memoperands().front();
+  LLT AddrTy = MRI.getType(MatchInfo.MI->getOperand(1).getReg());
+  return !MMO->isVolatile() && !MMO->isAtomic() &&
+         MMO->getSizeInBits() >= DstSize &&
+         MatchInfo.Imm <= int64_t(MMO->getSizeInBits() - DstSize) &&
+         isLegalOrBeforeLegalizer({TargetOpcode::G_LOAD, {DstTy, AddrTy}});
+}
+
+void CombinerHelper::applyNarrowLoad(MachineInstr &MI,
+                                     const InstrImmPair &MatchInfo) {
+  Builder.setInstrAndDebugLoc(*MatchInfo.MI);
+  Builder.buildLoadFromOffset(MI.getOperand(0), MatchInfo.MI->getOperand(1),
+                              *MatchInfo.MI->memoperands().front(),
+                              MatchInfo.Imm >> 3);
+
+  Observer.erasingInstr(MI);
+  MI.eraseFromParent();
+}
+
+static bool EvalConstICmp(CmpInst::Predicate Pred, const APInt &LHS,
+                          const APInt &RHS) {
+  switch (Pred) {
+  case CmpInst::Predicate::ICMP_EQ:
+    return LHS.eq(RHS);
+  case CmpInst::Predicate::ICMP_NE:
+    return LHS.ne(RHS);
+  case CmpInst::Predicate::ICMP_UGT:
+    return LHS.ugt(RHS);
+  case CmpInst::Predicate::ICMP_UGE:
+    return LHS.uge(RHS);
+  case CmpInst::Predicate::ICMP_ULT:
+    return LHS.ult(RHS);
+  case CmpInst::Predicate::ICMP_ULE:
+    return LHS.ule(RHS);
+  case CmpInst::Predicate::ICMP_SGT:
+    return LHS.sgt(RHS);
+  case CmpInst::Predicate::ICMP_SGE:
+    return LHS.sge(RHS);
+  case CmpInst::Predicate::ICMP_SLT:
+    return LHS.slt(RHS);
+  case CmpInst::Predicate::ICMP_SLE:
+    return LHS.sle(RHS);
+  default:
+    llvm_unreachable("Unhandled ICmp predicate");
+  }
+}
+
+bool CombinerHelper::matchNarrowICmp(MachineInstr &MI, TypeImmPair &MatchInfo) {
+  if (MI.getOpcode() != TargetOpcode::G_ICMP)
+    return false;
+
+  auto Pred = CmpInst::Predicate(MI.getOperand(1).getPredicate());
+  assert(CmpInst::isIntPredicate(Pred) &&
+         "Expected G_ICMP to have an int pred.");
+  assert(CmpInst::isTrueWhenEqual(Pred) != CmpInst::isFalseWhenEqual(Pred) &&
+         "All int preds should have a known result when equal.");
+
+  Register LHSReg = MI.getOperand(2).getReg();
+  Register RHSReg = MI.getOperand(3).getReg();
+  LLT Ty = MRI.getType(LHSReg);
+  if (Ty.isVector())
+    return false;
+
+  // Invalid type indicates constant result.
+  MatchInfo.Ty = LLT();
+
+  // A register is always trivially equal to itself.
+  if (LHSReg == RHSReg) {
+    MatchInfo.Imm = CmpInst::isTrueWhenEqual(Pred);
+    return true;
+  }
+
+  KnownBits KnownLHS = KB->getKnownBits(LHSReg);
+  KnownBits KnownRHS = KB->getKnownBits(RHSReg);
+  KnownBits KnownNotEqual = KnownLHS ^ KnownRHS;
+
+  // Known bits reported definitely equal registers.
+  if (KnownNotEqual.isZero()) {
+    MatchInfo.Imm = CmpInst::isTrueWhenEqual(Pred);
+    return true;
+  }
+
+  // Known bits reported definitely unequal registers.
+  if (KnownNotEqual.isNonZero()) {
+    // Equality can be evaluated directly.
+    if (CmpInst::isEquality(Pred)) {
+      MatchInfo.Imm = Pred == CmpInst::ICMP_NE;
+      return true;
+    }
+
+    // Otherwise need to compare the leading known bits.
+    if (unsigned KnownLeading =
+            (KnownNotEqual.Zero | KnownNotEqual.One).countLeadingOnes()) {
+      APInt LeadingConstLHS =
+          KnownLHS
+              .extractBits(KnownLeading, KnownLHS.getBitWidth() - KnownLeading)
+              .getConstant();
+      APInt LeadingConstRHS =
+          KnownRHS
+              .extractBits(KnownLeading, KnownRHS.getBitWidth() - KnownLeading)
+              .getConstant();
+      if (LeadingConstLHS != LeadingConstRHS) {
+        MatchInfo.Imm = EvalConstICmp(Pred, LeadingConstLHS, LeadingConstRHS);
+        return true;
+      }
+    }
+  }
+
+  if (CmpInst::isSigned(Pred))
+    return false;
+
+  unsigned Width = 8;
+  if (Width >= KnownEqual.getBitWidth())
+    return false;
+  for (ShiftAmt = 0; ShiftAmt < KnownEqual.getBitWidth(); ShiftAmt += Width)
+    if ((KnownNotEqual.Zero | APInt::getBitsSet(KnownEqual.getBitWidth(),
+                                                ShiftAmt, ShiftAmt + Width))
+            .isAllOnesValue())
+      return true;
+
+  return false;
+}
+
+void CombinerHelper::applyNarrowCompare(MachineInstr &MI, unsigned ShiftAmt) {
+  assert(MI.getOpcode() == TargetOpcode::G_ICMP && "Expected a G_ICMP");
+  Builder.setInstrAndDebugLoc(MI);
+
+  if (!MatchInfo.Ty.isValid()) {
+    Builder.buildConstant(MI.getOperand(0).getReg(), MatchInfo.Imm);
+
+    Observer.erasingInstr(MI);
+    MI.eraseFromParent();
+    return;
+  }
+
+  Observer.changingInstr(MI);
+  for (auto &MO : MI.explicit_uses()) {
+    if (!MO.isReg())
+      continue;
+    Register Reg = MO.getReg();
+    LLT Ty = MRI.getType(Reg);
+    if (Ty.isPointer()) {
+      Ty = LLT::scalar(Ty.getSizeInBits());
+      Reg = Builder.buildPtrToInt(Ty, Reg).getReg(0);
+    }
+    if (MatchInfo.Imm)
+      Reg = Builder.buildLShr(Ty, Reg, Builder.buildConstant(Ty, MatchInfo.Imm))
+                .getReg(0);
+    MO.setReg(Builder.buildTrunc(MatchInfo.Ty, Reg).getReg(0));
+  }
+  Observer.changedInstr(MI);
+}
+
 bool CombinerHelper::matchSplitConditions(MachineInstr &MI) {
   if (MI.getOpcode() != TargetOpcode::G_BRCOND)
     return false;

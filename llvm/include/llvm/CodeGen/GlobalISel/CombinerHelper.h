@@ -541,6 +541,12 @@ public:
   bool matchCombineIdentity(MachineInstr &MI);
   bool applyCombineIdentity(MachineInstr &MI);
 
+  bool matchNarrowOp(MachineInstr &MI);
+  void applyNarrowOp(MachineInstr &MI);
+
+  bool matchNarrowCompare(MachineInstr &MI, unsigned &ShiftAmt);
+  void applyNarrowCompare(MachineInstr &MI, unsigned ShiftAmt);
+
   /// Split branches on conditions combined with and/or into multiple branches.
   bool matchSplitConditions(MachineInstr &MI);
   void applySplitConditions(MachineInstr &MI);
