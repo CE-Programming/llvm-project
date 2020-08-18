@@ -1085,6 +1085,19 @@ def combine_identity : GICombineRule<
          [{ return Helper.matchCombineIdentity(*${mi}); }]),
   (apply [{ Helper.applyCombineIdentity(*${mi}); }])>;
 
+def narrow_op : GICombineRule<
+  (defs root:$mi),
+  (match (wip_match_opcode G_TRUNC):$mi,
+         [{ return Helper.matchNarrowOp(*${mi}); }]),
+  (apply [{ Helper.applyNarrowOp(*${mi}); }])>;
+
+def narrow_compare_matchdata : GIDefMatchData<"unsigned">;
+def narrow_compare : GICombineRule<
+  (defs root:$mi, narrow_compare_matchdata:$matchinfo),
+  (match (wip_match_opcode G_ICMP):$mi,
+         [{ return Helper.matchNarrowCompare(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyNarrowCompare(*${mi}, ${matchinfo}); }])>;
+
 def split_conditions : GICombineRule<
   (defs root:$mi),
   (match (wip_match_opcode G_BRCOND):$mi,
