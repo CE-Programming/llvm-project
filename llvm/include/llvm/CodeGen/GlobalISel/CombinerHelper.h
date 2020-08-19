@@ -64,6 +64,12 @@ struct IndexedLoadStoreMatchInfo {
   bool IsPre;
 };
 
+struct ExtOrTrunc {
+  unsigned ExtOpc;
+  unsigned InPlaceOpc;
+  Register SrcReg;
+};
+
 struct PtrAddChain {
   int64_t Imm;
   Register Base;
@@ -550,6 +556,9 @@ public:
 
   bool matchCombineIdentity(MachineInstr &MI);
   bool applyCombineIdentity(MachineInstr &MI);
+
+  bool matchCombineExtOrTrunc(MachineInstr &MI, ExtOrTrunc &Op);
+  void applyCombineExtOrTrunc(MachineInstr &MI, const ExtOrTrunc &Op);
 
   bool matchNarrowOp(MachineInstr &MI);
   void applyNarrowOp(MachineInstr &MI);
