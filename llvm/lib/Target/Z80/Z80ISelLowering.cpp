@@ -186,6 +186,7 @@ bool Z80TargetLowering::isTypeDesirableForGOp(unsigned Opc, LLT Ty) const {
   switch (Opc) {
   default:
   case TargetOpcode::G_ANYEXT:
+  case TargetOpcode::G_CONSTANT:
   case TargetOpcode::G_SEXT:
   case TargetOpcode::G_ZEXT:
     return true;

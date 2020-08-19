@@ -298,7 +298,7 @@ public:
         if (isInstUnsupported({TargetOpcode::G_TRUNC, {DstTy, MergeSrcTy}}))
           return false;
 
-        LLVM_DEBUG(dbgs() << "Combining G_TRUNC(G_MERGE_VALUES) to G_TRUNC: "
+        LLVM_DEBUG(dbgs() << ".. Combine G_TRUNC(G_MERGE_VALUES) to G_TRUNC: "
                           << MI);
 
         Builder.buildTrunc(DstReg, MergeSrcReg);
@@ -306,7 +306,7 @@ public:
       } else if (DstSize == MergeSrcSize) {
         // If the sizes match we can simply try to replace the register
         LLVM_DEBUG(
-            dbgs() << "Replacing G_TRUNC(G_MERGE_VALUES) with merge input: "
+            dbgs() << ".. Replace G_TRUNC(G_MERGE_VALUES) with merge input: "
                    << MI);
         replaceRegOrBuildCopy(DstReg, MergeSrcReg, MRI, Builder, UpdatedDefs,
                               Observer);
@@ -318,7 +318,7 @@ public:
           return false;
 
         LLVM_DEBUG(
-            dbgs() << "Combining G_TRUNC(G_MERGE_VALUES) to G_MERGE_VALUES: "
+            dbgs() << ".. Combine G_TRUNC(G_MERGE_VALUES) to G_MERGE_VALUES: "
                    << MI);
 
         const unsigned NumSrcs = DstSize / MergeSrcSize;
@@ -336,6 +336,52 @@ public:
       }
 
       markInstAndDefDead(MI, *SrcMerge, DeadInsts);
+      return true;
+    }
+
+    if (SrcMI->getOpcode() == TargetOpcode::G_INSERT) {
+      const LLT DstTy = MRI.getType(DstReg);
+      const unsigned DstSize = DstTy.getSizeInBits();
+
+      const Register InsertSrcReg = SrcMI->getOperand(1).getReg();
+      const LLT InsertSrcTy = MRI.getType(InsertSrcReg);
+
+      const Register InsertReg = SrcMI->getOperand(2).getReg();
+      const LLT InsertTy = MRI.getType(InsertReg);
+      const unsigned InsertSize = InsertTy.getSizeInBits();
+
+      const unsigned InsertPos = SrcMI->getOperand(3).getImm();
+
+      if (InsertSize == DstSize && InsertPos == 0) {
+        // Use inserted value directly.
+        LLVM_DEBUG(dbgs() << ".. Replacing G_TRUNC(G_INSERT) with insert value: "
+                          << MI);
+        replaceRegOrBuildCopy(DstReg, InsertReg, MRI, Builder, UpdatedDefs,
+                              Observer);
+      } else if (InsertSize > DstSize && InsertPos == 0) {
+        // Insert overwrites all trunc bits, so truncate inserted value.
+        if (isInstUnsupported({TargetOpcode::G_TRUNC, {DstTy, InsertTy}}))
+          return false;
+
+        LLVM_DEBUG(dbgs() << ".. Combine G_TRUNC(G_INSERT) to insert value: "
+                          << MI);
+        Builder.buildTrunc(DstReg, InsertReg);
+        UpdatedDefs.push_back(DstReg);
+      } else if (InsertPos >= DstSize) {
+        // Insert doesn't affect trunc bits, so truncate source value.
+        if (isInstUnsupported({TargetOpcode::G_TRUNC, {DstTy, InsertSrcTy}}))
+          return false;
+
+        LLVM_DEBUG(dbgs() << ".. Combine G_TRUNC(G_INSERT) to source value: "
+                          << MI);
+        Builder.buildTrunc(DstReg, InsertSrcReg);
+        UpdatedDefs.push_back(DstReg);
+      } else {
+        // Unable to combine
+        return false;
+      }
+
+      markInstAndDefDead(MI, *SrcMI, DeadInsts);
       return true;
     }
 

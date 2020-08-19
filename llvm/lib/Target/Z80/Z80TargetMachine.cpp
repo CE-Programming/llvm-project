@@ -40,6 +40,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeZ80Target() {
   PassRegistry &PR = *PassRegistry::getPassRegistry();
   initializeZ80PreLegalizerCombinerPass(PR);
   initializeGlobalISel(PR);
+  initializeZ80PostLegalizerCombinerPass(PR);
   initializeZ80PostSelectCombinerPass(PR);
   initializeZ80MachineLateOptimizationPass(PR);
 }
@@ -141,6 +142,7 @@ public:
   bool addIRTranslator() override;
   void addPreLegalizeMachineIR() override;
   bool addLegalizeMachineIR() override;
+  void addPreRegBankSelect() override;
   bool addRegBankSelect() override;
   bool addGlobalInstructionSelect() override;
   void addMachineSSAOptimization() override;
@@ -168,6 +170,14 @@ void Z80PassConfig::addPreLegalizeMachineIR() {
 bool Z80PassConfig::addLegalizeMachineIR() {
   addPass(new Legalizer);
   return false;
+}
+
+void Z80PassConfig::addPreRegBankSelect() {
+  // For now we don't add this to the pipeline for -O0. We could do in future
+  // if we split the combines into separate O0/opt groupings.
+  bool IsOptNone = getOptLevel() == CodeGenOpt::None;
+  if (!IsOptNone)
+    addPass(createZ80PostLegalizeCombiner(IsOptNone));
 }
 
 bool Z80PassConfig::addRegBankSelect() {
