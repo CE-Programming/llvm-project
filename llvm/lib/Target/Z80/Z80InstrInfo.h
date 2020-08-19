@@ -185,10 +185,11 @@ public:
 private:
   void updateOperandRegConstraints(MachineFunction &MF,
                                    MachineInstr &NewMI) const;
-  MachineInstr *
-  foldMemoryOperandImpl(MachineFunction &MF, MachineInstr &MI, unsigned OpNum,
-                        ArrayRef<MachineOperand> MOs,
-                        MachineBasicBlock::iterator InsertPt) const;
+  MachineInstr *foldMemoryOperandImpl(MachineFunction &MF, MachineInstr &MI,
+                                      unsigned OpNum,
+                                      ArrayRef<MachineOperand> MOs,
+                                      MachineBasicBlock::iterator InsertPt,
+                                      unsigned Size = 0) const;
 
   /// canExchange - This returns whether the two instructions can be directly
   /// exchanged with one EX instruction. Since the only register exchange

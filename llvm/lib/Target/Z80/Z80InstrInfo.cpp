@@ -1496,7 +1496,8 @@ void Z80InstrInfo::updateOperandRegConstraints(MachineFunction &MF,
 
 MachineInstr *Z80InstrInfo::foldMemoryOperandImpl(
     MachineFunction &MF, MachineInstr &MI, unsigned OpNum,
-    ArrayRef<MachineOperand> MOs, MachineBasicBlock::iterator InsertPt) const {
+    ArrayRef<MachineOperand> MOs, MachineBasicBlock::iterator InsertPt,
+    unsigned Size) const {
   bool IsOff;
   if (MOs.size() == 1 && MOs[0].isReg())
     IsOff = false;
@@ -1507,6 +1508,7 @@ MachineInstr *Z80InstrInfo::foldMemoryOperandImpl(
     return nullptr;
 
   unsigned Opc;
+  unsigned OpSize = 1;
   switch (MI.getOpcode()) {
   case Z80::BIT8bg: Opc = IsOff ? Z80::BIT8bo : Z80::BIT8bp; break;
   case Z80::ADD8ar: Opc = IsOff ? Z80::ADD8ao : Z80::ADD8ap; break;
@@ -1519,6 +1521,9 @@ MachineInstr *Z80InstrInfo::foldMemoryOperandImpl(
   case Z80::TST8ar: Opc = IsOff ? Z80::TST8ao : Z80::TST8ap; break;
   default: return nullptr;
   }
+
+  if (Size && Size < OpSize)
+    return nullptr;
 
   MachineInstrBuilder MIB(
       MF, MF.CreateMachineInstr(get(Opc), MI.getDebugLoc(), true));
@@ -1549,12 +1554,12 @@ Z80InstrInfo::foldMemoryOperandImpl(MachineFunction &MF, MachineInstr &MI,
   const MachineFrameInfo &MFI = MF.getFrameInfo();
   unsigned Size = MFI.getObjectSize(FrameIndex);
 
-  if (Ops.size() != 1 || Size != 1)
+  if (Ops.size() != 1)
     return nullptr;
 
   MachineOperand MOs[2] = {MachineOperand::CreateFI(FrameIndex),
                            MachineOperand::CreateImm(0)};
-  return foldMemoryOperandImpl(MF, MI, Ops[0], MOs, InsertPt);
+  return foldMemoryOperandImpl(MF, MI, Ops[0], MOs, InsertPt, Size);
 }
 
 MachineInstr *

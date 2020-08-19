@@ -437,7 +437,10 @@ llvm::getConstantFPVRegVal(Register VReg, const MachineRegisterInfo &MRI) {
 }
 
 Optional<DefinitionAndSourceRegister>
-llvm::getDefSrcRegIgnoringCopies(Register Reg, const MachineRegisterInfo &MRI) {
+llvm::getDefSrcRegIgnoringCopies(Register Reg, const MachineRegisterInfo &MRI,
+                                 bool HasOneNonDBGUse) {
+  if (HasOneNonDBGUse && !MRI.hasOneNonDBGUse(Reg))
+    return None;
   Register DefSrcReg = Reg;
   auto *DefMI = MRI.getVRegDef(Reg);
   auto DstTy = MRI.getType(DefMI->getOperand(0).getReg());
@@ -446,6 +449,8 @@ llvm::getDefSrcRegIgnoringCopies(Register Reg, const MachineRegisterInfo &MRI) {
   unsigned Opc = DefMI->getOpcode();
   while (Opc == TargetOpcode::COPY || isPreISelGenericOptimizationHint(Opc)) {
     Register SrcReg = DefMI->getOperand(1).getReg();
+    if (HasOneNonDBGUse && !MRI.hasOneNonDBGUse(SrcReg))
+      break;
     auto SrcTy = MRI.getType(SrcReg);
     if (!SrcTy.isValid())
       break;
@@ -457,16 +462,18 @@ llvm::getDefSrcRegIgnoringCopies(Register Reg, const MachineRegisterInfo &MRI) {
 }
 
 MachineInstr *llvm::getDefIgnoringCopies(Register Reg,
-                                         const MachineRegisterInfo &MRI) {
+                                         const MachineRegisterInfo &MRI,
+                                         bool HasOneNonDBGUse) {
   Optional<DefinitionAndSourceRegister> DefSrcReg =
-      getDefSrcRegIgnoringCopies(Reg, MRI);
+      getDefSrcRegIgnoringCopies(Reg, MRI, HasOneNonDBGUse);
   return DefSrcReg ? DefSrcReg->MI : nullptr;
 }
 
 Register llvm::getSrcRegIgnoringCopies(Register Reg,
-                                       const MachineRegisterInfo &MRI) {
+                                       const MachineRegisterInfo &MRI,
+                                       bool HasOneNonDBGUse) {
   Optional<DefinitionAndSourceRegister> DefSrcReg =
-      getDefSrcRegIgnoringCopies(Reg, MRI);
+      getDefSrcRegIgnoringCopies(Reg, MRI, HasOneNonDBGUse);
   return DefSrcReg ? DefSrcReg->Reg : Register();
 }
 

@@ -1,4 +1,4 @@
-//=== lib/CodeGen/GlobalISel/Z80PreLegalizerCombiner.cpp ------------------===//
+//=== lib/CodeGen/GlobalISel/Z80PostLegalizerCombiner.cpp -----------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 //
 // This pass does combining of machine instructions at the generic MI level,
-// before the legalizer.
+// after the legalizer.
 //
 //===----------------------------------------------------------------------===//
 
@@ -21,27 +21,27 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Target/TargetMachine.h"
 
-#define DEBUG_TYPE "z80-prelegalizer-combiner"
+#define DEBUG_TYPE "z80-postlegalizer-combiner"
 
 using namespace llvm;
 
-#define Z80PRELEGALIZERCOMBINERHELPER_GENCOMBINERHELPER_DEPS
-#include "Z80GenPreLegalizeGICombiner.inc"
-#undef Z80PRELEGALIZERCOMBINERHELPER_GENCOMBINERHELPER_DEPS
+#define Z80POSTLEGALIZERCOMBINERHELPER_GENCOMBINERHELPER_DEPS
+#include "Z80GenPostLegalizeGICombiner.inc"
+#undef Z80POSTLEGALIZERCOMBINERHELPER_GENCOMBINERHELPER_DEPS
 
 namespace {
-#define Z80PRELEGALIZERCOMBINERHELPER_GENCOMBINERHELPER_H
-#include "Z80GenPreLegalizeGICombiner.inc"
-#undef Z80PRELEGALIZERCOMBINERHELPER_GENCOMBINERHELPER_H
+#define Z80POSTLEGALIZERCOMBINERHELPER_GENCOMBINERHELPER_H
+#include "Z80GenPostLegalizeGICombiner.inc"
+#undef Z80POSTLEGALIZERCOMBINERHELPER_GENCOMBINERHELPER_H
 
-class Z80PreLegalizerCombinerInfo : public CombinerInfo {
+class Z80PostLegalizerCombinerInfo : public CombinerInfo {
   GISelKnownBits *KB;
   MachineDominatorTree *MDT;
-  Z80GenPreLegalizerCombinerHelperRuleConfig GeneratedRuleCfg;
+  Z80GenPostLegalizerCombinerHelperRuleConfig GeneratedRuleCfg;
 
 public:
-  Z80PreLegalizerCombinerInfo(bool EnableOpt, bool OptSize, bool MinSize,
-                              GISelKnownBits *KB, MachineDominatorTree *MDT)
+  Z80PostLegalizerCombinerInfo(bool EnableOpt, bool OptSize, bool MinSize,
+                               GISelKnownBits *KB, MachineDominatorTree *MDT)
       : CombinerInfo(/*AllowIllegalOps*/ true, /*ShouldLegalizeIllegal*/ false,
                      /*LegalizerInfo*/ nullptr, EnableOpt, OptSize, MinSize),
         KB(KB), MDT(MDT) {
@@ -53,29 +53,31 @@ public:
                        MachineIRBuilder &B) const override;
 };
 
-bool Z80PreLegalizerCombinerInfo::combine(GISelChangeObserver &Observer,
-                                          MachineInstr &MI,
-                                          MachineIRBuilder &B) const {
-  CombinerHelper Helper(Observer, B, KB, MDT);
-  Z80GenPreLegalizerCombinerHelper Generated(GeneratedRuleCfg, Helper);
+bool Z80PostLegalizerCombinerInfo::combine(GISelChangeObserver &Observer,
+                                           MachineInstr &MI,
+                                           MachineIRBuilder &B) const {
+  const auto *LI =
+      MI.getParent()->getParent()->getSubtarget().getLegalizerInfo();
+  CombinerHelper Helper(Observer, B, KB, MDT, LI);
+  Z80GenPostLegalizerCombinerHelper Generated(GeneratedRuleCfg, Helper);
   return Generated.tryCombineAll(Observer, MI, B, Helper);
 }
 
-#define Z80PRELEGALIZERCOMBINERHELPER_GENCOMBINERHELPER_CPP
-#include "Z80GenPreLegalizeGICombiner.inc"
-#undef Z80PRELEGALIZERCOMBINERHELPER_GENCOMBINERHELPER_CPP
+#define Z80POSTLEGALIZERCOMBINERHELPER_GENCOMBINERHELPER_CPP
+#include "Z80GenPostLegalizeGICombiner.inc"
+#undef Z80POSTLEGALIZERCOMBINERHELPER_GENCOMBINERHELPER_CPP
 
 // Pass boilerplate
 // ================
 
-class Z80PreLegalizerCombiner : public MachineFunctionPass {
+class Z80PostLegalizerCombiner : public MachineFunctionPass {
 public:
   static char ID;
 
-  Z80PreLegalizerCombiner(bool IsOptNone = false);
+  Z80PostLegalizerCombiner(bool IsOptNone = false);
 
   StringRef getPassName() const override {
-    return "Z80 Pre-Legalizer Combiner";
+    return "Z80 Post-Legalizer Combiner";
   }
 
   bool runOnMachineFunction(MachineFunction &MF) override;
@@ -86,7 +88,7 @@ private:
 };
 } // end anonymous namespace
 
-void Z80PreLegalizerCombiner::getAnalysisUsage(AnalysisUsage &AU) const {
+void Z80PostLegalizerCombiner::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<TargetPassConfig>();
   AU.setPreservesCFG();
   getSelectionDAGFallbackAnalysisUsage(AU);
@@ -99,12 +101,12 @@ void Z80PreLegalizerCombiner::getAnalysisUsage(AnalysisUsage &AU) const {
   MachineFunctionPass::getAnalysisUsage(AU);
 }
 
-Z80PreLegalizerCombiner::Z80PreLegalizerCombiner(bool IsOptNone)
+Z80PostLegalizerCombiner::Z80PostLegalizerCombiner(bool IsOptNone)
     : MachineFunctionPass(ID), IsOptNone(IsOptNone) {
-  initializeZ80PreLegalizerCombinerPass(*PassRegistry::getPassRegistry());
+  initializeZ80PostLegalizerCombinerPass(*PassRegistry::getPassRegistry());
 }
 
-bool Z80PreLegalizerCombiner::runOnMachineFunction(MachineFunction &MF) {
+bool Z80PostLegalizerCombiner::runOnMachineFunction(MachineFunction &MF) {
   if (MF.getProperties().hasProperty(
           MachineFunctionProperties::Property::FailedISel))
     return false;
@@ -115,24 +117,24 @@ bool Z80PreLegalizerCombiner::runOnMachineFunction(MachineFunction &MF) {
   GISelKnownBits *KB = &getAnalysis<GISelKnownBitsAnalysis>().get(MF);
   MachineDominatorTree *MDT =
       IsOptNone ? nullptr : &getAnalysis<MachineDominatorTree>();
-  Z80PreLegalizerCombinerInfo PCInfo(EnableOpt, F.hasOptSize(), F.hasMinSize(),
-                                     KB, MDT);
+  Z80PostLegalizerCombinerInfo PCInfo(EnableOpt, F.hasOptSize(), F.hasMinSize(),
+                                      KB, MDT);
   Combiner C(PCInfo, TPC);
   return C.combineMachineInstrs(MF, /*CSEInfo*/ nullptr);
 }
 
-char Z80PreLegalizerCombiner::ID = 0;
-INITIALIZE_PASS_BEGIN(Z80PreLegalizerCombiner, DEBUG_TYPE,
-                      "Combine Z80 machine instrs before legalization", false,
+char Z80PostLegalizerCombiner::ID = 0;
+INITIALIZE_PASS_BEGIN(Z80PostLegalizerCombiner, DEBUG_TYPE,
+                      "Combine Z80 machine instrs after legalization", false,
                       false)
 INITIALIZE_PASS_DEPENDENCY(TargetPassConfig)
 INITIALIZE_PASS_DEPENDENCY(GISelKnownBitsAnalysis)
-INITIALIZE_PASS_END(Z80PreLegalizerCombiner, DEBUG_TYPE,
-                    "Combine Z80 machine instrs before legalization", false,
+INITIALIZE_PASS_END(Z80PostLegalizerCombiner, DEBUG_TYPE,
+                    "Combine Z80 machine instrs after legalization", false,
                     false)
 
 namespace llvm {
-FunctionPass *createZ80PreLegalizeCombiner(bool IsOptNone) {
-  return new Z80PreLegalizerCombiner(IsOptNone);
+FunctionPass *createZ80PostLegalizeCombiner(bool IsOptNone) {
+  return new Z80PostLegalizerCombiner(IsOptNone);
 }
 } // end namespace llvm
