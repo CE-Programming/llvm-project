@@ -5908,6 +5908,80 @@ bool CombinerHelper::applyCombineIdentity(MachineInstr &MI) {
   return true;
 }
 
+bool CombinerHelper::matchCombineExtOrTrunc(MachineInstr &MI, ExtOrTrunc &Op) {
+  Register DstReg = MI.getOperand(0).getReg();
+  auto &&TruncSrc = m_GTrunc(m_Reg(Op.SrcReg));
+
+  // anyext/trunc(trunc(x)) -> anyext/trunc(x)
+  if (mi_match(DstReg, MRI,
+               m_any_of(m_GAnyExt(TruncSrc), m_GTrunc(TruncSrc)))) {
+    Op.ExtOpc = TargetOpcode::G_ANYEXT;
+    Op.InPlaceOpc = TargetOpcode::COPY;
+    return true;
+  }
+
+  // sext(trunc(x)) -> sext_inreg(anyext/trunc(x), m)
+  if (mi_match(DstReg, MRI, m_GSExt(TruncSrc))) {
+    Op.ExtOpc = TargetOpcode::G_ANYEXT;
+    Op.InPlaceOpc = TargetOpcode::G_SEXT_INREG;
+    return true;
+  }
+
+  // zext(trunc(x)) -> and(anyext/trunc(x), m)
+  if (mi_match(DstReg, MRI, m_GZExt(TruncSrc))) {
+    Op.ExtOpc = TargetOpcode::G_ANYEXT;
+    Op.InPlaceOpc = TargetOpcode::G_AND;
+    return true;
+  }
+
+  MachineInstr *ExtMI;
+  auto &&ExtSrc =
+      m_all_of(m_any_of(m_GAnyExt(m_Reg(Op.SrcReg)), m_GSExt(m_Reg(Op.SrcReg)),
+                        m_GZExt(m_Reg(Op.SrcReg))),
+               m_MInstr(ExtMI));
+
+  // Xext(Yext(x)) -> Yext(x) unless (Xext, Yext) is (zext, sext)
+  // zext(sext(x)) -> and(sext(x), m)
+  if (mi_match(DstReg, MRI,
+               m_any_of(m_GAnyExt(ExtSrc), m_GTrunc(ExtSrc), m_GSExt(ExtSrc),
+                        m_GZExt(ExtSrc)))) {
+    Op.ExtOpc = ExtMI->getOpcode();
+    Op.InPlaceOpc = mi_match(DstReg, MRI, m_GZExt(m_GSExt(m_Reg())))
+                        ? TargetOpcode::G_AND
+                        : TargetOpcode::COPY;
+    return true;
+  }
+
+  return false;
+}
+void CombinerHelper::applyCombineExtOrTrunc(MachineInstr &MI,
+                                            const ExtOrTrunc &Op) {
+  Register DstReg = MI.getOperand(0).getReg();
+  LLT DstTy = MRI.getType(DstReg);
+  unsigned MidSize = MRI.getType(MI.getOperand(1).getReg()).getSizeInBits();
+
+  Builder.setInstr(MI);
+  switch (Op.InPlaceOpc) {
+  case TargetOpcode::COPY:
+    Builder.buildExtOrTrunc(Op.ExtOpc, DstReg, Op.SrcReg);
+    break;
+  case TargetOpcode::G_SEXT_INREG:
+    Builder.buildSExtInReg(
+        DstReg, Builder.buildExtOrTrunc(Op.ExtOpc, DstTy, Op.SrcReg), MidSize);
+    break;
+  case TargetOpcode::G_AND:
+    Builder.buildAnd(
+        DstReg, Builder.buildExtOrTrunc(Op.ExtOpc, DstTy, Op.SrcReg),
+        Builder.buildConstant(
+            DstTy, APInt::getLowBitsSet(DstTy.getSizeInBits(), MidSize)));
+    break;
+  default: llvm_unreachable("Unexpected in place opcode");
+  }
+
+  Observer.erasingInstr(MI);
+  MI.eraseFromParent();
+}
+
 bool CombinerHelper::matchNarrowOp(MachineInstr &MI) {
   if (MI.getOpcode() != TargetOpcode::G_TRUNC)
     return false;
@@ -6234,11 +6308,12 @@ void CombinerHelper::applySplitConditions(MachineInstr &MI) {
 }
 
 bool CombinerHelper::matchFlipCondition(MachineInstr &MI, MachineInstr *&CmpI) {
-  Register DstReg = MI.getOperand(0).getReg();
   int64_t Cst;
-  return mi_match(DstReg, MRI, m_GXor(m_MInstr(CmpI), m_ICst(Cst))) &&
+  return mi_match(MI.getOperand(0).getReg(), MRI,
+                  m_GXor(m_MInstr(CmpI), m_ICst(Cst))) &&
          (CmpI->getOpcode() == TargetOpcode::G_ICMP ||
-          CmpI->getOpcode() == TargetOpcode::G_FCMP) && Cst;
+          CmpI->getOpcode() == TargetOpcode::G_FCMP) &&
+         Cst;
 }
 
 void CombinerHelper::applyFlipCondition(MachineInstr &MI, MachineInstr &CmpI) {
