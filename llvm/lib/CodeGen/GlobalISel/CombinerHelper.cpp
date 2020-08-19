@@ -6427,26 +6427,38 @@ bool CombinerHelper::matchNarrowOp(MachineInstr &MI) {
   if (MI.getOpcode() != TargetOpcode::G_TRUNC)
     return false;
 
-  auto &MF = *MI.getParent()->getParent();
-  const auto &TLI = *MF.getSubtarget().getTargetLowering();
-
   LLT NarrowTy = MRI.getType(MI.getOperand(0).getReg());
-  Register OpReg = MI.getOperand(1).getReg();
-  MachineInstr *OpMI = getDefIgnoringCopies(OpReg, MRI);
-  if (!MRI.hasOneUse(OpReg) || !OpMI)
+  MachineInstr *OpMI = getDefIgnoringCopies(MI.getOperand(1).getReg(), MRI,
+                                            /*HasOneNonDBGUse=*/true);
+  if (!OpMI)
     return false;
 
-  switch (unsigned Opc = OpMI->getOpcode()) {
+  for (const auto *MMO : OpMI->memoperands())
+    if (MMO->isVolatile() || MMO->isAtomic())
+      return false;
+
+  auto &MF = *MI.getParent()->getParent();
+  const auto &TLI = *MF.getSubtarget().getTargetLowering();
+  unsigned Opc = OpMI->getOpcode();
+  if (!TLI.isTypeDesirableForGOp(Opc, NarrowTy))
+    return false;
+
+  const auto &DL = MF.getDataLayout();
+  switch (Opc) {
   case TargetOpcode::G_ADD:
   case TargetOpcode::G_SUB:
   case TargetOpcode::G_MUL:
   case TargetOpcode::G_AND:
   case TargetOpcode::G_OR:
   case TargetOpcode::G_XOR:
+    return isLegalOrBeforeLegalizer({Opc, {NarrowTy, NarrowTy}});
   case TargetOpcode::G_LOAD:
   case TargetOpcode::G_SEXTLOAD:
   case TargetOpcode::G_ZEXTLOAD:
-    return TLI.isTypeDesirableForGOp(Opc, NarrowTy);
+    return isLegalOrBeforeLegalizer(
+        {Opc, {NarrowTy, LLT::pointer(0, DL.getPointerSizeInBits(0))}});
+  case TargetOpcode::G_CONSTANT:
+    return isLegalOrBeforeLegalizer({Opc, {NarrowTy}});
   default:
     return false;
   }
@@ -6457,8 +6469,8 @@ void CombinerHelper::applyNarrowOp(MachineInstr &MI) {
 
   Register TruncReg = MI.getOperand(0).getReg();
   LLT NarrowTy = MRI.getType(TruncReg);
-  Register OpReg = MI.getOperand(1).getReg();
-  MachineInstr &OpMI = *getDefIgnoringCopies(OpReg, MRI);
+  MachineInstr &OpMI = *getDefIgnoringCopies(MI.getOperand(1).getReg(), MRI,
+                                             /*HasOneNonDBGUse=*/true);
 
   Observer.erasingInstr(MI);
   MI.eraseFromParent();
@@ -6472,6 +6484,11 @@ void CombinerHelper::applyNarrowOp(MachineInstr &MI) {
     MachineFunction &MF = Builder.getMF();
     OpMI.setMemRefs(MF, MF.getMachineMemOperand(*OpMI.memoperands_begin(), 0,
                                                 NarrowTy.getSizeInBytes()));
+  } else if (OpMI.getOpcode() == TargetOpcode::G_CONSTANT) {
+    MachineOperand &MO = OpMI.getOperand(1);
+    const ConstantInt *Val = MO.getCImm();
+    MO.setCImm(ConstantInt::get(
+        Val->getContext(), Val->getValue().trunc(NarrowTy.getSizeInBits())));
   } else
     for (auto &MO : OpMI.explicit_uses())
       if (MO.isReg())
@@ -6663,7 +6680,7 @@ bool CombinerHelper::matchSplitConditions(MachineInstr &MI) {
     return false;
   Register CondReg = MI.getOperand(0).getReg();
   MachineInstr *CondMI = MRI.getVRegDef(CondReg);
-  return MRI.hasOneUse(CondReg) && CondMI &&
+  return MRI.hasOneNonDBGUse(CondReg) && CondMI &&
          (CondMI->getOpcode() == TargetOpcode::G_AND ||
           CondMI->getOpcode() == TargetOpcode::G_OR);
 }

@@ -21,3 +21,10 @@ def Z80PreLegalizerCombinerHelper
     ]> {
   let DisableRuleOption = "z80prelegalizercombiner-disable-rule";
 }
+
+def Z80PostLegalizerCombinerHelper
+    : GICombinerHelper<"Z80GenPostLegalizerCombinerHelper", [
+        narrow_op
+    ]> {
+  let DisableRuleOption = "z80postlegalizercombiner-disable-rule";
+}
