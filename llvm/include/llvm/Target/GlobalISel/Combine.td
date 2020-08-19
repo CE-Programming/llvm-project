@@ -1817,6 +1817,13 @@ def combine_identity : GICombineRule<
          [{ return Helper.matchCombineIdentity(*${mi}); }]),
   (apply [{ Helper.applyCombineIdentity(*${mi}); }])>;
 
+def combine_ext_or_trunc_matchdata : GIDefMatchData<"ExtOrTrunc">;
+def combine_ext_or_trunc : GICombineRule<
+  (defs root:$mi, combine_ext_or_trunc_matchdata:$matchinfo),
+  (match (wip_match_opcode G_ANYEXT, G_TRUNC, G_SEXT, G_SEXT_INREG, G_ZEXT):$mi,
+         [{ return Helper.matchCombineExtOrTrunc(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyCombineExtOrTrunc(*${mi}, ${matchinfo}); }])>;
+
 def narrow_op : GICombineRule<
   (defs root:$mi),
   (match (wip_match_opcode G_TRUNC):$mi,
