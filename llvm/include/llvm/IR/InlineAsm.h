@@ -279,7 +279,9 @@ public:
     Constraint_ZS,
     Constraint_ZT,
 
-    Constraints_Max = Constraint_ZT,
+    Constraint_V,
+
+    Constraints_Max = Constraint_V,
     Constraints_ShiftAmount = 16,
 
     Flag_MatchingOperand = 0x80000000
@@ -434,6 +436,8 @@ public:
       return "o";
     case InlineAsm::Constraint_v:
       return "v";
+    case InlineAsm::Constraint_V:
+      return "V";
     case InlineAsm::Constraint_Q:
       return "Q";
     case InlineAsm::Constraint_R:

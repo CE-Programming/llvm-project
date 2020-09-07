@@ -153,7 +153,7 @@ bool AArch64PostSelectOptimize::optimizeNZCVDefs(MachineBasicBlock &MBB) {
           // Changing the opcode can result in differing regclass requirements,
           // e.g. SUBSWri uses gpr32 for the dest, whereas SUBWri uses gpr32sp.
           // Constrain the regclasses, possibly introducing a copy.
-          constrainOperandRegClass(MF, *TRI, MRI, *TII, *RBI, II, II.getDesc(),
+          constrainOperandRegClass(MF, *TRI, MRI, *TII, *RBI, II,
                                    II.getOperand(0), 0);
           Changed |= true;
         } else {

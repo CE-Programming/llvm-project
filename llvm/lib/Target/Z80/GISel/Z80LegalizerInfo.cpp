@@ -58,6 +58,14 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .clampScalar(1, *NotMin.begin(), *std::prev(NotMin.end()))
       .clampScalar(0, *NotMax.begin(), *std::prev(NotMax.end()));
 
+  getActionDefinitionsBuilder(G_INSERT)
+      .customForCartesianProduct(NotMin, {s8})
+      .unsupported();
+
+  getActionDefinitionsBuilder(G_EXTRACT)
+      .customForCartesianProduct({s8}, NotMin)
+      .unsupported();
+
   getActionDefinitionsBuilder({G_ZEXT, G_ANYEXT})
       .legalForCartesianProduct(LegalScalars, NotMaxWithOne)
       .clampScalar(0, *LegalScalars.begin(), *std::prev(LegalScalars.end()))
@@ -137,9 +145,6 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
   getActionDefinitionsBuilder(G_FCOPYSIGN)
       .libcallFor({{s32, s32}, {s64, s64}});
 
-  //getActionDefinitionsBuilder({G_FNEG, G_FABS)
-  //    .customFor({s32, s64});
-
   getActionDefinitionsBuilder(G_FPTRUNC)
       .libcallFor({{s32, s64}});
 
@@ -187,8 +192,9 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .legalForCartesianProduct(LegalTypes, {s1})
       .clampScalar(0, s8, sMax);
 
-  getActionDefinitionsBuilder({G_ABS, G_DYN_STACKALLOC, G_CTLZ_ZERO_UNDEF,
-                               G_CTTZ_ZERO_UNDEF, G_CTLZ, G_CTTZ, G_BSWAP,
+  getActionDefinitionsBuilder({G_ABS, G_DYN_STACKALLOC, G_SEXT_INREG,
+                               G_CTLZ_ZERO_UNDEF, G_CTTZ_ZERO_UNDEF,
+                               G_CTLZ, G_CTTZ, G_BSWAP,
                                G_SMULO, G_UMULO, G_SMULH, G_UMULH,
                                G_SMIN, G_SMAX, G_UMIN, G_UMAX,
                                G_UADDSAT, G_SADDSAT, G_USUBSAT, G_SSUBSAT})
@@ -214,23 +220,25 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeCustomMaybeLegal(
   default:
     // No idea what to do.
     return LegalizerHelper::UnableToLegalize;
-  case TargetOpcode::G_AND:
-  case TargetOpcode::G_OR:
-  case TargetOpcode::G_XOR:
+  case G_AND:
+  case G_OR:
+  case G_XOR:
     return legalizeBitwise(Helper, MI, LocObserver);
-  case TargetOpcode::G_FCONSTANT:
+  case G_EXTRACT:
+    return legalizeExtractInsert(Helper, MI);
+  case G_FCONSTANT:
     return legalizeFConstant(Helper, MI);
-  case TargetOpcode::G_VASTART:
+  case G_VASTART:
     return legalizeVAStart(Helper, MI);
-  case TargetOpcode::G_SHL:
-  case TargetOpcode::G_LSHR:
-  case TargetOpcode::G_ASHR:
+  case G_SHL:
+  case G_LSHR:
+  case G_ASHR:
     return legalizeShift(Helper, MI, LocObserver);
-  case TargetOpcode::G_FSHL:
-  case TargetOpcode::G_FSHR:
+  case G_FSHL:
+  case G_FSHR:
     return legalizeFunnelShift(Helper, MI);
-  case TargetOpcode::G_ICMP:
-  case TargetOpcode::G_FCMP:
+  case G_ICMP:
+  case G_FCMP:
     return legalizeCompare(Helper, MI);
   }
 }
@@ -238,9 +246,8 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeCustomMaybeLegal(
 LegalizerHelper::LegalizeResult
 Z80LegalizerInfo::legalizeBitwise(LegalizerHelper &Helper, MachineInstr &MI,
                                   LostDebugLocObserver &LocObserver) const {
-  assert((MI.getOpcode() == TargetOpcode::G_AND ||
-          MI.getOpcode() == TargetOpcode::G_OR ||
-          MI.getOpcode() == TargetOpcode::G_XOR) &&
+  assert((MI.getOpcode() == G_AND || MI.getOpcode() == G_OR ||
+          MI.getOpcode() == G_XOR) &&
          "Unexpected opcode");
   if (!MI.getParent()->getParent()->getFunction().hasOptSize() &&
       Helper.MIRBuilder.getMRI()->getType(MI.getOperand(0).getReg()) ==
@@ -252,11 +259,21 @@ Z80LegalizerInfo::legalizeBitwise(LegalizerHelper &Helper, MachineInstr &MI,
 }
 
 LegalizerHelper::LegalizeResult
+Z80LegalizerInfo::legalizeExtractInsert(LegalizerHelper &Helper,
+                                        MachineInstr &MI) const {
+  bool OpOff = MI.getOpcode() == G_INSERT;
+  assert((MI.getOpcode() == G_EXTRACT || OpOff) && "Unexpected opcode");
+  return MI.getOperand(2 + OpOff).getImm() & 7
+             ? LegalizerHelper::UnableToLegalize
+             : LegalizerHelper::Legalized;
+}
+
+LegalizerHelper::LegalizeResult
 Z80LegalizerInfo::legalizeFConstant(LegalizerHelper &Helper,
                                     MachineInstr &MI) const {
-  assert(MI.getOpcode() == TargetOpcode::G_FCONSTANT && "Unexpected opcode");
+  assert(MI.getOpcode() == G_FCONSTANT && "Unexpected opcode");
   Helper.Observer.changingInstr(MI);
-  MI.setDesc(Helper.MIRBuilder.getTII().get(TargetOpcode::G_CONSTANT));
+  MI.setDesc(Helper.MIRBuilder.getTII().get(G_CONSTANT));
   MachineOperand &Imm = MI.getOperand(1);
   const ConstantFP *FPImm = Imm.getFPImm();
   Imm.ChangeToCImmediate(ConstantInt::get(
@@ -268,7 +285,7 @@ Z80LegalizerInfo::legalizeFConstant(LegalizerHelper &Helper,
 LegalizerHelper::LegalizeResult
 Z80LegalizerInfo::legalizeVAStart(LegalizerHelper &Helper,
                                   MachineInstr &MI) const {
-  assert(MI.getOpcode() == TargetOpcode::G_VASTART && "Unexpected opcode");
+  assert(MI.getOpcode() == G_VASTART && "Unexpected opcode");
   MachineFunction &MF = Helper.MIRBuilder.getMF();
   Z80MachineFunctionInfo &FuncInfo = *MF.getInfo<Z80MachineFunctionInfo>();
   int FrameIdx = FuncInfo.getVarArgsFrameIndex();
@@ -284,9 +301,8 @@ Z80LegalizerInfo::legalizeVAStart(LegalizerHelper &Helper,
 LegalizerHelper::LegalizeResult
 Z80LegalizerInfo::legalizeShift(LegalizerHelper &Helper, MachineInstr &MI,
                                 LostDebugLocObserver &LocObserver) const {
-  assert((MI.getOpcode() == TargetOpcode::G_SHL ||
-          MI.getOpcode() == TargetOpcode::G_LSHR ||
-          MI.getOpcode() == TargetOpcode::G_ASHR) &&
+  assert((MI.getOpcode() == G_SHL || MI.getOpcode() == G_LSHR ||
+          MI.getOpcode() == G_ASHR) &&
          "Unexpected opcode");
   MachineRegisterInfo &MRI = *Helper.MIRBuilder.getMRI();
   Register DstReg = MI.getOperand(0).getReg();
@@ -295,15 +311,14 @@ Z80LegalizerInfo::legalizeShift(LegalizerHelper &Helper, MachineInstr &MI,
           getIConstantVRegValWithLookThrough(MI.getOperand(2).getReg(), MRI)) {
     if (Ty == LLT::scalar(8) && Amt->Value == 1)
       return LegalizerHelper::AlreadyLegal;
-    if (MI.getOpcode() == TargetOpcode::G_SHL && Amt->Value == 1) {
+    if (MI.getOpcode() == G_SHL && Amt->Value == 1) {
       Helper.Observer.changingInstr(MI);
-      MI.setDesc(Helper.MIRBuilder.getTII().get(TargetOpcode::G_ADD));
+      MI.setDesc(Helper.MIRBuilder.getTII().get(G_ADD));
       MI.getOperand(2).setReg(MI.getOperand(1).getReg());
       Helper.Observer.changedInstr(MI);
       return LegalizerHelper::Legalized;
     }
-    if (MI.getOpcode() == TargetOpcode::G_ASHR &&
-        Amt->Value == Ty.getSizeInBits() - 1 &&
+    if (MI.getOpcode() == G_ASHR && Amt->Value == Ty.getSizeInBits() - 1 &&
         (Ty == LLT::scalar(8) || Ty == LLT::scalar(16) ||
          (Subtarget.is24Bit() && Ty == LLT::scalar(24))))
       return LegalizerHelper::Legalized;
@@ -314,8 +329,7 @@ Z80LegalizerInfo::legalizeShift(LegalizerHelper &Helper, MachineInstr &MI,
 LegalizerHelper::LegalizeResult
 Z80LegalizerInfo::legalizeFunnelShift(LegalizerHelper &Helper,
                                       MachineInstr &MI) const {
-  assert((MI.getOpcode() == TargetOpcode::G_FSHL ||
-          MI.getOpcode() == TargetOpcode::G_FSHR) &&
+  assert((MI.getOpcode() == G_FSHL || MI.getOpcode() == G_FSHR) &&
          "Unexpected opcode");
   MachineIRBuilder &MIRBuilder = Helper.MIRBuilder;
   MachineRegisterInfo &MRI = *MIRBuilder.getMRI();
@@ -328,9 +342,9 @@ Z80LegalizerInfo::legalizeFunnelShift(LegalizerHelper &Helper,
     if (Ty == LLT::scalar(8) && (Amt->Value == 1 || Amt->Value == 7))
         return LegalizerHelper::AlreadyLegal;
 
-  unsigned FwdShiftOpc = TargetOpcode::G_SHL;
-  unsigned RevShiftOpc = TargetOpcode::G_LSHR;
-  if (MI.getOpcode() == TargetOpcode::G_FSHR) {
+  unsigned FwdShiftOpc = G_SHL;
+  unsigned RevShiftOpc = G_LSHR;
+  if (MI.getOpcode() == G_FSHR) {
     std::swap(FwdReg, RevReg);
     std::swap(FwdShiftOpc, RevShiftOpc);
   }
@@ -370,7 +384,7 @@ Z80LegalizerInfo::legalizeCompare(LegalizerHelper &Helper,
     std::swap(LHSReg, RHSReg);
   auto &Ctx = MIRBuilder.getMF().getFunction().getContext();
   bool ZeroRHS = false;
-  if (MI.getOpcode() == TargetOpcode::G_ICMP) {
+  if (MI.getOpcode() == G_ICMP) {
     Ty = IntegerType::get(Ctx, OpSize);
     if (auto C = getIConstantVRegVal(RHSReg, MRI))
       ZeroRHS = *C == 0;
@@ -385,7 +399,7 @@ Z80LegalizerInfo::legalizeCompare(LegalizerHelper &Helper,
       llvm_unreachable("Unexpected type");
     }
   } else {
-    assert(MI.getOpcode() == TargetOpcode::G_FCMP && "Unexpected opcode");
+    assert(MI.getOpcode() == G_FCMP && "Unexpected opcode");
     assert(OpTy.isScalar() && "Unexpected type");
     switch (OpSize) {
     case 32:

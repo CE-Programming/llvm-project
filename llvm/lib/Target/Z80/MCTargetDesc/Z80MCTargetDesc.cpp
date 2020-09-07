@@ -85,6 +85,10 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeZ80TargetMC() {
     // Register the MC asm info.
     RegisterMCAsmInfoFn X(*T, createZ80MCAsmInfo);
 
+    // Register the MC subtarget info.
+    TargetRegistry::RegisterMCSubtargetInfo(*T,
+                                            Z80_MC::createZ80MCSubtargetInfo);
+
     // Register the MCInstPrinter.
     TargetRegistry::RegisterMCInstPrinter(*T, createZ80MCInstPrinter);
 

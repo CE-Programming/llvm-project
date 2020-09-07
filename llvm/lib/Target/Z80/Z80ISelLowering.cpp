@@ -13,9 +13,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "Z80ISelLowering.h"
-#include "Z80TargetMachine.h"
 #include "MCTargetDesc/Z80MCTargetDesc.h"
+#include "Z80TargetMachine.h"
 #include "llvm/CodeGen/MachineJumpTableInfo.h"
+#include "llvm/Support/KnownBits.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "z80-isel"
@@ -558,9 +559,122 @@ Z80TargetLowering::EmitLoweredMemMove(MachineInstr &MI,
   return NextBB;
 }
 
+void Z80TargetLowering::computeKnownBitsForTargetInstr(
+    GISelKnownBits &Analysis, Register Reg, KnownBits &Known,
+    const APInt &DemandedElts, const MachineRegisterInfo &MRI,
+    unsigned Depth) const {
+  const MachineInstr &MI = *MRI.getVRegDef(Reg);
+  switch (MI.getOpcode()) {
+  case Z80::SetCC:
+    Known.Zero.setBitsFrom(1);
+    break;
+  default:
+    TargetLowering::computeKnownBitsForTargetInstr(Analysis, Reg, Known,
+                                                   DemandedElts, MRI, Depth);
+    break;
+  }
+}
+
 /// HandleByVal - Target-specific cleanup for ByVal support.
 void Z80TargetLowering::HandleByVal(CCState *State, unsigned &Size,
                                     Align Alignment) const {
   // Round up to a multiple of the stack slot size.
   Size = alignTo(Size, Subtarget.is24Bit() ? 3 : 2);
+}
+
+//===----------------------------------------------------------------------===//
+//                           Z80 Inline Assembly Support
+//===----------------------------------------------------------------------===//
+
+/// Given a constraint letter, return the type of constraint for this target.
+TargetLowering::ConstraintType
+Z80TargetLowering::getConstraintType(StringRef Constraint) const {
+  if (Constraint.size() == 1)
+    switch (Constraint[0]) {
+    case 'I':
+    case 'J':
+    case 'M':
+    case 'N':
+    case 'O':
+      return C_Immediate;
+    case 'R':
+      return C_RegisterClass;
+    }
+  else if (Z80::parseConstraintCode(Constraint) != Z80::COND_INVALID)
+    return C_Other;
+  return TargetLowering::getConstraintType(Constraint);
+}
+
+std::pair<unsigned, const TargetRegisterClass *>
+Z80TargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
+                                                StringRef Constraint,
+                                                MVT VT) const {
+  if (Constraint.size() == 1)
+    switch (Constraint[0]) {
+    case 'r':
+      if (VT == MVT::i8 || VT == MVT::i8)
+        return std::make_pair(Z80::NoRegister, &Z80::G8RegClass);
+      if (VT == MVT::i16)
+        return std::make_pair(Z80::NoRegister, &Z80::G16RegClass);
+      if (VT == MVT::i24)
+        return std::make_pair(Z80::NoRegister, &Z80::G24RegClass);
+      break;
+
+    case 'R':
+      if (VT == MVT::i8 || VT == MVT::i8)
+        return std::make_pair(Z80::NoRegister, &Z80::R8RegClass);
+      if (VT == MVT::i16)
+        return std::make_pair(Z80::NoRegister, &Z80::R16RegClass);
+      if (VT == MVT::i24)
+        return std::make_pair(Z80::NoRegister, &Z80::R24RegClass);
+      break;
+    }
+
+  if (Z80::parseConstraintCode(Constraint) != Z80::COND_INVALID)
+    return std::make_pair(Z80::F, &Z80::F8RegClass);
+
+  // Use the default implementation in TargetLowering to convert the register
+  // constraint into a member of a register class.
+  auto Res = TargetLowering::getRegForInlineAsmConstraint(TRI, Constraint, VT);
+
+  if (!Res.second) {
+    if (Constraint.equals_insensitive("{f}"))
+      return std::make_pair(Z80::F, &Z80::F8RegClass);
+
+    return Res;
+  }
+
+  // Otherwise, check to see if this is a register class of the wrong value
+  // type.  For example, we want to map "{l},i16" -> {hl}.
+  // MVT::Other is used to specify clobber names.
+  if (TRI->isTypeLegalForClass(*Res.second, VT) || VT == MVT::Other)
+    return Res;   // Correct type already, nothing to do.
+
+  if (VT == MVT::i8)
+    Res.second = &Z80::R8RegClass;
+  else if (VT == MVT::i16)
+    Res.second = &Z80::R16RegClass;
+  else if (VT == MVT::i24)
+    Res.second = &Z80::R24RegClass;
+
+  for (unsigned SubIdx : {Z80::sub_low, Z80::sub_short})
+    if (MCRegister SuperReg =
+            TRI->getMatchingSuperReg(Res.first, SubIdx, Res.second))
+      Res.first = SuperReg;
+
+  if (Res.second && Res.second->contains(Res.first))
+    return Res;
+
+  return std::make_pair(Z80::NoRegister, nullptr);
+}
+
+unsigned
+Z80TargetLowering::getInlineAsmMemConstraint(StringRef Constraint) const {
+  if (Constraint.size() == 1)
+    switch (Constraint[0]) {
+    case 'V': return InlineAsm::Constraint_V;
+    case 'o': return InlineAsm::Constraint_o;
+    case 'X': return InlineAsm::Constraint_X;
+    }
+  return TargetLowering::getInlineAsmMemConstraint(Constraint);
 }

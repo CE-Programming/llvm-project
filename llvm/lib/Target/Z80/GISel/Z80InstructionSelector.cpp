@@ -17,6 +17,7 @@
 #include "Z80RegisterBankInfo.h"
 #include "Z80Subtarget.h"
 #include "Z80TargetMachine.h"
+#include "llvm/ADT/Sequence.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelector.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelectorImpl.h"
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
@@ -61,8 +62,12 @@ private:
                              MachineFunction &MF) const;
 
   bool selectCopy(MachineInstr &I, MachineRegisterInfo &MRI) const;
+  bool selectExtract(MachineInstr &I, MachineRegisterInfo &MRI,
+                     MachineFunction &MF) const;
   bool selectUnmergeValues(MachineInstr &I, MachineRegisterInfo &MRI,
                            MachineFunction &MF) const;
+  bool selectInsert(MachineInstr &I, MachineRegisterInfo &MRI,
+                    MachineFunction &MF) const;
   bool selectMergeValues(MachineInstr &I, MachineRegisterInfo &MRI,
                          MachineFunction &MF) const;
 
@@ -84,11 +89,21 @@ private:
                   MachineFunction &MF) const;
   bool selectImplicitDefOrPHI(MachineInstr &I, MachineRegisterInfo &MRI) const;
 
+  bool selectInlineAsm(MachineInstr &I, MachineRegisterInfo &MRI) const;
+
   ComplexRendererFns selectMem(MachineOperand &Root) const;
   ComplexRendererFns selectOff(MachineOperand &Root) const;
 
-  const TargetRegisterClass *getRegClass(LLT Ty, const RegisterBank &RB) const;
-  const TargetRegisterClass *getRegClass(LLT Ty, unsigned Reg,
+  const TargetRegisterClass *
+  selectRegClass(Register Reg, const MachineRegisterInfo &MRI,
+                 const TargetRegisterClass *RC8,
+                 const TargetRegisterClass *RC16,
+                 const TargetRegisterClass *RC24) const;
+  const TargetRegisterClass *
+  selectRRegClass(Register Reg, const MachineRegisterInfo &MRI) const;
+  const TargetRegisterClass *
+  selectGRegClass(Register Reg, const MachineRegisterInfo &MRI) const;
+  const TargetRegisterClass *getRegClass(Register Reg,
                                          MachineRegisterInfo &MRI) const;
 
   const Z80TargetMachine &TM;
@@ -127,27 +142,51 @@ Z80InstructionSelector::Z80InstructionSelector(const Z80TargetMachine &TM,
   (void)this->TM;
 }
 
-// FIXME: This should be target-independent, inferred from the types declared
-// for each class in the bank.
-const TargetRegisterClass *
-Z80InstructionSelector::getRegClass(LLT Ty, const RegisterBank &RB) const {
+const TargetRegisterClass *Z80InstructionSelector::selectRegClass(
+    Register Reg, const MachineRegisterInfo &MRI,
+    const TargetRegisterClass *RC8, const TargetRegisterClass *RC16,
+    const TargetRegisterClass *RC24) const {
+  const RegisterBank &RB = *RBI.getRegBank(Reg, MRI, TRI);
+  const LLT Ty = MRI.getType(Reg);
   if (RB.getID() == Z80::GPRRegBankID) {
-    if (Ty.getSizeInBits() <= 8)
-      return &Z80::R8RegClass;
-    if (Ty.getSizeInBits() == 16)
-      return &Z80::R16RegClass;
-    if (Ty.getSizeInBits() == 24)
-      return &Z80::R24RegClass;
+    if (Ty == LLT::scalar(8) || Ty == LLT::scalar(1))
+      return RC8;
+    if (Ty == LLT::scalar(16) || Ty == LLT::pointer(0, 16))
+      return RC16;
+    if (Ty == LLT::scalar(24) || Ty == LLT::pointer(0, 24))
+      return RC24;
   }
 
-  llvm_unreachable("Unknown RegBank!");
+  return nullptr;
+}
+const TargetRegisterClass *
+Z80InstructionSelector::selectRRegClass(Register Reg,
+                                        const MachineRegisterInfo &MRI) const {
+  return selectRegClass(Reg, MRI, &Z80::R8RegClass, &Z80::R16RegClass,
+                        &Z80::R24RegClass);
+}
+const TargetRegisterClass *
+Z80InstructionSelector::selectGRegClass(Register Reg,
+                                        const MachineRegisterInfo &MRI) const {
+  return selectRegClass(Reg, MRI, &Z80::G8RegClass, &Z80::G16RegClass,
+                        &Z80::G24RegClass);
 }
 
 const TargetRegisterClass *
-Z80InstructionSelector::getRegClass(LLT Ty, unsigned Reg,
+Z80InstructionSelector::getRegClass(Register Reg,
                                     MachineRegisterInfo &MRI) const {
-  const RegisterBank &RegBank = *RBI.getRegBank(Reg, MRI, TRI);
-  return getRegClass(Ty, RegBank);
+  if (Reg.isPhysical()) {
+    for (auto *RC : {&Z80::R8RegClass, &Z80::F8RegClass, &Z80::R16RegClass,
+                     &Z80::Z16RegClass, &Z80::R24RegClass, &Z80::Z24RegClass})
+      if (RC->contains(Reg))
+        return RC;
+    return nullptr;
+  }
+
+  if (auto *RC = MRI.getRegClassOrNull(Reg))
+    return RC;
+
+  return selectRRegClass(Reg, MRI);
 }
 
 static int64_t getSubRegIndex(unsigned Width, unsigned Off = 0) {
@@ -167,15 +206,6 @@ static int64_t getSubRegIndex(unsigned Width, unsigned Off = 0) {
   return Z80::NoSubRegister;
 }
 
-static const TargetRegisterClass *getRegClassFromGRPhysReg(Register Reg) {
-  assert(Reg.isPhysical());
-  for (auto *RC : {&Z80::R8RegClass, &Z80::F8RegClass, &Z80::R16RegClass,
-                   &Z80::Z16RegClass, &Z80::R24RegClass, &Z80::Z24RegClass})
-    if (RC->contains(Reg))
-      return RC;
-  llvm_unreachable("Unknown RegClass for PhysReg!");
-}
-
 // Set Z80 Opcode and constrain DstReg.
 bool Z80InstructionSelector::selectCopy(MachineInstr &I,
                                         MachineRegisterInfo &MRI) const {
@@ -184,12 +214,14 @@ bool Z80InstructionSelector::selectCopy(MachineInstr &I,
   if (DstSize == 1)
     DstSize = 8;
   const RegisterBank &DstRegBank = *RBI.getRegBank(DstReg, MRI, TRI);
+  const TargetRegisterClass *DstRC = getRegClass(DstReg, MRI);
 
   Register SrcReg = I.getOperand(1).getReg();
   unsigned SrcSize = RBI.getSizeInBits(SrcReg, MRI, TRI);
   if (SrcSize == 1)
     SrcSize = 8;
   const RegisterBank &SrcRegBank = *RBI.getRegBank(SrcReg, MRI, TRI);
+  const TargetRegisterClass *SrcRC = getRegClass(SrcReg, MRI);
 
   if (DstReg.isPhysical()) {
     assert(I.isCopy() && "Generic operators do not allow physical registers");
@@ -204,8 +236,6 @@ bool Z80InstructionSelector::selectCopy(MachineInstr &I,
       if (SrcSize != DstSize) {
         // This case can be generated by ABI lowering, perform anyext
         MachineIRBuilder MIB(I);
-        const TargetRegisterClass *DstRC =
-          getRegClass(MRI.getType(DstReg), DstReg, MRI);
         I.getOperand(1).setReg(
             MIB.buildInstr(
                    TargetOpcode::INSERT_SUBREG, {DstRC},
@@ -227,21 +257,12 @@ bool Z80InstructionSelector::selectCopy(MachineInstr &I,
            DstSize <= RBI.getSizeInBits(SrcReg, MRI, TRI))) &&
          "Copy with different width?!");
 
-  const TargetRegisterClass *DstRC = MRI.getRegClassOrNull(DstReg);
-  if (!DstRC)
-    DstRC = getRegClass(MRI.getType(DstReg), DstRegBank);
-
   if (SrcRegBank.getID() == Z80::GPRRegBankID &&
       DstRegBank.getID() == Z80::GPRRegBankID && SrcSize > DstSize &&
-      SrcReg.isPhysical()) {
+      SrcReg.isPhysical() && DstRC != SrcRC) {
     // Change the physical register to perform truncate.
-
-    const TargetRegisterClass *SrcRC = getRegClassFromGRPhysReg(SrcReg);
-
-    if (DstRC != SrcRC) {
-      I.getOperand(1).setSubReg(getSubRegIndex(TRI.getRegSizeInBits(*DstRC)));
-      I.getOperand(1).substPhysReg(SrcReg, TRI);
-    }
+    I.getOperand(1).setSubReg(getSubRegIndex(TRI.getRegSizeInBits(*DstRC)));
+    I.getOperand(1).substPhysReg(SrcReg, TRI);
   }
 
   // No need to constrain SrcReg. It will get constrained when
@@ -255,7 +276,7 @@ bool Z80InstructionSelector::selectCopy(MachineInstr &I,
       return false;
     }
   }
-  I.setDesc(TII.get(Z80::COPY));
+  I.setDesc(TII.get(TargetOpcode::COPY));
   return true;
 }
 
@@ -272,6 +293,8 @@ bool Z80InstructionSelector::select(MachineInstr &I) const {
     switch (I.getOpcode()) {
     case TargetOpcode::COPY:
       return selectCopy(I, MRI);
+    case TargetOpcode::INLINEASM:
+      return selectInlineAsm(I, MRI);
     case Z80::SetCC:
       return selectSetCond(I, MRI);
     }
@@ -310,8 +333,12 @@ bool Z80InstructionSelector::select(MachineInstr &I) const {
   case TargetOpcode::G_PTR_ADD:
   case TargetOpcode::G_FRAME_INDEX:
     return selectFrameIndexOrGep(I, MRI, MF);
+  case TargetOpcode::G_EXTRACT:
+    return selectExtract(I, MRI, MF);
   case TargetOpcode::G_UNMERGE_VALUES:
     return selectUnmergeValues(I, MRI, MF);
+  case TargetOpcode::G_INSERT:
+    return selectInsert(I, MRI, MF);
   case TargetOpcode::G_MERGE_VALUES:
     return selectMergeValues(I, MRI, MF);
   case TargetOpcode::G_SELECT:
@@ -380,19 +407,13 @@ bool Z80InstructionSelector::selectConstant(MachineInstr &I,
 
 bool Z80InstructionSelector::selectTrunc(MachineInstr &I,
                                          MachineRegisterInfo &MRI) const {
-  assert((I.getOpcode() == TargetOpcode::G_TRUNC) && "unexpected instruction");
+  assert(I.getOpcode() == TargetOpcode::G_TRUNC && "unexpected instruction");
 
   const Register DstReg = I.getOperand(0).getReg();
+  const TargetRegisterClass *DstRC = getRegClass(DstReg, MRI);
+
   const Register SrcReg = I.getOperand(1).getReg();
-
-  const LLT DstTy = MRI.getType(DstReg);
-  const LLT SrcTy = MRI.getType(SrcReg);
-
-  const RegisterBank &DstRB = *RBI.getRegBank(DstReg, MRI, TRI);
-  const RegisterBank &SrcRB = *RBI.getRegBank(SrcReg, MRI, TRI);
-
-  const TargetRegisterClass *DstRC = getRegClass(DstTy, DstRB);
-  const TargetRegisterClass *SrcRC = getRegClass(SrcTy, SrcRB);
+  const TargetRegisterClass *SrcRC = getRegClass(SrcReg, MRI);
 
   if (!DstRC || !SrcRC)
     return false;
@@ -412,13 +433,13 @@ bool Z80InstructionSelector::selectTrunc(MachineInstr &I,
 
   I.getOperand(1).setSubReg(SubIdx);
 
-  I.setDesc(TII.get(Z80::COPY));
+  I.setDesc(TII.get(TargetOpcode::COPY));
   return true;
 }
 
 bool Z80InstructionSelector::selectSExt(MachineInstr &I,
                                         MachineRegisterInfo &MRI) const {
-  assert((I.getOpcode() == TargetOpcode::G_SEXT) && "unexpected instruction");
+  assert(I.getOpcode() == TargetOpcode::G_SEXT && "unexpected instruction");
 
   const Register DstReg = I.getOperand(0).getReg();
   const Register SrcReg = I.getOperand(1).getReg();
@@ -473,7 +494,7 @@ bool Z80InstructionSelector::selectSExt(MachineInstr &I,
 
 bool Z80InstructionSelector::selectZExt(MachineInstr &I,
                                         MachineRegisterInfo &MRI) const {
-  assert((I.getOpcode() == TargetOpcode::G_ZEXT) && "unexpected instruction");
+  assert(I.getOpcode() == TargetOpcode::G_ZEXT && "unexpected instruction");
 
   Register DstReg = I.getOperand(0).getReg();
   Register SrcReg = I.getOperand(1).getReg();
@@ -502,30 +523,24 @@ bool Z80InstructionSelector::selectZExt(MachineInstr &I,
 
 bool Z80InstructionSelector::selectAnyExt(MachineInstr &I,
                                           MachineRegisterInfo &MRI) const {
-  assert((I.getOpcode() == TargetOpcode::G_ANYEXT) && "unexpected instruction");
+  assert(I.getOpcode() == TargetOpcode::G_ANYEXT && "unexpected instruction");
 
   const Register DstReg = I.getOperand(0).getReg();
-  const Register SrcReg = I.getOperand(1).getReg();
-
+  const TargetRegisterClass *DstRC = getRegClass(DstReg, MRI);
   const unsigned DstSize = RBI.getSizeInBits(DstReg, MRI, TRI);
+
+  const Register SrcReg = I.getOperand(1).getReg();
+  const TargetRegisterClass *SrcRC = getRegClass(SrcReg, MRI);
   unsigned SrcSize = RBI.getSizeInBits(SrcReg, MRI, TRI);
 
-  const LLT DstTy = MRI.getType(DstReg);
-  const LLT SrcTy = MRI.getType(SrcReg);
-
-  const RegisterBank &DstRB = *RBI.getRegBank(DstReg, MRI, TRI);
-  const RegisterBank &SrcRB = *RBI.getRegBank(SrcReg, MRI, TRI);
-
-  assert(DstRB.getID() == SrcRB.getID() &&
+  assert(RBI.getRegBank(DstReg, MRI, TRI)->getID() ==
+             RBI.getRegBank(SrcReg, MRI, TRI)->getID() &&
          "G_ANYEXT input/output on different banks\n");
 
   assert(DstSize > SrcSize && "G_ANYEXT incorrect operand size");
   if (SrcSize == 1)
     SrcSize = 8;
   assert(DstSize >= SrcSize && "G_ANYEXT incorrect operand size");
-
-  const TargetRegisterClass *DstRC = getRegClass(DstTy, DstRB);
-  const TargetRegisterClass *SrcRC = getRegClass(SrcTy, SrcRB);
 
   if (!RBI.constrainGenericRegister(SrcReg, *SrcRC, MRI) ||
       !RBI.constrainGenericRegister(DstReg, *DstRC, MRI)) {
@@ -535,7 +550,7 @@ bool Z80InstructionSelector::selectAnyExt(MachineInstr &I,
   }
 
   if (DstSize == SrcSize) {
-    I.setDesc(TII.get(Z80::COPY));
+    I.setDesc(TII.get(TargetOpcode::COPY));
     return true;
   }
 
@@ -780,8 +795,14 @@ bool Z80InstructionSelector::selectLoadStore(MachineInstr &I,
     if (!IsLoad) {
       if (ValConst)
         MIB.addImm(ValConst->getSExtValue());
-      else
+      else {
         MIB.addReg(ValReg);
+        if (IsOff && Ty.getSizeInBits() > 8)
+          // Special handling for LD16/24or as explained in Z80InstrInfo.td.
+          ValReg = constrainOperandRegClass(MF, TRI, MRI, TII, RBI, I,
+                                            *selectGRegClass(ValReg, MRI),
+                                            I.getOperand(2));
+      }
     }
   } else {
     assert(Ty == LLT::scalar(8) && "Expected RMW operation to be 8 bits");
@@ -859,10 +880,34 @@ bool Z80InstructionSelector::selectFrameIndexOrGep(MachineInstr &I,
   return constrainSelectedInstRegOperands(I, TII, TRI, RBI);
 }
 
+bool Z80InstructionSelector::selectExtract(MachineInstr &I,
+                                           MachineRegisterInfo &MRI,
+                                           MachineFunction &MF) const {
+  assert(I.getOpcode() == TargetOpcode::G_EXTRACT && "unexpected instruction");
+
+  Register DstReg = I.getOperand(0).getReg();
+  const TargetRegisterClass *DstRC = getRegClass(DstReg, MRI);
+
+  Register SrcReg = I.getOperand(1).getReg();
+  const TargetRegisterClass *SrcRC = getRegClass(SrcReg, MRI);
+
+  unsigned SubIdx =
+      getSubRegIndex(TRI.getRegSizeInBits(*DstRC), I.getOperand(2).getImm());
+  if (SubIdx == Z80::NoSubRegister)
+    return false;
+
+  I.setDesc(TII.get(TargetOpcode::COPY));
+  I.getOperand(1).setSubReg(SubIdx);
+  I.RemoveOperand(2);
+
+  return RBI.constrainGenericRegister(DstReg, *DstRC, MRI) &&
+         RBI.constrainGenericRegister(SrcReg, *SrcRC, MRI);
+}
+
 bool Z80InstructionSelector::selectUnmergeValues(MachineInstr &I,
                                                  MachineRegisterInfo &MRI,
                                                  MachineFunction &MF) const {
-  assert((I.getOpcode() == TargetOpcode::G_UNMERGE_VALUES) &&
+  assert(I.getOpcode() == TargetOpcode::G_UNMERGE_VALUES &&
          "unexpected instruction");
   MachineIRBuilder MIB(I);
   Register LoReg = I.getOperand(0).getReg();
@@ -907,10 +952,17 @@ bool Z80InstructionSelector::selectUnmergeValues(MachineInstr &I,
          RBI.constrainGenericRegister(SrcReg, *RC, MRI);
 }
 
+bool Z80InstructionSelector::selectInsert(MachineInstr &I,
+                                          MachineRegisterInfo &MRI,
+                                          MachineFunction &MF) const {
+  assert(I.getOpcode() == TargetOpcode::G_INSERT && "unexpected instruction");
+  return false;
+}
+
 bool Z80InstructionSelector::selectMergeValues(MachineInstr &I,
                                                MachineRegisterInfo &MRI,
                                                MachineFunction &MF) const {
-  assert((I.getOpcode() == TargetOpcode::G_MERGE_VALUES) &&
+  assert(I.getOpcode() == TargetOpcode::G_MERGE_VALUES &&
          "unexpected instruction");
   MachineIRBuilder MIB(I);
   Register DstReg = I.getOperand(0).getReg();
@@ -1102,6 +1154,15 @@ Z80InstructionSelector::foldCompare(MachineInstr &I, MachineIRBuilder &MIB,
         if (mi_match(LHSReg, MRI,
                      m_OneUse(m_GAnd(m_Reg(SrcReg), m_ICst(Mask)))) &&
             isPowerOf2_32(Mask)) {
+          //Register CondReg;
+          //if (Mask == 1 && mi_match(SrcReg, MRI, m_GAnyExt(m_Reg(CondReg))) &&
+          //    MRI.getType(CondReg) == LLT::scalar(1)) {
+          //  asm("int3");
+          //  Z80::CondCode FoldCC = foldCond(CondReg, MIB, MRI);
+          //  if (FoldCC != Z80::COND_INVALID) {
+          //    asm("int3");
+          //  }
+          //}
           Opc = Z80::BIT8bg;
           Reg = {};
           Ops = {uint64_t(findFirstSet(Mask)), SrcReg};
@@ -1232,12 +1293,22 @@ Z80::CondCode
 Z80InstructionSelector::foldSetCC(MachineInstr &I, MachineIRBuilder &MIB,
                                   MachineRegisterInfo &MRI) const {
   assert(I.getOpcode() == Z80::SetCC && "unexpected instruction");
-  auto CC = Z80::CondCode(I.getOperand(1).getImm());
 
-  if (I == MIB.getInsertPt())
-    return CC;
+  MachineBasicBlock &MBB = *I.getParent();
+  if (MIB.getInsertPt()->getParent() != &MBB)
+    return Z80::COND_INVALID;
 
-  return Z80::COND_INVALID;
+  for (MachineBasicBlock::iterator II = I, EI = MIB.getInsertPt(); II != EI; ++II) {
+    if (II == MBB.end())
+      return Z80::COND_INVALID;
+    switch (II->getOpcode()) {
+    case Z80::SetCC:
+      continue;
+    }
+    return Z80::COND_INVALID;
+  }
+
+  return Z80::CondCode(I.getOperand(1).getImm());
 }
 
 Z80::CondCode Z80InstructionSelector::foldCond(Register CondReg,
@@ -1285,8 +1356,11 @@ Z80::CondCode Z80InstructionSelector::foldCond(Register CondReg,
 
   if (CC == Z80::COND_INVALID) {
     // Fallback to bit test
+    const TargetRegisterClass *CondRC = selectGRegClass(CondReg, MRI);
     auto BitI = MIB.buildInstr(Z80::BIT8bg, {}, {int64_t(0), CondReg});
-    if (constrainSelectedInstRegOperands(*BitI, TII, TRI, RBI))
+    if (CondRC != &Z80::G8RegClass)
+      BitI->getOperand(1).setSubReg(Z80::sub_low);
+    if (RBI.constrainGenericRegister(CondReg, *CondRC, MRI))
       CC = Z80::COND_NZ;
   }
 
@@ -1444,7 +1518,7 @@ bool Z80InstructionSelector::selectBrCond(MachineInstr &I,
 bool Z80InstructionSelector::selectBrJT(MachineInstr &I,
                                         MachineRegisterInfo &MRI,
                                         MachineFunction &MF) const {
-  assert((I.getOpcode() == TargetOpcode::G_BRJT) && "unexpected instruction");
+  assert(I.getOpcode() == TargetOpcode::G_BRJT && "unexpected instruction");
 
   unsigned EntrySize = MF.getJumpTableInfo()->getEntrySize(MF.getDataLayout());
   assert(EntrySize && EntrySize <= 3 &&
@@ -1485,21 +1559,27 @@ bool Z80InstructionSelector::selectImplicitDefOrPHI(
           I.getOpcode() == TargetOpcode::G_PHI) &&
          "unexpected instruction");
 
+  I.setDesc(TII.get(I.getOpcode() == TargetOpcode::G_IMPLICIT_DEF
+                        ? TargetOpcode::IMPLICIT_DEF
+                        : TargetOpcode::PHI));
+
   Register DstReg = I.getOperand(0).getReg();
+  return RBI.constrainGenericRegister(DstReg, *getRegClass(DstReg, MRI), MRI);
+}
 
-  if (!MRI.getRegClassOrNull(DstReg)) {
-    const LLT DstTy = MRI.getType(DstReg);
-    const TargetRegisterClass *RC = getRegClass(DstTy, DstReg, MRI);
-
-    if (!RBI.constrainGenericRegister(DstReg, *RC, MRI))
-      return false;
+bool Z80InstructionSelector::selectInlineAsm(MachineInstr &I,
+                                             MachineRegisterInfo &MRI) const {
+  for (unsigned Idx :
+       llvm::seq<unsigned>(InlineAsm::MIOp_FirstOperand, I.getNumOperands())) {
+    MachineOperand &MO = I.getOperand(Idx);
+    if (!MO.isReg())
+      continue;
+    Register Reg = MO.getReg();
+    if (Reg == Z80::NoRegister || !Reg.isVirtual())
+      continue;
+    if (const auto *RC = I.getRegClassConstraint(Idx, &TII, &TRI))
+      Reg = constrainOperandRegClass(*MF, TRI, MRI, TII, RBI, I, MO, Idx);
   }
-
-  if (I.getOpcode() == TargetOpcode::G_IMPLICIT_DEF)
-    I.setDesc(TII.get(Z80::IMPLICIT_DEF));
-  else
-    I.setDesc(TII.get(Z80::PHI));
-
   return true;
 }
 

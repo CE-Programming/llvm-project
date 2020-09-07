@@ -13,6 +13,7 @@
 
 #include "Z80Subtarget.h"
 #include "GISel/Z80CallLowering.h"
+#include "GISel/Z80InlineAsmLowering.h"
 #include "GISel/Z80LegalizerInfo.h"
 #include "GISel/Z80RegisterBankInfo.h"
 #include "MCTargetDesc/Z80MCTargetDesc.h"
@@ -45,6 +46,7 @@ Z80Subtarget::Z80Subtarget(const Triple &TT, StringRef CPU, StringRef TuneCPU,
       InstrInfo(initializeSubtargetDependencies(CPU, TuneCPU, FS)),
       TLInfo(TM, *this), FrameLowering(*this) {
   CallLoweringInfo.reset(new Z80CallLowering(*getTargetLowering()));
+  InlineAsmLoweringInfo.reset(new Z80InlineAsmLowering(*getTargetLowering()));
   Legalizer.reset(new Z80LegalizerInfo(*this, TM));
 
   auto *RBI = new Z80RegisterBankInfo(*getRegisterInfo());

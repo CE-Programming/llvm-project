@@ -19,6 +19,7 @@ add_public_tablegen_target(Z80CommonTableGen)
 
 set(sources
   GISel/Z80CallLowering.cpp
+  GISel/Z80InlineAsmLowering.cpp
   GISel/Z80InstructionSelector.cpp
   GISel/Z80LegalizerInfo.cpp
   GISel/Z80PostLegalizerCombiner.cpp

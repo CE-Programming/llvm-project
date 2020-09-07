@@ -13,9 +13,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "Z80AsmPrinter.h"
+#include "MCTargetDesc/Z80InstPrinter.h"
 #include "MCTargetDesc/Z80MCTargetDesc.h"
 #include "MCTargetDesc/Z80TargetStreamer.h"
 #include "Z80.h"
+#include "Z80Subtarget.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/TargetRegistry.h"
@@ -29,6 +32,11 @@ using namespace llvm;
 
 static bool isCode16(const Triple &TT) {
   return TT.getEnvironment() == Triple::CODE16;
+}
+
+void Z80AsmPrinter::SetupMachineFunction(MachineFunction &MF) {
+  Subtarget = &MF.getSubtarget<Z80Subtarget>();
+  AsmPrinter::SetupMachineFunction(MF);
 }
 
 void Z80AsmPrinter::emitStartOfAsmFile(Module &M) {
@@ -96,6 +104,84 @@ void Z80AsmPrinter::emitGlobalVariable(const GlobalVariable *GV) {
   else
     emitGlobalConstant(DL, GV->getInitializer());
   OutStreamer->AddBlankLine();
+}
+
+void Z80AsmPrinter::PrintOperand(const MachineInstr *MI, unsigned OpNum,
+                                 unsigned SubRegIdx, raw_ostream &O) {
+  const MachineOperand &MO = MI->getOperand(OpNum);
+  switch (MO.getType()) {
+  default:
+    llvm_unreachable("<unknown operand type>");
+  case MachineOperand::MO_Register: {
+    Register Reg = MO.getReg();
+    assert(Register::isPhysicalRegister(Reg));
+    assert(!MO.getSubReg() && "Subregs should be eliminated!");
+    dbgs() << SubRegIdx << '\n';
+    if (SubRegIdx)
+      if (Register SubReg =
+              getSubtarget().getRegisterInfo()->getSubReg(Reg, SubRegIdx))
+        Reg = SubReg;
+    O << Z80InstPrinter::getRegisterName(Reg);
+    break;
+  }
+  case MachineOperand::MO_Immediate: {
+    O << MO.getImm();
+    break;
+  }
+  case MachineOperand::MO_GlobalAddress: {
+    PrintSymbolOperand(MO, O);
+    break;
+  }
+  case MachineOperand::MO_BlockAddress: {
+    MCSymbol *Sym = GetBlockAddressSymbol(MO.getBlockAddress());
+    Sym->print(O, MAI);
+    break;
+  }
+  }
+}
+
+bool Z80AsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNum,
+                                    const char *ExtraCode, raw_ostream &O) {
+  // First try the generic code, which knows about modifiers like 'c' and 'n'.
+  if (!AsmPrinter::PrintAsmOperand(MI, OpNum, ExtraCode, O))
+    return false;
+
+  // Does this asm operand have a single letter operand modifier?
+  unsigned SubIdx = Z80::NoSubRegister;
+  if (ExtraCode && ExtraCode[0])
+    switch (ExtraCode[0]) {
+    default:
+      return true; // Unknown modifier.
+    case 'b':
+      SubIdx = Z80::sub_low;
+      break;
+    case 'h':
+      SubIdx = Z80::sub_high;
+      break;
+    case 'w':
+      SubIdx = Z80::sub_short;
+      break;
+    }
+
+  PrintOperand(MI, OpNum, SubIdx, O);
+  return false;
+}
+
+bool Z80AsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
+                                          unsigned OpNum, const char *ExtraCode,
+                                          raw_ostream &O) {
+  // First try the generic code.
+  if (!AsmPrinter::PrintAsmMemoryOperand(MI, OpNum, ExtraCode, O))
+    return false;
+
+  // Does this asm operand have a single letter operand modifier?
+  if (ExtraCode && ExtraCode[0])
+    return true; // Unknown modifier.
+
+  O << '(';
+  PrintOperand(MI, OpNum, Z80::NoSubRegister, O);
+  O << ')';
+  return false;
 }
 
 // Force static initialization.

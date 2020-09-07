@@ -15,9 +15,10 @@
 #define LLVM_LIB_TARGET_Z80_Z80SUBTARGET_H
 
 #include "Z80FrameLowering.h"
-#include "Z80InstrInfo.h"
 #include "Z80ISelLowering.h"
+#include "Z80InstrInfo.h"
 #include "llvm/CodeGen/GlobalISel/CallLowering.h"
+#include "llvm/CodeGen/GlobalISel/InlineAsmLowering.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelector.h"
 #include "llvm/CodeGen/GlobalISel/LegalizerInfo.h"
 #include "llvm/CodeGen/GlobalISel/RegisterBankInfo.h"
@@ -59,9 +60,10 @@ class Z80Subtarget final : public Z80GenSubtargetInfo {
 
   /// GlobalISel related APIs.
   std::unique_ptr<CallLowering> CallLoweringInfo;
+  std::unique_ptr<InlineAsmLowering> InlineAsmLoweringInfo;
+  std::unique_ptr<InstructionSelector> InstSelector;
   std::unique_ptr<LegalizerInfo> Legalizer;
   std::unique_ptr<RegisterBankInfo> RegBankInfo;
-  std::unique_ptr<InstructionSelector> InstSelector;
 
 public:
   /// This constructor initializes the data members to match that
@@ -87,6 +89,9 @@ public:
   /// Methods used by Global ISel
   const CallLowering *getCallLowering() const override {
     return CallLoweringInfo.get();
+  }
+  const InlineAsmLowering *getInlineAsmLowering() const override {
+    return InlineAsmLoweringInfo.get();
   }
   InstructionSelector *getInstructionSelector() const override {
     return InstSelector.get();
