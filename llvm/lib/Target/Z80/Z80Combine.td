@@ -33,15 +33,15 @@ def Z80PreLegalizerCombinerHelper
         narrow_icmp, narrow_load, narrow_op, opt_brcond_by_inverting_cond,
         or_to_add, ptr_add_const_immed, ptr_add_global_immed,
         ptr_add_immed_chain, select_combines, sext_to_zext, simplify_const,
-        simplify_icmp_bool, split_brcond, trivial_combines, undef_combines,
-        width_reduction_combines,
+        simplify_icmp_bool, simplify_known_const, split_brcond,
+        trivial_combines, undef_combines, width_reduction_combines,
     ]> {
   let DisableRuleOption = "z80prelegalizercombiner-disable-rule";
 }
 
 def Z80PostLegalizerCombinerHelper
     : GICombinerHelper<"Z80GenPostLegalizerCombinerHelper", [
-        narrow_op
+        combine_identity, narrow_op, simplify_known_const
     ]> {
   let DisableRuleOption = "z80postlegalizercombiner-disable-rule";
 }

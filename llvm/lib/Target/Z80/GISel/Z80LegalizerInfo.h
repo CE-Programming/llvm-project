@@ -17,6 +17,7 @@
 
 namespace llvm {
 
+class LostDebugLocObserver;
 class Z80Subtarget;
 class Z80TargetMachine;
 
@@ -35,8 +36,7 @@ public:
   legalizeCustomMaybeLegal(LegalizerHelper &Helper, MachineInstr &MI,
                            LostDebugLocObserver &LocObserver) const override;
 
-  bool legalizeIntrinsic(LegalizerHelper &Helper, MachineInstr &MI,
-                         LostDebugLocObserver &LocObserver) const override;
+  bool legalizeIntrinsic(LegalizerHelper &Helper, MachineInstr &MI) const override;
 
 private:
   LegalizerHelper::LegalizeResult
@@ -55,6 +55,9 @@ private:
                                                       MachineInstr &MI) const;
   LegalizerHelper::LegalizeResult legalizeCompare(LegalizerHelper &Helper,
                                                   MachineInstr &MI) const;
+  LegalizerHelper::LegalizeResult
+  legalizeMemIntrinsic(LegalizerHelper &Helper, MachineInstr &MI,
+                       LostDebugLocObserver &LocObserver) const;
 };
 
 } // End namespace llvm

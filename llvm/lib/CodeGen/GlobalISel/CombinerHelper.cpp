@@ -6202,7 +6202,7 @@ bool CombinerHelper::matchNarrowICmp(MachineInstr &MI, TypeImmPair &MatchInfo) {
     if (Width >= Ty.getSizeInBits() ||
         !isLegalOrBeforeLegalizer({TargetOpcode::G_ICMP, {LLT::scalar(Width)}}))
       return false;
-    for (MatchInfo.Imm = 0; MatchInfo.Imm < Ty.getSizeInBits();
+    for (MatchInfo.Imm = 0; MatchInfo.Imm + Width < Ty.getSizeInBits();
          MatchInfo.Imm += Width) {
       if ((KnownNotEqual.Zero |
            APInt::getBitsSet(Ty.getSizeInBits(), MatchInfo.Imm,
@@ -6430,6 +6430,16 @@ void CombinerHelper::applyLowerIsPowerOfTwo(MachineInstr &MI) {
 
   Observer.erasingInstr(MI);
   MI.eraseFromParent();
+}
+
+bool CombinerHelper::matchKnownConstant(MachineInstr &MI, APInt &C) {
+  if (!KB)
+    return false;
+  KnownBits Known = KB->getKnownBits(MI.getOperand(0).getReg());
+  if (!Known.isConstant())
+    return false;
+  C = Known.getConstant();
+  return true;
 }
 
 bool CombinerHelper::matchSinkConstant(MachineInstr &MI,
