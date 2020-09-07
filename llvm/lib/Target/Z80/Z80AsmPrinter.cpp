@@ -100,7 +100,7 @@ void Z80AsmPrinter::emitGlobalVariable(const GlobalVariable *GV) {
     TS->emitGlobal(GVSym);
   OutStreamer->emitLabel(GVSym);
   if (GVKind.isBSS())
-    TS->emitBlock(DL.getTypeAllocSize(GV->getType()->getElementType()));
+    TS->emitBlock(DL.getTypeAllocSize(GV->getValueType()));
   else
     emitGlobalConstant(DL, GV->getInitializer());
   OutStreamer->AddBlankLine();

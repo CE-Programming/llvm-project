@@ -1148,11 +1148,18 @@ def lower_is_power_of_two : GICombineRule<
 def simplify_const_matchdata : GIDefMatchData<"Optional<ValueAndVReg>">;
 def simplify_const : GICombineRule<
   (defs root:$mi, simplify_const_matchdata:$matchinfo),
-  (match (wip_match_opcode G_TRUNC, G_SEXT, G_ZEXT, G_INTTOPTR):$mi,
+  (match (wip_match_opcode G_INTTOPTR, G_TRUNC, G_SEXT, G_ZEXT):$mi,
          [{ ${matchinfo} = getIConstantVRegValWithLookThrough(
                 ${mi}->getOperand(0).getReg(), MRI);
             return ${matchinfo}.hasValue(); }]),
   (apply [{ Helper.replaceInstWithConstant(*${mi}, ${matchinfo}->Value); }])>;
+
+def simplify_known_const_matchdata : GIDefMatchData<"APInt">;
+def simplify_known_const : GICombineRule<
+  (defs root:$mi, simplify_known_const_matchdata:$matchinfo),
+  (match (wip_match_opcode G_AND, G_OR):$mi,
+         [{ return Helper.matchKnownConstant(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.replaceInstWithConstant(*${mi}, ${matchinfo}); }])>;
 
 def sink_const_matchdata : GIDefMatchData<"MachineInstr *">;
 def sink_const : GICombineRule<

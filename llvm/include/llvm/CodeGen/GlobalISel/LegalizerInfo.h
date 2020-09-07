@@ -1292,11 +1292,6 @@ public:
     return true;
   }
 
-  virtual bool legalizeIntrinsic(LegalizerHelper &Helper, MachineInstr &MI,
-                                 LostDebugLocObserver &) const {
-    return legalizeIntrinsic(Helper, MI);
-  }
-
   /// Return the opcode (SEXT/ZEXT/ANYEXT) that should be performed while
   /// widening a constant of type SmallTy which targets can override.
   /// For eg, the DAG does (SmallTy.isByteSized() ? G_SEXT : G_ZEXT) which
