@@ -123,8 +123,22 @@ private:
   MachineBasicBlock *EmitLoweredMemMove(MachineInstr &MI,
                                         MachineBasicBlock *BB) const;
 
+  void computeKnownBitsForTargetInstr(GISelKnownBits &Analysis, Register Reg,
+                                      KnownBits &Known,
+                                      const APInt &DemandedElts,
+                                      const MachineRegisterInfo &MRI,
+                                      unsigned Depth) const override;
+
   /// HandleByVal - Target-specific cleanup for ByVal support.
   void HandleByVal(CCState *, unsigned &, Align) const override;
+
+  ConstraintType getConstraintType(StringRef Constraint) const override;
+
+  std::pair<unsigned, const TargetRegisterClass *>
+  getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
+                               StringRef Constraint, MVT VT) const override;
+
+  unsigned getInlineAsmMemConstraint(StringRef Constraint) const override;
 };
 } // End llvm namespace
 

@@ -648,18 +648,13 @@ struct CompareOp_match {
     if (!mi_match(Op, MRI, m_MInstr(TmpMI)) || TmpMI->getOpcode() != Opcode)
       return false;
 
-    auto TmpPred =
-        static_cast<CmpInst::Predicate>(TmpMI->getOperand(1).getPredicate());
-    if (!P.match(MRI, TmpPred))
-      return false;
-    Register LHS = TmpMI->getOperand(2).getReg();
-    Register RHS = TmpMI->getOperand(3).getReg();
-    if (L.match(MRI, LHS) && R.match(MRI, RHS))
-      return true;
-    if (Commutable && L.match(MRI, RHS) && R.match(MRI, LHS) &&
-        P.match(MRI, CmpInst::getSwappedPredicate(TmpPred)))
-      return true;
-    return false;
+    auto TmpPred = CmpInst::Predicate(TmpMI->getOperand(1).getPredicate());
+    return (P.match(MRI, TmpPred) &&
+            L.match(MRI, TmpMI->getOperand(2).getReg()) &&
+            R.match(MRI, TmpMI->getOperand(3).getReg())) ||
+           (P.match(MRI, CmpInst::getSwappedPredicate(TmpPred)) &&
+            R.match(MRI, TmpMI->getOperand(2).getReg()) &&
+            L.match(MRI, TmpMI->getOperand(3).getReg()));
   }
 };
 

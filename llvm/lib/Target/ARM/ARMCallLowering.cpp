@@ -489,12 +489,10 @@ bool ARMCallLowering::lowerCall(MachineIRBuilder &MIRBuilder, CallLoweringInfo &
   MIB.add(Info.Callee);
   if (!IsDirect) {
     auto CalleeReg = Info.Callee.getReg();
-    if (CalleeReg && !CalleeReg.isPhysical()) {
-      unsigned CalleeIdx = IsThumb ? 2 : 0;
-      MIB->getOperand(CalleeIdx).setReg(constrainOperandRegClass(
-          MF, *TRI, MRI, *STI.getInstrInfo(), *STI.getRegBankInfo(),
-          *MIB.getInstr(), MIB->getDesc(), Info.Callee, CalleeIdx));
-    }
+    if (CalleeReg && !CalleeReg.isPhysical())
+      constrainOperandRegClass(MF, *TRI, MRI, *STI.getInstrInfo(),
+                               *STI.getRegBankInfo(), *MIB.getInstr(),
+                               Info.Callee, IsThumb ? 2 : 0);
   }
 
   MIB.addRegMask(TRI->getCallPreservedMask(MF, Info.CallConv));

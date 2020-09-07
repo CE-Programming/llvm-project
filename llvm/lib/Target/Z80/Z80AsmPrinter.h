@@ -10,10 +10,11 @@
 #ifndef LLVM_LIB_TARGET_Z80_Z80ASMPRINTER_H
 #define LLVM_LIB_TARGET_Z80_Z80ASMPRINTER_H
 
-#include "Z80Subtarget.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 
 namespace llvm {
+
+class Z80Subtarget;
 
 class LLVM_LIBRARY_VISIBILITY Z80AsmPrinter : public AsmPrinter {
   const Z80Subtarget *Subtarget;
@@ -29,6 +30,7 @@ public:
 
   const Z80Subtarget &getSubtarget() const { return *Subtarget; }
 
+  void SetupMachineFunction(MachineFunction &MF) override;
 
   void emitStartOfAsmFile(Module &M) override;
   void emitInlineAsmEnd(const MCSubtargetInfo &StartInfo,
@@ -36,6 +38,14 @@ public:
   void emitEndOfAsmFile(Module &M) override;
   void emitGlobalVariable(const GlobalVariable *GV) override;
   void emitInstruction(const MachineInstr *MI) override;
+
+private:
+  void PrintOperand(const MachineInstr *MI, unsigned OpNum, unsigned SubRegIdx,
+                    raw_ostream &O);
+  bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNum,
+                       const char *ExtraCode, raw_ostream &O) override;
+  bool PrintAsmMemoryOperand(const MachineInstr *MI, unsigned OpNum,
+                             const char *ExtraCode, raw_ostream &O) override;
 };
 } // End llvm namespace
 

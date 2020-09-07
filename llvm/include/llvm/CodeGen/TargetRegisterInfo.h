@@ -839,6 +839,12 @@ public:
     llvm_unreachable("Target didn't implement getPointerRegClass!");
   }
 
+  virtual const TargetRegisterClass *
+  getPointerRegClassForConstraint(const MachineFunction &MF,
+                                  unsigned Constraint) const {
+    return getPointerRegClass(MF);
+  }
+
   /// Returns a legal register class to copy a register in the specified class
   /// to or from. If it is possible to copy the register directly without using
   /// a cross register class copy, return the specified RC. Returns NULL if it

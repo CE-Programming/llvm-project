@@ -200,6 +200,19 @@ Z80::CondCode Z80::GetOppositeBranchCondition(Z80::CondCode CC) {
   return Z80::CondCode(CC ^ 1);
 }
 
+Z80::CondCode Z80::parseConstraintCode(StringRef Constraint) {
+  return StringSwitch<Z80::CondCode>(Constraint)
+      .Case("{@ccnz}", Z80::COND_NZ)
+      .Case("{@ccz}", Z80::COND_Z)
+      .Case("{@ccnc}", Z80::COND_NC)
+      .Case("{@ccc}", Z80::COND_C)
+      .Case("{@ccpo}", Z80::COND_PO)
+      .Case("{@ccpe}", Z80::COND_PE)
+      .Case("{@ccp}", Z80::COND_P)
+      .Case("{@ccm}", Z80::COND_M)
+      .Default(Z80::COND_INVALID);
+}
+
 bool Z80InstrInfo::analyzeBranch(MachineBasicBlock &MBB,
                                  MachineBasicBlock *&TBB,
                                  MachineBasicBlock *&FBB,

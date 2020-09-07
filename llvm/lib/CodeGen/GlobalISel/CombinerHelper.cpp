@@ -6667,6 +6667,30 @@ bool CombinerHelper::applyCombineShlToAdd(MachineInstr &MI, unsigned ShiftVal) {
   return true;
 }
 
+bool CombinerHelper::matchCombineAndExt(MachineInstr &MI,
+                                        RegisterImmPair &MatchInfo) {
+  return mi_match(MI.getOperand(0).getReg(), MRI,
+                  m_GAnd(m_any_of(m_GAnyExt(m_Reg(MatchInfo.Reg)),
+                                  m_GSExt(m_Reg(MatchInfo.Reg)),
+                                  m_GZExt(m_Reg(MatchInfo.Reg))),
+                         m_ICst(MatchInfo.Imm))) &&
+         !(MatchInfo.Imm & maskTrailingZeros<uint64_t>(
+                               MRI.getType(MatchInfo.Reg).getSizeInBits()));
+}
+
+void CombinerHelper::applyCombineAndExt(MachineInstr &MI,
+                                        const RegisterImmPair &MatchInfo) {
+  LLT SrcTy = MRI.getType(MatchInfo.Reg);
+  Builder.setInstr(MI);
+  Builder.buildZExt(
+      MI.getOperand(0).getReg(),
+      Builder.buildAnd(SrcTy, MatchInfo.Reg,
+                       Builder.buildConstant(SrcTy, MatchInfo.Imm)));
+
+  Observer.erasingInstr(MI);
+  MI.eraseFromParent();
+}
+
 bool CombinerHelper::matchCombineSExtToZExt(MachineInstr &MI) {
   if (MI.getOpcode() != TargetOpcode::G_SEXT)
     return false;
@@ -6720,6 +6744,8 @@ void CombinerHelper::applyCombineFunnelShift(MachineInstr &MI,
   MIB.buildInstr(
       TargetOpcode::G_FSHL, {DstReg},
       {MatchInfo.ShiftLeftReg, MatchInfo.ShiftRightReg, AmtI.getReg(0)});
+
+  Observer.erasingInstr(MI);
   MI.eraseFromParent();
 }
 
@@ -6856,7 +6882,6 @@ bool CombinerHelper::matchNarrowOp(MachineInstr &MI) {
   if (!TLI.isTypeDesirableForGOp(Opc, NarrowTy))
     return false;
 
-  const auto &DL = MF.getDataLayout();
   switch (Opc) {
   case TargetOpcode::G_ADD:
   case TargetOpcode::G_SUB:
@@ -6865,13 +6890,6 @@ bool CombinerHelper::matchNarrowOp(MachineInstr &MI) {
   case TargetOpcode::G_OR:
   case TargetOpcode::G_XOR:
     return isLegalOrBeforeLegalizer({Opc, {NarrowTy, NarrowTy}});
-  case TargetOpcode::G_LOAD:
-  case TargetOpcode::G_SEXTLOAD:
-  case TargetOpcode::G_ZEXTLOAD:
-    return isLegalOrBeforeLegalizer(
-        {Opc, {NarrowTy, LLT::pointer(0, DL.getPointerSizeInBits(0))}});
-  case TargetOpcode::G_CONSTANT:
-    return isLegalOrBeforeLegalizer({Opc, {NarrowTy}});
   default:
     return false;
   }
@@ -6891,21 +6909,8 @@ void CombinerHelper::applyNarrowOp(MachineInstr &MI) {
   Builder.setInstr(OpMI);
   Observer.changingInstr(OpMI);
   OpMI.getOperand(0).setReg(TruncReg);
-  if (OpMI.mayLoad()) {
-    assert(OpMI.hasOneMemOperand() &&
-           "Expected generic load to have exactly one MMO.");
-    MachineFunction &MF = Builder.getMF();
-    OpMI.setMemRefs(MF, MF.getMachineMemOperand(*OpMI.memoperands_begin(), 0,
-                                                NarrowTy.getSizeInBytes()));
-  } else if (OpMI.getOpcode() == TargetOpcode::G_CONSTANT) {
-    MachineOperand &MO = OpMI.getOperand(1);
-    const ConstantInt *Val = MO.getCImm();
-    MO.setCImm(ConstantInt::get(
-        Val->getContext(), Val->getValue().trunc(NarrowTy.getSizeInBits())));
-  } else
-    for (auto &MO : OpMI.explicit_uses())
-      if (MO.isReg())
-        MO.setReg(Builder.buildTrunc(NarrowTy, MO.getReg()).getReg(0));
+  for (auto &MO : OpMI.explicit_uses())
+    MO.setReg(Builder.buildTrunc(NarrowTy, MO.getReg()).getReg(0));
   Observer.changedInstr(OpMI);
 }
 
@@ -7046,19 +7051,28 @@ bool CombinerHelper::matchNarrowICmp(MachineInstr &MI, TypeImmPair &MatchInfo) {
   if (CmpInst::isSigned(Pred))
     return false;
 
-  unsigned Width = 8;
-  if (Width >= KnownEqual.getBitWidth())
-    return false;
-  for (ShiftAmt = 0; ShiftAmt < KnownEqual.getBitWidth(); ShiftAmt += Width)
-    if ((KnownNotEqual.Zero | APInt::getBitsSet(KnownEqual.getBitWidth(),
-                                                ShiftAmt, ShiftAmt + Width))
-            .isAllOnesValue())
-      return true;
+  for (unsigned Width : {1, 8}) {
+    MatchInfo.Ty = LLT::scalar(Width);
+    if (Width >= Ty.getSizeInBits() ||
+        !isLegalOrBeforeLegalizer({TargetOpcode::G_ICMP, {LLT::scalar(Width)}}))
+      return false;
+    for (MatchInfo.Imm = 0; MatchInfo.Imm < Ty.getSizeInBits();
+         MatchInfo.Imm += Width) {
+      if ((KnownNotEqual.Zero |
+           APInt::getBitsSet(Ty.getSizeInBits(), MatchInfo.Imm,
+                             MatchInfo.Imm + Width))
+              .isAllOnes())
+        return true;
+      if (Width == 1)
+        break;
+    }
+  }
 
   return false;
 }
 
-void CombinerHelper::applyNarrowCompare(MachineInstr &MI, unsigned ShiftAmt) {
+void CombinerHelper::applyNarrowICmp(MachineInstr &MI,
+                                     const TypeImmPair &MatchInfo) {
   assert(MI.getOpcode() == TargetOpcode::G_ICMP && "Expected a G_ICMP");
   Builder.setInstrAndDebugLoc(MI);
 
@@ -7088,7 +7102,51 @@ void CombinerHelper::applyNarrowCompare(MachineInstr &MI, unsigned ShiftAmt) {
   Observer.changedInstr(MI);
 }
 
-bool CombinerHelper::matchSplitConditions(MachineInstr &MI) {
+bool CombinerHelper::matchSimplifyICmpBool(MachineInstr &MI,
+                                           RegisterImmPair &MatchInfo) {
+  CmpInst::Predicate Pred;
+  bool CmpVal;
+  if (!mi_match(MI.getOperand(0).getReg(), MRI,
+                m_GICmp(m_Pred(Pred), m_Reg(MatchInfo.Reg), m_ICst(CmpVal))) ||
+      MRI.getType(MatchInfo.Reg) != LLT::scalar(1))
+    return false;
+
+  LLVMContext &C = MI.getParent()->getParent()->getFunction().getContext();
+  MatchInfo.Imm = 0;
+  ConstantInt *BoolCI[2] = {ConstantInt::getFalse(C), ConstantInt::getTrue(C)};
+  for (ConstantInt *InCI : BoolCI)
+    if (Constant *ResC =
+            ConstantExpr::getCompare(Pred, InCI, BoolCI[CmpVal], true))
+      MatchInfo.Imm = MatchInfo.Imm << 1 | (ResC == BoolCI[true]);
+    else
+      return false;
+  return true;
+}
+
+void CombinerHelper::applySimplifyICmpBool(MachineInstr &MI,
+                                           const RegisterImmPair &MatchInfo) {
+  Register DstReg = MI.getOperand(0).getReg();
+  Builder.setInstr(MI);
+  switch (MatchInfo.Imm) {
+  default:
+    llvm_unreachable("Expected a 2 bit value");
+  case 0: // always false
+  case 3: // always true
+    Builder.buildConstant(DstReg, MatchInfo.Imm == 3);
+    break;
+  case 1: // identity
+    Builder.buildCopy(DstReg, MatchInfo.Reg);
+    break;
+  case 2: // opposite
+    Builder.buildNot(DstReg, MatchInfo.Reg);
+    break;
+  }
+
+  Observer.erasingInstr(MI);
+  MI.eraseFromParent();
+}
+
+bool CombinerHelper::matchSplitBrCond(MachineInstr &MI) {
   if (MI.getOpcode() != TargetOpcode::G_BRCOND)
     return false;
   Register CondReg = MI.getOperand(0).getReg();
@@ -7098,11 +7156,13 @@ bool CombinerHelper::matchSplitConditions(MachineInstr &MI) {
           CondMI->getOpcode() == TargetOpcode::G_OR);
 }
 
-void CombinerHelper::applySplitConditions(MachineInstr &MI) {
+void CombinerHelper::applySplitBrCond(MachineInstr &MI) {
   MachineInstr &CondMI = *MRI.getVRegDef(MI.getOperand(0).getReg());
   bool IsAnd = CondMI.getOpcode() == TargetOpcode::G_AND;
   Register CondLHSReg = CondMI.getOperand(1).getReg();
   Register CondRHSReg = CondMI.getOperand(2).getReg();
+
+  Observer.erasingInstr(CondMI);
   CondMI.eraseFromParent();
 
   MachineBasicBlock::iterator II(MI);
@@ -7161,7 +7221,7 @@ void CombinerHelper::applySplitConditions(MachineInstr &MI) {
   }
 }
 
-bool CombinerHelper::matchFlipCondition(MachineInstr &MI, MachineInstr *&CmpI) {
+bool CombinerHelper::matchFlipCmpCond(MachineInstr &MI, MachineInstr *&CmpI) {
   int64_t Cst;
   return mi_match(MI.getOperand(0).getReg(), MRI,
                   m_GXor(m_MInstr(CmpI), m_ICst(Cst))) &&
@@ -7170,12 +7230,15 @@ bool CombinerHelper::matchFlipCondition(MachineInstr &MI, MachineInstr *&CmpI) {
          Cst;
 }
 
-void CombinerHelper::applyFlipCondition(MachineInstr &MI, MachineInstr &CmpI) {
+void CombinerHelper::applyFlipCmpCond(MachineInstr &MI, MachineInstr &CmpI) {
   Builder.setInsertPt(*MI.getParent(), MI);
+  auto Pred = CmpInst::getInversePredicate(
+      CmpInst::Predicate(CmpI.getOperand(1).getPredicate()));
   Builder.buildInstr(CmpI.getOpcode(), {MI.getOperand(0)},
-                     {CmpInst::getInversePredicate(CmpInst::Predicate(
-                          CmpI.getOperand(1).getPredicate())),
-                      CmpI.getOperand(2), CmpI.getOperand(3)});
+                     {Pred, CmpI.getOperand(2), CmpI.getOperand(3)},
+                     CmpI.getFlags());
+
+  Observer.erasingInstr(MI);
   MI.eraseFromParent();
 }
 
@@ -7218,6 +7281,8 @@ void CombinerHelper::applyLowerIsPowerOfTwo(MachineInstr &MI) {
     Builder.buildICmp(Pred == CmpInst::ICMP_ULT ? CmpInst::ICMP_EQ
                                                 : CmpInst::ICMP_NE,
                       ResReg, And, Zero);
+
+  Observer.erasingInstr(MI);
   MI.eraseFromParent();
 }
 
