@@ -93,6 +93,16 @@ struct ShiftOfShiftedLogic {
   uint64_t ValSum;
 };
 
+struct InstrImmPair {
+  MachineInstr *MI;
+  int64_t Imm;
+};
+
+struct TypeImmPair {
+  LLT Ty;
+  uint64_t Imm;
+};
+
 using BuildFnTy = std::function<void(MachineIRBuilder &)>;
 
 struct MergeTruncStoresInfo {
@@ -545,6 +555,9 @@ public:
   bool matchCombineShlToAdd(MachineInstr &MI, unsigned &ShiftVal);
   bool applyCombineShlToAdd(MachineInstr &MI, unsigned ShiftVal);
 
+  bool matchCombineAndExt(MachineInstr &MI, RegisterImmPair &MatchInfo);
+  void applyCombineAndExt(MachineInstr &MI, const RegisterImmPair &MatchInfo);
+
   bool matchCombineSExtToZExt(MachineInstr &MI);
   bool applyCombineSExtToZExt(MachineInstr &MI);
 
@@ -563,15 +576,22 @@ public:
   bool matchNarrowOp(MachineInstr &MI);
   void applyNarrowOp(MachineInstr &MI);
 
-  bool matchNarrowCompare(MachineInstr &MI, unsigned &ShiftAmt);
-  void applyNarrowCompare(MachineInstr &MI, unsigned ShiftAmt);
+  bool matchNarrowLoad(MachineInstr &MI, InstrImmPair &MatchInfo);
+  void applyNarrowLoad(MachineInstr &MI, const InstrImmPair &MatchInfo);
+
+  bool matchNarrowICmp(MachineInstr &MI, TypeImmPair &MatchInfo);
+  void applyNarrowICmp(MachineInstr &MI, const TypeImmPair &MatchInfo);
+
+  bool matchSimplifyICmpBool(MachineInstr &MI, RegisterImmPair &MatchInfo);
+  void applySimplifyICmpBool(MachineInstr &MI,
+                             const RegisterImmPair &MatchInfo);
 
   /// Split branches on conditions combined with and/or into multiple branches.
-  bool matchSplitConditions(MachineInstr &MI);
-  void applySplitConditions(MachineInstr &MI);
+  bool matchSplitBrCond(MachineInstr &MI);
+  void applySplitBrCond(MachineInstr &MI);
 
-  bool matchFlipCondition(MachineInstr &MI, MachineInstr *&CmpI);
-  void applyFlipCondition(MachineInstr &MI, MachineInstr &CmpI);
+  bool matchFlipCmpCond(MachineInstr &MI, MachineInstr *&CmpI);
+  void applyFlipCmpCond(MachineInstr &MI, MachineInstr &CmpI);
 
   /// Undo combines involving popcnt.
   bool matchLowerIsPowerOfTwo(MachineInstr &MI);

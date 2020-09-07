@@ -49,6 +49,8 @@ CondCode GetBranchConditionForPredicate(CmpInst::Predicate Pred, bool &IsSigned,
 /// e.g. turning COND_Z to COND_NZ.
 CondCode GetOppositeBranchCondition(CondCode CC);
 
+CondCode parseConstraintCode(StringRef Constraint);
+
 bool splitReg(unsigned ByteSize, unsigned Opc8, unsigned Opc16, unsigned Opc24,
               unsigned &RC, unsigned &LoOpc, unsigned &LoIdx, unsigned &HiOpc,
               unsigned &HiIdx, unsigned &HiOff, bool Has16BitEZ80Ops);

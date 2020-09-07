@@ -50,6 +50,10 @@ public:
   const TargetRegisterClass *
   getPointerRegClass(const MachineFunction &MF,
                      unsigned Kind = 0) const override;
+  const TargetRegisterClass *getPointerRegClassForConstraint(
+      const MachineFunction &MF,
+      unsigned Constraint = InlineAsm::Constraint_m) const override;
+
   const TargetRegisterClass *
   getLargestLegalSuperClass(const TargetRegisterClass *RC,
                             const MachineFunction &) const override;

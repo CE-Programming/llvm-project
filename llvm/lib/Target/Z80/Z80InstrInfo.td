@@ -247,7 +247,7 @@ let hasPostISelHook = 1 in {
                            Requires<[In24BitMode]>;
   }
 }
-let usesCustomInserter = 1 in {
+let hasSideEffects = 0, usesCustomInserter = 1 in {
   let Uses = [F] in {
     def SetCC : P<(outs R8:$dst), (ins i8imm:$cc)>;
     def Select8  : P<(outs  R8:$dst), (ins  R8:$true,  R8:$false, i8imm:$cc),

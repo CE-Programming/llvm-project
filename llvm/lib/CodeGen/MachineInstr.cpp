@@ -919,7 +919,8 @@ MachineInstr::getRegClassConstraint(unsigned OpIdx,
 
   // Assume that all registers in a memory operand are pointers.
   if (InlineAsm::getKind(Flag) == InlineAsm::Kind_Mem)
-    return TRI->getPointerRegClass(MF);
+    return TRI->getPointerRegClassForConstraint(
+        MF, InlineAsm::getMemoryConstraintID(Flag));
 
   return nullptr;
 }

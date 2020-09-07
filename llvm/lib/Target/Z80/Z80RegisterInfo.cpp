@@ -58,6 +58,27 @@ Z80RegisterInfo::getPointerRegClass(const MachineFunction &MF,
 }
 
 const TargetRegisterClass *
+Z80RegisterInfo::getPointerRegClassForConstraint(const MachineFunction &MF,
+                                                 unsigned Constraint) const {
+  unsigned Kind;
+  switch (Constraint) {
+  default:
+    llvm_unreachable(
+        "Unexpected Constraint in getPointerRegClassForConstraint!");
+  case InlineAsm::Constraint_V:
+    Kind = 0;
+    break;
+  case InlineAsm::Constraint_m:
+    Kind = 1;
+    break;
+  case InlineAsm::Constraint_o:
+    Kind = 2;
+    break;
+  }
+  return getPointerRegClass(MF, Kind);
+}
+
+const TargetRegisterClass *
 Z80RegisterInfo::getLargestLegalSuperClass(const TargetRegisterClass *RC,
                                            const MachineFunction &) const {
   const TargetRegisterClass *Super = RC;

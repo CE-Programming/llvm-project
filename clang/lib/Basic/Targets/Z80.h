@@ -37,24 +37,26 @@ public:
     PtrDiffType = IntPtrType = WIntType = SignedInt;
     Char32Type = UnsignedLong;
   }
+
   bool hasInt48Type() const override { return true; }
+  void getTargetDefines(const LangOptions &Opts,
+                        MacroBuilder &Builder) const override;
   ArrayRef<Builtin::Info> getTargetBuiltins() const final { return None; }
   BuiltinVaListKind getBuiltinVaListKind() const override {
     return TargetInfo::CharPtrBuiltinVaList;
   }
+
+  StringRef getConstraintRegister(StringRef Constraint,
+                                  StringRef Expression) const override;
   bool validateAsmConstraint(const char *&Name,
-                             TargetInfo::ConstraintInfo &Info) const override {
-    return false;
-  }
+                             TargetInfo::ConstraintInfo &Info) const override;
+  std::string convertConstraint(const char *&Constraint) const override;
+
   const char *getClobbers() const override { return ""; }
-  ArrayRef<const char *> getGCCRegNames() const override { return None; }
   ArrayRef<TargetInfo::GCCRegAlias> getGCCRegAliases() const override {
     return None;
   }
-
-  void getTargetDefines(const LangOptions &Opts,
-                        MacroBuilder &Builder) const override {
-  }
+  ArrayRef<TargetInfo::AddlRegName> getGCCAddlRegNames() const override;
 
   bool allowsLargerPreferedTypeAlignment() const override { return false; }
 };
@@ -75,6 +77,7 @@ private:
                    const std::vector<std::string> &FeaturesVec) const override;
   void getTargetDefines(const LangOptions &Opts,
                         MacroBuilder &Builder) const override;
+  ArrayRef<const char *> getGCCRegNames() const override;
 };
 
 class LLVM_LIBRARY_VISIBILITY EZ80TargetInfo : public Z80TargetInfoBase {
@@ -94,6 +97,7 @@ private:
   bool setCPU(const std::string &Name) override;
   void getTargetDefines(const LangOptions &Opts,
                         MacroBuilder &Builder) const override;
+  ArrayRef<const char *> getGCCRegNames() const override;
 };
 
 } // namespace targets

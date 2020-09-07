@@ -1058,6 +1058,13 @@ def shl_to_add : GICombineRule<
          [{ return Helper.matchCombineShlToAdd(*${mi}, ${matchinfo}); }]),
   (apply [{ Helper.applyCombineShlToAdd(*${mi}, ${matchinfo}); }])>;
 
+def and_ext_matchdata : GIDefMatchData<"RegisterImmPair">;
+def and_ext : GICombineRule<
+  (defs root:$mi, and_ext_matchdata:$matchinfo),
+  (match (wip_match_opcode G_AND):$mi,
+         [{ return Helper.matchCombineAndExt(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyCombineAndExt(*${mi}, ${matchinfo}); }])>;
+
 def sext_to_zext : GICombineRule<
   (defs root:$mi),
   (match (wip_match_opcode G_SEXT):$mi,
@@ -1098,31 +1105,54 @@ def narrow_op : GICombineRule<
          [{ return Helper.matchNarrowOp(*${mi}); }]),
   (apply [{ Helper.applyNarrowOp(*${mi}); }])>;
 
-def narrow_compare_matchdata : GIDefMatchData<"unsigned">;
-def narrow_compare : GICombineRule<
-  (defs root:$mi, narrow_compare_matchdata:$matchinfo),
-  (match (wip_match_opcode G_ICMP):$mi,
-         [{ return Helper.matchNarrowCompare(*${mi}, ${matchinfo}); }]),
-  (apply [{ Helper.applyNarrowCompare(*${mi}, ${matchinfo}); }])>;
+def narrow_load_matchdata : GIDefMatchData<"InstrImmPair">;
+def narrow_load : GICombineRule<
+  (defs root:$mi, narrow_load_matchdata:$matchinfo),
+  (match (wip_match_opcode G_TRUNC):$mi,
+         [{ return Helper.matchNarrowLoad(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyNarrowLoad(*${mi}, ${matchinfo}); }])>;
 
-def split_conditions : GICombineRule<
+def narrow_icmp_matchdata : GIDefMatchData<"TypeImmPair">;
+def narrow_icmp : GICombineRule<
+  (defs root:$mi, narrow_icmp_matchdata:$matchinfo),
+  (match (wip_match_opcode G_ICMP):$mi,
+         [{ return Helper.matchNarrowICmp(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyNarrowICmp(*${mi}, ${matchinfo}); }])>;
+
+def simplify_icmp_bool_matchdata : GIDefMatchData<"RegisterImmPair">;
+def simplify_icmp_bool : GICombineRule<
+  (defs root:$mi, simplify_icmp_bool_matchdata:$matchinfo),
+  (match (wip_match_opcode G_ICMP):$mi,
+         [{ return Helper.matchSimplifyICmpBool(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applySimplifyICmpBool(*${mi}, ${matchinfo}); }])>;
+
+def split_brcond : GICombineRule<
   (defs root:$mi),
   (match (wip_match_opcode G_BRCOND):$mi,
-         [{ return Helper.matchSplitConditions(*${mi}); }]),
-  (apply [{ Helper.applySplitConditions(*${mi}); }])>;
+         [{ return Helper.matchSplitBrCond(*${mi}); }]),
+  (apply [{ Helper.applySplitBrCond(*${mi}); }])>;
 
-def flip_condition_matchdata : GIDefMatchData<"MachineInstr *">;
-def flip_condition : GICombineRule<
-  (defs root:$mi, flip_condition_matchdata:$matchinfo),
+def flip_cmp_cond_matchdata : GIDefMatchData<"MachineInstr *">;
+def flip_cmp_cond : GICombineRule<
+  (defs root:$mi, flip_cmp_cond_matchdata:$matchinfo),
   (match (wip_match_opcode G_XOR):$mi,
-         [{ return Helper.matchFlipCondition(*${mi}, ${matchinfo}); }]),
-  (apply [{ Helper.applyFlipCondition(*${mi}, *${matchinfo}); }])>;
+         [{ return Helper.matchFlipCmpCond(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyFlipCmpCond(*${mi}, *${matchinfo}); }])>;
 
 def lower_is_power_of_two : GICombineRule<
   (defs root:$mi),
   (match (wip_match_opcode G_ICMP):$mi,
          [{ return Helper.matchLowerIsPowerOfTwo(*${mi}); }]),
   (apply [{ Helper.applyLowerIsPowerOfTwo(*${mi}); }])>;
+
+def simplify_const_matchdata : GIDefMatchData<"Optional<ValueAndVReg>">;
+def simplify_const : GICombineRule<
+  (defs root:$mi, simplify_const_matchdata:$matchinfo),
+  (match (wip_match_opcode G_TRUNC, G_SEXT, G_ZEXT, G_INTTOPTR):$mi,
+         [{ ${matchinfo} = getIConstantVRegValWithLookThrough(
+                ${mi}->getOperand(0).getReg(), MRI);
+            return ${matchinfo}.hasValue(); }]),
+  (apply [{ Helper.replaceInstWithConstant(*${mi}, ${matchinfo}->Value); }])>;
 
 def sink_const_matchdata : GIDefMatchData<"MachineInstr *">;
 def sink_const : GICombineRule<

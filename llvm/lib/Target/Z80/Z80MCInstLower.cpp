@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Z80AsmPrinter.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/Mangler.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCInst.h"
@@ -39,7 +40,7 @@ public:
   MCOperand LowerSymbolOperand(const MachineOperand &MO, MCSymbol *Sym) const;
 
   void Lower(const MachineInstr *MI, MCInst &OutMI) const;
-  };
+};
 }
 
 Z80MCInstLower::Z80MCInstLower(const MachineFunction &MF, Z80AsmPrinter &AP)
