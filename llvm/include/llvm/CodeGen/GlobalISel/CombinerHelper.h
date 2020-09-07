@@ -599,6 +599,8 @@ public:
   bool matchLowerIsPowerOfTwo(MachineInstr &MI);
   void applyLowerIsPowerOfTwo(MachineInstr &MI);
 
+  bool matchKnownConstant(MachineInstr &MI, APInt &Const);
+
   bool matchSinkConstant(MachineInstr &MI, MachineInstr *&DomUseMI);
   void applySinkConstant(MachineInstr &MI, MachineInstr &DomUseMI);
 

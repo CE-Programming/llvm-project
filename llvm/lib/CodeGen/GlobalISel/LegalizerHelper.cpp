@@ -122,8 +122,7 @@ LegalizerHelper::legalizeInstrStep(MachineInstr &MI,
   MIRBuilder.setInstrAndDebugLoc(MI);
 
   if (isa<GIntrinsic>(MI))
-    return LI.legalizeIntrinsic(*this, MI, LocObserver) ? Legalized
-                                                        : UnableToLegalize;
+    return LI.legalizeIntrinsic(*this, MI) ? Legalized : UnableToLegalize;
   auto Step = LI.getAction(MI, MRI);
   switch (Step.Action) {
   case Legal:
@@ -1382,7 +1381,7 @@ LegalizerHelper::LegalizeResult LegalizerHelper::narrowScalar(MachineInstr &MI,
     MI.eraseFromParent();
     return Legalized;
   }
-  case TargetOpcode::G_SEXT:
+    case TargetOpcode::G_SEXT:
   case TargetOpcode::G_ZEXT:
   case TargetOpcode::G_ANYEXT:
     return narrowScalarExt(MI, TypeIdx, NarrowTy);
@@ -1390,14 +1389,35 @@ LegalizerHelper::LegalizeResult LegalizerHelper::narrowScalar(MachineInstr &MI,
     if (TypeIdx != 1)
       return UnableToLegalize;
 
-    uint64_t SizeOp1 = MRI.getType(MI.getOperand(1).getReg()).getSizeInBits();
-    if (NarrowTy.getSizeInBits() * 2 != SizeOp1) {
-      LLVM_DEBUG(dbgs() << "Can't narrow trunc to type " << NarrowTy << "\n");
+    Register Op1 = MI.getOperand(1).getReg();
+    LLT Op1Ty = MRI.getType(Op1);
+    LLT LeftoverTy;
+    SmallVector<Register, 4> PartRegs;
+    SmallVector<Register, 1> LeftoverRegs;
+    if (!extractParts(Op1, Op1Ty, NarrowTy, LeftoverTy, PartRegs, LeftoverRegs, MIRBuilder, MRI))
       return UnableToLegalize;
+    LeftoverTy = LLT{};
+    LeftoverRegs.clear();
+
+    unsigned MainSize = PartRegs.size() * NarrowSize;
+    unsigned LeftoverSize;
+    if (SizeOp0 < MainSize) {
+      PartRegs.truncate(SizeOp0 / NarrowSize);
+      LeftoverSize = SizeOp0 % NarrowSize;
+    } else {
+      LeftoverSize = SizeOp0 - MainSize;
+    }
+    if (LeftoverSize) {
+      LeftoverTy = LLT::scalar(LeftoverSize);
+      for (unsigned Offset = NarrowSize * PartRegs.size(); Offset < SizeOp0;
+           Offset += LeftoverSize)
+        LeftoverRegs.push_back(
+            MIRBuilder.buildExtract(LeftoverTy, Op1, Offset).getReg(0));
     }
 
-    auto Unmerge = MIRBuilder.buildUnmerge(NarrowTy, MI.getOperand(1));
-    MIRBuilder.buildCopy(MI.getOperand(0), Unmerge.getReg(0));
+    Register Op0 = MI.getOperand(0).getReg();
+    LLT Op0Ty = MRI.getType(Op0);
+    insertParts(Op0, Op0Ty, NarrowTy, PartRegs, LeftoverTy, LeftoverRegs);
     MI.eraseFromParent();
     return Legalized;
   }

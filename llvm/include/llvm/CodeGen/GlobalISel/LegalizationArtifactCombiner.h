@@ -1163,6 +1163,23 @@ public:
       return true;
     }
 
+    if (SrcDef->getOpcode() == TargetOpcode::G_CONSTANT) {
+      APInt Val = SrcDef->getOperand(1).getCImm()->getValue();
+
+      Builder.setInstrAndDebugLoc(MI);
+
+      for (unsigned I = 0; I != NumDefs; ++I) {
+        auto ConstI =
+            Builder.buildConstant(DestTy, Val.trunc(DestTy.getSizeInBits()));
+        replaceRegOrBuildCopy(MI.getOperand(I).getReg(), ConstI.getReg(0), MRI,
+                              Builder, UpdatedDefs, Observer);
+        Val.lshrInPlace(DestTy.getSizeInBits());
+      }
+
+      markInstAndDefDead(MI, *SrcDef, DeadInsts);
+      return true;
+    }
+
     MachineInstr *MergeI = SrcDef;
     unsigned ConvertOp = 0;
 
