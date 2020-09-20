@@ -131,12 +131,12 @@ Z80TargetLowering::Z80TargetLowering(const Z80TargetMachine &TM,
   setLibcall(RTLIB::UDIVREM_I24,      "_idvrmu",   CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::UDIVREM_I32,      "_ldvrmu",   CallingConv::Z80_LibCall   );
 
-  setLibcall(RTLIB::POPCNT_I8,        "_bpopcnt",  CallingConv::Z80_LibCall   );
+  setLibcall(RTLIB::POPCNT_I8,        "_bpopcnt",  CallingConv::Z80_LibCall_AC);
   setLibcall(RTLIB::POPCNT_I16,       "_spopcnt",  CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::POPCNT_I24,       "_ipopcnt",  CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::POPCNT_I32,       "_lpopcnt",  CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::POPCNT_I64,       "_llpopcnt", CallingConv::Z80_LibCall   );
-  setLibcall(RTLIB::BITREV_I8,        "_bbitrev",  CallingConv::Z80_LibCall   );
+  setLibcall(RTLIB::BITREV_I8,        "_bbitrev",  CallingConv::Z80_LibCall_AC);
   setLibcall(RTLIB::BITREV_I16,       "_sbitrev",  CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::BITREV_I24,       "_ibitrev",  CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::BITREV_I32,       "_lbitrev",  CallingConv::Z80_LibCall   );
@@ -190,6 +190,7 @@ bool Z80TargetLowering::isTypeDesirableForGOp(unsigned Opc, LLT Ty) const {
   case TargetOpcode::G_CONSTANT:
   case TargetOpcode::G_SEXT:
   case TargetOpcode::G_ZEXT:
+  case TargetOpcode::G_CTPOP:
     return true;
   case TargetOpcode::G_ADD:
   case TargetOpcode::G_SUB:
