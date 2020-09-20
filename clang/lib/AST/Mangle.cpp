@@ -70,7 +70,8 @@ static CCMangling getCallingConvMangling(const ASTContext &Context,
 
   // On wasm, the argc/argv form of "main" is renamed so that the startup code
   // can call it with the correct function signature.
-  if (Triple.isWasm())
+  if (Context.getTargetInfo().getTargetOpts().ForceMangleMainArgcArgv ||
+      (Triple.isWasm()))
     if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(ND))
       if (FD->isMain() && FD->getNumParams() == 2)
         return CCM_WasmMainArgcArgv;

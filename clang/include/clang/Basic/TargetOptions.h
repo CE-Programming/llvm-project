@@ -114,6 +114,9 @@ public:
   /// The validator version for dxil.
   std::string DxilValidatorVersion;
 
+  /// Force mangle main to __main_argc_argv if it has arguments.
+  bool ForceMangleMainArgcArgv;
+
   /// Very specific hack for testing the ez80 backend.
   bool TestEZ80Hack;
 };
