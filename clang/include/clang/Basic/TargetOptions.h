@@ -126,6 +126,9 @@ public:
   /// The entry point name for HLSL shader being compiled as specified by -E.
   std::string HLSLEntry;
 
+  /// Force mangle main to __main_argc_argv if it has arguments.
+  bool ForceMangleMainArgcArgv;
+
   /// Very specific hack for testing the ez80 backend.
   bool TestEZ80Hack;
 };
