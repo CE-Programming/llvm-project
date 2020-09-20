@@ -6035,6 +6035,7 @@ bool CombinerHelper::matchNarrowOp(MachineInstr &MI) {
   case TargetOpcode::G_AND:
   case TargetOpcode::G_OR:
   case TargetOpcode::G_XOR:
+  case TargetOpcode::G_CTPOP:
     return isLegalOrBeforeLegalizer({Opc, {NarrowTy, NarrowTy}});
   default:
     return false;
