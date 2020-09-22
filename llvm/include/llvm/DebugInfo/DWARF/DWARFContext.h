@@ -382,8 +382,8 @@ public:
     return version >= 2 && version <= getMaxSupportedVersion();
   }
 
-  static SmallVector<uint8_t, 3> getSupportedAddressSizes() {
-    return {2, 4, 8};
+  static SmallVector<uint8_t, 4> getSupportedAddressSizes() {
+    return {2, 3, 4, 8};
   }
   static bool isAddressSizeSupported(unsigned AddressSize) {
     return llvm::is_contained(getSupportedAddressSizes(), AddressSize);
