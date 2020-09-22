@@ -134,7 +134,6 @@ DIEAbbrevSet::~DIEAbbrevSet() {
 }
 
 DIEAbbrev &DIEAbbrevSet::uniqueAbbreviation(DIE &Die) {
-
   FoldingSetNodeID ID;
   DIEAbbrev Abbrev = Die.generateAbbrev();
   Abbrev.Profile(ID);
@@ -161,6 +160,8 @@ void DIEAbbrevSet::Emit(const AsmPrinter *AP, MCSection *Section) const {
   if (!Abbreviations.empty()) {
     // Start the debug abbrev section.
     AP->OutStreamer->switchSection(Section);
+    if (StartSym)
+      AP->OutStreamer->emitLabel(StartSym);
     AP->emitDwarfAbbrevs(Abbreviations);
   }
 }

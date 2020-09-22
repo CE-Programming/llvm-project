@@ -1163,18 +1163,20 @@ void DwarfDebug::beginModule(Module *M) {
       GVMap[GVE->getVariable()].push_back({&Global, GVE->getExpression()});
   }
 
+  DwarfFile &Holder = useSplitDwarf() ? SkeletonHolder : InfoHolder;
+
+  // Create the symbol that designates the start of the abbrev section.
+  Holder.setAbbrevStartSym(Asm->createTempSymbol("abbrev_start"));
+
   // Create the symbol that designates the start of the unit's contribution
   // to the string offsets table. In a split DWARF scenario, only the skeleton
   // unit has the DW_AT_str_offsets_base attribute (and hence needs the symbol).
   if (useSegmentedStringOffsetsTable())
-    (useSplitDwarf() ? SkeletonHolder : InfoHolder)
-        .setStringOffsetsStartSym(Asm->createTempSymbol("str_offsets_base"));
-
+    Holder.setStringOffsetsStartSym(Asm->createTempSymbol("str_offsets_base"));
 
   // Create the symbols that designates the start of the DWARF v5 range list
   // and locations list tables. They are located past the table headers.
   if (getDwarfVersion() >= 5) {
-    DwarfFile &Holder = useSplitDwarf() ? SkeletonHolder : InfoHolder;
     Holder.setRnglistsTableBaseSym(
         Asm->createTempSymbol("rnglists_table_base"));
 
