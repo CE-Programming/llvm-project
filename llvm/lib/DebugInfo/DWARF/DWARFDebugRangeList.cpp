@@ -65,22 +65,10 @@ Error DWARFDebugRangeList::extract(const DWARFDataExtractor &data,
 }
 
 void DWARFDebugRangeList::dump(raw_ostream &OS) const {
-  const char *AddrFmt;
-  switch (AddressSize) {
-  case 2:
-    AddrFmt = "%08" PRIx64 " %04" PRIx64 " %04" PRIx64 "\n";
-    break;
-  case 4:
-    AddrFmt = "%08" PRIx64 " %08" PRIx64 " %08" PRIx64 "\n";
-    break;
-  case 8:
-    AddrFmt = "%08" PRIx64 " %016" PRIx64 " %016" PRIx64 "\n";
-    break;
-  default:
-    llvm_unreachable("unsupported address size");
-  }
   for (const RangeListEntry &RLE : Entries)
-    OS << format(AddrFmt, Offset, RLE.StartAddress, RLE.EndAddress);
+    OS << format("%08" PRIx64 " %0*" PRIx64 " %0*" PRIx64 "\n", Offset,
+                 2 * AddressSize, RLE.StartAddress, 2 * AddressSize,
+                 RLE.EndAddress);
   OS << format("%08" PRIx64 " <End of list>\n", Offset);
 }
 

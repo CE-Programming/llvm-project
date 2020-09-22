@@ -133,6 +133,10 @@ public:
   /// Emit a set of abbreviations to the specific section.
   void emitAbbrevs(MCSection *);
 
+  /// Get label to the .debug_abbrev section.
+  MCSymbol *getAbbrevStartSym() const { return Abbrevs.getStartSym(); }
+  void setAbbrevStartSym(MCSymbol *Sym) { Abbrevs.setStartSym(Sym); }
+
   /// Emit all of the strings to the section given. If OffsetSection is
   /// non-null, emit a table of string offsets to it. If UseRelativeOffsets
   /// is false, emit absolute offsets to the strings. Otherwise, emit

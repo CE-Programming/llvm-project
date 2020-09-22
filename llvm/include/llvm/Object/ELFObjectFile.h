@@ -1213,6 +1213,9 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
       return "elf32-amdgpu";
     case ELF::EM_LOONGARCH:
       return "elf32-loongarch";
+    case ELF::EM_Z80:
+      return (EF.getHeader().e_flags & ELF::EF_Z80_EZ80 ? "elf32-ez80"
+                                                        : "elf32-z80");
     default:
       return "elf32-unknown";
     }
@@ -1336,6 +1339,16 @@ template <class ELFT> Triple::ArchType ELFObjectFile<ELFT>::getArch() const {
     default:
       report_fatal_error("Invalid ELFCLASS!");
     }
+
+
+  case ELF::EM_Z80:
+    if (!IsLittleEndian)
+      return Triple::UnknownArch;
+
+    if (EF.getHeader().e_flags & ELF::EF_Z80_EZ80)
+      return Triple::ez80;
+
+    return Triple::z80;
 
   default:
     return Triple::UnknownArch;
