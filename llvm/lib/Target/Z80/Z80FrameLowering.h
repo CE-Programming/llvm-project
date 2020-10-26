@@ -65,6 +65,7 @@ public:
   bool isFPSaved(const MachineFunction &MF) const;
   bool hasReservedCallFrame(const MachineFunction &MF) const override;
   bool needsFrameIndexResolution(const MachineFunction &MF) const override;
+  unsigned getSlotSize() const { return SlotSize; }
 
   enum StackAdjustmentMethod {
     SAM_None,
@@ -80,13 +81,17 @@ public:
 
 private:
   void BuildStackAdjustment(MachineFunction &MF, MachineBasicBlock &MBB,
-                            MachineBasicBlock::iterator MBBI, DebugLoc DL,
-                            Register ScratchReg, int Offset, int FPOffset = -1,
+                            MachineBasicBlock::iterator MBBI,
+                            const DebugLoc &DL, Register ScratchReg, int Offset,
+                            int FPOffset = -1,
+                            MachineInstr::MIFlag Flag = MachineInstr::NoFlags,
                             bool UnknownOffset = false) const;
 
-  void shadowCalleeSavedRegisters(
-      MachineBasicBlock &MBB, MachineBasicBlock::iterator MI, DebugLoc DL,
-      MachineInstr::MIFlag Flag, const std::vector<CalleeSavedInfo> &CSI) const;
+  void
+  shadowCalleeSavedRegisters(MachineBasicBlock &MBB,
+                             MachineBasicBlock::iterator MI, const DebugLoc &DL,
+                             MachineInstr::MIFlag Flag,
+                             const std::vector<CalleeSavedInfo> &CSI) const;
 };
 } // End llvm namespace
 

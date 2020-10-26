@@ -488,6 +488,7 @@ public:
     OpRememberState,
     OpRestoreState,
     OpOffset,
+    OpValOffset,
     OpLLVMDefAspaceCfa,
     OpDefCfaRegister,
     OpDefCfaOffset,
@@ -600,6 +601,13 @@ public:
   static MCCFIInstruction createOffset(MCSymbol *L, unsigned Register,
                                        int64_t Offset, SMLoc Loc = {}) {
     return MCCFIInstruction(OpOffset, L, Register, Offset, Loc);
+  }
+
+  /// .cfi_val_offset Previous value of Register is equal to offset Offset from
+  /// CFA.
+  static MCCFIInstruction createValOffset(MCSymbol *L, unsigned Register,
+                                          int Offset) {
+    return MCCFIInstruction(OpValOffset, L, Register, Offset, {});
   }
 
   /// .cfi_rel_offset Previous value of Register is saved at offset

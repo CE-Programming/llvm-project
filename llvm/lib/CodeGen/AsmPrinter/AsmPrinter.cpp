@@ -1300,10 +1300,7 @@ bool AsmPrinter::usesCFIWithoutEH() const {
 }
 
 void AsmPrinter::emitCFIInstruction(const MachineInstr &MI) {
-  ExceptionHandling ExceptionHandlingType = MAI->getExceptionHandlingType();
-  if (!usesCFIWithoutEH() &&
-      ExceptionHandlingType != ExceptionHandling::DwarfCFI &&
-      ExceptionHandlingType != ExceptionHandling::ARM)
+  if (!usesCFIWithoutEH() && !MAI->usesCFIForEH())
     return;
 
   if (getFunctionCFISectionType(*MF) == CFISection::None)

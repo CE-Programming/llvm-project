@@ -1002,6 +1002,7 @@ public:
   virtual void emitCFILLVMDefAspaceCfa(int64_t Register, int64_t Offset,
                                        int64_t AddressSpace, SMLoc Loc = {});
   virtual void emitCFIOffset(int64_t Register, int64_t Offset, SMLoc Loc = {});
+  virtual void emitCFIValOffset(int64_t Register, int64_t Offset);
   virtual void emitCFIPersonality(const MCSymbol *Sym, unsigned Encoding);
   virtual void emitCFILsda(const MCSymbol *Sym, unsigned Encoding);
   virtual void emitCFIRememberState(SMLoc Loc);

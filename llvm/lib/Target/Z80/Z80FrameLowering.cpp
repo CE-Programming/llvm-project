@@ -23,6 +23,7 @@
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/MC/MCDwarf.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "z80-frame-lowering"
@@ -118,12 +119,11 @@ Z80FrameLowering::getOptimalStackAdjustmentMethod(MachineFunction &MF,
   return LargeCost < BestCost ? SAM_Large : BestMethod;
 }
 
-void Z80FrameLowering::BuildStackAdjustment(MachineFunction &MF,
-                                            MachineBasicBlock &MBB,
-                                            MachineBasicBlock::iterator MI,
-                                            DebugLoc DL, Register ScratchReg,
-                                            int Offset, int FPOffset,
-                                            bool UnknownOffset) const {
+void Z80FrameLowering::BuildStackAdjustment(
+    MachineFunction &MF, MachineBasicBlock &MBB,
+    MachineBasicBlock::iterator MBBI, const DebugLoc &DL, Register ScratchReg,
+    int Offset, int FPOffset, MachineInstr::MIFlag Flag,
+    bool UnknownOffset) const {
   Register FrameReg = TRI->getFrameRegister(MF), ResultReg;
   bool ScratchIsIndex = Z80::I24RegClass.contains(ScratchReg) ||
                         Z80::I16RegClass.contains(ScratchReg);
@@ -135,39 +135,59 @@ void Z80FrameLowering::BuildStackAdjustment(MachineFunction &MF,
   case SAM_Small:
     for (unsigned PopPushCount = std::abs(Offset) / SlotSize; PopPushCount;
          --PopPushCount)
-      BuildMI(MBB, MI, DL,
-              TII.get(Offset >= 0 ? (Is24Bit ? Z80::POP24r : Z80::POP16r)
-                                  : (Is24Bit ? Z80::PUSH24r : Z80::PUSH16r)))
-          .addReg(ScratchReg, getDefRegState(Offset >= 0) |
-                                  getDeadRegState(Offset >= 0) |
-                                  getUndefRegState(Offset < 0));
+      TII.applySPAdjust(
+          *BuildMI(MBB, MBBI, DL,
+                   TII.get(Offset >= 0
+                               ? (Is24Bit ? Z80::POP24r : Z80::POP16r)
+                               : (Is24Bit ? Z80::PUSH24r : Z80::PUSH16r)))
+               .addReg(ScratchReg, getDefRegState(Offset >= 0) |
+                                       getDeadRegState(Offset >= 0) |
+                                       getUndefRegState(Offset < 0))
+               .setMIFlag(Flag));
     LLVM_FALLTHROUGH;
   case SAM_Tiny:
     for (unsigned IncDecCount = std::abs(Offset) % SlotSize; IncDecCount;
          --IncDecCount)
-      BuildMI(MBB, MI, DL,
-              TII.get(Offset >= 0 ? (Is24Bit ? Z80::INC24SP : Z80::INC16SP)
-                                  : (Is24Bit ? Z80::DEC24SP : Z80::DEC16SP)));
+      TII.applySPAdjust(
+          *BuildMI(MBB, MBBI, DL,
+                   TII.get(Offset >= 0
+                               ? (Is24Bit ? Z80::INC24SP : Z80::INC16SP)
+                               : (Is24Bit ? Z80::DEC24SP : Z80::DEC16SP)))
+               .setMIFlag(Flag));
     return;
   case SAM_All:
     // Just store FP to SP
     ResultReg = FrameReg;
     break;
   case SAM_Medium:
-    BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::LEA24ro : Z80::LEA16ro),
-            ScratchReg).addUse(FrameReg).addImm(Offset - FPOffset);
+    BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::LEA24ro : Z80::LEA16ro),
+            ScratchReg)
+        .addUse(FrameReg)
+        .addImm(Offset - FPOffset)
+        .setMIFlag(Flag);
     ResultReg = ScratchReg;
     break;
   case SAM_Large:
-    BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::LD24ri : Z80::LD16ri),
-            ScratchReg).addImm(Offset);
-    BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::ADD24SP : Z80::ADD16SP),
-            ScratchReg).addUse(ScratchReg)->addRegisterDead(Z80::F, TRI);
+    BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::LD24ri : Z80::LD16ri),
+            ScratchReg)
+        .addImm(Offset)
+        .setMIFlag(Flag);
+    BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::ADD24SP : Z80::ADD16SP),
+            ScratchReg)
+        .addUse(ScratchReg)
+        .setMIFlag(Flag)
+        ->addRegisterDead(Z80::F, TRI);
     ResultReg = ScratchReg;
     break;
   }
-  BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::LD24SP : Z80::LD16SP))
-      .addUse(ResultReg, RegState::Kill);
+
+  BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::LD24SP : Z80::LD16SP))
+      .addUse(ResultReg, RegState::Kill)
+      .setMIFlag(Flag);
+  if (MF.needsFrameMoves() && !hasFP(MF))
+    BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
+        .addCFIIndex(MF.addFrameInst(
+            MCCFIInstruction::createAdjustCfaOffset(nullptr, Offset)));
 }
 
 /// emitPrologue - Push callee-saved registers onto the stack, which
@@ -175,7 +195,7 @@ void Z80FrameLowering::BuildStackAdjustment(MachineFunction &MF,
 /// space for local variables.
 void Z80FrameLowering::emitPrologue(MachineFunction &MF,
                                     MachineBasicBlock &MBB) const {
-  MachineBasicBlock::iterator MI = MBB.begin();
+  MachineBasicBlock::iterator MBBI = MBB.begin();
 
   // Debug location must be unknown since the first debug location is used
   // to determine the end of the prologue.
@@ -186,49 +206,86 @@ void Z80FrameLowering::emitPrologue(MachineFunction &MF,
   MCRegister ScratchReg = Is24Bit ? Z80::UHL : Z80::HL;
 
   // skip callee-saved saves
-  while (MI != MBB.end() && MI->getFlag(MachineInstr::FrameSetup))
-    ++MI;
+  while (MBBI != MBB.end() && MBBI->getFlag(MachineInstr::FrameSetup))
+    ++MBBI;
 
   int FPOffset = -1;
   if (hasFP(MF)) {
+    Register FrameReg = TRI->getFrameRegister(MF);
     if (MF.getFunction().hasOptSize()) {
       if (StackSize) {
-        BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::LD24ri : Z80::LD16ri),
-                ScratchReg).addImm(StackSize);
-        BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::CALL24 : Z80::CALL16))
+        BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::LD24ri : Z80::LD16ri),
+                ScratchReg)
+            .addImm(StackSize)
+            .setMIFlag(MachineInstr::FrameSetup);
+        BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::CALL24 : Z80::CALL16))
             .addExternalSymbol("_frameset")
-            .addUse(ScratchReg, RegState::ImplicitKill);
-        return;
+            .addUse(ScratchReg, RegState::ImplicitKill)
+            .addRegMask(TRI->getNoPreservedMask())
+            .setMIFlag(MachineInstr::FrameSetup);
+      } else
+        BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::CALL24 : Z80::CALL16))
+            .addExternalSymbol("_frameset0")
+            .addRegMask(TRI->getNoPreservedMask())
+            .setMIFlag(MachineInstr::FrameSetup);
+      if (MF.needsFrameMoves()) {
+        BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
+            .addCFIIndex(MF.addFrameInst(MCCFIInstruction::cfiDefCfa(
+                nullptr, TRI->getDwarfRegNum(FrameReg, true), 2 * SlotSize)));
+        BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
+            .addCFIIndex(MF.addFrameInst(MCCFIInstruction::createOffset(
+                nullptr, TRI->getDwarfRegNum(FrameReg, true), -2 * SlotSize)));
       }
-      BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::CALL24 : Z80::CALL16))
-        .addExternalSymbol("_frameset0");
       return;
     }
-    Register FrameReg = TRI->getFrameRegister(MF);
-    if (isFPSaved(MF))
-      BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::PUSH24r : Z80::PUSH16r))
-          .addUse(FrameReg);
-    BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::LD24ri : Z80::LD16ri), FrameReg)
-        .addImm(0);
-    BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::ADD24SP : Z80::ADD16SP),
-            FrameReg).addUse(FrameReg)->addRegisterDead(Z80::F, TRI);
+
+    if (isFPSaved(MF)) {
+      BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::PUSH24r : Z80::PUSH16r))
+          .addUse(FrameReg)
+          .setMIFlag(MachineInstr::FrameSetup);
+      if (MF.needsFrameMoves()) {
+        BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
+            .addCFIIndex(MF.addFrameInst(
+                MCCFIInstruction::cfiDefCfaOffset(nullptr, 2 * SlotSize)));
+        BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
+            .addCFIIndex(MF.addFrameInst(MCCFIInstruction::createOffset(
+                nullptr, TRI->getDwarfRegNum(FrameReg, true), -2 * SlotSize)));
+      }
+    }
+
+    BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::LD24ri : Z80::LD16ri),
+            FrameReg)
+        .addImm(0)
+        .setMIFlag(MachineInstr::FrameSetup);
+    BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::ADD24SP : Z80::ADD16SP),
+            FrameReg)
+        .addUse(FrameReg)
+        .setMIFlag(MachineInstr::FrameSetup)
+        ->addRegisterDead(Z80::F, TRI);
     FPOffset = 0;
+    if (MF.needsFrameMoves())
+      BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
+          .addCFIIndex(MF.addFrameInst(MCCFIInstruction::createDefCfaRegister(
+              nullptr, TRI->getDwarfRegNum(FrameReg, true))));
   }
-  BuildStackAdjustment(MF, MBB, MI, DL, ScratchReg, StackSize, FPOffset);
+
+  BuildStackAdjustment(MF, MBB, MBBI, DL, ScratchReg, StackSize, FPOffset,
+                       MachineInstr::FrameSetup);
 }
 
 void Z80FrameLowering::emitEpilogue(MachineFunction &MF,
                                     MachineBasicBlock &MBB) const {
-  MachineBasicBlock::iterator MI = MBB.getFirstTerminator();
-  DebugLoc DL = MBB.findDebugLoc(MI);
+  MachineBasicBlock::iterator MBBI = MBB.getFirstTerminator();
+
+  DebugLoc DL = MBB.findDebugLoc(MBBI);
 
   MachineFrameInfo &MFI = MF.getFrameInfo();
   int StackSize = int(MFI.getStackSize());
 
-  const TargetRegisterClass *ScratchRC = Is24Bit ? &Z80::A24RegClass
-                                                 : &Z80::A16RegClass;
+  const TargetRegisterClass *ScratchRC =
+      Is24Bit ? &Z80::A24RegClass : &Z80::A16RegClass;
   TargetRegisterClass::iterator ScratchReg = ScratchRC->begin();
-  for (; MI->readsRegister(TRI->getSubReg(*ScratchReg, Z80::sub_low), TRI);
+  for (; MBBI->readsRegister(TRI->getSubReg(*ScratchReg, Z80::sub_low), TRI);
        ++ScratchReg)
     assert(ScratchReg != ScratchRC->end() &&
            "Could not allocate a scratch register!");
@@ -237,15 +294,15 @@ void Z80FrameLowering::emitEpilogue(MachineFunction &MF,
          "Cannot allocate csr as scratch register!");
 
   // skip callee-saved restores
-  while (MI != MBB.begin())
-    if (!(--MI)->getFlag(MachineInstr::FrameDestroy)) {
-      ++MI;
+  while (MBBI != MBB.begin())
+    if (!(--MBBI)->getFlag(MachineInstr::FrameDestroy)) {
+      ++MBBI;
       break;
     }
 
   // consume stack adjustment
-  while (MI != MBB.begin()) {
-    MachineBasicBlock::iterator PI = std::prev(MI);
+  while (MBBI != MBB.begin()) {
+    MachineBasicBlock::iterator PI = std::prev(MBBI);
     unsigned Opc = PI->getOpcode();
     if ((Opc == Z80::POP24r || Opc == Z80::POP16r) &&
         PI->getOperand(0).isDead()) {
@@ -274,11 +331,25 @@ void Z80FrameLowering::emitEpilogue(MachineFunction &MF,
     PI->removeFromParent();
   }
 
-  BuildStackAdjustment(MF, MBB, MI, DL, *ScratchReg, StackSize,
-                       HasFP ? StackSize : -1, MFI.hasVarSizedObjects());
-  if (isFPSaved(MF))
-    BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::POP24r : Z80::POP16r),
-            TRI->getFrameRegister(MF));
+  BuildStackAdjustment(MF, MBB, MBBI, DL, *ScratchReg, StackSize,
+                       HasFP ? StackSize : -1, MachineInstr::FrameDestroy,
+                       MFI.hasVarSizedObjects());
+
+  if (isFPSaved(MF)) {
+    Register FrameReg = TRI->getFrameRegister(MF);
+    BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::POP24r : Z80::POP16r),
+            FrameReg)
+        .setMIFlags(MachineInstr::FrameDestroy);
+    if (MF.needsFrameMoves()) {
+      BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
+          .addCFIIndex(MF.addFrameInst(MCCFIInstruction::cfiDefCfa(
+              nullptr, TRI->getDwarfRegNum(TRI->getStackRegister(), true),
+              SlotSize)));
+      BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
+          .addCFIIndex(MF.addFrameInst(MCCFIInstruction::createRestore(
+              nullptr, TRI->getDwarfRegNum(FrameReg, true))));
+    }
+  }
 }
 
 // Only non-nested non-nmi interrupts can use shadow registers.
@@ -288,7 +359,7 @@ static bool shouldUseShadow(const MachineFunction &MF) {
 }
 
 void Z80FrameLowering::shadowCalleeSavedRegisters(
-    MachineBasicBlock &MBB, MachineBasicBlock::iterator MI, DebugLoc DL,
+    MachineBasicBlock &MBB, MachineBasicBlock::iterator MI, const DebugLoc &DL,
     MachineInstr::MIFlag Flag, const std::vector<CalleeSavedInfo> &CSI) const {
   assert(shouldUseShadow(*MBB.getParent()) &&
          "Can't use shadow registers in this function.");
@@ -297,23 +368,19 @@ void Z80FrameLowering::shadowCalleeSavedRegisters(
     unsigned Reg = CSI[i].getReg();
     if (Reg == Z80::AF)
       SaveAF = true;
-    else if (Z80::G24RegClass.contains(Reg) ||
-             Z80::G16RegClass.contains(Reg))
+    else if (Z80::G24RegClass.contains(Reg) || Z80::G16RegClass.contains(Reg))
       SaveG = true;
   }
   if (SaveAF)
-    BuildMI(MBB, MI, DL, TII.get(Z80::EXAF))
-      .setMIFlag(Flag);
+    BuildMI(MBB, MI, DL, TII.get(Z80::EXAF)).setMIFlag(Flag);
   if (SaveG)
-    BuildMI(MBB, MI, DL, TII.get(Z80::EXX))
-      .setMIFlag(Flag);
+    BuildMI(MBB, MI, DL, TII.get(Z80::EXX)).setMIFlag(Flag);
 }
 
 static Z80MachineFunctionInfo::AltFPMode
 shouldUseAltFP(MachineFunction &MF, MCRegister AltFPReg,
                const TargetRegisterInfo *TRI) {
-  if (MF.getFunction().hasOptSize() ||
-      MF.getFrameInfo().hasVarSizedObjects() ||
+  if (MF.getFunction().hasOptSize() || MF.getFrameInfo().hasVarSizedObjects() ||
       MF.getTarget().Options.DisableFramePointerElim(MF))
     return Z80MachineFunctionInfo::AFPM_None;
   if (!MF.getRegInfo().isPhysRegUsed(Z80::UIY))
@@ -358,7 +425,7 @@ bool Z80FrameLowering::spillCalleeSavedRegisters(
 
     // Non-index registers can be spilled to shadow registers.
     if (UseShadow && !Z80::I24RegClass.contains(Reg) &&
-                     !Z80::I16RegClass.contains(Reg))
+        !Z80::I16RegClass.contains(Reg))
       continue;
 
     bool isLiveIn = MRI.isLiveIn(Reg);
@@ -378,18 +445,17 @@ bool Z80FrameLowering::spillCalleeSavedRegisters(
     }
 
     // Do not set a kill flag on values that are also marked as live-in. This
-    // happens with the @llvm-returnaddress intrinsic and with arguments
+    // happens with the @llvm.returnaddress intrinsic and with arguments
     // passed in callee saved registers.
     // Omitting the kill flags is conservatively correct even if the live-in
     // is not used after all.
-    MachineInstrBuilder MIB;
     if (Reg == Z80::AF)
-      MIB = BuildMI(MBB, MI, DL,
-                    TII.get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF));
+      BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF))
+          .setMIFlag(MachineInstr::FrameSetup);
     else
-      MIB = BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::PUSH24r : Z80::PUSH16r))
-                .addUse(Reg, getKillRegState(CanKill));
-    MIB.setMIFlag(MachineInstr::FrameSetup);
+      BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::PUSH24r : Z80::PUSH16r))
+          .addUse(Reg, getKillRegState(CanKill))
+          .setMIFlag(MachineInstr::FrameSetup);
   }
   return true;
 }
@@ -404,17 +470,15 @@ bool Z80FrameLowering::restoreCalleeSavedRegisters(
 
     // Non-index registers can be spilled to shadow registers.
     if (UseShadow && !Z80::I24RegClass.contains(Reg) &&
-                     !Z80::I16RegClass.contains(Reg))
+        !Z80::I16RegClass.contains(Reg))
       continue;
 
-    MachineInstrBuilder MIB;
     if (Reg == Z80::AF)
-      MIB = BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::POP24AF
-                                                 : Z80::POP16AF));
+      BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::POP24AF : Z80::POP16AF))
+          .setMIFlag(MachineInstr::FrameDestroy);
     else
-      MIB = BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::POP24r : Z80::POP16r),
-                    Reg);
-    MIB.setMIFlag(MachineInstr::FrameDestroy);
+      BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::POP24r : Z80::POP16r), Reg)
+          .setMIFlag(MachineInstr::FrameDestroy);
   }
   if (UseShadow)
     shadowCalleeSavedRegisters(MBB, MI, DL, MachineInstr::FrameDestroy, CSI);
@@ -434,6 +498,13 @@ void Z80FrameLowering::processFunctionBeforeFrameFinalized(
         SlotSize, MinFixedObjOffset - SlotSize * (1 + isFPSaved(MF)));
     RS->addScavengingFrameIndex(FI);
   }
+
+  // Emit extra CFI_INSTRUCTION as necessary.
+  if (!MF.needsFrameMoves() || hasFP(MF))
+    return;
+  for (auto &MBB : MF)
+    for (auto &MI : MBB)
+      TII.applySPAdjust(MI);
 }
 
 MachineBasicBlock::iterator Z80FrameLowering::eliminateCallFramePseudoInstr(

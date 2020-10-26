@@ -27,13 +27,9 @@ class Z80RegisterInfo final : public Z80GenRegisterInfo {
   ///
   bool Is24Bit;
 
-  /// SlotSize - Stack slot size in bytes.
-  ///
-  unsigned SlotSize;
-
   /// StackPtr - Z80 physical register used as stack ptr.
   ///
-  unsigned StackPtr;
+  Register StackPtr;
 
 public:
   Z80RegisterInfo(const Triple &TT);
