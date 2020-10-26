@@ -16,6 +16,7 @@
 #include "Z80InstPrinter.h"
 #include "Z80MCAsmInfo.h"
 #include "Z80TargetStreamer.h"
+#include "llvm/MC/MCDwarf.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
@@ -54,10 +55,37 @@ MCSubtargetInfo *Z80_MC::createZ80MCSubtargetInfo(const Triple &TT,
   return createZ80MCSubtargetInfoImpl(TT, CPU, /*TuneCPU*/ CPU, ArchFS);
 }
 
+static MCInstrInfo *createZ80MCInstrInfo() {
+  MCInstrInfo *X = new MCInstrInfo;
+  InitZ80MCInstrInfo(X);
+  return X;
+}
+
+static MCRegisterInfo *createZ80MCRegisterInfo(const Triple &TT) {
+  MCRegisterInfo *X = new MCRegisterInfo;
+  InitZ80MCRegisterInfo(X, 0, 0, 0, Z80::PC);
+  return X;
+}
+
 static MCAsmInfo *createZ80MCAsmInfo(const MCRegisterInfo &MRI,
                                      const Triple &TheTriple,
                                      const MCTargetOptions &Options) {
-  return new Z80MCAsmInfoELF(TheTriple);
+  bool Is16Bit =
+      TheTriple.isArch16Bit() || TheTriple.getEnvironment() == Triple::CODE16;
+  MCAsmInfo *X = new Z80MCAsmInfoELF(TheTriple);
+
+  int SlotSize = Is16Bit ? 2 : 3;
+  MCRegister StackReg = Is16Bit ? Z80::SPS : Z80::SPL;
+  X->addInitialFrameState(MCCFIInstruction::cfiDefCfa(
+      nullptr, MRI.getDwarfRegNum(StackReg, true), SlotSize));
+  X->addInitialFrameState(MCCFIInstruction::createSameValue(
+      nullptr, MRI.getDwarfRegNum(Is16Bit ? Z80::IX : Z80::UIX, true)));
+  X->addInitialFrameState(MCCFIInstruction::createValOffset(
+      nullptr, MRI.getDwarfRegNum(StackReg, true), 0));
+  X->addInitialFrameState(MCCFIInstruction::createOffset(
+      nullptr, MRI.getDwarfRegNum(MRI.getProgramCounter(), true), -SlotSize));
+
+  return X;
 }
 
 static MCInstPrinter *createZ80MCInstPrinter(const Triple &T,
@@ -84,6 +112,12 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeZ80TargetMC() {
   for (Target *T : {&getTheZ80Target(), &getTheEZ80Target()}) {
     // Register the MC asm info.
     RegisterMCAsmInfoFn X(*T, createZ80MCAsmInfo);
+
+    // Register the MC instruction info.
+    TargetRegistry::RegisterMCInstrInfo(*T, createZ80MCInstrInfo);
+
+    // Register the MC register info.
+    TargetRegistry::RegisterMCRegInfo(*T, createZ80MCRegisterInfo);
 
     // Register the MC subtarget info.
     TargetRegistry::RegisterMCSubtargetInfo(*T,

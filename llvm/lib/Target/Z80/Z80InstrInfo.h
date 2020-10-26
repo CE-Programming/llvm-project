@@ -102,6 +102,8 @@ public:
 
   int getSPAdjust(const MachineInstr &MI) const override;
 
+  MachineInstr &applySPAdjust(MachineInstr &MI) const;
+
   int64_t getFrameAdjustment(const MachineInstr &MI) const {
     assert(isFrameInstr(MI) && "Not a frame instruction");
     int64_t Amount = getFrameSize(MI) -

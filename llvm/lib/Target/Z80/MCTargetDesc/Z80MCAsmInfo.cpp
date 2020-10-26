@@ -59,14 +59,11 @@ Z80MCAsmInfoELF::Z80MCAsmInfoELF(const Triple &T) {
   UseIntegratedAssembler = false;
   UseLogicalShr = false;
   HasSingleParameterDotFile = false;
+  SupportsDebugInformation = SupportsCFI = true;
+  ExceptionsType = ExceptionHandling::SjLj;
   DwarfFileDirective = "\tfile\t";
   DwarfLocDirective = "\tloc\t";
-
-  // Debug Information
-  SupportsDebugInformation = true;
-
-  // Exceptions handling
-  ExceptionsType = ExceptionHandling::SjLj;
+  DwarfCFIDirectivePrefix = "\tcfi_";
 }
 
 MCSection *Z80MCAsmInfoELF::getNonexecutableStackSection(MCContext &Ctx) const {
