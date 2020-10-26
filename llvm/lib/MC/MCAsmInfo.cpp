@@ -71,6 +71,7 @@ MCAsmInfo::MCAsmInfo() {
     SupportsExtendedDwarfLocDirective = DwarfExtendedLoc == Enable;
   DwarfFileDirective = "\t.file\t";
   DwarfLocDirective = "\t.loc\t";
+  DwarfCFIDirectivePrefix = "\t.cfi_";
   if (UseLEB128Directives != cl::BOU_UNSET)
     HasLEB128Directives = UseLEB128Directives == cl::BOU_TRUE;
 

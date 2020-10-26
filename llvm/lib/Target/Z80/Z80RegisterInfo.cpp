@@ -31,19 +31,10 @@ using namespace llvm;
 #include "Z80GenRegisterInfo.inc"
 
 Z80RegisterInfo::Z80RegisterInfo(const Triple &TT)
-    : Z80GenRegisterInfo(Z80::PC) {
+    : Z80GenRegisterInfo(0, 0, 0, Z80::PC) {
   // Cache some information.
   Is24Bit = !TT.isArch16Bit() && TT.getEnvironment() != Triple::CODE16;
-
-  // Use a callee-saved register as the base pointer.  These registers must
-  // not conflict with any ABI requirements.
-  if (Is24Bit) {
-    SlotSize = 3;
-    StackPtr = Z80::SPL;
-  } else {
-    SlotSize = 2;
-    StackPtr = Z80::SPS;
-  }
+  StackPtr = Is24Bit ? Z80::SPL : Z80::SPS;
 }
 
 const TargetRegisterClass *
@@ -160,7 +151,7 @@ BitVector Z80RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   Reserved.set(Z80::SPL);
 
   // Set the program-counter register as reserved.
-  Reserved.set(Z80::PC);
+  Reserved.set(getProgramCounter());
 
   // Set the frame-pointer register and its aliases as reserved if needed.
   for (Register Reg :
@@ -218,12 +209,11 @@ void Z80RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
              dbgs() << MF.getFunction().arg_size() << '\n');
   assert(TFI->hasFP(MF) && "Stack slot use without fp unimplemented");
   int BaseOff = MF.getFrameInfo().getObjectOffset(FrameIndex);
-  int SlotSize = Is24Bit ? 3 : 2;
   // Skip any saved callee saved registers
   BaseOff += FuncInfo.getCalleeSavedFrameSize();
   // Skip return address for arguments
   if (FrameIndex < 0)
-    BaseOff += SlotSize;
+    BaseOff += TFI->getSlotSize();
   int Off = BaseOff + getFrameIndexInstrOffset(&MI, FIOperandNum);
   if (isFrameOffsetLegal(&MI, BasePtr, BaseOff) &&
       (Opc != Z80::LEA16ro || STI.hasEZ80Ops())) {

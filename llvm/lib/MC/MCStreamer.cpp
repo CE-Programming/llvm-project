@@ -553,6 +553,16 @@ void MCStreamer::emitCFIOffset(int64_t Register, int64_t Offset) {
   CurFrame->Instructions.push_back(Instruction);
 }
 
+void MCStreamer::emitCFIValOffset(int64_t Register, int64_t Offset) {
+  MCSymbol *Label = emitCFILabel();
+  MCCFIInstruction Instruction =
+    MCCFIInstruction::createValOffset(Label, Register, Offset);
+  MCDwarfFrameInfo *CurFrame = getCurrentDwarfFrameInfo();
+  if (!CurFrame)
+    return;
+  CurFrame->Instructions.push_back(Instruction);
+}
+
 void MCStreamer::emitCFIRelOffset(int64_t Register, int64_t Offset) {
   MCSymbol *Label = emitCFILabel();
   MCCFIInstruction Instruction =
