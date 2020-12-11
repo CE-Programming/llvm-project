@@ -128,6 +128,9 @@ public:
   bool
   reverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const override;
 
+  void copyRegister(MachineBasicBlock &MBB, MachineBasicBlock::iterator MI,
+                    const DebugLoc &DL, Register DstReg, Register SrcReg,
+                    bool KillSrc = false) const;
   void copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator MI,
                    const DebugLoc &DL, MCRegister DstReg, MCRegister SrcReg,
                    bool KillSrc = false) const override;
@@ -144,6 +147,10 @@ public:
                             const TargetRegisterInfo *TRI) const override;
   unsigned isLoadFromStackSlot(const MachineInstr &MI,
                                int &FrameIndex) const override;
+
+  void rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
+                         Register BaseReg, int64_t Offset,
+                         RegScavenger *RS = nullptr, int SPAdj = 0) const;
 
   bool isReallyTriviallyReMaterializable(const MachineInstr &MI,
                                          AAResults *AA) const override;

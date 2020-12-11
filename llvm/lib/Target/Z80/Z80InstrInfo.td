@@ -160,8 +160,8 @@ def Z80_COND_M  : PatLeaf<(i8 7)>;
 // Z80 Operand Definitions.
 //
 
-def aptr_rc : PointerLikeRegClass<1>;
-def iptr_rc : PointerLikeRegClass<2>;
+def aptr_rc : PointerLikeRegClass<2>;
+def iptr_rc : PointerLikeRegClass<3>;
 
 def mem : Operand<iPTR> {
   let PrintMethod = "printMem";
