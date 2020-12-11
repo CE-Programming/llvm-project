@@ -12,15 +12,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "Z80RegisterInfo.h"
+#include "MCTargetDesc/Z80MCTargetDesc.h"
 #include "Z80FrameLowering.h"
 #include "Z80MachineFunctionInfo.h"
 #include "Z80Subtarget.h"
-#include "MCTargetDesc/Z80MCTargetDesc.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/RegisterScavenging.h"
 #include "llvm/CodeGen/TargetFrameLowering.h"
 #include "llvm/Support/Debug.h"
 using namespace llvm;
@@ -41,10 +40,11 @@ const TargetRegisterClass *
 Z80RegisterInfo::getPointerRegClass(const MachineFunction &MF,
                                     unsigned Kind) const {
   switch (Kind) {
-  default: llvm_unreachable("Unexpected Kind in getPointerRegClass!");
-  case 0: return Is24Bit ? &Z80::G24RegClass : &Z80::G16RegClass;
-  case 1: return Is24Bit ? &Z80::A24RegClass : &Z80::A16RegClass;
-  case 2: return Is24Bit ? &Z80::I24RegClass : &Z80::I16RegClass;
+  default: llvm_unreachable("Unexpected Kind!");
+  case 0: return Is24Bit ? &Z80::R24RegClass : &Z80::R16RegClass;
+  case 1: return Is24Bit ? &Z80::G24RegClass : &Z80::G16RegClass;
+  case 2: return Is24Bit ? &Z80::A24RegClass : &Z80::A16RegClass;
+  case 3: return Is24Bit ? &Z80::I24RegClass : &Z80::I16RegClass;
   }
 }
 
@@ -53,18 +53,10 @@ Z80RegisterInfo::getPointerRegClassForConstraint(const MachineFunction &MF,
                                                  unsigned Constraint) const {
   unsigned Kind;
   switch (Constraint) {
-  default:
-    llvm_unreachable(
-        "Unexpected Constraint in getPointerRegClassForConstraint!");
-  case InlineAsm::Constraint_V:
-    Kind = 0;
-    break;
-  case InlineAsm::Constraint_m:
-    Kind = 1;
-    break;
-  case InlineAsm::Constraint_o:
-    Kind = 2;
-    break;
+  default: llvm_unreachable("Unexpected Constraint!");
+  case InlineAsm::Constraint_V: Kind = 1; break;
+  case InlineAsm::Constraint_m: Kind = 2; break;
+  case InlineAsm::Constraint_o: Kind = 3; break;
   }
   return getPointerRegClass(MF, Kind);
 }
@@ -194,146 +186,24 @@ void Z80RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
                                           int SPAdj, unsigned FIOperandNum,
                                           RegScavenger *RS) const {
   MachineInstr &MI = *II;
-  unsigned Opc = MI.getOpcode();
   MachineBasicBlock &MBB = *MI.getParent();
   MachineFunction &MF = *MBB.getParent();
-  auto &FuncInfo = *MF.getInfo<Z80MachineFunctionInfo>();
   const Z80Subtarget &STI = MF.getSubtarget<Z80Subtarget>();
   const Z80InstrInfo &TII = *STI.getInstrInfo();
+  auto &FuncInfo = *MF.getInfo<Z80MachineFunctionInfo>();
   const Z80FrameLowering *TFI = getFrameLowering(MF);
-  (void)TFI;
-  DebugLoc DL = MI.getDebugLoc();
   int FrameIndex = MI.getOperand(FIOperandNum).getIndex();
-  Register BasePtr = getFrameRegister(MF);
+  Register BaseReg = getFrameRegister(MF);
   LLVM_DEBUG(MF.dump(); II->dump();
              dbgs() << MF.getFunction().arg_size() << '\n');
   assert(TFI->hasFP(MF) && "Stack slot use without fp unimplemented");
-  int BaseOff = MF.getFrameInfo().getObjectOffset(FrameIndex);
+  auto Offset = MF.getFrameInfo().getObjectOffset(FrameIndex);
   // Skip any saved callee saved registers
-  BaseOff += FuncInfo.getCalleeSavedFrameSize();
+  Offset += FuncInfo.getCalleeSavedFrameSize();
   // Skip return address for arguments
   if (FrameIndex < 0)
-    BaseOff += TFI->getSlotSize();
-  int Off = BaseOff + getFrameIndexInstrOffset(&MI, FIOperandNum);
-  if (isFrameOffsetLegal(&MI, BasePtr, BaseOff) &&
-      (Opc != Z80::LEA16ro || STI.hasEZ80Ops())) {
-    MI.getOperand(FIOperandNum).ChangeToRegister(BasePtr, false);
-    if (!Off && (Opc == Z80::PEA24o || Opc == Z80::PEA16o)) {
-      MI.setDesc(TII.get(Opc == Z80::PEA24o ? Z80::PUSH24r : Z80::PUSH16r));
-      MI.RemoveOperand(FIOperandNum + 1);
-    } else
-      MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Off);
-    return;
-  }
-  bool SaveFlags = RS->isRegUsed(Z80::F);
-  Register OffReg = RS->scavengeRegister(
-      Is24Bit ? &Z80::O24RegClass : &Z80::O16RegClass, II, SPAdj);
-  if ((Opc == Z80::LEA24ro &&
-       Z80::A24RegClass.contains(MI.getOperand(0).getReg())) ||
-      (Opc == Z80::LEA16ro &&
-       Z80::A16RegClass.contains(MI.getOperand(0).getReg()))) {
-    Register Op0Reg = MI.getOperand(0).getReg();
-    BuildMI(MBB, II, DL, TII.get(Is24Bit ? Z80::LD24ri : Z80::LD16ri), OffReg)
-        .addImm(Off);
-    TII.copyPhysReg(MBB, II, DL, Op0Reg, BasePtr);
-    if (SaveFlags)
-      BuildMI(MBB, II, DL, TII.get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF));
-    BuildMI(MBB, II, DL, TII.get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao), Op0Reg)
-        .addReg(Op0Reg).addReg(OffReg, RegState::Kill)
-        ->addRegisterDead(Z80::F, this);
-    if (SaveFlags)
-      BuildMI(MBB, II, DL, TII.get(Is24Bit ? Z80::POP24AF : Z80::POP16AF));
-    MI.eraseFromParent();
-  } else if (Register ScratchReg = RS->FindUnusedReg(
-                 Is24Bit ? &Z80::A24RegClass : &Z80::A16RegClass)) {
-    BuildMI(MBB, II, DL, TII.get(Is24Bit ? Z80::LD24ri : Z80::LD16ri), OffReg)
-        .addImm(Off);
-    TII.copyPhysReg(MBB, II, DL, ScratchReg, BasePtr);
-    if (SaveFlags)
-      BuildMI(MBB, II, DL, TII.get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF));
-    BuildMI(MBB, II, DL, TII.get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao),
-            ScratchReg).addReg(ScratchReg).addReg(OffReg, RegState::Kill)
-        ->addRegisterDead(Z80::F, this);
-    if (SaveFlags)
-      BuildMI(MBB, II, DL, TII.get(Is24Bit ? Z80::POP24AF : Z80::POP16AF));
-    MI.getOperand(FIOperandNum).ChangeToRegister(ScratchReg, false);
-    if ((Is24Bit ? Z80::I24RegClass : Z80::I16RegClass).contains(ScratchReg))
-      MI.getOperand(FIOperandNum + 1).ChangeToImmediate(0);
-    else {
-      switch (Opc) {
-      default: llvm_unreachable("Unexpected opcode!");
-      case Z80::LD24ro:  Opc = Z80::LD24rp;  break;
-      case Z80::LD16ro:  Opc = Z80::LD16rp;  break;
-      case Z80::LD88ro:  Opc = Z80::LD88rp;  break;
-      case Z80::LD8ro:   Opc = Z80::LD8rp;   break;
-      case Z80::LD8go:   Opc = Z80::LD8gp;   break;
-      case Z80::LD24or:  Opc = Z80::LD24pr;  break;
-      case Z80::LD16or:  Opc = Z80::LD16pr;  break;
-      case Z80::LD88or:  Opc = Z80::LD88pr;  break;
-      case Z80::LD8or:   Opc = Z80::LD8pr;   break;
-      case Z80::LD8og:   Opc = Z80::LD8pg;   break;
-      case Z80::LD8oi:   Opc = Z80::LD8pi;   break;
-      case Z80::PEA24o:  Opc = Z80::PUSH24r; break;
-      case Z80::PEA16o:  Opc = Z80::PUSH16r; break;
-      case Z80::RLC8o:   Opc = Z80::RLC8p;   break;
-      case Z80::RRC8o:   Opc = Z80::RRC8p;   break;
-      case Z80::RL8o:    Opc = Z80::RL8p;    break;
-      case Z80::RR8o:    Opc = Z80::RR8p;    break;
-      case Z80::SLA8o:   Opc = Z80::SLA8p;   break;
-      case Z80::SRA8o:   Opc = Z80::SRA8p;   break;
-      case Z80::SRL8o:   Opc = Z80::SRL8p;   break;
-      case Z80::BIT8bo:  Opc = Z80::BIT8bp;  break;
-      case Z80::RES8bo:  Opc = Z80::RES8bp;  break;
-      case Z80::SET8bo:  Opc = Z80::SET8bp;  break;
-      case Z80::INC8o:   Opc = Z80::INC8p;   break;
-      case Z80::DEC8o:   Opc = Z80::DEC8p;   break;
-      case Z80::ADD8ao:  Opc = Z80::ADD8ap;  break;
-      case Z80::ADC8ao:  Opc = Z80::ADC8ap;  break;
-      case Z80::SUB8ao:  Opc = Z80::SUB8ap;  break;
-      case Z80::SBC8ao:  Opc = Z80::SBC8ap;  break;
-      case Z80::AND8ao:  Opc = Z80::AND8ap;  break;
-      case Z80::XOR8ao:  Opc = Z80::XOR8ap;  break;
-      case Z80::OR8ao:   Opc = Z80::OR8ap;   break;
-      case Z80::CP8ao:   Opc = Z80::CP8ap;   break;
-      case Z80::TST8ao:  Opc = Z80::TST8ap;  break;
-      case Z80::LEA24ro:
-      case Z80::LEA16ro:
-        Opc = TargetOpcode::COPY;
-        break;
-      }
-      if (Opc == TargetOpcode::COPY) {
-        TII.copyPhysReg(MBB, ++II, DL, MI.getOperand(0).getReg(),
-                        MI.getOperand(1).getReg());
-        MI.eraseFromParent();
-      } else {
-        MI.setDesc(TII.get(Opc));
-        MI.RemoveOperand(FIOperandNum + 1);
-      }
-    }
-  } else {
-    BuildMI(MBB, II, DL, TII.get(Is24Bit ? Z80::PUSH24r : Z80::PUSH16r))
-        .addReg(BasePtr);
-    BuildMI(MBB, II, DL, TII.get(Is24Bit ? Z80::LD24ri : Z80::LD16ri), OffReg)
-        .addImm(Off);
-    if (SaveFlags)
-      BuildMI(MBB, II, DL, TII.get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF));
-    BuildMI(MBB, II, DL, TII.get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao),
-            BasePtr).addReg(BasePtr).addReg(OffReg, RegState::Kill)
-        ->addRegisterDead(Z80::F, this);
-    if (SaveFlags)
-      BuildMI(MBB, II, DL, TII.get(Is24Bit ? Z80::POP24AF : Z80::POP16AF));
-    if (Opc == Z80::PEA24o || Opc == Z80::PEA16o) {
-      MI.setDesc(TII.get(Opc == Z80::PEA24o ? Z80::EX24SP : Z80::EX16SP));
-      MI.getOperand(0).ChangeToRegister(BasePtr, true);
-      MI.getOperand(1).ChangeToRegister(BasePtr, false);
-      MI.tieOperands(0, 1);
-    } else {
-      MI.getOperand(FIOperandNum).ChangeToRegister(BasePtr, false);
-      MI.getOperand(FIOperandNum + 1).ChangeToImmediate(0);
-      BuildMI(MBB, ++II, DL, TII.get(Is24Bit ? Z80::POP24r : Z80::POP16r),
-              BasePtr);
-    }
-  }
+    Offset += TFI->getSlotSize();
+  TII.rewriteFrameIndex(MI, FIOperandNum, BaseReg, Offset, RS, SPAdj);
 }
 
 Register Z80RegisterInfo::getFrameRegister(const MachineFunction &MF) const {
@@ -382,20 +252,10 @@ Register Z80RegisterInfo::materializeFrameBaseRegister(MachineBasicBlock *MBB,
   const Z80InstrInfo &TII = *STI.getInstrInfo();
   MachineBasicBlock::iterator II = MBB->begin();
   DebugLoc DL = MBB->findDebugLoc(II);
-  Register BaseReg = MRI.createVirtualRegister(Is24Bit ? &Z80::I24RegClass
-                                                       : &Z80::I16RegClass);
-  BuildMI(*MBB, II, DL, TII.get(Is24Bit ? Z80::LEA24ro : Z80::LEA16ro), BaseReg)
-      .addFrameIndex(FrameIdx).addImm(Offset);
+  const MCInstrDesc &MCID = TII.get(Is24Bit ? Z80::LEA24ro : Z80::LEA16ro);
+  Register BaseReg = MRI.createVirtualRegister(TII.getRegClass(MCID, 0, this, MF));
+  BuildMI(*MBB, II, DL, MCID, BaseReg).addFrameIndex(FrameIdx).addImm(Offset);
   return BaseReg;
-//Register CopyReg = MRI.createVirtualRegister(Is24Bit ? &Z80::I24RegClass
-//                                                     : &Z80::I16RegClass);
-//Register OffsetReg = MRI.createVirtualRegister(Is24Bit ? &Z80::O24RegClass
-//                                                       : &Z80::O16RegClass);
-//TII.copyPhysReg(*MBB, II, DL, CopyReg, getFrameRegister(MF));
-//BuildMI(*MBB, II, DL, TII.get(Is24Bit ? Z80::LD24ri : Z80::LD16ri), OffsetReg)
-//    .addImm(Offset);
-//BuildMI(*MBB, II, DL, TII.get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao), BaseReg)
-//    .addReg(CopyReg).addReg(OffsetReg)->addRegisterDead(Z80::F, this);
 }
 
 static bool isSplitLoadStoreOpc(unsigned Opc) {
@@ -418,10 +278,15 @@ static unsigned getFIOperandNum(const MachineInstr &MI) {
 
 void Z80RegisterInfo::resolveFrameIndex(MachineInstr &MI, Register BaseReg,
                                         int64_t Offset) const {
-  unsigned FIOperandNum = getFIOperandNum(MI);
-  MI.getOperand(FIOperandNum).ChangeToRegister(BaseReg, false);
-  MI.getOperand(FIOperandNum + 1)
-      .ChangeToImmediate(MI.getOperand(FIOperandNum + 1).getImm() + Offset);
+  MachineBasicBlock &MBB = *MI.getParent();
+  MachineFunction &MF = *MBB.getParent();
+  MachineRegisterInfo &MRI = MF.getRegInfo();
+  const Z80Subtarget &STI = MF.getSubtarget<Z80Subtarget>();
+  const Z80InstrInfo &TII = *STI.getInstrInfo();
+
+  MRI.constrainRegClass(BaseReg,
+                        Is24Bit ? &Z80::I24RegClass : &Z80::I16RegClass);
+  TII.rewriteFrameIndex(MI, getFIOperandNum(MI), BaseReg, Offset);
 }
 bool Z80RegisterInfo::isFrameOffsetLegal(const MachineInstr *MI,
                                          Register BaseReg,
