@@ -190,18 +190,17 @@ void Z80RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   MachineFunction &MF = *MBB.getParent();
   const Z80Subtarget &STI = MF.getSubtarget<Z80Subtarget>();
   const Z80InstrInfo &TII = *STI.getInstrInfo();
-  auto &FuncInfo = *MF.getInfo<Z80MachineFunctionInfo>();
   const Z80FrameLowering *TFI = getFrameLowering(MF);
   int FrameIndex = MI.getOperand(FIOperandNum).getIndex();
   Register BaseReg = getFrameRegister(MF);
-  LLVM_DEBUG(MF.dump(); II->dump();
-             dbgs() << MF.getFunction().arg_size() << '\n');
   assert(TFI->hasFP(MF) && "Stack slot use without fp unimplemented");
-  auto Offset = MF.getFrameInfo().getObjectOffset(FrameIndex);
-  // Skip any saved callee saved registers
-  Offset += FuncInfo.getCalleeSavedFrameSize();
-  // Skip return address for arguments
-  if (FrameIndex < 0)
+  auto Offset = MF.getFrameInfo().getObjectOffset(FrameIndex) -
+                TFI->getOffsetOfLocalArea();
+  if (FrameIndex >= 0)
+    // For non-fixed indices, skip over callee save slots.
+    Offset -= MF.getInfo<Z80MachineFunctionInfo>()->getCalleeSavedFrameSize();
+  else if (TFI->isFPSaved(MF))
+    // For fixed indices, skip over FP save slot if it exists.
     Offset += TFI->getSlotSize();
   TII.rewriteFrameIndex(MI, FIOperandNum, BaseReg, Offset, RS, SPAdj);
 }

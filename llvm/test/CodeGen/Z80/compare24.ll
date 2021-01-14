@@ -18,7 +18,6 @@ define void @icmp.eq.i24(i24, i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp eq i24 %0, %1
   br i1 %3, label %4, label %5
   call void @external()
@@ -41,7 +40,6 @@ define void @icmp.eq.i24.0(i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp eq i24 %0, 0
   br i1 %2, label %3, label %4
   call void @external()
@@ -64,7 +62,6 @@ define void @icmp.eq.i24.64(i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp eq i24 %0, 64
   br i1 %2, label %3, label %4
   call void @external()
@@ -87,7 +84,6 @@ define void @icmp.ne.i24(i24, i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp ne i24 %0, %1
   br i1 %3, label %4, label %5
   call void @external()
@@ -110,7 +106,6 @@ define void @icmp.ne.i24.0(i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp ne i24 %0, 0
   br i1 %2, label %3, label %4
   call void @external()
@@ -133,7 +128,6 @@ define void @icmp.ne.i24.64(i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp ne i24 %0, 64
   br i1 %2, label %3, label %4
   call void @external()
@@ -156,7 +150,6 @@ define void @icmp.ult.i24(i24, i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp ult i24 %0, %1
   br i1 %3, label %4, label %5
   call void @external()
@@ -179,7 +172,6 @@ define void @icmp.ult.i24.0(i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp ult i24 %0, 0
   br i1 %2, label %3, label %4
   call void @external()
@@ -202,7 +194,6 @@ define void @icmp.ult.i24.64(i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp ult i24 %0, 64
   br i1 %2, label %3, label %4
   call void @external()
@@ -225,7 +216,6 @@ define void @icmp.ule.i24(i24, i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp ule i24 %0, %1
   br i1 %3, label %4, label %5
   call void @external()
@@ -248,7 +238,6 @@ define void @icmp.ule.i24.0(i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp ule i24 %0, 0
   br i1 %2, label %3, label %4
   call void @external()
@@ -271,7 +260,6 @@ define void @icmp.ule.i24.64(i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp ule i24 %0, 64
   br i1 %2, label %3, label %4
   call void @external()
@@ -294,7 +282,6 @@ define void @icmp.ugt.i24(i24, i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp ugt i24 %0, %1
   br i1 %3, label %4, label %5
   call void @external()
@@ -317,7 +304,6 @@ define void @icmp.ugt.i24.0(i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp ugt i24 %0, 0
   br i1 %2, label %3, label %4
   call void @external()
@@ -340,7 +326,6 @@ define void @icmp.ugt.i24.64(i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp ugt i24 %0, 64
   br i1 %2, label %3, label %4
   call void @external()
@@ -363,7 +348,6 @@ define void @icmp.uge.i24(i24, i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp uge i24 %0, %1
   br i1 %3, label %4, label %5
   call void @external()
@@ -386,7 +370,6 @@ define void @icmp.uge.i24.0(i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp uge i24 %0, 0
   br i1 %2, label %3, label %4
   call void @external()
@@ -409,7 +392,6 @@ define void @icmp.uge.i24.64(i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp uge i24 %0, 64
   br i1 %2, label %3, label %4
   call void @external()
@@ -436,7 +418,6 @@ define void @icmp.slt.i24(i24, i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp slt i24 %0, %1
   br i1 %3, label %4, label %5
   call void @external()
@@ -460,7 +441,6 @@ define void @icmp.slt.i24.0(i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp slt i24 %0, 0
   br i1 %2, label %3, label %4
   call void @external()
@@ -485,7 +465,6 @@ define void @icmp.slt.i24.64(i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp slt i24 %0, 64
   br i1 %2, label %3, label %4
   call void @external()
@@ -512,7 +491,6 @@ define void @icmp.sle.i24(i24, i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp sle i24 %0, %1
   br i1 %3, label %4, label %5
   call void @external()
@@ -537,7 +515,6 @@ define void @icmp.sle.i24.0(i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp sle i24 %0, 0
   br i1 %2, label %3, label %4
   call void @external()
@@ -562,7 +539,6 @@ define void @icmp.sle.i24.64(i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp sle i24 %0, 64
   br i1 %2, label %3, label %4
   call void @external()
@@ -589,7 +565,6 @@ define void @icmp.sgt.i24(i24, i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp sgt i24 %0, %1
   br i1 %3, label %4, label %5
   call void @external()
@@ -614,7 +589,6 @@ define void @icmp.sgt.i24.0(i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp sgt i24 %0, 0
   br i1 %2, label %3, label %4
   call void @external()
@@ -639,7 +613,6 @@ define void @icmp.sgt.i24.64(i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp sgt i24 %0, 64
   br i1 %2, label %3, label %4
   call void @external()
@@ -666,7 +639,6 @@ define void @icmp.sge.i24(i24, i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp sge i24 %0, %1
   br i1 %3, label %4, label %5
   call void @external()
@@ -690,7 +662,6 @@ define void @icmp.sge.i24.0(i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp sge i24 %0, 0
   br i1 %2, label %3, label %4
   call void @external()
@@ -715,7 +686,6 @@ define void @icmp.sge.i24.64(i24) {
 ; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
-; EZ80-NEXT:    section .text
   icmp sge i24 %0, 64
   br i1 %2, label %3, label %4
   call void @external()
