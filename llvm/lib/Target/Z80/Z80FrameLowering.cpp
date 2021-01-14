@@ -407,7 +407,7 @@ bool Z80FrameLowering::assignCalleeSavedSpillSlots(
   auto &FuncInfo = *MF.getInfo<Z80MachineFunctionInfo>();
   FuncInfo.setUsesAltFP(shouldUseAltFP(MF, Is24Bit ? Z80::UIY : Z80::IY, TRI));
   MF.getRegInfo().freezeReservedRegs(MF);
-  FuncInfo.setCalleeSavedFrameSize((CSI.size() + isFPSaved(MF)) * SlotSize);
+  FuncInfo.setCalleeSavedFrameSize(CSI.size() * SlotSize);
   return true;
 }
 
