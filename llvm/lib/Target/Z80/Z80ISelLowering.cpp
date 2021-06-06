@@ -177,37 +177,6 @@ unsigned Z80TargetLowering::getJumpTableEncoding() const {
   return MachineJumpTableInfo::EK_BlockAddress;
 }
 
-bool Z80TargetLowering::isTypeDesirableForGOp(unsigned Opc, LLT Ty) const {
-  // Check if it is a legal type.
-  if (!TargetLowering::isTypeDesirableForGOp(Opc, Ty))
-    return false;
-  if (Subtarget.is16Bit())
-    return true;
-
-  switch (Opc) {
-  default:
-  case TargetOpcode::G_ANYEXT:
-  case TargetOpcode::G_CONSTANT:
-  case TargetOpcode::G_SEXT:
-  case TargetOpcode::G_ZEXT:
-  case TargetOpcode::G_CTPOP:
-    return true;
-  case TargetOpcode::G_ADD:
-  case TargetOpcode::G_SUB:
-  case TargetOpcode::G_LOAD:
-  case TargetOpcode::G_STORE:
-    return Ty != LLT::scalar(16);
-  case TargetOpcode::G_MUL:
-  case TargetOpcode::G_AND:
-  case TargetOpcode::G_OR:
-  case TargetOpcode::G_XOR:
-  case TargetOpcode::G_SHL:
-  case TargetOpcode::G_LSHR:
-  case TargetOpcode::G_ASHR:
-    return Ty != LLT::scalar(24);
-  }
-}
-
 /// Return true if the target has native support for the specified value type
 /// and it is 'desirable' to use the type for the given node type. e.g. On ez80
 /// i16 is legal, but undesirable since i16 instruction encodings are longer and
@@ -238,6 +207,37 @@ bool Z80TargetLowering::isTypeDesirableForOp(unsigned Opc, EVT VT) const {
   case ISD::SRA:
   case ISD::SRL:
     return VT != MVT::i24;
+  }
+}
+
+bool Z80TargetLowering::isTypeDesirableForGOp(unsigned Opc, LLT Ty) const {
+  // Check if it is a legal type.
+  if (!TargetLowering::isTypeDesirableForGOp(Opc, Ty))
+    return false;
+  if (Subtarget.is16Bit())
+    return true;
+
+  switch (Opc) {
+  default:
+  case TargetOpcode::G_ANYEXT:
+  case TargetOpcode::G_CONSTANT:
+  case TargetOpcode::G_SEXT:
+  case TargetOpcode::G_ZEXT:
+  case TargetOpcode::G_CTPOP:
+    return true;
+  case TargetOpcode::G_ADD:
+  case TargetOpcode::G_SUB:
+  case TargetOpcode::G_LOAD:
+  case TargetOpcode::G_STORE:
+    return Ty != LLT::scalar(16);
+  case TargetOpcode::G_MUL:
+  case TargetOpcode::G_AND:
+  case TargetOpcode::G_OR:
+  case TargetOpcode::G_XOR:
+  case TargetOpcode::G_SHL:
+  case TargetOpcode::G_LSHR:
+  case TargetOpcode::G_ASHR:
+    return Ty != LLT::scalar(24);
   }
 }
 

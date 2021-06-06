@@ -41,7 +41,6 @@ public:
   bool hasInt48Type() const override { return true; }
   void getTargetDefines(const LangOptions &Opts,
                         MacroBuilder &Builder) const override;
-  ArrayRef<Builtin::Info> getTargetBuiltins() const final { return None; }
   BuiltinVaListKind getBuiltinVaListKind() const override {
     return TargetInfo::CharPtrBuiltinVaList;
   }
@@ -78,6 +77,7 @@ private:
                  const std::vector<std::string> &FeaturesVec) const override;
   void getTargetDefines(const LangOptions &Opts,
                         MacroBuilder &Builder) const override;
+  ArrayRef<Builtin::Info> getTargetBuiltins() const override;
   ArrayRef<const char *> getGCCRegNames() const override;
 };
 
@@ -100,6 +100,7 @@ private:
   bool setCPU(const std::string &Name) override;
   void getTargetDefines(const LangOptions &Opts,
                         MacroBuilder &Builder) const override;
+  ArrayRef<Builtin::Info> getTargetBuiltins() const override;
   ArrayRef<const char *> getGCCRegNames() const override;
 };
 

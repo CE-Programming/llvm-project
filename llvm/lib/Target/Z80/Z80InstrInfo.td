@@ -817,7 +817,7 @@ defm SUB : BinOp8RF <NoPre, 2, "sub", 1>;
 defm SBC : BinOp8RFF<NoPre, 3, "sbc", sube>;
 defm AND : BinOp8RF <NoPre, 4, "and">;
 defm XOR : BinOp8RF <NoPre, 5, "xor">;
-defm OR  : BinOp8RF <NoPre, 6, "or">;
+defm OR  : BinOp8RF <NoPre, 6, "or",  1>;
 defm CP  : BinOp8F  <NoPre, 7, "cp",  1>;
 defm TST : BinOp8F  <EDPre, 4, "tst", 1>,
            Requires<[HaveEZ80Ops]>;
