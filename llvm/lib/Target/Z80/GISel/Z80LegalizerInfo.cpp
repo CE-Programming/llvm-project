@@ -16,10 +16,12 @@
 #include "Z80Subtarget.h"
 #include "Z80TargetMachine.h"
 #include "llvm/CodeGen/GlobalISel/LegalizerHelper.h"
+#include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
 #include <initializer_list>
 using namespace llvm;
 using namespace TargetOpcode;
 using namespace LegalizeActions;
+using namespace MIPatternMatch;
 
 Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
                                    const Z80TargetMachine &TM)
@@ -103,7 +105,7 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
 
   getActionDefinitionsBuilder({G_ADD, G_SUB})
       .legalFor(LegalScalars)
-      .libcallFor({s32, s64})
+      .customFor({s32, s64})
       .clampScalar(0, s8, sMax);
 
   getActionDefinitionsBuilder({G_UADDO, G_UADDE, G_USUBO, G_USUBE,
@@ -220,6 +222,9 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeCustomMaybeLegal(
   default:
     // No idea what to do.
     return LegalizerHelper::UnableToLegalize;
+  case G_ADD:
+  case G_SUB:
+    return legalizeAddSub(Helper, MI, LocObserver);
   case G_AND:
   case G_OR:
   case G_XOR:
@@ -248,17 +253,84 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeCustomMaybeLegal(
 }
 
 LegalizerHelper::LegalizeResult
+Z80LegalizerInfo::legalizeAddSub(LegalizerHelper &Helper, MachineInstr &MI,
+                                 LostDebugLocObserver &LocObserver) const {
+  assert((MI.getOpcode() == G_ADD || MI.getOpcode() == G_SUB) &&
+         "Unexpected opcode");
+  MachineRegisterInfo &MRI = *Helper.MIRBuilder.getMRI();
+  Register DstReg = MI.getOperand(0).getReg();
+  LLT LLTy = MRI.getType(DstReg);
+  Register LHSReg;
+  if (mi_match(MI, MRI, m_Neg(m_Reg(LHSReg)))) {
+    auto &Ctx = Helper.MIRBuilder.getMF().getFunction().getContext();
+    RTLIB::Libcall Libcall;
+    unsigned Size = LLTy.getSizeInBits();
+    switch (Size) {
+    case 16:
+      Libcall = RTLIB::NEG_I16;
+      break;
+    case 24:
+      Libcall = RTLIB::NEG_I24;
+      break;
+    case 32:
+      Libcall = RTLIB::NEG_I32;
+      break;
+    case 64:
+      Libcall = RTLIB::NEG_I64;
+      break;
+    default:
+      llvm_unreachable("Unexpected type");
+    }
+    Type *Ty = IntegerType::get(Ctx, Size);
+    createLibcall(Helper.MIRBuilder, Libcall, {DstReg, Ty, 0},
+                  {{LHSReg, Ty, 0}});
+    MI.eraseFromParent();
+    return LegalizerHelper::Legalized;
+  }
+  return Helper.libcall(MI, LocObserver);
+}
+
+LegalizerHelper::LegalizeResult
 Z80LegalizerInfo::legalizeBitwise(LegalizerHelper &Helper, MachineInstr &MI,
                                   LostDebugLocObserver &LocObserver) const {
   assert((MI.getOpcode() == G_AND || MI.getOpcode() == G_OR ||
           MI.getOpcode() == G_XOR) &&
          "Unexpected opcode");
+  MachineRegisterInfo &MRI = *Helper.MIRBuilder.getMRI();
+  Register DstReg = MI.getOperand(0).getReg();
+  LLT LLTy = MRI.getType(DstReg);
   if (!MI.getParent()->getParent()->getFunction().hasOptSize() &&
-      Helper.MIRBuilder.getMRI()->getType(MI.getOperand(0).getReg()) ==
-          LLT::scalar(16))
+      LLTy == LLT::scalar(16))
     if (Helper.narrowScalar(MI, 0, LLT::scalar(8)) ==
         LegalizerHelper::Legalized)
       return LegalizerHelper::Legalized;
+  Register LHSReg;
+  if (mi_match(MI, MRI, m_Not(m_Reg(LHSReg)))) {
+    auto &Ctx = Helper.MIRBuilder.getMF().getFunction().getContext();
+    unsigned Size = LLTy.getSizeInBits();
+    RTLIB::Libcall Libcall;
+    switch (Size) {
+    case 16:
+      Libcall = RTLIB::NOT_I16;
+      break;
+    case 24:
+      Libcall = RTLIB::NOT_I24;
+      break;
+    case 32:
+      Libcall = RTLIB::NOT_I32;
+      break;
+    case 64:
+      Libcall = RTLIB::NOT_I64;
+      break;
+    default:
+      llvm_unreachable("Unexpected type");
+    }
+    Type *Ty = IntegerType::get(Ctx, Size);
+    createLibcall(Helper.MIRBuilder, Libcall, {DstReg, Ty, 0},
+                  {{LHSReg, Ty, 0}});
+    MI.eraseFromParent();
+    return LegalizerHelper::Legalized;
+  }
   return Helper.libcall(MI, LocObserver);
 }
 

@@ -726,17 +726,6 @@ void Z80InstrInfo::copyPhysReg(MachineBasicBlock &MBB,
     MI->addRegisterKilled(SrcReg, &RI, true);
 }
 
-static const MachineInstrBuilder &addSubReg(const MachineInstrBuilder &MIB,
-                                            Register Reg, unsigned Idx,
-                                            const MCRegisterInfo *TRI,
-                                            unsigned Flags = 0) {
-  if (Idx && Reg.isPhysical()) {
-    Reg = TRI->getSubReg(Reg, Idx);
-    Idx = 0;
-  }
-  return MIB.addReg(Reg, Flags, Idx);
-}
-
 void Z80InstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
                                        MachineBasicBlock::iterator MI,
                                        Register SrcReg, bool IsKill, int FI,
@@ -759,23 +748,6 @@ void Z80InstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
   }
   BuildMI(MBB, MI, MBB.findDebugLoc(MI), get(Opc)).addFrameIndex(FI).addImm(0)
     .addReg(SrcReg, getKillRegState(IsKill));
-  return;
-  unsigned RC, LoOpc, LoIdx, HiOpc, HiIdx, HiOff;
-  bool Split =
-    Z80::splitReg(TRI->getSpillSize(*TRC), Z80::LD8or, Z80::LD16or, Z80::LD24or,
-                  RC, LoOpc, LoIdx, HiOpc, HiIdx, HiOff,
-                  Subtarget.has16BitEZ80Ops());
-  addSubReg(BuildMI(MBB, MI, MBB.findDebugLoc(MI), get(LoOpc))
-            .addFrameIndex(FI).addImm(0), SrcReg, LoIdx, TRI,
-            getKillRegState(IsKill));
-  if (Split) {
-    MachineInstrBuilder HiMIB = addSubReg(
-        BuildMI(MBB, MI, MBB.findDebugLoc(MI), get(HiOpc))
-        .addFrameIndex(FI).addImm(HiOff), SrcReg, HiIdx, TRI,
-        getKillRegState(IsKill));
-    if (IsKill)
-      HiMIB->addRegisterKilled(SrcReg, TRI, true);
-  }
 }
 
 void Z80InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
@@ -792,6 +764,8 @@ void Z80InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
     break;
   case 2:
     Opc = Subtarget.has16BitEZ80Ops() ? Z80::LD16ro : Z80::LD88ro;
+    if (Subtarget.is24Bit())
+      Opc = Z80::LD24ro;
     break;
   case 3:
     assert(Subtarget.is24Bit() && "Only 24-bit should have 3 byte stack slots");
@@ -800,20 +774,6 @@ void Z80InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
   }
   BuildMI(MBB, MI, MBB.findDebugLoc(MI), get(Opc), DstReg).addFrameIndex(FI)
     .addImm(0);
-  return;
-  unsigned RC, LoOpc, LoIdx, HiOpc, HiIdx, HiOff;
-  bool Split =
-    Z80::splitReg(TRI->getSpillSize(*TRC), Z80::LD8ro, Z80::LD16ro, Z80::LD24ro,
-                  RC, LoOpc, LoIdx, HiOpc, HiIdx, HiOff,
-                  Subtarget.hasEZ80Ops());
-  addSubReg(BuildMI(MBB, MI, MBB.findDebugLoc(MI), get(LoOpc)), DstReg, LoIdx,
-            TRI, RegState::DefineNoRead).addFrameIndex(FI).addImm(0);
-  if (Split) {
-    MachineInstrBuilder HiMIB = addSubReg(
-        BuildMI(MBB, MI, MBB.findDebugLoc(MI), get(HiOpc)), DstReg, HiIdx,
-        TRI, RegState::Define).addFrameIndex(FI).addImm(HiOff);
-    HiMIB->addRegisterDefined(DstReg, TRI);
-  }
 }
 
 /// Return true and the FrameIndex if the specified
@@ -1418,6 +1378,7 @@ bool Z80InstrInfo::analyzeCompare(const MachineInstr &MI, Register &SrcReg,
   switch (MI.getOpcode()) {
   default: return false;
   case Z80::OR8ar:
+  case Z80::TST8ar:
     SrcReg = Z80::A;
     if (MI.getOperand(1).getReg() != SrcReg)
       return false;
@@ -1430,24 +1391,30 @@ bool Z80InstrInfo::analyzeCompare(const MachineInstr &MI, Register &SrcReg,
   case Z80::SUB8ai:
     SrcReg = Z80::A;
     SrcReg2 = 0;
-    CmpMask = CmpValue = 0;
-    if (MI.getOperand(0).isImm()) {
-      CmpMask = ~0;
-      CmpValue = MI.getOperand(0).getImm();
-    }
+    CmpMask = ~0;
+    CmpValue = MI.getOperand(0).getImm();
+    break;
+  case Z80::TST8ai:
+    SrcReg = Z80::A;
+    SrcReg2 = 0;
+    CmpMask = MI.getOperand(0).getImm();
+    CmpValue = 0;
     break;
   case Z80::CP8ar:
   case Z80::SUB8ar:
     SrcReg = Z80::A;
     SrcReg2 = MI.getOperand(0).getReg();
-    CmpMask = CmpValue = 0;
+    CmpMask = ~0;
+    CmpValue = 0;
     break;
   case Z80::CP8ap:
   case Z80::CP8ao:
   case Z80::SUB8ap:
   case Z80::SUB8ao:
     SrcReg = Z80::A;
-    SrcReg2 = CmpMask = CmpValue = 0;
+    SrcReg2 = 0;
+    CmpMask = 0;
+    CmpValue = 0;
     break;
   }
   MachineBasicBlock::const_reverse_iterator I = MI, E = MI.getParent()->rend();
@@ -1466,7 +1433,7 @@ bool Z80InstrInfo::analyzeCompare(const MachineInstr &MI, Register &SrcReg,
 inline static bool isRedundantFlagInstr(MachineInstr &FI, Register SrcReg,
                                         Register SrcReg2, int ImmMask,
                                         int ImmValue, MachineInstr &OI) {
-  if (ImmMask)
+  if (ImmMask == ~0)
     return (FI.getOpcode() == Z80::CP8ai && OI.getOpcode() == Z80::SUB8ai) &&
            OI.getOperand(1).getImm() == ImmValue;
   return (FI.getOpcode() == Z80::CP8ar && OI.getOpcode() == Z80::SUB8ar) &&
@@ -1487,6 +1454,7 @@ inline static bool isSZSettingInstr(MachineInstr &MI) {
   case Z80::AND8ar: case Z80::AND8ai: case Z80::AND8ap: case Z80::AND8ao:
   case Z80::XOR8ar: case Z80::XOR8ai: case Z80::XOR8ap: case Z80::XOR8ao:
   case Z80:: OR8ar: case Z80:: OR8ai: case Z80:: OR8ap: case Z80:: OR8ao:
+  case Z80::TST8ar: case Z80::TST8ai: case Z80::TST8ap: case Z80::TST8ao:
   case Z80::SBC16ao:case Z80::NEG:    case Z80::ADC16ao:
   case Z80::SUB16ao:case Z80::SUB24ao:
   case Z80::RLC8r:  case Z80::RLC8p:  case Z80::RLC8o:
@@ -1500,6 +1468,44 @@ inline static bool isSZSettingInstr(MachineInstr &MI) {
   }
 }
 
+inline static bool isMatchingRMW(MachineInstr &LoadMI,
+                                 MachineInstr &RMWMI) {
+  switch (LoadMI.getOpcode()) {
+  default: return false;
+  case Z80::LD8rp:
+  case Z80::LD8gp:
+    switch (RMWMI.getOpcode()) {
+    default: return false;
+    case Z80::INC8p:
+    case Z80::DEC8p:
+    case Z80::RLC8p:
+    case Z80::RRC8p:
+    case Z80:: RL8p:
+    case Z80:: RR8p:
+    case Z80::SLA8p:
+    case Z80::SRA8p:
+    case Z80::SRL8p:
+      return LoadMI.getOperand(1).isIdenticalTo(RMWMI.getOperand(0));
+    }
+  case Z80::LD8ro:
+  case Z80::LD8go:
+    switch (RMWMI.getOpcode()) {
+    default: return false;
+    case Z80::INC8o:
+    case Z80::DEC8o:
+    case Z80::RLC8o:
+    case Z80::RRC8o:
+    case Z80:: RL8o:
+    case Z80:: RR8o:
+    case Z80::SLA8o:
+    case Z80::SRA8o:
+    case Z80::SRL8o:
+      return LoadMI.getOperand(1).isIdenticalTo(RMWMI.getOperand(0)) &&
+             LoadMI.getOperand(2).isIdenticalTo(RMWMI.getOperand(1));
+    }
+  }
+}
+
 /// Check if there exists an earlier instruction that operates on the same
 /// source operands and sets flags in the same way as Compare; remove Compare if
 /// possible.
@@ -1508,7 +1514,7 @@ bool Z80InstrInfo::optimizeCompareInstr(MachineInstr &CmpInstr, Register SrcReg,
                                         int64_t CmpValue,
                                         const MachineRegisterInfo *MRI) const {
   // If we are comparing against zero, check whether we can use MI to update F.
-  bool IsCmpZero = CmpMask && !CmpValue;
+  bool IsCmpZero = CmpMask == ~0 && !CmpValue;
 
   // Check whether we can replace SUB with CP.
   unsigned CpOpc;
@@ -1532,16 +1538,22 @@ bool Z80InstrInfo::optimizeCompareInstr(MachineInstr &CmpInstr, Register SrcReg,
   }
 
   // Get the unique definition of SrcReg.
-  MachineInstr *MI = MRI->getUniqueVRegDef(SrcReg);
+  MachineInstr *MI;
+  Register LookthroughReg = SrcReg;
+  do
+    MI = MRI->getUniqueVRegDef(LookthroughReg);
+  while (MI && MI->isFullCopy() &&
+         (LookthroughReg = MI->getOperand(1).getReg()).isVirtual());
   if (!MI) return false;
 
   MachineBasicBlock::iterator I = CmpInstr, Def = MI;
 
   const TargetRegisterInfo &TRI = getRegisterInfo();
-  for (auto RI = ++Def.getReverse(), RE = MI->getParent()->rend();
-       MI->isFullCopy() && RI != RE; ++RI)
-    if (RI->definesRegister(MI->getOperand(1).getReg(), &TRI))
-      MI = &*RI;
+  if (Def != MI->getParent()->begin()) {
+    auto PrevII = std::prev(Def);
+    if (isMatchingRMW(*MI, *PrevII))
+      MI = &*PrevII;
+  }
 
   // If MI is not in the same BB as CmpInstr, do not optimize.
   if (IsCmpZero && (MI->getParent() != CmpInstr.getParent() ||
@@ -1608,11 +1620,10 @@ bool Z80InstrInfo::optimizeCompareInstr(MachineInstr &CmpInstr, Register SrcReg,
         break;
       }
       switch (OldCC) {
-      default: break;
-      case Z80::COND_NC: case Z80::COND_C:
-      case Z80::COND_PO: case Z80::COND_PE:
-        // CF or PV are used, we can't perform this optimization.
-        return false;
+      default: return false;
+      case Z80::COND_NZ: case Z80::COND_Z:
+      case Z80::COND_P: case Z80::COND_M:
+        break;
       }
     }
     if (ModifiesFlags || Instr.killsRegister(Z80::F, &TRI)) {
@@ -1645,41 +1656,6 @@ bool Z80InstrInfo::optimizeCompareInstr(MachineInstr &CmpInstr, Register SrcReg,
 
   CmpInstr.eraseFromParent();
   return true;
-
-  // Check whether we can replace SUB with CMP.
-  switch (CmpInstr.getOpcode()) {
-  default: return false;
-  case Z80::SUB8ai:
-    // cp a,0 -> or a,a (a szhc have same behavior)
-    // FIXME: This doesn't work if the pv flag is used.
-    if (!CmpInstr.getOperand(0).getImm()) {
-      CmpInstr.setDesc(get(Z80::OR8ar));
-      CmpInstr.getOperand(0).ChangeToRegister(Z80::A, /*isDef=*/false);
-      return true;
-    }
-    LLVM_FALLTHROUGH;
-  case Z80::SUB8ar:
-  case Z80::SUB8ap:
-  case Z80::SUB8ao: {
-    if (!CmpInstr.registerDefIsDead(Z80::A))
-      return false;
-    // There is no use of the destination register, we can replace SUB with CMP.
-    unsigned NewOpcode = 0;
-    switch (CmpInstr.getOpcode()) {
-    default: llvm_unreachable("Unreachable!");
-    case Z80::SUB8ai: NewOpcode = Z80::CP8ai; break;
-    case Z80::SUB8ar: NewOpcode = Z80::CP8ar; break;
-    case Z80::SUB8ap: NewOpcode = Z80::CP8ap; break;
-    case Z80::SUB8ao: NewOpcode = Z80::CP8ao; break;
-    }
-    CmpInstr.setDesc(get(NewOpcode));
-    //CmpInstr.findRegisterDefOperand(Z80::A)->setIsDead(false);
-    //BuildMI(*CmpInstr.getParent(), ++MachineBasicBlock::iterator(CmpInstr),
-    //        CmpInstr.getDebugLoc(), get(TargetOpcode::COPY), SrcReg)
-    //    .addReg(Z80::A, RegState::Kill);
-    return true;
-  }
-  }
 }
 
 MachineInstr *Z80InstrInfo::optimizeLoadInstr(MachineInstr &MI,

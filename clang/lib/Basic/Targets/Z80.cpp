@@ -12,10 +12,29 @@
 //===----------------------------------------------------------------------===//
 
 #include "Z80.h"
+#include "clang/Basic/TargetBuiltins.h"
 #include "llvm/ADT/StringSwitch.h"
 
 namespace clang {
 namespace targets {
+
+const Builtin::Info BuiltinInfoZ80[] = {
+#define BUILTIN(ID, TYPE, ATTRS)                                               \
+  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr},
+#define TARGET_BUILTIN(ID, TYPE, ATTRS, FEATURE)                               \
+  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, FEATURE},
+#define TARGET_HEADER_BUILTIN(ID, TYPE, ATTRS, HEADER, LANGS, FEATURE)         \
+  {#ID, TYPE, ATTRS, HEADER, LANGS, FEATURE},
+#include "clang/Basic/BuiltinsZ80.def"
+
+#define BUILTIN(ID, TYPE, ATTRS)                                               \
+  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr},
+#define TARGET_BUILTIN(ID, TYPE, ATTRS, FEATURE)                               \
+  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, FEATURE},
+#define TARGET_HEADER_BUILTIN(ID, TYPE, ATTRS, HEADER, LANGS, FEATURE)         \
+  {#ID, TYPE, ATTRS, HEADER, LANGS, FEATURE},
+#include "clang/Basic/BuiltinsEZ80.def"
+};
 
 static const char *const Z80GCCRegNames[] = {
     "a", "bc", "de", "hl", "ix", "iy", "sp",
@@ -210,6 +229,11 @@ void Z80TargetInfo::getTargetDefines(const LangOptions &Opts,
     defineCPUMacros(Builder, "Z180", /*Tuning=*/false);
 }
 
+ArrayRef<Builtin::Info> Z80TargetInfo::getTargetBuiltins() const {
+  return llvm::makeArrayRef(BuiltinInfoZ80, Z80::LastZ80CommonBuiltin -
+                                                Builtin::FirstTSBuiltin + 1);
+}
+
 ArrayRef<const char *> Z80TargetInfo::getGCCRegNames() const {
   return llvm::makeArrayRef(Z80GCCRegNames);
 }
@@ -225,6 +249,11 @@ void EZ80TargetInfo::getTargetDefines(const LangOptions &Opts,
                                       MacroBuilder &Builder) const {
   Z80TargetInfoBase::getTargetDefines(Opts, Builder);
   defineCPUMacros(Builder, "EZ80", /*Tuning=*/false);
+}
+
+ArrayRef<Builtin::Info> EZ80TargetInfo::getTargetBuiltins() const {
+  return llvm::makeArrayRef(BuiltinInfoZ80,
+                            Z80::LastTSBuiltin - Builtin::FirstTSBuiltin);
 }
 
 ArrayRef<const char *> EZ80TargetInfo::getGCCRegNames() const {

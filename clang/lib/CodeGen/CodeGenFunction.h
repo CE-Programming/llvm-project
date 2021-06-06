@@ -4265,6 +4265,8 @@ public:
                                     ReturnValueSlot ReturnValue);
   llvm::Value *EmitLoongArchBuiltinExpr(unsigned BuiltinID, const CallExpr *E);
   void ProcessOrderScopeAMDGCN(llvm::Value *Order, llvm::Value *Scope,
+  llvm::Value *EmitZ80BuiltinExpr(unsigned BuiltinID, const CallExpr *E);
+  bool ProcessOrderScopeAMDGCN(llvm::Value *Order, llvm::Value *Scope,
                                llvm::AtomicOrdering &AO,
                                llvm::SyncScope::ID &SSID);
 
