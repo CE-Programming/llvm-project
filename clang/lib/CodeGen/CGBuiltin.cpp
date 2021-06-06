@@ -6313,6 +6313,9 @@ static Value *EmitTargetArchBuiltinExpr(CodeGenFunction *CGF,
     if (CGF->getTarget().getTriple().getOS() != llvm::Triple::OSType::AMDHSA)
       return nullptr;
     return CGF->EmitAMDGPUBuiltinExpr(BuiltinID, E);
+  case llvm::Triple::z80:
+  case llvm::Triple::ez80:
+    return CGF->EmitZ80BuiltinExpr(BuiltinID, E);
   default:
     return nullptr;
   }
@@ -22075,4 +22078,14 @@ Value *CodeGenFunction::EmitRISCVBuiltinExpr(unsigned BuiltinID,
 
   llvm::Function *F = CGM.getIntrinsic(ID, IntrinsicTypes);
   return Builder.CreateCall(F, Ops, "");
+}
+
+Value *CodeGenFunction::EmitZ80BuiltinExpr(unsigned BuiltinID,
+                                           const CallExpr *E) {
+  switch (BuiltinID) {
+  case Z80::BI__builtin_bitreverse24:
+    return emitUnaryBuiltin(*this, E, Intrinsic::bitreverse);
+  default:
+    return nullptr;
+  }
 }

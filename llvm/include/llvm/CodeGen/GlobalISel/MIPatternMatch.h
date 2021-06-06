@@ -65,15 +65,18 @@ inline OneNonDBGUse_match<SubPat> m_OneNonDBGUse(const SubPat &SP) {
 template <typename ConstT>
 inline std::optional<ConstT> matchConstant(Register Reg,
                                       const MachineRegisterInfo &MRI) {
-  if (auto Res = getIConstantVRegSExtVal(Reg, MRI))
-    return *Res;
+  auto Val = matchConstant<APInt>(Reg, MRI);
+  if (Val && Val->getBitWidth() <= 64)
+    return Val->getSExtValue();
   return std::nullopt;
 }
 
 template <>
 inline std::optional<APInt> matchConstant(Register Reg,
                                           const MachineRegisterInfo &MRI) {
-  return getIConstantVRegVal(Reg, MRI);
+  if (auto ValAndVReg = getIConstantVRegValWithLookThrough(Reg, MRI))
+    return ValAndVReg->Value;
+  return None;
 }
 
 template <typename ConstT> struct ConstantMatch {
@@ -319,34 +322,25 @@ template <typename BindTy> struct bind_helper {
 template <> struct bind_helper<MachineInstr *> {
   static bool bind(const MachineRegisterInfo &MRI, MachineInstr *&MI,
                    Register Reg) {
-    MI = MRI.getVRegDef(Reg);
-    if (MI)
-      return true;
-    return false;
+    return MI = MRI.getVRegDef(Reg);
   }
   static bool bind(const MachineRegisterInfo &MRI, MachineInstr *&MI,
                    MachineInstr *Inst) {
-    MI = Inst;
-    return MI;
+    return MI = Inst;
   }
 };
 
 template <> struct bind_helper<LLT> {
-  static bool bind(const MachineRegisterInfo &MRI, LLT Ty, Register Reg) {
+  static bool bind(const MachineRegisterInfo &MRI, LLT &Ty, Register Reg) {
     Ty = MRI.getType(Reg);
-    if (Ty.isValid())
-      return true;
-    return false;
+    return Ty.isValid();
   }
 };
 
 template <> struct bind_helper<const ConstantFP *> {
   static bool bind(const MachineRegisterInfo &MRI, const ConstantFP *&F,
                    Register Reg) {
-    F = getConstantFPVRegVal(Reg, MRI);
-    if (F)
-      return true;
-    return false;
+    return F = getConstantFPVRegVal(Reg, MRI);
   }
 };
 
@@ -362,7 +356,7 @@ template <typename Class> struct bind_ty {
 
 inline bind_ty<Register> m_Reg(Register &R) { return R; }
 inline bind_ty<MachineInstr *> m_MInstr(MachineInstr *&MI) { return MI; }
-inline bind_ty<LLT> m_Type(LLT Ty) { return Ty; }
+inline bind_ty<LLT> m_Type(LLT &Ty) { return Ty; }
 inline bind_ty<CmpInst::Predicate> m_Pred(CmpInst::Predicate &P) { return P; }
 inline operand_type_match m_Pred() { return operand_type_match(); }
 

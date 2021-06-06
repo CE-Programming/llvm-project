@@ -104,7 +104,10 @@ void Z80InstPrinterCommon::printAddr(const MCInst *MI, unsigned Op,
   printOperand(MI, Op, OS);
   auto Off = MI->getOperand(Op + 1).getImm();
   assert(isInt<8>(Off) && "Offset out of range!");
-  OS << " + " << int(int8_t(Off));
+  if (Off > 0)
+    OS << " + " << int(Off);
+  else if (Off < 0)
+    OS << " - " << -int(Off);
 }
 void Z80InstPrinterCommon::printBit(const MCInst *MI, unsigned Op,
                                      raw_ostream &OS) {
