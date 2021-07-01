@@ -1511,16 +1511,34 @@ bool Z80InstructionSelector::selectFunnelShift(MachineInstr &I,
   auto Amt = getIConstantVRegValWithLookThrough(I.getOperand(3).getReg(), MRI);
   LLT Ty = MRI.getType(DstReg);
   assert(Ty == LLT::scalar(8) && "Illegal type");
-  assert(Amt && (Amt->Value == 1 || Amt->Value == 7) && "Illegal shift amount");
-  IsLeft ^= Amt->Value == 7;
+  unsigned TySize = Ty.getSizeInBits();
+  unsigned Count = Amt->Value.getZExtValue();
+  if (!IsLeft)
+    Count = TySize - Count;
+  IsLeft = Count < TySize / 2;
+  if (IsLeft)
+    std::swap(HiReg, LoReg);
+  else
+    Count = TySize - Count;
+  assert(Count < TySize / 2 && "Unexpected shift amount");
   MachineIRBuilder MIB(I);
-  auto ShiftI = MIB.buildInstr(IsLeft ? Z80::RLC8r : Z80::RRC8r, {Ty},
-                               {IsLeft ? LoReg : HiReg});
-  auto RotateI = MIB.buildInstr(IsLeft ? Z80::RL8r : Z80::RR8r, {DstReg},
-                                {IsLeft ? HiReg : LoReg});
+  while (Count--) {
+    auto ShiftI = MIB.buildInstr(
+        IsLeft ? Z80::RLC8r : Z80::RRC8r,
+        {Count || HiReg != LoReg ? DstOp{Ty} : DstOp{DstReg}}, {HiReg});
+    MachineInstrBuilder RotateI;
+    if (HiReg != LoReg)
+      RotateI = MIB.buildInstr(IsLeft ? Z80::RL8r : Z80::RR8r,
+                               {Count ? DstOp{Ty} : DstOp{DstReg}}, {LoReg});
+    if (!constrainSelectedInstRegOperands(*ShiftI, TII, TRI, RBI) ||
+        (HiReg != LoReg &&
+         !constrainSelectedInstRegOperands(*RotateI, TII, TRI, RBI)))
+      return false;
+    LoReg = (HiReg != LoReg ? &RotateI : &ShiftI)->getReg(0);
+    HiReg = ShiftI.getReg(0);
+  }
   I.eraseFromParent();
-  return constrainSelectedInstRegOperands(*ShiftI, TII, TRI, RBI) &&
-         constrainSelectedInstRegOperands(*RotateI, TII, TRI, RBI);
+  return true;
 }
 
 bool Z80InstructionSelector::selectSetCond(MachineInstr &I,

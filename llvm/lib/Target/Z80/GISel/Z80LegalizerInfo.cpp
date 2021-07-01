@@ -414,9 +414,9 @@ Z80LegalizerInfo::legalizeFunnelShift(LegalizerHelper &Helper,
   Register RevReg = MI.getOperand(2).getReg();
   Register AmtReg = MI.getOperand(3).getReg();
   LLT Ty = MRI.getType(DstReg);
-  if (auto Amt = getIConstantVRegValWithLookThrough(AmtReg, MRI))
-    if (Ty == LLT::scalar(8) && (Amt->Value == 1 || Amt->Value == 7))
-        return LegalizerHelper::AlreadyLegal;
+  if (Ty == LLT::scalar(8))
+    if (auto Amt = getIConstantVRegValWithLookThrough(AmtReg, MRI))
+      return LegalizerHelper::AlreadyLegal;
 
   unsigned FwdShiftOpc = G_SHL;
   unsigned RevShiftOpc = G_LSHR;
