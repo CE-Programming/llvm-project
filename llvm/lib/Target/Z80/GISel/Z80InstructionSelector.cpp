@@ -1275,29 +1275,31 @@ Z80::CondCode Z80InstructionSelector::foldExtendedAddSub(
   Optional<ValueAndVReg> RHSConst = None;
   LLT OpTy = MRI.getType(DstReg);
 
-  bool NeedCarry = true;
   unsigned AddSubOpc;
+  bool NeedCarry;
   Register AddSubReg;
   const TargetRegisterClass *AddSubRC;
   switch (OpTy.getSizeInBits()) {
   case 8:
-    NeedCarry = IsExtend;
     RHSConst = getIConstantVRegValWithLookThrough(RHSReg, MRI);
     AddSubOpc = RHSConst ? IsAdd ? IsExtend ? Z80::ADC8ar : Z80::ADD8ar
                                  : IsExtend ? Z80::SBC8ar : Z80::SUB8ar
                          : IsAdd ? IsExtend ? Z80::ADC8ai : Z80::ADD8ai
                                  : IsExtend ? Z80::SBC8ai : Z80::SUB8ai;
+    NeedCarry = IsExtend;
     AddSubReg = Z80::A;
     AddSubRC = &Z80::R8RegClass;
     break;
   case 16:
-    AddSubOpc = IsAdd ? Z80::ADC16ao : Z80::SBC16ao;
-    AddSubReg = Z80::HL;
+    AddSubOpc = IsAdd ? IsExtend ? Z80::ADC16ao : Z80::ADD16ao : Z80::SBC16ao;
+    if ((NeedCarry = !IsAdd || IsExtend))
+      AddSubReg = Z80::HL;
     AddSubRC = &Z80::R16RegClass;
     break;
   case 24:
-    AddSubOpc = IsAdd ? Z80::ADC24ao : Z80::SBC24ao;
-    AddSubReg = Z80::UHL;
+    AddSubOpc = IsAdd ? IsExtend ? Z80::ADC24ao : Z80::ADD24ao : Z80::SBC24ao;
+    if ((NeedCarry = !IsAdd || IsExtend))
+      AddSubReg = Z80::UHL;
     AddSubRC = &Z80::R24RegClass;
     break;
   default:
@@ -1321,21 +1323,32 @@ Z80::CondCode Z80InstructionSelector::foldExtendedAddSub(
     }
   } else if (NeedCarry)
     MIB.buildInstr(Z80::RCF);
-  MIB.buildCopy(AddSubReg, LHSReg);
-  if (!RBI.constrainGenericRegister(LHSReg, *AddSubRC, MRI))
-    return Z80::COND_INVALID;
-  MachineInstrBuilder AddSubI;
+  bool MoveDef =
+      I == MIB.getInsertPt() || canMoveDefForwards(DstMO, *MIB.getInsertPt());
+  SmallVector<DstOp, 1> DstOps;
+  SmallVector<SrcOp, 2> SrcOps;
+  if (AddSubReg.isValid()) {
+    MIB.buildCopy(AddSubReg, LHSReg);
+    if (!RBI.constrainGenericRegister(LHSReg, *AddSubRC, MRI))
+      return Z80::COND_INVALID;
+  } else {
+    DstOps.push_back(MoveDef ? DstReg : MRI.createGenericVirtualRegister(OpTy));
+    SrcOps.push_back(LHSReg);
+  }
   if (RHSConst)
-    AddSubI = MIB.buildInstr(AddSubOpc, {}, {RHSConst->Value.getSExtValue()});
+    SrcOps.push_back(RHSConst->Value.getSExtValue());
   else
-    AddSubI = MIB.buildInstr(AddSubOpc, {}, {RHSReg});
+    SrcOps.push_back(RHSReg);
+  MachineInstrBuilder AddSubI = MIB.buildInstr(AddSubOpc, DstOps, SrcOps);
   if (!constrainSelectedInstRegOperands(*AddSubI, TII, TRI, RBI))
     return Z80::COND_INVALID;
-  if (I == MIB.getInsertPt() || canMoveDefForwards(DstMO, *MIB.getInsertPt())) {
+  if (MoveDef) {
     DstMO.setReg(MRI.createGenericVirtualRegister(OpTy));
-    MIB.buildCopy(DstReg, AddSubReg);
-    if (!RBI.constrainGenericRegister(DstReg, *AddSubRC, MRI))
-      return Z80::COND_INVALID;
+    if (AddSubReg.isValid()) {
+      MIB.buildCopy(DstReg, AddSubReg);
+      if (!RBI.constrainGenericRegister(DstReg, *AddSubRC, MRI))
+        return Z80::COND_INVALID;
+    }
   }
   return IsSigned ? Z80::COND_PE : Z80::COND_C;
 }
