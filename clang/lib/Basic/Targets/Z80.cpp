@@ -222,11 +222,15 @@ initFeatureMap(llvm::StringMap<bool> &Features,
 void Z80TargetInfo::getTargetDefines(const LangOptions &Opts,
                                      MacroBuilder &Builder) const {
   Z80TargetInfoBase::getTargetDefines(Opts, Builder);
-  defineCPUMacros(Builder, "Z80", /*Tuning=*/false);
-  if (getTargetOpts().CPU == "undoc")
-    defineCPUMacros(Builder, "Z80_UNDOC", /*Tuning=*/false);
-  else if (getTargetOpts().CPU == "z180")
-    defineCPUMacros(Builder, "Z180", /*Tuning=*/false);
+  defineCPUMacros(Builder, "z80", /*Tuning=*/false);
+  Builder.defineMacro("_Z80");
+  if (getTargetOpts().CPU == "undoc") {
+    defineCPUMacros(Builder, "z80_undoc", /*Tuning=*/false);
+    Builder.defineMacro("_Z80_UNDOC");
+  } else if (getTargetOpts().CPU == "z180") {
+    defineCPUMacros(Builder, "z180", /*Tuning=*/false);
+    Builder.defineMacro("_Z180");
+  }
 }
 
 ArrayRef<Builtin::Info> Z80TargetInfo::getTargetBuiltins() const {
@@ -248,7 +252,8 @@ bool EZ80TargetInfo::setCPU(const std::string &Name) {
 void EZ80TargetInfo::getTargetDefines(const LangOptions &Opts,
                                       MacroBuilder &Builder) const {
   Z80TargetInfoBase::getTargetDefines(Opts, Builder);
-  defineCPUMacros(Builder, "EZ80", /*Tuning=*/false);
+  defineCPUMacros(Builder, "ez80", /*Tuning=*/false);
+  Builder.defineMacro("_EZ80");
 }
 
 ArrayRef<Builtin::Info> EZ80TargetInfo::getTargetBuiltins() const {
