@@ -34,6 +34,8 @@ class Z80RegisterInfo final : public Z80GenRegisterInfo {
 public:
   Z80RegisterInfo(const Triple &TT);
 
+  unsigned getSpillSize(const TargetRegisterClass &RC) const override;
+
   /// Code Generation virtual methods...
   ///
   bool trackLivenessAfterRegAlloc(const MachineFunction &MF) const override {
