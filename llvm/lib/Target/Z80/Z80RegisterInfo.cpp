@@ -36,6 +36,13 @@ Z80RegisterInfo::Z80RegisterInfo(const Triple &TT)
   StackPtr = Is24Bit ? Z80::SPL : Z80::SPS;
 }
 
+unsigned Z80RegisterInfo::getSpillSize(const TargetRegisterClass &RC) const {
+  unsigned SpillSize = TargetRegisterInfo::getSpillSize(RC);
+  if (Is24Bit && SpillSize == 2)
+    SpillSize = 3;
+  return SpillSize;
+}
+
 const TargetRegisterClass *
 Z80RegisterInfo::getPointerRegClass(const MachineFunction &MF,
                                     unsigned Kind) const {
