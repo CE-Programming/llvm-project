@@ -1,4 +1,4 @@
-//=== lib/CodeGen/GlobalISel/Z80MachineLateOptimization.cpp ---------------===//
+//=== lib/Target/Z80/Z80MachineLateOptimization.cpp -----------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 //
 // This pass does combining of machine instructions at the generic MI level,
-// before the legalizer.
+// after register allocation.
 //
 //===----------------------------------------------------------------------===//
 
