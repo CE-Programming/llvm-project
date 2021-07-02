@@ -135,3 +135,39 @@ bool MCAsmInfo::shouldOmitSectionDirective(StringRef SectionName) const {
   return SectionName == ".text" || SectionName == ".data" ||
         (SectionName == ".bss" && !usesELFSectionDirectiveForBSS());
 }
+
+const char *MCAsmInfo::getUnaryOperator(unsigned Opc) const {
+  switch (Opc) {
+  default: llvm_unreachable("unknown opcode");
+  case MCUnaryExpr::LNot:  return "!";
+  case MCUnaryExpr::Minus: return "-";
+  case MCUnaryExpr::Not:   return "~";
+  case MCUnaryExpr::Plus:  return "+";
+  }
+}
+
+const char *MCAsmInfo::getBinaryOperator(unsigned Opc) const {
+  switch (Opc) {
+  default: llvm_unreachable("unknown opcode");
+  case MCBinaryExpr::Add:   return  "+";
+  case MCBinaryExpr::AShr:  return ">>";
+  case MCBinaryExpr::And:   return  "&";
+  case MCBinaryExpr::Div:   return  "/";
+  case MCBinaryExpr::EQ:    return "==";
+  case MCBinaryExpr::GT:    return  ">";
+  case MCBinaryExpr::GTE:   return ">=";
+  case MCBinaryExpr::LAnd:  return "&&";
+  case MCBinaryExpr::LOr:   return "||";
+  case MCBinaryExpr::LShr:  return ">>";
+  case MCBinaryExpr::LT:    return  "<";
+  case MCBinaryExpr::LTE:   return "<=";
+  case MCBinaryExpr::Mod:   return  "%";
+  case MCBinaryExpr::Mul:   return  "*";
+  case MCBinaryExpr::NE:    return "!=";
+  case MCBinaryExpr::Or:    return  "|";
+  case MCBinaryExpr::OrNot: return  "!";
+  case MCBinaryExpr::Shl:   return "<<";
+  case MCBinaryExpr::Sub:   return  "-";
+  case MCBinaryExpr::Xor:   return  "^";
+  }
+}

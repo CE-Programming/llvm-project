@@ -32,6 +32,9 @@ public:
   bool shouldOmitSectionDirective(StringRef SectionName) const override;
 
   const char *getBlockDirective(int64_t Size) const override;
+
+  const char *getUnaryOperator(unsigned Opc) const override;
+  const char *getBinaryOperator(unsigned Opc) const override;
 };
 } // End llvm namespace
 
