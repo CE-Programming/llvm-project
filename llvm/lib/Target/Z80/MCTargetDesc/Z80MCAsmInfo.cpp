@@ -14,6 +14,7 @@
 #include "Z80MCAsmInfo.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
+#include "llvm/MC/MCExpr.h"
 using namespace llvm;
 
 void Z80MCAsmInfoELF::anchor() { }
@@ -85,5 +86,41 @@ const char *Z80MCAsmInfoELF::getBlockDirective(int64_t Size) const {
   case 2: return "\tdw\t";
   case 3: return "\tdl\t";
   case 4: return "\tdd\t";
+  }
+}
+
+const char *Z80MCAsmInfoELF::getUnaryOperator(unsigned Opc) const {
+  switch (Opc) {
+  default: llvm_unreachable("unknown opcode");
+  case MCUnaryExpr::LNot:  return "~";
+  case MCUnaryExpr::Minus: return "-";
+  case MCUnaryExpr::Not:   return "not ";
+  case MCUnaryExpr::Plus:  return "+";
+  }
+}
+
+const char *Z80MCAsmInfoELF::getBinaryOperator(unsigned Opc) const {
+  switch (Opc) {
+  default: llvm_unreachable("unknown opcode");
+  case MCBinaryExpr::Add:   return     "+";
+  case MCBinaryExpr::AShr:  return " shr ";
+  case MCBinaryExpr::And:   return " and ";
+  case MCBinaryExpr::Div:   return     "/";
+  case MCBinaryExpr::EQ:    return     "=";
+  case MCBinaryExpr::GT:    return     ">";
+  case MCBinaryExpr::GTE:   return    ">=";
+  case MCBinaryExpr::LAnd:  return     "&";
+  case MCBinaryExpr::LOr:   return     "|";
+  case MCBinaryExpr::LShr:  return " shr ";
+  case MCBinaryExpr::LT:    return     "<";
+  case MCBinaryExpr::LTE:   return    "<=";
+  case MCBinaryExpr::Mod:   return " mod ";
+  case MCBinaryExpr::Mul:   return     "*";
+  case MCBinaryExpr::NE:    return    "<>";
+  case MCBinaryExpr::Or:    return  " or ";
+  case MCBinaryExpr::OrNot: return     "~";
+  case MCBinaryExpr::Shl:   return " shl ";
+  case MCBinaryExpr::Sub:   return     "-";
+  case MCBinaryExpr::Xor:   return " xor ";
   }
 }

@@ -98,12 +98,7 @@ void MCExpr::print(raw_ostream &OS, const MCAsmInfo *MAI, bool InParens) const {
 
   case MCExpr::Unary: {
     const MCUnaryExpr &UE = cast<MCUnaryExpr>(*this);
-    switch (UE.getOpcode()) {
-    case MCUnaryExpr::LNot:  OS << '!'; break;
-    case MCUnaryExpr::Minus: OS << '-'; break;
-    case MCUnaryExpr::Not:   OS << '~'; break;
-    case MCUnaryExpr::Plus:  OS << '+'; break;
-    }
+    OS << MAI->getUnaryOperator(UE.getOpcode());
     bool Binary = UE.getSubExpr()->getKind() == MCExpr::Binary;
     if (Binary) OS << "(";
     UE.getSubExpr()->print(OS, MAI);
@@ -123,8 +118,7 @@ void MCExpr::print(raw_ostream &OS, const MCAsmInfo *MAI, bool InParens) const {
       OS << ')';
     }
 
-    switch (BE.getOpcode()) {
-    case MCBinaryExpr::Add:
+    if (BE.getOpcode() == MCBinaryExpr::Add) {
       // Print "X-42" instead of "X+-42".
       if (const MCConstantExpr *RHSC = dyn_cast<MCConstantExpr>(BE.getRHS())) {
         if (RHSC->getValue() < 0) {
@@ -132,29 +126,8 @@ void MCExpr::print(raw_ostream &OS, const MCAsmInfo *MAI, bool InParens) const {
           return;
         }
       }
-
-      OS <<  '+';
-      break;
-    case MCBinaryExpr::AShr: OS << ">>"; break;
-    case MCBinaryExpr::And:  OS <<  '&'; break;
-    case MCBinaryExpr::Div:  OS <<  '/'; break;
-    case MCBinaryExpr::EQ:   OS << "=="; break;
-    case MCBinaryExpr::GT:   OS <<  '>'; break;
-    case MCBinaryExpr::GTE:  OS << ">="; break;
-    case MCBinaryExpr::LAnd: OS << "&&"; break;
-    case MCBinaryExpr::LOr:  OS << "||"; break;
-    case MCBinaryExpr::LShr: OS << ">>"; break;
-    case MCBinaryExpr::LT:   OS <<  '<'; break;
-    case MCBinaryExpr::LTE:  OS << "<="; break;
-    case MCBinaryExpr::Mod:  OS <<  '%'; break;
-    case MCBinaryExpr::Mul:  OS <<  '*'; break;
-    case MCBinaryExpr::NE:   OS << "!="; break;
-    case MCBinaryExpr::Or:   OS <<  '|'; break;
-    case MCBinaryExpr::OrNot: OS << '!'; break;
-    case MCBinaryExpr::Shl:  OS << "<<"; break;
-    case MCBinaryExpr::Sub:  OS <<  '-'; break;
-    case MCBinaryExpr::Xor:  OS <<  '^'; break;
     }
+    OS << MAI->getBinaryOperator(BE.getOpcode());
 
     // Only print parens around the LHS if it is non-trivial.
     if (isa<MCConstantExpr>(BE.getRHS()) || isa<MCSymbolRefExpr>(BE.getRHS())) {

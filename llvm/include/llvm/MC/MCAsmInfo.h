@@ -968,6 +968,9 @@ public:
   bool hasMipsExpressions() const { return HasMipsExpressions; }
   bool needsFunctionDescriptors() const { return NeedsFunctionDescriptors; }
   bool shouldUseMotorolaIntegers() const { return UseMotorolaIntegers; }
+
+  virtual const char *getUnaryOperator(unsigned Opc) const;
+  virtual const char *getBinaryOperator(unsigned Opc) const;
 };
 
 } // end namespace llvm
