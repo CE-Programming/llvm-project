@@ -148,6 +148,7 @@ public:
   bool addGlobalInstructionSelect() override;
   void addMachineSSAOptimization() override;
   void addFastRegAlloc() override;
+  bool addRegAssignAndRewriteOptimized() override;
   void addMachineLateOptimization() override;
 
   std::unique_ptr<CSEConfigBase> getCSEConfig() const override;
@@ -203,6 +204,11 @@ void Z80PassConfig::addFastRegAlloc() {
     addOptimizedRegAlloc();
   else
     TargetPassConfig::addFastRegAlloc();
+}
+
+bool Z80PassConfig::addRegAssignAndRewriteOptimized() {
+  addPass(createZ80MachinePreRAOptimizationPass());
+  return TargetPassConfig::addRegAssignAndRewriteOptimized();
 }
 
 void Z80PassConfig::addMachineLateOptimization() {
