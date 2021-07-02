@@ -31,12 +31,14 @@ InstructionSelector *createZ80InstructionSelector(const Z80TargetMachine &TM,
                                                   Z80RegisterBankInfo &);
 FunctionPass *createZ80PostSelectCombiner();
 FunctionPass *createZ80MachineEarlyOptimizationPass();
+FunctionPass *createZ80MachinePreRAOptimizationPass();
 FunctionPass *createZ80MachineLateOptimizationPass();
 
 void initializeZ80PreLegalizerCombinerPass(PassRegistry &);
 void initializeZ80PostLegalizerCombinerPass(PassRegistry &);
 void initializeZ80PostSelectCombinerPass(PassRegistry &);
 void initializeZ80MachineEarlyOptimizationPass(PassRegistry &);
+void initializeZ80MachinePreRAOptimizationPass(PassRegistry &);
 void initializeZ80MachineLateOptimizationPass(PassRegistry &);
 
 } // namespace llvm

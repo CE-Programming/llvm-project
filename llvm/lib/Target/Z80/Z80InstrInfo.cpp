@@ -1744,6 +1744,7 @@ MachineInstr *Z80InstrInfo::foldMemoryOperandImpl(
   case Z80::XOR8ar: Opc = IsOff ? Z80::XOR8ao : Z80::XOR8ap; break;
   case Z80:: OR8ar: Opc = IsOff ? Z80:: OR8ao : Z80:: OR8ap; break;
   case Z80::TST8ar: Opc = IsOff ? Z80::TST8ao : Z80::TST8ap; break;
+  case TargetOpcode::COPY: Opc = IsOff ? Z80::LD8ro : Z80::LD8rp; break;
   default: return nullptr;
   }
 
