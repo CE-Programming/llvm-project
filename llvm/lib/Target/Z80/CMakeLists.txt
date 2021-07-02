@@ -33,6 +33,7 @@ set(sources
   Z80MCInstLower.cpp
   Z80MachineEarlyOptimization.cpp
   Z80MachineLateOptimization.cpp
+  Z80MachinePreRAOptimization.cpp
   Z80PostSelectCombiner.cpp
   Z80RegisterInfo.cpp
   Z80Subtarget.cpp
