@@ -1663,7 +1663,7 @@ MachineInstr *Z80InstrInfo::optimizeLoadInstr(MachineInstr &MI,
                                               Register &FoldAsLoadDefReg,
                                               MachineInstr *&DefMI) const {
   // Check whether we can move DefMI here.
-  DefMI = MRI->getVRegDef(FoldAsLoadDefReg);
+  DefMI = MRI->getUniqueVRegDef(FoldAsLoadDefReg);
   bool SawStore = false;
   if (!DefMI || !DefMI->isSafeToMove(nullptr, SawStore))
     return nullptr;
@@ -1734,18 +1734,29 @@ MachineInstr *Z80InstrInfo::foldMemoryOperandImpl(
 
   unsigned Opc;
   unsigned OpSize = 1;
-  switch (MI.getOpcode()) {
-  case Z80::BIT8bg: Opc = IsOff ? Z80::BIT8bo : Z80::BIT8bp; break;
-  case Z80::ADD8ar: Opc = IsOff ? Z80::ADD8ao : Z80::ADD8ap; break;
-  case Z80::ADC8ar: Opc = IsOff ? Z80::ADC8ao : Z80::ADC8ap; break;
-  case Z80::SUB8ar: Opc = IsOff ? Z80::SUB8ao : Z80::SUB8ap; break;
-  case Z80::SBC8ar: Opc = IsOff ? Z80::SBC8ao : Z80::SBC8ap; break;
-  case Z80::AND8ar: Opc = IsOff ? Z80::AND8ao : Z80::AND8ap; break;
-  case Z80::XOR8ar: Opc = IsOff ? Z80::XOR8ao : Z80::XOR8ap; break;
-  case Z80:: OR8ar: Opc = IsOff ? Z80:: OR8ao : Z80:: OR8ap; break;
-  case Z80::TST8ar: Opc = IsOff ? Z80::TST8ao : Z80::TST8ap; break;
-  case TargetOpcode::COPY: Opc = IsOff ? Z80::LD8ro : Z80::LD8rp; break;
+  switch (OpNum) {
   default: return nullptr;
+  case 0:
+    switch (MI.getOpcode()) {
+    default: return nullptr;
+    case TargetOpcode::  COPY: Opc = IsOff ? Z80:: LD8or : Z80:: LD8pr; break;
+    }
+    break;
+  case 1:
+    switch (MI.getOpcode()) {
+    default: return nullptr;
+    case          Z80::BIT8bg: Opc = IsOff ? Z80::BIT8bo : Z80::BIT8bp; break;
+    case          Z80::ADD8ar: Opc = IsOff ? Z80::ADD8ao : Z80::ADD8ap; break;
+    case          Z80::ADC8ar: Opc = IsOff ? Z80::ADC8ao : Z80::ADC8ap; break;
+    case          Z80::SUB8ar: Opc = IsOff ? Z80::SUB8ao : Z80::SUB8ap; break;
+    case          Z80::SBC8ar: Opc = IsOff ? Z80::SBC8ao : Z80::SBC8ap; break;
+    case          Z80::AND8ar: Opc = IsOff ? Z80::AND8ao : Z80::AND8ap; break;
+    case          Z80::XOR8ar: Opc = IsOff ? Z80::XOR8ao : Z80::XOR8ap; break;
+    case          Z80:: OR8ar: Opc = IsOff ? Z80:: OR8ao : Z80:: OR8ap; break;
+    case          Z80::TST8ar: Opc = IsOff ? Z80::TST8ao : Z80::TST8ap; break;
+    case TargetOpcode::  COPY: Opc = IsOff ? Z80:: LD8ro : Z80:: LD8rp; break;
+    }
+    break;
   }
 
   if (Size && Size < OpSize)
