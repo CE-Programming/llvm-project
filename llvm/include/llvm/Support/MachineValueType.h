@@ -1108,7 +1108,7 @@ namespace llvm {
     /// base size.
     TypeSize getStoreSize() const {
       TypeSize BaseSize = getSizeInBits();
-      return {(BaseSize.getKnownMinSize() + 7) / 8, BaseSize.isScalable()};
+      return {divideCeil(BaseSize.getKnownMinSize(), 8), BaseSize.isScalable()};
     }
 
     // Return the number of bytes overwritten by a store of this value type or

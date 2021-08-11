@@ -227,6 +227,10 @@ public:
   };
 
   struct ValueHandler {
+    MachineIRBuilder &MIRBuilder;
+    MachineRegisterInfo &MRI;
+    const bool IsIncomingArgumentHandler;
+
     ValueHandler(bool IsIncoming, MachineIRBuilder &MIRBuilder,
                  MachineRegisterInfo &MRI)
         : MIRBuilder(MIRBuilder), MRI(MRI),
@@ -309,13 +313,6 @@ public:
                             unsigned MaxSizeBits = 0);
 
     virtual bool finalize(CCState &State) { return true; }
-
-    MachineIRBuilder &MIRBuilder;
-    MachineRegisterInfo &MRI;
-    CCAssignFn *AssignFn;
-
-  private:
-    bool IsIncomingArgumentHandler;
   };
 
   /// Base class for ValueHandlers used for arguments coming into the current

@@ -722,6 +722,8 @@ bool CallLowering::handleAssignments(ValueHandler &Handler,
         ArgReg = MRI.createGenericVirtualRegister(p0);
       else {
         MachineFrameInfo &MFI = MF.getFrameInfo();
+        // TODO: The memory size may be larger than the value we need to
+        // store. We may need to adjust the offset for big endian targets.
         LLT MemTy = Handler.getStackValueStoreType(DL, VA, Args[i].Flags[0]);
         int FI = MFI.CreateStackObject(MemTy.getSizeInBytes(),
                                        DL.getPrefTypeAlign(Args[i].Ty), false);
@@ -863,6 +865,8 @@ bool CallLowering::handleAssignments(ValueHandler &Handler,
 
       if (VA.getLocInfo() == CCValAssign::Indirect) {
         Register AddrReg;
+        // TODO: The memory size may be larger than the value we need to
+        // store. We may need to adjust the offset for big endian targets.
         LLT MemTy = Handler.getStackValueStoreType(DL, VA, Args[i].Flags[0]);
         LLT sIndex = LLT::scalar(DL.getIndexSizeInBits(0));
         MIRBuilder.materializePtrAdd(AddrReg, Args[i].Regs[0], sIndex,
