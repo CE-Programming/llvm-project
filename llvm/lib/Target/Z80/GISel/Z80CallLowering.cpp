@@ -540,6 +540,7 @@ bool Z80CallLowering::lowerTailCall(MachineIRBuilder &MIRBuilder,
   // by -tailcallopt. For sibcalls, the memory operands for the call are
   // already available in the caller's incoming argument space.
   unsigned NumBytes = 0;
+  OutgoingValueAssigner CalleeAssigner(CC_Z80);
   if (!IsSibCall) {
     // We aren't sibcalling, so we need to compute FPDiff. We need to do this
     // before handling assignments, because FPDiff must be known for memory
@@ -548,8 +549,8 @@ bool Z80CallLowering::lowerTailCall(MachineIRBuilder &MIRBuilder,
     SmallVector<CCValAssign, 16> OutLocs;
     CCState OutInfo(Info.CallConv, false, MF, OutLocs, F.getContext());
 
-    OutgoingValueAssigner CalleeAssigner(CC_Z80);
-    determineAssignments(CalleeAssigner, OutArgs, OutInfo);
+    if (!determineAssignments(CalleeAssigner, OutArgs, OutInfo))
+      return false;
 
     // FPDiff will be negative if this tail call requires more space than we
     // would automatically have in our incoming argument space. Positive if we
@@ -557,12 +558,10 @@ bool Z80CallLowering::lowerTailCall(MachineIRBuilder &MIRBuilder,
     FPDiff = NumReusableBytes - NumBytes;
   }
 
-  OutgoingValueAssigner Assigner(CC_Z80);
   // Do the actual argument marshalling.
-  SmallVector<unsigned, 8> PhysRegs;
   TailCallArgHandler Handler(MIRBuilder, MRI, MIB, FPDiff);
-  if (!determineAndHandleAssignments(Handler, Assigner, OutArgs, MIRBuilder,
-                                     Info.CallConv, Info.IsVarArg))
+  if (!determineAndHandleAssignments(Handler, CalleeAssigner, OutArgs,
+                                     MIRBuilder, Info.CallConv, Info.IsVarArg))
     return false;
 
   // If we have -tailcallopt, we need to adjust the stack. We'll do the call
@@ -684,23 +683,11 @@ bool Z80CallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
   // implicit-define of the call instruction.
 
   if (!InArgs.empty()) {
-    SmallVector<Register, 8> NewRegs;
-
     OutgoingValueAssigner Assigner(RetCC_Z80);
     CallReturnHandler Handler(MIRBuilder, MRI, MIB);
     if (!determineAndHandleAssignments(Handler, Assigner, InArgs, MIRBuilder,
                                        Info.CallConv, Info.IsVarArg))
       return false;
-
-    if (!NewRegs.empty()) {
-      SmallVector<uint64_t, 8> Indices;
-      uint64_t Index = 0;
-      for (Register Reg : NewRegs) {
-        Indices.push_back(Index);
-        Index += MRI.getType(Reg).getSizeInBits();
-      }
-      MIRBuilder.buildSequence(Info.OrigRet.Regs[0], NewRegs, Indices);
-    }
   }
 
   CallSeqStart.addImm(Handler.getFrameSize())
