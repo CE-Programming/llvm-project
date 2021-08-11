@@ -189,7 +189,7 @@ private:
   void extractParts(Register Reg, LLT Ty, int NumParts,
                     SmallVectorImpl<Register> &VRegs);
 
-  /// Version which handles irregular splits.
+  /// Versions which handle irregular splits.
   bool extractParts(Register Reg, LLT RegTy, LLT MainTy,
                     LLT &LeftoverTy,
                     SmallVectorImpl<Register> &VRegs,

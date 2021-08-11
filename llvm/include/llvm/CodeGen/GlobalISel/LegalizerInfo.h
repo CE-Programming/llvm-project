@@ -1272,15 +1272,10 @@ public:
   }
 
   virtual LegalizerHelper::LegalizeResult
-  legalizeCustomMaybeLegal(LegalizerHelper &Helper, MachineInstr &MI) const {
+  legalizeCustomMaybeLegal(LegalizerHelper &Helper, MachineInstr &MI,
+                           LostDebugLocObserver &LocObserver) const {
     return legalizeCustom(Helper, MI) ? LegalizerHelper::Legalized
                                       : LegalizerHelper::UnableToLegalize;
-  }
-
-  virtual LegalizerHelper::LegalizeResult
-  legalizeCustomMaybeLegal(LegalizerHelper &Helper, MachineInstr &MI,
-                           LostDebugLocObserver &) const {
-    return legalizeCustomMaybeLegal(Helper, MI);
   }
 
   /// \returns true if MI is either legal or has been legalized and false if not
