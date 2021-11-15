@@ -141,7 +141,7 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
   getActionDefinitionsBuilder({G_FADD, G_FSUB, G_FMUL, G_FDIV, G_FREM, G_FNEG,
                                G_FABS, G_INTRINSIC_TRUNC, G_INTRINSIC_ROUND,
                                G_FCEIL, G_FCOS, G_FSIN, G_FSQRT, G_FFLOOR,
-                               G_FRINT, G_FNEARBYINT})
+                               G_FMINNUM, G_FMAXNUM, G_FRINT, G_FNEARBYINT})
       .libcallFor({s32, s64});
 
   getActionDefinitionsBuilder(G_FCOPYSIGN)
