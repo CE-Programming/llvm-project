@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: Uninstall Unused Packages
         if: runner.os == 'Linux'
-        run: sudo apt-get remove ^ghc-[0-9.]+$ azure-cli google-cloud-sdk ^adoptopenjdk-[0-9]+-hotspot$ hhvm libgl1-mesa-dri ^google-chrome.*$ ^dotnet-sdk-[0-9.]+$ firefox
+        run: sudo apt-get remove azure-cli google-cloud-sdk ^adoptopenjdk-[0-9]+-hotspot$ hhvm libgl1-mesa-dri ^google-chrome.*$ ^dotnet-sdk-[0-9.]+$ firefox
 
       - name: Bootstrap Build Environment
         if: runner.os == 'Windows'
@@ -126,7 +126,7 @@ jobs:
     steps:
       - name: Uninstall Unused Packages
         if: runner.os == 'Linux'
-        run: sudo apt-get remove ^ghc-[0-9.]+$ azure-cli google-cloud-sdk ^adoptopenjdk-[0-9]+-hotspot$ hhvm libgl1-mesa-dri ^google-chrome.*$ ^dotnet-sdk-[0-9.]+$ firefox
+        run: sudo apt-get remove azure-cli google-cloud-sdk ^adoptopenjdk-[0-9]+-hotspot$ hhvm libgl1-mesa-dri ^google-chrome.*$ ^dotnet-sdk-[0-9.]+$ firefox
 
       - name: Bootstrap Build Environment
         if: runner.os == 'Windows'
@@ -252,7 +252,7 @@ jobs:
     steps:
       - name: Uninstall Unused Packages
         if: runner.os == 'Linux'
-        run: sudo apt-get remove ^ghc-[0-9.]+$ azure-cli google-cloud-sdk ^adoptopenjdk-[0-9]+-hotspot$ hhvm libgl1-mesa-dri ^google-chrome.*$ ^dotnet-sdk-[0-9.]+$ firefox
+        run: sudo apt-get remove azure-cli google-cloud-sdk ^adoptopenjdk-[0-9]+-hotspot$ hhvm libgl1-mesa-dri ^google-chrome.*$ ^dotnet-sdk-[0-9.]+$ firefox
 
       - name: Checkout Project
         uses: actions/checkout@v2
@@ -295,7 +295,7 @@ jobs:
     steps:
       - name: Uninstall Unused Packages
         if: runner.os == 'Linux'
-        run: sudo apt-get remove ^ghc-[0-9.]+$ azure-cli google-cloud-sdk ^adoptopenjdk-[0-9]+-hotspot$ hhvm libgl1-mesa-dri ^google-chrome.*$ ^dotnet-sdk-[0-9.]+$ firefox
+        run: sudo apt-get remove azure-cli google-cloud-sdk ^adoptopenjdk-[0-9]+-hotspot$ hhvm libgl1-mesa-dri ^google-chrome.*$ ^dotnet-sdk-[0-9.]+$ firefox
 
       - name: Checkout Project
         uses: actions/checkout@v2
