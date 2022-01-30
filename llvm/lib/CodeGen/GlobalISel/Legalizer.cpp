@@ -99,6 +99,7 @@ static bool isArtifact(const MachineInstr &MI) {
   case TargetOpcode::G_CONCAT_VECTORS:
   case TargetOpcode::G_BUILD_VECTOR:
   case TargetOpcode::G_EXTRACT:
+  case TargetOpcode::G_INSERT:
     return true;
   }
 }

@@ -313,9 +313,11 @@ static llvm::Value *emitRoundPointerUpToAlignment(CodeGenFunction &CGF,
 ///
 /// This version implements the core direct-value passing rules.
 ///
-/// \param SlotSize - The size and alignment of a stack slot.
+/// \param SlotSize - The size of a stack slot.
 ///   Each argument will be allocated to a multiple of this number of
-///   slots, and all the slots will be aligned to this value.
+///   slots.
+/// \param SlotAlign - The alignment of a stack slot.
+///   Each slot will be aligned to this value.
 /// \param AllowHigherAlign - The slot alignment is not a cap;
 ///   an argument type with an alignment greater than the slot size
 ///   will be emitted on a higher-alignment address, potentially
@@ -325,12 +327,11 @@ static llvm::Value *emitRoundPointerUpToAlignment(CodeGenFunction &CGF,
 /// \param ForceRightAdjust - Default is false. On big-endian platform and
 ///   if the argument is smaller than a slot, set this flag will force
 ///   right-adjust the argument in its slot irrespective of the type.
-static Address emitVoidPtrDirectVAArg(CodeGenFunction &CGF,
-                                      Address VAListAddr,
+static Address emitVoidPtrDirectVAArg(CodeGenFunction &CGF, Address VAListAddr,
                                       llvm::Type *DirectTy,
                                       CharUnits DirectSize,
-                                      CharUnits DirectAlign,
-                                      CharUnits SlotSize,
+                                      CharUnits DirectAlign, CharUnits SlotSize,
+                                      CharUnits SlotAlign,
                                       bool AllowHigherAlign,
                                       bool ForceRightAdjust = false) {
   // Cast the element type to i8* if necessary.  Some platforms define
@@ -342,11 +343,11 @@ static Address emitVoidPtrDirectVAArg(CodeGenFunction &CGF,
 
   // If the CC aligns values higher than the slot size, do so if needed.
   Address Addr = Address::invalid();
-  if (AllowHigherAlign && DirectAlign > SlotSize) {
+  if (AllowHigherAlign && DirectAlign > SlotAlign) {
     Addr = Address(emitRoundPointerUpToAlignment(CGF, Ptr, DirectAlign),
                    CGF.Int8Ty, DirectAlign);
   } else {
-    Addr = Address(Ptr, CGF.Int8Ty, SlotSize);
+    Addr = Address(Ptr, CGF.Int8Ty, SlotAlign);
   }
 
   // Advance the pointer past the argument, then store that back.
@@ -372,9 +373,10 @@ static Address emitVoidPtrDirectVAArg(CodeGenFunction &CGF,
 /// \param IsIndirect - Values of this type are passed indirectly.
 /// \param ValueInfo - The size and alignment of this type, generally
 ///   computed with getContext().getTypeInfoInChars(ValueTy).
-/// \param SlotSizeAndAlign - The size and alignment of a stack slot.
-///   Each argument will be allocated to a multiple of this number of
-///   slots, and all the slots will be aligned to this value.
+/// \param SlotSize - The size of a stack slot.
+///   Each argument will be allocated to a multiple of this number of slots.
+/// \param SlotAlign - The alignment of a stack slot.
+///   Each slot will be aligned to this value.
 /// \param AllowHigherAlign - The slot alignment is not a cap;
 ///   an argument type with an alignment greater than the slot size
 ///   will be emitted on a higher-alignment address, potentially
@@ -384,9 +386,8 @@ static Address emitVoidPtrDirectVAArg(CodeGenFunction &CGF,
 ///   right-adjust the argument in its slot irrespective of the type.
 static Address emitVoidPtrVAArg(CodeGenFunction &CGF, Address VAListAddr,
                                 QualType ValueTy, bool IsIndirect,
-                                TypeInfoChars ValueInfo,
-                                CharUnits SlotSizeAndAlign,
-                                bool AllowHigherAlign,
+                                TypeInfoChars ValueInfo, CharUnits SlotSize,
+                                CharUnits SlotAlign, bool AllowHigherAlign,
                                 bool ForceRightAdjust = false) {
   // The size and alignment of the value that was passed directly.
   CharUnits DirectSize, DirectAlign;
@@ -403,9 +404,9 @@ static Address emitVoidPtrVAArg(CodeGenFunction &CGF, Address VAListAddr,
   if (IsIndirect)
     DirectTy = DirectTy->getPointerTo(0);
 
-  Address Addr = emitVoidPtrDirectVAArg(CGF, VAListAddr, DirectTy, DirectSize,
-                                        DirectAlign, SlotSizeAndAlign,
-                                        AllowHigherAlign, ForceRightAdjust);
+  Address Addr =
+      emitVoidPtrDirectVAArg(CGF, VAListAddr, DirectTy, DirectSize, DirectAlign,
+                             SlotSize, SlotAlign, AllowHigherAlign, ForceRightAdjust);
 
   if (IsIndirect) {
     Addr = Address(CGF.Builder.CreateLoad(Addr), ElementTy, ValueInfo.Align);
@@ -414,12 +415,21 @@ static Address emitVoidPtrVAArg(CodeGenFunction &CGF, Address VAListAddr,
   return Addr;
 }
 
+static Address emitVoidPtrVAArg(CodeGenFunction &CGF, Address VAListAddr,
+                                QualType ValueTy, bool IsIndirect,
+                                TypeInfoChars ValueInfo,
+                                CharUnits SlotSizeAndAlign,
+                                bool AllowHigherAlign) {
+  return emitVoidPtrVAArg(CGF, VAListAddr, ValueTy, IsIndirect, ValueInfo,
+                          SlotSizeAndAlign, SlotSizeAndAlign, AllowHigherAlign);
+}
+
 static Address complexTempStructure(CodeGenFunction &CGF, Address VAListAddr,
                                     QualType Ty, CharUnits SlotSize,
                                     CharUnits EltSize, const ComplexType *CTy) {
-  Address Addr =
-      emitVoidPtrDirectVAArg(CGF, VAListAddr, CGF.Int8Ty, SlotSize * 2,
-                             SlotSize, SlotSize, /*AllowHigher*/ true);
+  Address Addr = emitVoidPtrDirectVAArg(CGF, VAListAddr, CGF.Int8Ty,
+                                        SlotSize * 2, SlotSize, SlotSize,
+                                        SlotSize, /*AllowHigher*/ true);
 
   Address RealAddr = Addr;
   Address ImagAddr = RealAddr;
@@ -12222,13 +12232,12 @@ public:
 
 Address Z80ABIInfo::EmitVAArg(CodeGenFunction &CGF,
                               Address VAListAddr, QualType Ty) const {
-  Address Addr = emitVoidPtrVAArg(
+  return emitVoidPtrVAArg(
       CGF, VAListAddr, Ty, /*Indirect*/ false,
       getContext().getTypeInfoInChars(Ty),
-      CharUnits::fromQuantity(getDataLayout().getPointerSize()),
+      /*SlotSize*/ CharUnits::fromQuantity(getDataLayout().getPointerSize()),
+      /*SlotAlign*/ CharUnits::One(),
       /*AllowHigherAlign*/ false);
-  // Remove SlotSize over-alignment, since stack is never aligned.
-  return Address(Addr.getPointer(), CharUnits::fromQuantity(1));
 }
 
 void Z80TargetCodeGenInfo::setTargetAttributes(

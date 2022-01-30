@@ -148,7 +148,7 @@ struct CallArgHandler : public Z80OutgoingValueHandler {
               auto SaveInsertPt = std::prev(MIRBuilder.getInsertPt());
               MIRBuilder.setInsertPt(MIRBuilder.getMBB(), StackPushes);
               --StackPushes;
-              if (MemTy != SlotTy)
+              if (MemTy.getSizeInBits() < SlotTy.getSizeInBits())
                 ValVReg = MIRBuilder.buildAnyExt(SlotTy, ValVReg).getReg(0);
               MIRBuilder.buildInstr(STI.is24Bit() ? Z80::PUSH24r : Z80::PUSH16r,
                                     {}, {ValVReg});
