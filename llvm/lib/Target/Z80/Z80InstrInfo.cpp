@@ -1759,7 +1759,7 @@ MachineInstr *Z80InstrInfo::foldMemoryOperandImpl(
     break;
   }
 
-  if (Size && Size < OpSize)
+  if (Size && Size != OpSize)
     return nullptr;
 
   MachineInstrBuilder MIB(
