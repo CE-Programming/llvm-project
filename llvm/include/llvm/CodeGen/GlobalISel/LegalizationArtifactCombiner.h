@@ -988,7 +988,7 @@ public:
     const unsigned NumMergeRegs = MergeI->getNumOperands() - 1;
 
     if (NumMergeRegs < NumDefs) {
-      if (NumMergeRegs % NumDefs != 0)
+      if (NumDefs % NumMergeRegs != 0)
         return false;
 
       if (ConvertOp && !MRI.getType(MergeI->getOperand(0).getReg()).isVector())
@@ -1192,6 +1192,8 @@ public:
           (ExtractOffset + ExtractSize - 1) / MergeSrcSize;
 
       Register MergeSrcReg;
+      if (MergeSrcIdx == 0 && EndMergeSrcIdx == NumMergeSrcs - 1)
+        return false;
       if (MergeSrcIdx != EndMergeSrcIdx) {
         // Create a sub-merge to extract from.
         unsigned NumSubSrcs = EndMergeSrcIdx - MergeSrcIdx + 1;
@@ -1206,7 +1208,7 @@ public:
         MergeSrcReg = MergeI->getOperand(MergeSrcIdx + 1).getReg();
 
       // TODO: We could modify MI in place in most cases.
-      Builder.buildExtract(DstReg, MergeI->getOperand(MergeSrcIdx + 1).getReg(),
+      Builder.buildExtract(DstReg, MergeSrcReg,
                            ExtractOffset - MergeSrcIdx * MergeSrcSize);
       break;
     }
