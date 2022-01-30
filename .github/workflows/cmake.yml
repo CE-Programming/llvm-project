@@ -73,7 +73,7 @@ jobs:
         run: |
           git version
           git sparse-checkout init --cone
-          git sparse-checkout set llvm clang
+          git sparse-checkout set cmake third-party llvm clang
 
       - name: Configure LLVM
         run: cmake -Ssrc/llvm -Bbuild -GNinja -DCMAKE_BUILD_TYPE:STRING=${{matrix.build-type}} ${{env.CMAKE_CONFIG}} -DBUILD_SHARED_LIBS:BOOL=OFF -DCMAKE_INSTALL_PREFIX:PATH="${{github.workspace}}/llvm" -DCMAKE_C_COMPILER:FILEPATH="${{env.CC}}" -DCMAKE_C_FLAGS:STRING="${{env.CFLAGS}}" -DCMAKE_CXX_COMPILER:FILEPATH="${{env.CXX}}" -DCMAKE_CXX_FLAGS:STRING="${{env.CXXFLAGS}}" -DLLVM_PARALLEL_LINK_JOBS:STRING=1 -DLLVM_USE_LINKER="${{env.LD}}" -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD:STRING="Z80" -DLLVM_TARGET_ARCH="ez80" -DLLVM_LINK_LLVM_DYLIB:BOOL=${{env.DYLIB}} -DLLVM_INCLUDE_EXAMPLES:BOOL=OFF -DLLVM_INCLUDE_TESTS:BOOL=OFF -DLLVM_TOOL_DSYMUTIL_BUILD:BOOL=OFF -DLLVM_TOOL_GOLD_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_AS_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_CFI_VERIFY_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_CVTRES_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_DWP_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_ELFABI_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_EXEGESIS_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_GSYMUTIL_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_IFS_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_ISEL_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_ITANIUM_DEMANGLE_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_JITLINK_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_JITLISTENER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_LIPO_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_LTO2_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_LTO_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_MCA_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_MC_ASSEMBLE_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_MC_DISASSEMBLE_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_MICROSOFT_DEMANGLE_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_MT_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_OPT_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_PDBUTIL_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_PROFDATA_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_RC_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_SPECIAL_CASE_LIST_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_UNDNAME_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_XRAY_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_YAML_NUMERIC_PARSER_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LTO_BUILD:BOOL=OFF -DLLVM_TOOL_SANCOV_BUILD:BOOL=OFF -DLLVM_TOOL_SANSTATS_BUILD:BOOL=OFF -DLLVM_TOOL_VFABI_DEMANGLE_FUZZER_BUILD:BOOL=OFF
@@ -182,7 +182,7 @@ jobs:
         run: |
           git version
           git sparse-checkout init --cone
-          git sparse-checkout set clang
+          git sparse-checkout set cmake third-party clang
 
       - name: Download LLVM
         uses: actions/download-artifact@v2
@@ -263,7 +263,7 @@ jobs:
         run: |
           git version
           git sparse-checkout init --cone
-          git sparse-checkout set llvm/test llvm/utils/lit/lit
+          git sparse-checkout set cmake third-party llvm/test llvm/utils/lit/lit
 
       - name: Download Test
         uses: actions/download-artifact@v2
@@ -306,7 +306,7 @@ jobs:
         run: |
           git version
           git sparse-checkout init --cone
-          git sparse-checkout set clang/test llvm/utils/lit/lit
+          git sparse-checkout set cmake third-party clang/test llvm/utils/lit/lit
 
       - name: Download Test
         uses: actions/download-artifact@v2
