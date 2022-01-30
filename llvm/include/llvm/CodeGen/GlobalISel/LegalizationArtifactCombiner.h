@@ -1350,12 +1350,14 @@ public:
     unsigned EndMergeSrcIdx = (Offset + ExtractDstSize - 1) / MergeSrcSize;
 
     // Can't handle the case where the extract spans multiple inputs.
-    if (MergeSrcIdx != EndMergeSrcIdx)
+    if (MergeSrcIdx == 0 && EndMergeSrcIdx == NumMergeSrcs - 1)
+        return false;
+      if (MergeSrcIdx != EndMergeSrcIdx)
       return false;
 
     // TODO: We could modify MI in place in most cases.
     Builder.setInstr(MI);
-    Builder.buildExtract(DstReg, MergeI->getOperand(MergeSrcIdx + 1).getReg(),
+    Builder.buildExtract(DstReg, MergeSrcReg,
                          Offset - MergeSrcIdx * MergeSrcSize);
     UpdatedDefs.push_back(DstReg);
     markInstAndDefDead(MI, *MergeI, DeadInsts);

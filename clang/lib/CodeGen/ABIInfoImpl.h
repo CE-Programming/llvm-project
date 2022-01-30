@@ -78,9 +78,11 @@ llvm::Value *emitRoundPointerUpToAlignment(CodeGenFunction &CGF,
 ///
 /// This version implements the core direct-value passing rules.
 ///
-/// \param SlotSize - The size and alignment of a stack slot.
+/// \param SlotSize - The size of a stack slot.
 ///   Each argument will be allocated to a multiple of this number of
-///   slots, and all the slots will be aligned to this value.
+///   slots.
+/// \param SlotAlign - The alignment of a stack slot.
+///   Each slot will be aligned to this value.
 /// \param AllowHigherAlign - The slot alignment is not a cap;
 ///   an argument type with an alignment greater than the slot size
 ///   will be emitted on a higher-alignment address, potentially
@@ -93,6 +95,7 @@ llvm::Value *emitRoundPointerUpToAlignment(CodeGenFunction &CGF,
 Address emitVoidPtrDirectVAArg(CodeGenFunction &CGF, Address VAListAddr,
                                llvm::Type *DirectTy, CharUnits DirectSize,
                                CharUnits DirectAlign, CharUnits SlotSize,
+                               CharUnits SlotAlign,
                                bool AllowHigherAlign,
                                bool ForceRightAdjust = false);
 
@@ -102,9 +105,10 @@ Address emitVoidPtrDirectVAArg(CodeGenFunction &CGF, Address VAListAddr,
 /// \param IsIndirect - Values of this type are passed indirectly.
 /// \param ValueInfo - The size and alignment of this type, generally
 ///   computed with getContext().getTypeInfoInChars(ValueTy).
-/// \param SlotSizeAndAlign - The size and alignment of a stack slot.
-///   Each argument will be allocated to a multiple of this number of
-///   slots, and all the slots will be aligned to this value.
+/// \param SlotSize - The size of a stack slot.
+///   Each argument will be allocated to a multiple of this number of slots.
+/// \param SlotAlign - The alignment of a stack slot.
+///   Each slot will be aligned to this value.
 /// \param AllowHigherAlign - The slot alignment is not a cap;
 ///   an argument type with an alignment greater than the slot size
 ///   will be emitted on a higher-alignment address, potentially
@@ -113,6 +117,12 @@ Address emitVoidPtrDirectVAArg(CodeGenFunction &CGF, Address VAListAddr,
 ///   if the argument is smaller than a slot, set this flag will force
 ///   right-adjust the argument in its slot irrespective of the type.
 RValue emitVoidPtrVAArg(CodeGenFunction &CGF, Address VAListAddr,
+                         QualType ValueTy, bool IsIndirect,
+                         TypeInfoChars ValueInfo, CharUnits SlotSize,
+                         CharUnits SlotAlign,
+                         bool AllowHigherAlign, bool ForceRightAdjust = false);
+
+Address emitVoidPtrVAArg(CodeGenFunction &CGF, Address VAListAddr,
                         QualType ValueTy, bool IsIndirect,
                         TypeInfoChars ValueInfo, CharUnits SlotSizeAndAlign,
                         bool AllowHigherAlign, AggValueSlot Slot,
