@@ -13,9 +13,7 @@ define void @icmp.eq.i24(i24, i24) {
 ; EZ80-NEXT:    ld de, (ix + 9)
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call z, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp eq i24 %0, %1
@@ -35,9 +33,7 @@ define void @icmp.eq.i24.0(i24) {
 ; EZ80-NEXT:    add hl, bc
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, bc
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call z, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp eq i24 %0, 0
@@ -57,9 +53,7 @@ define void @icmp.eq.i24.64(i24) {
 ; EZ80-NEXT:    ld de, 64
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call z, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp eq i24 %0, 64
@@ -79,9 +73,7 @@ define void @icmp.ne.i24(i24, i24) {
 ; EZ80-NEXT:    ld de, (ix + 9)
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call nz, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp ne i24 %0, %1
@@ -101,9 +93,7 @@ define void @icmp.ne.i24.0(i24) {
 ; EZ80-NEXT:    add hl, bc
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, bc
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call nz, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp ne i24 %0, 0
@@ -123,9 +113,7 @@ define void @icmp.ne.i24.64(i24) {
 ; EZ80-NEXT:    ld de, 64
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call nz, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp ne i24 %0, 64
@@ -145,9 +133,7 @@ define void @icmp.ult.i24(i24, i24) {
 ; EZ80-NEXT:    ld de, (ix + 9)
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call c, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp ult i24 %0, %1
@@ -163,13 +149,10 @@ define void @icmp.ult.i24.0(i24) {
 ; EZ80-NEXT:    push ix
 ; EZ80-NEXT:    ld ix, 0
 ; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld de, 0
-; EZ80-NEXT:    or a, a
-; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    call c, _external
-; EZ80-NEXT:  ; %bb.2:
+; EZ80-NEXT:    xor a, a
+; EZ80-NEXT:    xor a, 1
+; EZ80-NEXT:    bit 0, a
+; EZ80-NEXT:    call z, _external
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp ult i24 %0, 0
@@ -189,9 +172,7 @@ define void @icmp.ult.i24.64(i24) {
 ; EZ80-NEXT:    ld de, 64
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call c, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp ult i24 %0, 64
@@ -211,9 +192,7 @@ define void @icmp.ule.i24(i24, i24) {
 ; EZ80-NEXT:    ld hl, (ix + 9)
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call nc, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp ule i24 %0, %1
@@ -233,9 +212,7 @@ define void @icmp.ule.i24.0(i24) {
 ; EZ80-NEXT:    ld de, 1
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call c, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp ule i24 %0, 0
@@ -255,9 +232,7 @@ define void @icmp.ule.i24.64(i24) {
 ; EZ80-NEXT:    ld de, 65
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call c, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp ule i24 %0, 64
@@ -277,9 +252,7 @@ define void @icmp.ugt.i24(i24, i24) {
 ; EZ80-NEXT:    ld hl, (ix + 9)
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call c, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp ugt i24 %0, %1
@@ -299,9 +272,7 @@ define void @icmp.ugt.i24.0(i24) {
 ; EZ80-NEXT:    ld de, 1
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call nc, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp ugt i24 %0, 0
@@ -321,9 +292,7 @@ define void @icmp.ugt.i24.64(i24) {
 ; EZ80-NEXT:    ld de, 65
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call nc, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp ugt i24 %0, 64
@@ -343,9 +312,7 @@ define void @icmp.uge.i24(i24, i24) {
 ; EZ80-NEXT:    ld de, (ix + 9)
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call nc, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp uge i24 %0, %1
@@ -361,13 +328,10 @@ define void @icmp.uge.i24.0(i24) {
 ; EZ80-NEXT:    push ix
 ; EZ80-NEXT:    ld ix, 0
 ; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld de, 0
-; EZ80-NEXT:    or a, a
-; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    call nc, _external
-; EZ80-NEXT:  ; %bb.2:
+; EZ80-NEXT:    ld a, 1
+; EZ80-NEXT:    xor a, 1
+; EZ80-NEXT:    bit 0, a
+; EZ80-NEXT:    call z, _external
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp uge i24 %0, 0
@@ -387,9 +351,7 @@ define void @icmp.uge.i24.64(i24) {
 ; EZ80-NEXT:    ld de, 64
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call nc, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp uge i24 %0, 64
@@ -410,12 +372,10 @@ define void @icmp.slt.i24(i24, i24) {
 ; EZ80-NEXT:    ld de, -8388608
 ; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    add hl, de
-; EZ80-NEXT:    lea de, iy + 0
+; EZ80-NEXT:    lea de, iy
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call c, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp slt i24 %0, %1
@@ -436,9 +396,7 @@ define void @icmp.slt.i24.0(i24) {
 ; EZ80-NEXT:    add hl, de
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call c, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp slt i24 %0, 0
@@ -460,9 +418,7 @@ define void @icmp.slt.i24.64(i24) {
 ; EZ80-NEXT:    ld de, -8388544
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call c, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp slt i24 %0, 64
@@ -483,12 +439,10 @@ define void @icmp.sle.i24(i24, i24) {
 ; EZ80-NEXT:    ld de, -8388608
 ; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    add hl, de
-; EZ80-NEXT:    lea de, iy + 0
+; EZ80-NEXT:    lea de, iy
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call nc, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp sle i24 %0, %1
@@ -510,9 +464,7 @@ define void @icmp.sle.i24.0(i24) {
 ; EZ80-NEXT:    inc de
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call c, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp sle i24 %0, 0
@@ -534,9 +486,7 @@ define void @icmp.sle.i24.64(i24) {
 ; EZ80-NEXT:    ld de, -8388543
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call c, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp sle i24 %0, 64
@@ -557,12 +507,10 @@ define void @icmp.sgt.i24(i24, i24) {
 ; EZ80-NEXT:    ld de, -8388608
 ; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    add hl, de
-; EZ80-NEXT:    lea de, iy + 0
+; EZ80-NEXT:    lea de, iy
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call c, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp sgt i24 %0, %1
@@ -584,9 +532,7 @@ define void @icmp.sgt.i24.0(i24) {
 ; EZ80-NEXT:    inc de
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call nc, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp sgt i24 %0, 0
@@ -608,9 +554,7 @@ define void @icmp.sgt.i24.64(i24) {
 ; EZ80-NEXT:    ld de, -8388543
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call nc, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp sgt i24 %0, 64
@@ -631,12 +575,10 @@ define void @icmp.sge.i24(i24, i24) {
 ; EZ80-NEXT:    ld de, -8388608
 ; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    add hl, de
-; EZ80-NEXT:    lea de, iy + 0
+; EZ80-NEXT:    lea de, iy
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call nc, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp sge i24 %0, %1
@@ -657,9 +599,7 @@ define void @icmp.sge.i24.0(i24) {
 ; EZ80-NEXT:    add hl, de
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call nc, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp sge i24 %0, 0
@@ -681,9 +621,7 @@ define void @icmp.sge.i24.64(i24) {
 ; EZ80-NEXT:    ld de, -8388544
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    call nc, _external
-; EZ80-NEXT:  ; %bb.2:
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   icmp sge i24 %0, 64
