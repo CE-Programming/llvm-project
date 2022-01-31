@@ -68,7 +68,7 @@ inline std::optional<ConstT> matchConstant(Register Reg,
   auto Val = matchConstant<APInt>(Reg, MRI);
   if (Val && Val->getBitWidth() <= 64)
     return Val->getSExtValue();
-  return None;
+  return std::nullopt;
 }
 
 template <>
@@ -76,7 +76,7 @@ inline std::optional<APInt> matchConstant(Register Reg,
                                           const MachineRegisterInfo &MRI) {
   if (auto ValAndVReg = getIConstantVRegValWithLookThrough(Reg, MRI))
     return ValAndVReg->Value;
-  return None;
+  return std::nullopt;
 }
 
 template <typename ConstT> struct ConstantMatch {
@@ -373,6 +373,25 @@ inline ImplicitDefMatch m_GImplicitDef() { return ImplicitDefMatch(); }
 
 // Helper for matching G_FCONSTANT
 inline bind_ty<const ConstantFP *> m_GFCst(const ConstantFP *&C) { return C; }
+
+template <typename Class> struct specific_ty {
+  Class RequestedVal;
+
+  specific_ty(Class RequestedVal) : RequestedVal(RequestedVal) {}
+
+  bool match(const MachineRegisterInfo &MRI, Register Reg) {
+    Class MatchedVal;
+    return mi_match(Reg, MRI, bind_ty<Class>(MatchedVal)) &&
+           MatchedVal == RequestedVal;
+  }
+};
+
+inline specific_ty<MachineInstr *> m_SpecificMInstr(MachineInstr *MI) {
+  return MI;
+}
+inline specific_ty<CmpInst::Predicate> m_SpecificPred(CmpInst::Predicate P) {
+  return P;
+}
 
 // General helper for all the binary generic MI such as G_ADD/G_SUB etc
 template <typename LHS_P, typename RHS_P, unsigned Opcode,
