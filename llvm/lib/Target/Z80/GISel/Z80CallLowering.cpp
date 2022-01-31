@@ -20,9 +20,11 @@
 #include "Z80Subtarget.h"
 #include "llvm/CodeGen/Analysis.h"
 #include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
+#include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Target/TargetMachine.h"
 using namespace llvm;
+using namespace MIPatternMatch;
 
 #define DEBUG_TYPE "z80-call-lowering"
 
@@ -128,46 +130,31 @@ struct CallArgHandler : public Z80OutgoingValueHandler {
   Register getStackAddress(uint64_t Size, int64_t Offset,
                            MachinePointerInfo &MPO,
                            ISD::ArgFlagsTy Flags) override {
-    return Z80OutgoingValueHandler::getStackAddress(Size, Offset, MPO, Flags);
+    return Z80OutgoingValueHandler::getStackAddress(
+        Size, Offset - SetupFrameAdjustment, MPO, Flags);
   }
 
   void assignValueToAddress(Register ValVReg, Register Addr, LLT MemTy,
                             MachinePointerInfo &MPO, CCValAssign &VA) override {
-    if (MachineInstr *AddrMI = MRI.getVRegDef(Addr)) {
-      LLT SlotTy = LLT::scalar(DL.getIndexSizeInBits(0));
-      if (VA.getLocVT().getStoreSize() == SlotTy.getSizeInBytes() &&
-          AddrMI->getOpcode() == TargetOpcode::G_PTR_ADD) {
-        if (MachineInstr *BaseMI =
-                getDefIgnoringCopies(AddrMI->getOperand(1).getReg(), MRI)) {
-          if (auto OffConst = getIConstantVRegValWithLookThrough(
-                  AddrMI->getOperand(2).getReg(), MRI)) {
-            if (BaseMI->getOpcode() == TargetOpcode::COPY &&
-                BaseMI->getOperand(1).getReg() ==
-                    STI.getRegisterInfo()->getStackRegister() &&
-                OffConst->Value == SetupFrameAdjustment) {
-              auto SaveInsertPt = std::prev(MIRBuilder.getInsertPt());
-              MIRBuilder.setInsertPt(MIRBuilder.getMBB(), StackPushes);
-              --StackPushes;
-              if (MemTy.getSizeInBits() < SlotTy.getSizeInBits())
-                ValVReg = MIRBuilder.buildAnyExt(SlotTy, ValVReg).getReg(0);
-              MIRBuilder.buildInstr(STI.is24Bit() ? Z80::PUSH24r : Z80::PUSH16r,
-                                    {}, {ValVReg});
-              ++StackPushes;
-              MIRBuilder.setInsertPt(MIRBuilder.getMBB(),
-                                     std::next(SaveInsertPt));
-              SetupFrameAdjustment += SlotTy.getSizeInBytes();
-              return;
-            }
-          }
-        }
-      }
+    LLT SlotTy = LLT::scalar(DL.getIndexSizeInBits(0));
+    if (VA.getLocVT().getStoreSize() != SlotTy.getSizeInBytes() ||
+        !mi_match(Addr, MRI,
+                  m_GPtrAdd(m_SpecificReg(SPRegCopy), m_ZeroInt()))) {
+      Z80OutgoingValueHandler::assignValueToAddress(ValVReg, Addr, MemTy, MPO,
+                                                    VA);
+      return;
     }
-    LLT PtrTy = LLT::pointer(0, DL.getPointerSizeInBits(0));
-    LLT OffTy = LLT::scalar(DL.getIndexSizeInBits(0));
-    auto OffI = MIRBuilder.buildConstant(OffTy, -SetupFrameAdjustment);
-    Addr = MIRBuilder.buildPtrAdd(PtrTy, Addr, OffI).getReg(0);
-    Z80OutgoingValueHandler::assignValueToAddress(ValVReg, Addr, MemTy, MPO,
-                                                  VA);
+
+    auto SaveInsertPt = std::prev(MIRBuilder.getInsertPt());
+    MIRBuilder.setInsertPt(MIRBuilder.getMBB(), StackPushes);
+    --StackPushes;
+    if (MemTy.getSizeInBits() < SlotTy.getSizeInBits())
+      ValVReg = MIRBuilder.buildAnyExt(SlotTy, ValVReg).getReg(0);
+    MIRBuilder.buildInstr(STI.is24Bit() ? Z80::PUSH24r : Z80::PUSH16r, {},
+                          {ValVReg});
+    ++StackPushes;
+    MIRBuilder.setInsertPt(MIRBuilder.getMBB(), std::next(SaveInsertPt));
+    SetupFrameAdjustment += SlotTy.getSizeInBytes();
   }
 
   bool finalize(CCState &State) override {

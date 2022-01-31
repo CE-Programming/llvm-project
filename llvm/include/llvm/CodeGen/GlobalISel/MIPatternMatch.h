@@ -346,6 +346,27 @@ inline operand_type_match m_Pred() { return operand_type_match(); }
 // Helper for matching G_FCONSTANT
 inline bind_ty<const ConstantFP *> m_GFCst(const ConstantFP *&C) { return C; }
 
+template <typename Class> struct specific_ty {
+  Class RequestedVal;
+
+  specific_ty(Class RequestedVal) : RequestedVal(RequestedVal) {}
+
+  bool match(const MachineRegisterInfo &MRI, Register Reg) {
+    Class MatchedVal;
+    return mi_match(Reg, MRI, bind_ty<Class>(MatchedVal)) &&
+           MatchedVal == RequestedVal;
+  }
+};
+
+inline specific_ty<Register> m_SpecificReg(Register R) { return R; }
+inline specific_ty<MachineInstr *> m_SpecificMInstr(MachineInstr *MI) {
+  return MI;
+}
+inline specific_ty<LLT> m_SpecificType(LLT Ty) { return Ty; }
+inline specific_ty<CmpInst::Predicate> m_SpecificPred(CmpInst::Predicate P) {
+  return P;
+}
+
 // General helper for all the binary generic MI such as G_ADD/G_SUB etc
 template <typename LHS_P, typename RHS_P, unsigned Opcode,
           bool Commutable = false>
@@ -621,18 +642,6 @@ inline CompareOp_match<Pred, LHS, RHS, TargetOpcode::G_FCMP>
 m_GFCmp(const Pred &P, const LHS &L, const RHS &R) {
   return CompareOp_match<Pred, LHS, RHS, TargetOpcode::G_FCMP>(P, L, R);
 }
-
-// Helper for checking if a Reg is of specific type.
-struct CheckType {
-  LLT Ty;
-  CheckType(const LLT Ty) : Ty(Ty) {}
-
-  bool match(const MachineRegisterInfo &MRI, Register Reg) {
-    return MRI.getType(Reg) == Ty;
-  }
-};
-
-inline CheckType m_SpecificType(LLT Ty) { return Ty; }
 
 template <typename Src0Ty, typename Src1Ty, typename Src2Ty, unsigned Opcode>
 struct TernaryOp_match {
