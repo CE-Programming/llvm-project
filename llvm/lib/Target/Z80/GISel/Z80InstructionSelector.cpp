@@ -1283,10 +1283,10 @@ Z80::CondCode Z80InstructionSelector::foldExtendedAddSub(
   switch (OpTy.getSizeInBits()) {
   case 8:
     RHSConst = getIConstantVRegValWithLookThrough(RHSReg, MRI);
-    AddSubOpc = RHSConst ? IsAdd ? IsExtend ? Z80::ADC8ar : Z80::ADD8ar
-                                 : IsExtend ? Z80::SBC8ar : Z80::SUB8ar
-                         : IsAdd ? IsExtend ? Z80::ADC8ai : Z80::ADD8ai
-                                 : IsExtend ? Z80::SBC8ai : Z80::SUB8ai;
+    AddSubOpc = RHSConst ? IsAdd ? IsExtend ? Z80::ADC8ai : Z80::ADD8ai
+                                 : IsExtend ? Z80::SBC8ai : Z80::SUB8ai
+                         : IsAdd ? IsExtend ? Z80::ADC8ar : Z80::ADD8ar
+                                 : IsExtend ? Z80::SBC8ar : Z80::SUB8ar;
     NeedCarry = IsExtend;
     AddSubReg = Z80::A;
     AddSubRC = &Z80::R8RegClass;

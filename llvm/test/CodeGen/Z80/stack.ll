@@ -97,7 +97,7 @@ define void @local.addr.no.fpe() "frame-pointer"="all" {
 ; EZ80-CODE16-NEXT:    ld ix, 0
 ; EZ80-CODE16-NEXT:    add ix, sp
 ; EZ80-CODE16-NEXT:    push hl
-; EZ80-CODE16-NEXT:    lea hl, ix + -2
+; EZ80-CODE16-NEXT:    lea hl, ix - 2
 ; EZ80-CODE16-NEXT:    ld (_global), hl
 ; EZ80-CODE16-NEXT:    ld sp, ix
 ; EZ80-CODE16-NEXT:    pop ix
@@ -109,7 +109,7 @@ define void @local.addr.no.fpe() "frame-pointer"="all" {
 ; EZ80-NEXT:    ld ix, 0
 ; EZ80-NEXT:    add ix, sp
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    lea hl, ix + -3
+; EZ80-NEXT:    lea hl, ix - 3
 ; EZ80-NEXT:    ld (_global), hl
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
@@ -143,7 +143,7 @@ define void @local.addr.fpe() "frame-pointer"="none" {
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    add iy, sp
 ; EZ80-CODE16-NEXT:    push hl
-; EZ80-CODE16-NEXT:    lea hl, iy + -2
+; EZ80-CODE16-NEXT:    lea hl, iy - 2
 ; EZ80-CODE16-NEXT:    ld (_global), hl
 ; EZ80-CODE16-NEXT:    pop hl
 ; EZ80-CODE16-NEXT:    ret
@@ -153,7 +153,7 @@ define void @local.addr.fpe() "frame-pointer"="none" {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    lea hl, iy + -3
+; EZ80-NEXT:    lea hl, iy - 3
 ; EZ80-NEXT:    ld (_global), hl
 ; EZ80-NEXT:    pop hl
 ; EZ80-NEXT:    ret
