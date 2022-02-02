@@ -138,20 +138,51 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
   getActionDefinitionsBuilder({G_FSHL, G_FSHR, G_MEMCPY, G_MEMMOVE, G_MEMSET})
       .custom();
 
-  getActionDefinitionsBuilder({G_FADD, G_FSUB, G_FMUL, G_FDIV, G_FREM, G_FNEG,
-                               G_FABS, G_INTRINSIC_TRUNC, G_INTRINSIC_ROUND,
-                               G_FCEIL, G_FCOS, G_FSIN, G_FSQRT, G_FFLOOR,
-                               G_FMINNUM, G_FMAXNUM, G_FRINT, G_FNEARBYINT})
+  getActionDefinitionsBuilder({G_INTRINSIC_TRUNC,
+                               G_INTRINSIC_ROUND,
+                               G_INTRINSIC_ROUNDEVEN,
+                               G_FADD,
+                               G_FSUB,
+                               G_FMUL,
+                               G_FMA,
+                               G_FMAD,
+                               G_FDIV,
+                               G_FREM,
+                               G_FPOW,
+                               G_FEXP,
+                               G_FEXP2,
+                               G_FLOG,
+                               G_FLOG2,
+                               G_FLOG10,
+                               G_FNEG,
+                               G_FABS,
+                               G_FCANONICALIZE,
+                               G_FMINNUM,
+                               G_FMAXNUM,
+                               G_FMINNUM_IEEE,
+                               G_FMAXNUM_IEEE,
+                               G_FMINIMUM,
+                               G_FMAXIMUM,
+                               G_FCEIL,
+                               G_FCOS,
+                               G_FSIN,
+                               G_FSQRT,
+                               G_FFLOOR,
+                               G_FRINT,
+                               G_FNEARBYINT})
       .libcallFor({s32, s64});
+
+  getActionDefinitionsBuilder(G_FPEXT).libcallFor({{s64, s32}});
+
+  getActionDefinitionsBuilder(G_FPTRUNC).libcallFor({{s32, s64}});
+
+  getActionDefinitionsBuilder(G_INTRINSIC_LRINT)
+      .libcallFor({{s32, s32}, {s32, s64}});
+
+  getActionDefinitionsBuilder(G_FPOWI).lower();
 
   getActionDefinitionsBuilder(G_FCOPYSIGN)
       .libcallFor({{s32, s32}, {s64, s64}});
-
-  getActionDefinitionsBuilder(G_FPTRUNC)
-      .libcallFor({{s32, s64}});
-
-  getActionDefinitionsBuilder(G_FPEXT)
-      .libcallFor({{s64, s32}});
 
   getActionDefinitionsBuilder({G_FPTOSI, G_FPTOUI})
       .libcallForCartesianProduct({s32, s64}, {s32, s64})
