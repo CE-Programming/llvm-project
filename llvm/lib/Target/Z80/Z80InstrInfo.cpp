@@ -561,6 +561,60 @@ void Z80InstrInfo::copyPhysReg(MachineBasicBlock &MBB,
     }
     return;
   }
+  // Specialized byte copy.
+  if (DstReg == Z80::F) {
+    // Copies to F.
+    bool NeedEX = false;
+    switch (SrcReg) {
+    case Z80::H: SrcReg = Z80::D; NeedEX = true; break;
+    case Z80::L: SrcReg = Z80::E; NeedEX = true; break;
+    }
+    Register TempReg = Is24Bit ? Z80::UHL : Z80::HL;
+    if (NeedEX)
+      BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::EX24DE : Z80::EX16DE))
+          .addReg(Is24Bit ? Z80::UDE : Z80::DE, RegState::ImplicitDefine)
+          .addReg(TempReg, RegState::ImplicitDefine);
+    applySPAdjust(
+        *BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::PUSH24r : Z80::PUSH16r))
+             .addReg(TempReg, RegState::Undef));
+    copyPhysReg(MBB, MI, DL, Z80::L, SrcReg, KillSrc);
+    BuildMI(MBB, MI, DL, get(TargetOpcode::COPY), Z80::H)
+        .addReg(Z80::A, RegState::Undef); // Preserve A
+    BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::EX24SP : Z80::EX16SP), TempReg)
+        .addReg(TempReg, RegState::Undef);
+    applySPAdjust(
+        *BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::POP24AF : Z80::POP16AF)));
+    if (NeedEX)
+      BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::EX24DE : Z80::EX16DE))
+          .addReg(Is24Bit ? Z80::UDE : Z80::DE, RegState::ImplicitDefine)
+          .addReg(TempReg, RegState::ImplicitDefine);
+    return;
+  }
+  if (SrcReg == Z80::F) {
+    // Copies from F.
+    bool NeedEX = false;
+    switch (DstReg) {
+    case Z80::H: DstReg = Z80::D; NeedEX = true; break;
+    case Z80::L: DstReg = Z80::E; NeedEX = true; break;
+    }
+    Register TempReg = Is24Bit ? Z80::UHL : Z80::HL;
+    if (NeedEX)
+      BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::EX24DE : Z80::EX16DE))
+          .addReg(Is24Bit ? Z80::UDE : Z80::DE, RegState::ImplicitDefine)
+          .addReg(TempReg, RegState::ImplicitDefine);
+    applySPAdjust(
+        *BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF)));
+    BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::EX24SP : Z80::EX16SP), TempReg)
+        .addReg(TempReg, RegState::Undef);
+    copyPhysReg(MBB, MI, DL, DstReg, Z80::L, KillSrc);
+    applySPAdjust(*BuildMI(MBB, MI, DL,
+                           get(Is24Bit ? Z80::POP24r : Z80::POP16r), TempReg));
+    if (NeedEX)
+      BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::EX24DE : Z80::EX16DE))
+          .addReg(Is24Bit ? Z80::UDE : Z80::DE, RegState::ImplicitDefine)
+          .addReg(TempReg, RegState::ImplicitDefine);
+    return;
+  }
   // Specialized word copy.
   if (DstReg == Z80::SPS || DstReg == Z80::SPL) {
     // Copies to SP.
@@ -731,6 +785,24 @@ void Z80InstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
                                        Register SrcReg, bool IsKill, int FI,
                                        const TargetRegisterClass *TRC,
                                        const TargetRegisterInfo *TRI) const {
+  const DebugLoc &DL = MBB.findDebugLoc(MI);
+  bool Is24Bit = Subtarget.is24Bit();
+
+  // Special cases
+  switch (SrcReg) {
+  case Z80::F: {
+    Register TempReg = Is24Bit ? Z80::UHL : Z80::HL;
+    applySPAdjust(
+        *BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF)));
+    BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::EX24SP : Z80::EX16SP), TempReg)
+        .addReg(TempReg, RegState::Undef);
+    storeRegToStackSlot(MBB, MI, Z80::L, true, FI, &Z80::R8RegClass, TRI);
+    applySPAdjust(*BuildMI(MBB, MI, DL,
+                           get(Is24Bit ? Z80::POP24r : Z80::POP16r), TempReg));
+    return;
+  }
+  }
+
   unsigned Opc;
   switch (TRI->getSpillSize(*TRC)) {
   default:
@@ -742,12 +814,12 @@ void Z80InstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
     Opc = Subtarget.has16BitEZ80Ops() ? Z80::LD16or : Z80::LD88or;
     break;
   case 3:
-    assert(Subtarget.is24Bit() && "Only 24-bit should have 3 byte stack slots");
+    assert(Is24Bit && "Only 24-bit should have 3 byte stack slots");
     Opc = Z80::LD24or;
     break;
   }
-  BuildMI(MBB, MI, MBB.findDebugLoc(MI), get(Opc)).addFrameIndex(FI).addImm(0)
-    .addReg(SrcReg, getKillRegState(IsKill));
+  BuildMI(MBB, MI, DL, get(Opc))
+      .addFrameIndex(FI).addImm(0).addReg(SrcReg, getKillRegState(IsKill));
 }
 
 void Z80InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
@@ -755,6 +827,27 @@ void Z80InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
                                         Register DstReg, int FI,
                                         const TargetRegisterClass *TRC,
                                         const TargetRegisterInfo *TRI) const {
+  const DebugLoc &DL = MBB.findDebugLoc(MI);
+  bool Is24Bit = Subtarget.is24Bit();
+
+  // Special cases
+  switch (DstReg) {
+  case Z80::F: {
+    Register TempReg = Is24Bit ? Z80::UHL : Z80::HL;
+    applySPAdjust(
+        *BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::PUSH24r : Z80::PUSH16r))
+             .addReg(TempReg, RegState::Undef));
+    loadRegFromStackSlot(MBB, MI, Z80::L, FI, &Z80::R8RegClass, TRI);
+    BuildMI(MBB, MI, DL, get(TargetOpcode::COPY), Z80::H)
+        .addReg(Z80::A, RegState::Undef); // Preserve A
+    BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::EX24SP : Z80::EX16SP), TempReg)
+        .addReg(TempReg, RegState::Undef);
+    applySPAdjust(
+        *BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::POP24AF : Z80::POP16AF)));
+    return;
+  }
+  }
+
   unsigned Opc;
   switch (TRI->getSpillSize(*TRC)) {
   default:
@@ -763,17 +856,19 @@ void Z80InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
     Opc = Z80::LD8ro;
     break;
   case 2:
-    Opc = Subtarget.has16BitEZ80Ops() ? Z80::LD16ro : Z80::LD88ro;
-    if (Subtarget.is24Bit())
-      Opc = Z80::LD24ro;
-    break;
+    if (!Is24Bit) {
+      Opc = Subtarget.has16BitEZ80Ops() ? Z80::LD16ro : Z80::LD88ro;
+      break;
+    }
+    TRC = &Z80::R24RegClass;
+    DstReg = TRI->getMatchingSuperReg(DstReg, Z80::sub_short, TRC);
+    LLVM_FALLTHROUGH;
   case 3:
-    assert(Subtarget.is24Bit() && "Only 24-bit should have 3 byte stack slots");
+    assert(Is24Bit && "Only 24-bit should have 3 byte stack slots");
     Opc = Z80::LD24ro;
     break;
   }
-  BuildMI(MBB, MI, MBB.findDebugLoc(MI), get(Opc), DstReg).addFrameIndex(FI)
-    .addImm(0);
+  BuildMI(MBB, MI, DL, get(Opc), DstReg).addFrameIndex(FI).addImm(0);
 }
 
 /// Return true and the FrameIndex if the specified
@@ -1739,22 +1834,30 @@ MachineInstr *Z80InstrInfo::foldMemoryOperandImpl(
   case 0:
     switch (MI.getOpcode()) {
     default: return nullptr;
-    case TargetOpcode::  COPY: Opc = IsOff ? Z80:: LD8or : Z80:: LD8pr; break;
+    case TargetOpcode::COPY:
+      if (!Z80::R8RegClass.contains(MI.getOperand(1).getReg()))
+        return nullptr;
+      Opc = IsOff ? Z80::LD8or : Z80::LD8pr;
+      break;
     }
     break;
   case 1:
     switch (MI.getOpcode()) {
     default: return nullptr;
-    case          Z80::BIT8bg: Opc = IsOff ? Z80::BIT8bo : Z80::BIT8bp; break;
-    case          Z80::ADD8ar: Opc = IsOff ? Z80::ADD8ao : Z80::ADD8ap; break;
-    case          Z80::ADC8ar: Opc = IsOff ? Z80::ADC8ao : Z80::ADC8ap; break;
-    case          Z80::SUB8ar: Opc = IsOff ? Z80::SUB8ao : Z80::SUB8ap; break;
-    case          Z80::SBC8ar: Opc = IsOff ? Z80::SBC8ao : Z80::SBC8ap; break;
-    case          Z80::AND8ar: Opc = IsOff ? Z80::AND8ao : Z80::AND8ap; break;
-    case          Z80::XOR8ar: Opc = IsOff ? Z80::XOR8ao : Z80::XOR8ap; break;
-    case          Z80:: OR8ar: Opc = IsOff ? Z80:: OR8ao : Z80:: OR8ap; break;
-    case          Z80::TST8ar: Opc = IsOff ? Z80::TST8ao : Z80::TST8ap; break;
-    case TargetOpcode::  COPY: Opc = IsOff ? Z80:: LD8ro : Z80:: LD8rp; break;
+    case Z80::BIT8bg: Opc = IsOff ? Z80::BIT8bo : Z80::BIT8bp; break;
+    case Z80::ADD8ar: Opc = IsOff ? Z80::ADD8ao : Z80::ADD8ap; break;
+    case Z80::ADC8ar: Opc = IsOff ? Z80::ADC8ao : Z80::ADC8ap; break;
+    case Z80::SUB8ar: Opc = IsOff ? Z80::SUB8ao : Z80::SUB8ap; break;
+    case Z80::SBC8ar: Opc = IsOff ? Z80::SBC8ao : Z80::SBC8ap; break;
+    case Z80::AND8ar: Opc = IsOff ? Z80::AND8ao : Z80::AND8ap; break;
+    case Z80::XOR8ar: Opc = IsOff ? Z80::XOR8ao : Z80::XOR8ap; break;
+    case Z80:: OR8ar: Opc = IsOff ? Z80:: OR8ao : Z80:: OR8ap; break;
+    case Z80::TST8ar: Opc = IsOff ? Z80::TST8ao : Z80::TST8ap; break;
+    case TargetOpcode::COPY:
+      if (!Z80::R8RegClass.contains(MI.getOperand(0).getReg()))
+        return nullptr;
+      Opc = IsOff ? Z80::LD8ro : Z80::LD8rp;
+      break;
     }
     break;
   }
