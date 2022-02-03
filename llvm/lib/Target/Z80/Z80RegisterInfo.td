@@ -84,8 +84,6 @@ let CostPerUse = [1] in {
   def IY : Z80RegPair<IYH, IYL, 2, 5>;
 }
 
-// 16-bit misc registers
-def SPS : Z80Reg<"sp", 3>, DwarfRegNum<[6]>;
 
 // 24-bit registers
 def UBC : EZ80ExtReg<BC>;
@@ -97,10 +95,9 @@ let CostPerUse = [1] in {
   def UIY : EZ80ExtReg<IY>;
 }
 
-// 24-bit misc registers
-def SPL : Z80Reg<"sp", 3>, DwarfRegNum<[7]>;
-
 // misc registers
+def SPS : Z80Reg<"sp", 3>, DwarfRegNum<[6]>;
+def SPL : Z80Reg<"sp", 3>, DwarfRegNum<[7]>;
 def PC : Z80Reg<"pc">, DwarfRegNum<[8]>;
 def I  : Z80Reg<"i">;
 let SubRegs = [I], SubRegIndices = [sub_low] in
@@ -122,8 +119,10 @@ def Y8  : Z80RC8 <(add O8, IYL, IYH)>;
 def X8  : Z80RC8 <(add O8, IXL, IXH)>;
 def I8  : Z80RC8 <(add IYL, IYH, IXL, IXH)>;
 def R8  : Z80RC8 <(add G8, I8)>;
-let CopyCost = -1 in
-def Z8  : Z80RC8 <(add F, I, R, MB)>;
+let CopyCost = -1 in {
+  def F8  : Z80RC8 <(add F)>;
+  def Z8  : Z80RC8 <(add I, R, MB)>;
+}
 
 def O16 : Z80RC16<(add DE, BC)>;
 def G16 : Z80RC16<(add HL, O16)>;
