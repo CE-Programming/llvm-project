@@ -583,12 +583,20 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeMemIntrinsic(
       if (Opc == TargetOpcode::G_MEMSET) {
         // Store the first byte.
         MIRBuilder.buildStore(SrcReg, DstReg, *MI.memoperands().front());
-        // If we are only storing one byte, we are done now.
-        // TODO: lower small len to a series of stores.
-        if (ConstLen->Value == 1) {
+
+        // Use stores if 4 bytes or less
+        if (ConstLen->Value.ule(4)) {
+          for (unsigned int Offset = 1; ConstLen->Value.ugt(Offset); ++Offset) {
+            auto OffConst = MIRBuilder.buildConstant(LenTy, Offset);
+            auto AddrReg = MIRBuilder.buildPtrAdd(DstTy, DstReg, OffConst);
+            MIRBuilder.buildStore(SrcReg, AddrReg, *MF.getMachineMemOperand(
+                                  MI.memoperands()[0], Offset,
+                                  LLT::scalar(8)));
+          }
           MI.eraseFromParent();
           return LegalizerHelper::Legalized;
         }
+
         // Read starting at the stored byte.
         SrcReg = DstReg;
         // Write starting at the following byte.
@@ -620,12 +628,27 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeMemIntrinsic(
                  (ConstAddr &&
                   (ConstDst->Value.ule(ConstSrc->Value) ||
                    (ConstDst->Value - ConstSrc->Value).uge(ConstLen->Value)))) {
-        // TODO: lower small len to a series of loads and stores.
-        MIRBuilder.buildCopy(DE, DstReg);
-        MIRBuilder.buildCopy(HL, SrcReg);
-        MIRBuilder.buildCopy(BC, LenReg);
-        MIRBuilder.buildInstr(Is24Bit ? Z80::LDIR24 : Z80::LDIR16)
-            .cloneMemRefs(MI);
+        // Use loads/stores if 4 bytes or less
+        if (ConstLen->Value.ule(4)) {
+          for (unsigned int Offset = 0; ConstLen->Value.ugt(Offset); ++Offset) {
+            auto OffConst = MIRBuilder.buildConstant(LenTy, Offset);
+            auto SrcAddrI = MIRBuilder.buildPtrAdd(SrcTy, SrcReg, OffConst);
+            auto LoadReg = MIRBuilder.buildLoad(LLT::scalar(8), SrcAddrI,
+                                  *MF.getMachineMemOperand(
+                                  MI.memoperands()[1], Offset,
+                                  LLT::scalar(8)));
+            auto DstAddrI = MIRBuilder.buildPtrAdd(DstTy, DstReg, OffConst);
+            MIRBuilder.buildStore(LoadReg, DstAddrI, *MF.getMachineMemOperand(
+                                  MI.memoperands()[0], Offset,
+                                  LLT::scalar(8)));
+          }
+        } else {
+          MIRBuilder.buildCopy(DE, DstReg);
+          MIRBuilder.buildCopy(HL, SrcReg);
+          MIRBuilder.buildCopy(BC, LenReg);
+          MIRBuilder.buildInstr(Is24Bit ? Z80::LDIR24 : Z80::LDIR16)
+              .cloneMemRefs(MI);
+        }
       } else {
         auto LenMinusOne = MIRBuilder.buildConstant(LenTy, ConstLen->Value - 1);
         MIRBuilder.buildCopy(
