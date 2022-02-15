@@ -166,42 +166,45 @@ def Z80_COND_M  : PatLeaf<(i8 7)>;
 def aptr_rc : PointerLikeRegClass<2>;
 def iptr_rc : PointerLikeRegClass<3>;
 
-def mem : Operand<iPTR> {
-  let PrintMethod = "printMem";
-  let MIOperandInfo = (ops imm);
-  let OperandType = "OPERAND_MEMORY";
-}
-def ptr : Operand<iPTR> {
-  let PrintMethod = "printPtr";
-  let MIOperandInfo = (ops aptr_rc);
-  let OperandType = "OPERAND_MEMORY";
-}
-def off : Operand<iPTR> {
-  let PrintMethod = "printOff";
-  let MIOperandInfo = (ops iptr_rc, i8imm);
-  let OperandType = "OPERAND_MEMORY";
-}
-def off16 : Operand<i16> {
-  let PrintMethod = "printAddr";
-  let MIOperandInfo = (ops I16, i8imm);
-}
-def off24 : Operand<i24> {
-  let PrintMethod = "printAddr";
-  let MIOperandInfo = (ops I24, i8imm);
-}
-def bitimm : Operand<i8>, PatLeaf<(i8 imm), [{
-  return N->getZExtValue() < 8;
-}]> {
-  let PrintMethod = "printBit";
+let OperandType = "OPERAND_IMMEDIATE" in {
+  def bitimm : Operand<i8>, PatLeaf<(i8 imm), [{
+    return isUInt<3>(N->getZExtValue());
+  }]>;
+  def i24imm : Operand<i24>;
 }
 
-let OperandType = "OPERAND_IMMEDIATE" in def i24imm : Operand<i24>;
+let OperandType = "OPERAND_MEMORY" in {
+  let PrintMethod = "printIndirect" in {
+    def mem : Operand<iPTR> {
+      let MIOperandInfo = (ops imm);
+    }
+    def ptr : Operand<iPTR> {
+      let MIOperandInfo = (ops aptr_rc);
+    }
+  }
+  let PrintMethod = "printIndirectOffset" in {
+    def off : Operand<iPTR> {
+      let MIOperandInfo = (ops iptr_rc, i8imm);
+    }
+  }
+}
+
+let PrintMethod = "printOffset" in {
+  def off16 : Operand<i16> {
+    let MIOperandInfo = (ops I16, i8imm);
+  }
+  def off24 : Operand<i24> {
+    let MIOperandInfo = (ops I24, i8imm);
+  }
+}
 
 def jmptarget : Operand<OtherVT>;
-def jmptargetoff : Operand<OtherVT>;
+def jmptargetoff : Operand<OtherVT> {
+  let OperandType = "OPERAND_PCREL";
+}
 
 def cc : Operand<i8> {
-  let PrintMethod = "printCCOperand";
+  let PrintMethod = "printCondCode";
 }
 
 //===----------------------------------------------------------------------===//
