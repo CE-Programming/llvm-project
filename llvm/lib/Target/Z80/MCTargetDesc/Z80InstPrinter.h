@@ -27,10 +27,11 @@ namespace llvm {
     std::pair<const char *, uint64_t> getMnemonic(const MCInst *MI) override;
     void printInstruction(const MCInst *MI, uint64_t Address,
                           raw_ostream &OS) override;
+    static const char *getRegisterName(unsigned RegNo);
+
     StringRef getRegName(unsigned RegNo) const override {
       return getRegisterName(RegNo);
     }
-    static const char *getRegisterName(unsigned RegNo);
   };
 }
 
