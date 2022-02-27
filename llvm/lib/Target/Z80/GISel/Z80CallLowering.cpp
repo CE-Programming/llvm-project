@@ -26,6 +26,9 @@
 using namespace llvm;
 using namespace MIPatternMatch;
 
+cl::opt<bool> ReturnSRet("z80-return-sret", cl::desc("Return sret pointers"),
+                         cl::init(true), cl::Hidden);
+
 #define DEBUG_TYPE "z80-call-lowering"
 
 Z80CallLowering::Z80CallLowering(const Z80TargetLowering &TLI)
@@ -740,7 +743,7 @@ bool Z80CallLowering::lowerFormalArguments(MachineIRBuilder &MIRBuilder,
         Arg.hasAttribute(Attribute::Nest) || VRegs[Idx].size() > 1)
       return false;
 
-    if (Arg.hasAttribute(Attribute::StructRet))
+    if (Arg.hasAttribute(Attribute::StructRet) && ReturnSRet)
       FuncInfo.setSRetReturnReg(VRegs[Idx][0]);
 
     ArgInfo OrigArg(VRegs[Idx], Arg.getType(), Idx);
