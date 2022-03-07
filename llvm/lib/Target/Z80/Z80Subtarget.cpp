@@ -12,7 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "Z80Subtarget.h"
-#include "GISel/Z80CallLowering.h"
 #include "GISel/Z80InlineAsmLowering.h"
 #include "GISel/Z80LegalizerInfo.h"
 #include "GISel/Z80RegisterBankInfo.h"

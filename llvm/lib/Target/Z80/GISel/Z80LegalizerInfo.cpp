@@ -497,10 +497,10 @@ Z80LegalizerInfo::legalizeCompare(LegalizerHelper &Helper,
       ZeroRHS = *C == 0;
     switch (OpSize) {
     case 32:
-      Libcall = ZeroRHS ? RTLIB::CMP_I32_0 : RTLIB::CMP_I32;
+      Libcall = ZeroRHS ? RTLIB::CMP_I32_0 : IsSigned ? RTLIB::SCMP_I32 : RTLIB::CMP_I32;
       break;
     case 64:
-      Libcall = ZeroRHS ? RTLIB::CMP_I64_0 : RTLIB::CMP_I64;
+      Libcall = ZeroRHS ? RTLIB::CMP_I64_0 : IsSigned ? RTLIB::SCMP_I64 : RTLIB::CMP_I64;
       break;
     default:
       llvm_unreachable("Unexpected type");
@@ -530,14 +530,9 @@ Z80LegalizerInfo::legalizeCompare(LegalizerHelper &Helper,
     CallLowering::ArgInfo Args[2] = {{LHSReg, Ty, 0}, {RHSReg, Ty, 1}};
     createLibcall(MIRBuilder, Libcall, FlagsArg,
                   makeArrayRef(Args, 2 - ZeroRHS));
-    if (IsSigned && !ZeroRHS) {
-      Register SignedFlagsReg = MRI.createGenericVirtualRegister(s8);
-      CallLowering::ArgInfo SignedFlagsArg(SignedFlagsReg, Int8Ty,
-                                           CallLowering::ArgInfo::NoArgIndex);
-      createLibcall(MIRBuilder, RTLIB::SCMP, SignedFlagsArg, FlagsArg);
-      FlagsReg = SignedFlagsReg;
-    }
     MIRBuilder.buildCopy(Register(Z80::F), FlagsReg);
+    if (IsSigned && !ZeroRHS)
+      Subtarget.getCallLowering()->buildSCMP(MIRBuilder);
   } else
     MIRBuilder.buildInstr(Z80::RCF);
   MIRBuilder.buildInstr(Z80::SetCC, {DstReg}, {int64_t(CC)});
