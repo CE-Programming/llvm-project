@@ -530,7 +530,7 @@ Z80LegalizerInfo::legalizeCompare(LegalizerHelper &Helper,
     CallLowering::ArgInfo Args[2] = {{LHSReg, Ty, 0}, {RHSReg, Ty, 1}};
     createLibcall(MIRBuilder, Libcall, FlagsArg,
                   makeArrayRef(Args, 2 - ZeroRHS));
-    if (IsSigned) {
+    if (IsSigned && !ZeroRHS) {
       Register SignedFlagsReg = MRI.createGenericVirtualRegister(s8);
       CallLowering::ArgInfo SignedFlagsArg(SignedFlagsReg, Int8Ty,
                                            CallLowering::ArgInfo::NoArgIndex);
