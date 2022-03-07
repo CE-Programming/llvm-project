@@ -16,6 +16,7 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/CodeGen/GlobalISel/CallLowering.h"
+#include "llvm/CodeGen/MachineInstrBuilder.h"
 
 namespace llvm {
 
@@ -35,6 +36,8 @@ public:
   bool lowerReturn(MachineIRBuilder &MIRBuilder, const Value *Val,
                    ArrayRef<Register> VRegs,
                    FunctionLoweringInfo &FLI) const override;
+
+  MachineInstrBuilder buildSCMP(MachineIRBuilder &MIRBuilder) const;
 
 private:
   bool

@@ -14,6 +14,10 @@
 #ifndef LLVM_LIB_TARGET_Z80_Z80SUBTARGET_H
 #define LLVM_LIB_TARGET_Z80_Z80SUBTARGET_H
 
+#include "GISel/Z80CallLowering.h"
+#include "GISel/Z80InlineAsmLowering.h"
+#include "GISel/Z80LegalizerInfo.h"
+#include "GISel/Z80RegisterBankInfo.h"
 #include "Z80FrameLowering.h"
 #include "Z80ISelLowering.h"
 #include "Z80InstrInfo.h"
@@ -62,11 +66,11 @@ class Z80Subtarget final : public Z80GenSubtargetInfo {
   Z80FrameLowering FrameLowering;
 
   /// GlobalISel related APIs.
-  std::unique_ptr<CallLowering> CallLoweringInfo;
-  std::unique_ptr<InlineAsmLowering> InlineAsmLoweringInfo;
+  std::unique_ptr<Z80CallLowering> CallLoweringInfo;
+  std::unique_ptr<Z80InlineAsmLowering> InlineAsmLoweringInfo;
   std::unique_ptr<InstructionSelector> InstSelector;
-  std::unique_ptr<LegalizerInfo> Legalizer;
-  std::unique_ptr<RegisterBankInfo> RegBankInfo;
+  std::unique_ptr<Z80LegalizerInfo> Legalizer;
+  std::unique_ptr<Z80RegisterBankInfo> RegBankInfo;
 
 public:
   /// This constructor initializes the data members to match that
@@ -90,10 +94,10 @@ public:
   void ParseSubtargetFeatures(StringRef CPU, StringRef TuneCPU, StringRef FS);
 
   /// Methods used by Global ISel
-  const CallLowering *getCallLowering() const override {
+  const Z80CallLowering *getCallLowering() const override {
     return CallLoweringInfo.get();
   }
-  const InlineAsmLowering *getInlineAsmLowering() const override {
+  const Z80InlineAsmLowering *getInlineAsmLowering() const override {
     return InlineAsmLoweringInfo.get();
   }
   InstructionSelector *getInstructionSelector() const override {
