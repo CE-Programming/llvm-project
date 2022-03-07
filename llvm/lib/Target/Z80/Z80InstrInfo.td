@@ -609,9 +609,12 @@ let Defs = [SPL], Uses = [AF, SPL], mayStore = 1 in
 def PUSH24AF : I24<NoPre, 0xF5, "push", "\taf", "",
                    (outs), (ins), [(Z80push AF)]>;
 
-let isReMaterializable = 1, Defs = [F] in {
-  def RCF : P;
-  def SCF : I<NoPre, 0x37, "scf">;
+let Defs = [F] in {
+  let isReMaterializable = 1 in {
+    def RCF : P;
+    def SCF : I<NoPre, 0x37, "scf">;
+  }
+  let Uses = [F] in
   def CCF : I<NoPre, 0x3F, "ccf">;
 }
 
