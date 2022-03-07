@@ -17,10 +17,11 @@
 #include "Z80CallingConv.h"
 #include "Z80ISelLowering.h"
 #include "Z80MachineFunctionInfo.h"
+#include "Z80RegisterInfo.h"
 #include "Z80Subtarget.h"
 #include "llvm/CodeGen/Analysis.h"
-#include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
+#include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Target/TargetMachine.h"
 using namespace llvm;
@@ -793,7 +794,7 @@ bool Z80CallLowering::lowerReturn(MachineIRBuilder &MIRBuilder,
     const Function &F = MF.getFunction();
     MachineRegisterInfo &MRI = MF.getRegInfo();
     const DataLayout &DL = MF.getDataLayout();
-    const Z80TargetLowering &TLI = *getTLI<Z80TargetLowering>();
+    const auto &TLI = *getTLI<Z80TargetLowering>();
 
     SmallVector<EVT, 4> SplitEVTs;
     ComputeValueVTs(TLI, DL, RetTy, SplitEVTs);
@@ -817,4 +818,20 @@ bool Z80CallLowering::lowerReturn(MachineIRBuilder &MIRBuilder,
 
   MIRBuilder.insertInstr(MIB);
   return true;
+}
+
+MachineInstrBuilder
+Z80CallLowering::buildSCMP(MachineIRBuilder &MIRBuilder) const {
+  MachineFunction &MF = MIRBuilder.getMF();
+  const auto &STI = MF.getSubtarget<Z80Subtarget>();
+  const auto &TLI = *getTLI<Z80TargetLowering>();
+  const Z80RegisterInfo &TRI = *STI.getRegisterInfo();
+  bool Is24Bit = STI.is24Bit();
+  return MIRBuilder.buildInstr(Is24Bit ? Z80::CALL24CC : Z80::CALL16CC)
+      .addExternalSymbol(TLI.getLibcallName(RTLIB::SCMP))
+      .addImm(Z80::COND_PE)
+      .addDef(Z80::F, RegState::Implicit)
+      .addUse(Z80::F, RegState::ImplicitKill)
+      .addRegMask(
+          TRI.getCallPreservedMask(MF, TLI.getLibcallCallingConv(RTLIB::SCMP)));
 }

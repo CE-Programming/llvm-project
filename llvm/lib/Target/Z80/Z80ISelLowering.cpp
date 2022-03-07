@@ -92,6 +92,8 @@ Z80TargetLowering::Z80TargetLowering(const Z80TargetMachine &TM,
   setLibcall(RTLIB::CMP_I24_0,        "_icmpzero", CallingConv::Z80_LibCall_F );
   setLibcall(RTLIB::CMP_I32_0,        "_lcmpzero", CallingConv::Z80_LibCall_F );
   setLibcall(RTLIB::CMP_I64_0,        "_llcmpzero",CallingConv::Z80_LibCall_F );
+  setLibcall(RTLIB::SCMP_I32,         "_lcmps",    CallingConv::Z80_LibCall_F );
+  setLibcall(RTLIB::SCMP_I64,         "_llcmps",   CallingConv::Z80_LibCall_F );
   setLibcall(RTLIB::SCMP,             "_setflag",  CallingConv::Z80_LibCall_F );
   setLibcall(RTLIB::NEG_I16,          "_sneg",     CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::NEG_I24,          "_ineg",     CallingConv::Z80_LibCall   );
