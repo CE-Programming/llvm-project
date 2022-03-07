@@ -79,10 +79,17 @@ private:
   Z80::CondCode foldSetCC(MachineInstr &I, MachineIRBuilder &MIB,
                           MachineRegisterInfo &MRI) const;
   Z80::CondCode foldCond(Register CondReg, MachineIRBuilder &MIB,
-                         MachineRegisterInfo &MRI) const;
+                         MachineRegisterInfo &MRI,
+                         Z80::CondCode PreferredCC = Z80::COND_INVALID) const;
   bool selectShift(MachineInstr &I, MachineRegisterInfo &MRI) const;
   bool selectFunnelShift(MachineInstr &I, MachineRegisterInfo &MRI) const;
-  bool selectSetCond(MachineInstr &I, MachineRegisterInfo &MRI) const;
+  bool selectSetCond(unsigned ExtOpc, Register DstReg, Register CondReg,
+                     MachineInstr &I, MachineRegisterInfo &MRI) const;
+  bool selectSetCond(unsigned ExtOpc, MachineInstr &I,
+                     MachineRegisterInfo &MRI) const {
+    Register CondReg = I.getOperand(I.getNumExplicitDefs() - 1).getReg();
+    return selectSetCond(ExtOpc, CondReg, CondReg, I, MRI);
+  }
 
   bool selectSelect(MachineInstr &I, MachineRegisterInfo &MRI) const;
   bool selectBrCond(MachineInstr &I, MachineRegisterInfo &MRI) const;
@@ -298,7 +305,7 @@ bool Z80InstructionSelector::select(MachineInstr &I) const {
     case TargetOpcode::INLINEASM:
       return selectInlineAsm(I, MRI);
     case Z80::SetCC:
-      return selectSetCond(I, MRI);
+      return selectSetCond(TargetOpcode::G_ZEXT, I, MRI);
     }
     return true;
   }
@@ -361,7 +368,7 @@ bool Z80InstructionSelector::select(MachineInstr &I) const {
   case TargetOpcode::G_SSUBO:
   case TargetOpcode::G_SSUBE:
   case TargetOpcode::G_ICMP:
-    return selectSetCond(I, MRI);
+    return selectSetCond(TargetOpcode::G_ANYEXT, I, MRI);
   case TargetOpcode::G_BRCOND:
     return selectBrCond(I, MRI);
   case TargetOpcode::G_BRINDIRECT:
@@ -443,16 +450,18 @@ bool Z80InstructionSelector::selectSExt(MachineInstr &I,
                                         MachineRegisterInfo &MRI) const {
   assert(I.getOpcode() == TargetOpcode::G_SEXT && "unexpected instruction");
 
-  const Register DstReg = I.getOperand(0).getReg();
-  const Register SrcReg = I.getOperand(1).getReg();
+  Register DstReg = I.getOperand(0).getReg();
+  Register SrcReg = I.getOperand(1).getReg();
 
-  const LLT DstTy = MRI.getType(DstReg);
-  const LLT SrcTy = MRI.getType(SrcReg);
+  LLT DstTy = MRI.getType(DstReg);
+  LLT SrcTy = MRI.getType(SrcReg);
 
   if (SrcTy != LLT::scalar(1))
     return false;
 
-  MachineIRBuilder MIB(I);
+  if (MRI.hasOneUse(SrcReg) &&
+      selectSetCond(I.getOpcode(), DstReg, SrcReg, I, MRI))
+    return true;
 
   unsigned FillOpc;
   Register FillReg;
@@ -477,6 +486,7 @@ bool Z80InstructionSelector::selectSExt(MachineInstr &I,
     return false;
   }
 
+  MachineIRBuilder MIB(I);
   auto Rotate = MIB.buildInstr(Z80::RRC8r, {LLT::scalar(8)}, {SrcReg});
   if (!constrainSelectedInstRegOperands(*Rotate, TII, TRI, RBI))
     return false;
@@ -504,8 +514,11 @@ bool Z80InstructionSelector::selectZExt(MachineInstr &I,
   if (MRI.getType(SrcReg) != LLT::scalar(1))
     return false;
 
-  MachineIRBuilder MIB(I);
+  if (MRI.hasOneUse(SrcReg) &&
+      selectSetCond(I.getOpcode(), DstReg, SrcReg, I, MRI))
+    return true;
 
+  MachineIRBuilder MIB(I);
   auto CopyToA = MIB.buildCopy(Z80::A, SrcReg);
   if (!constrainSelectedInstRegOperands(*CopyToA, TII, TRI, RBI))
     return false;
@@ -527,11 +540,16 @@ bool Z80InstructionSelector::selectAnyExt(MachineInstr &I,
                                           MachineRegisterInfo &MRI) const {
   assert(I.getOpcode() == TargetOpcode::G_ANYEXT && "unexpected instruction");
 
+  const Register SrcReg = I.getOperand(1).getReg();
   const Register DstReg = I.getOperand(0).getReg();
+
+  if (MRI.getType(SrcReg) == LLT::scalar(1) && MRI.hasOneUse(SrcReg) &&
+      selectSetCond(I.getOpcode(), DstReg, SrcReg, I, MRI))
+    return true;
+
   const TargetRegisterClass *DstRC = getRegClass(DstReg, MRI);
   const unsigned DstSize = RBI.getSizeInBits(DstReg, MRI, TRI);
 
-  const Register SrcReg = I.getOperand(1).getReg();
   const TargetRegisterClass *SrcRC = getRegClass(SrcReg, MRI);
   unsigned SrcSize = RBI.getSizeInBits(SrcReg, MRI, TRI);
 
@@ -1365,9 +1383,10 @@ Z80InstructionSelector::foldSetCC(MachineInstr &I, MachineIRBuilder &MIB,
   return Z80::CondCode(I.getOperand(1).getImm());
 }
 
-Z80::CondCode Z80InstructionSelector::foldCond(Register CondReg,
-                                               MachineIRBuilder &MIB,
-                                               MachineRegisterInfo &MRI) const {
+Z80::CondCode
+Z80InstructionSelector::foldCond(Register CondReg, MachineIRBuilder &MIB,
+                                 MachineRegisterInfo &MRI,
+                                 Z80::CondCode PreferredCC) const {
   assert(MRI.getType(CondReg) == LLT::scalar(1) && "Expected s1 condition");
 
   bool OppositeCond = false;
@@ -1396,6 +1415,7 @@ Z80::CondCode Z80InstructionSelector::foldCond(Register CondReg,
 
   Z80::CondCode CC = Z80::COND_INVALID;
   if (CondDef) {
+    // TODO: prefer PreferredCC
     switch (CondDef->getOpcode()) {
     case TargetOpcode::G_ICMP:
       CC = foldCompare(*CondDef, MIB, MRI);
@@ -1430,6 +1450,11 @@ Z80::CondCode Z80InstructionSelector::foldCond(Register CondReg,
 
   if (OppositeCond)
     CC = Z80::GetOppositeBranchCondition(CC);
+
+  if (CC == Z80::GetOppositeBranchCondition(PreferredCC)) {
+    MIB.buildInstr(Z80::CCF);
+    CC = PreferredCC;
+  }
 
   return CC;
 }
@@ -1531,27 +1556,97 @@ bool Z80InstructionSelector::selectFunnelShift(MachineInstr &I,
   return true;
 }
 
-bool Z80InstructionSelector::selectSetCond(MachineInstr &I,
+bool Z80InstructionSelector::selectSetCond(unsigned ExtOpc, Register DstReg,
+                                           Register CondReg, MachineInstr &I,
                                            MachineRegisterInfo &MRI) const {
-  Register CondReg = I.getOperand(I.getNumExplicitDefs() - 1).getReg();
-  assert(MRI.getType(CondReg) == LLT::scalar(1) && "Expected s1 condition");
+  LLT DstTy = MRI.getType(DstReg);
+
+  unsigned SetOpc, SelectOpc, IncOpc, FillOpc;
+  Register FillReg;
+  const TargetRegisterClass *DstRC;
+  switch (DstTy.getSizeInBits()) {
+  case 1:
+  case 8:
+    SetOpc = Z80::LD8ri;
+    SelectOpc = Z80::Select8;
+    IncOpc = Z80::INC8r;
+    FillOpc = Z80::SBC8ar;
+    FillReg = Z80::A;
+    DstRC = &Z80::R8RegClass;
+    break;
+  case 16:
+    SetOpc = Z80::LD16ri;
+    SelectOpc = Z80::Select16;
+    IncOpc = Z80::INC16r;
+    FillOpc = Z80::SBC16aa;
+    FillReg = Z80::HL;
+    DstRC = &Z80::R16RegClass;
+    break;
+  case 24:
+    if (!STI.is24Bit())
+      return false;
+    SetOpc = Z80::LD24ri;
+    SelectOpc = Z80::Select24;
+    IncOpc = Z80::INC24r;
+    FillOpc = Z80::SBC24aa;
+    FillReg = Z80::UHL;
+    DstRC = &Z80::R24RegClass;
+    break;
+  default:
+    return false;
+  }
 
   MachineIRBuilder MIB(I);
-  Z80::CondCode CC = foldCond(CondReg, MIB, MRI);
+  Z80::CondCode DirectCC =
+      ExtOpc == TargetOpcode::G_ZEXT ? Z80::COND_NC : Z80::COND_C;
+  Z80::CondCode CC = foldCond(CondReg, MIB, MRI, DirectCC);
   if (CC == Z80::COND_INVALID)
     return false;
 
-  if (MRI.reg_empty(CondReg))
+  if (MRI.reg_empty(DstReg)) {
+    I.eraseFromParent();
     return true;
+  }
 
-  auto TrueI = MIB.buildInstr(Z80::LD8ri, {LLT::scalar(8)}, {int64_t(1)});
-  auto FalseI = MIB.buildInstr(Z80::LD8ri, {LLT::scalar(8)}, {int64_t(0)});
-  auto SelectI =
-      MIB.buildInstr(Z80::Select8, {CondReg}, {TrueI, FalseI, int64_t(CC)});
+  if (CC != DirectCC) {
+    auto TrueI = MIB.buildInstr(
+        SetOpc, {DstTy}, {int64_t(ExtOpc == TargetOpcode::G_ZEXT ? 1 : -1)});
+    auto FalseI = MIB.buildInstr(SetOpc, {DstTy}, {int64_t(0)});
+    auto SelectI =
+        MIB.buildInstr(SelectOpc, {DstReg}, {TrueI, FalseI, int64_t(CC)});
+    if (!constrainSelectedInstRegOperands(*FalseI, TII, TRI, RBI) ||
+        !constrainSelectedInstRegOperands(*TrueI, TII, TRI, RBI) ||
+        !constrainSelectedInstRegOperands(*SelectI, TII, TRI, RBI))
+      return false;
+  } else {
+    Register UndefReg = Z80::NoRegister;
+    if (FillOpc == Z80::SBC8ar) {
+      auto CopyUndefI = MIB.buildCopy(DstTy, FillReg);
+      CopyUndefI->findRegisterUseOperand(FillReg)->setIsUndef();
+      UndefReg = CopyUndefI.getReg(0);
+      if (!RBI.constrainGenericRegister(UndefReg, *DstRC, MRI))
+        return false;
+    }
+    auto FillI = MIB.buildInstr(FillOpc);
+    FillI->findRegisterUseOperand(FillReg)->setIsUndef();
+    if (UndefReg)
+      FillI.addUse(UndefReg, RegState::Undef);
+    if (!constrainSelectedInstRegOperands(*FillI, TII, TRI, RBI))
+      return false;
+    if (ExtOpc == TargetOpcode::G_ZEXT) {
+      Register TmpReg = MIB.buildCopy(DstTy, FillReg).getReg(0);
+      if (!RBI.constrainGenericRegister(TmpReg, *DstRC, MRI))
+        return false;
+      auto IncI = MIB.buildInstr(IncOpc, {DstReg}, {TmpReg});
+      if (!constrainSelectedInstRegOperands(*IncI, TII, TRI, RBI))
+        return false;
+    } else if (!RBI.constrainGenericRegister(
+                   MIB.buildCopy(DstReg, FillReg).getReg(0), *DstRC, MRI))
+      return false;
+  }
+
   I.eraseFromParent();
-  return constrainSelectedInstRegOperands(*FalseI, TII, TRI, RBI) &&
-         constrainSelectedInstRegOperands(*TrueI, TII, TRI, RBI) &&
-         constrainSelectedInstRegOperands(*SelectI, TII, TRI, RBI);
+  return true;
 }
 
 bool Z80InstructionSelector::selectSelect(MachineInstr &I,

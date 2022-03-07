@@ -27,9 +27,9 @@ using namespace llvm;
 
 namespace {
 class RegVal {
-  static constexpr unsigned UnknownOff = ~0u;
+  static constexpr int UnknownOff = ~0;
   const GlobalValue *GV = nullptr;
-  unsigned Off = UnknownOff, Mask = 0;
+  int Off = UnknownOff, Mask = 0;
   MachineInstr *KilledBy = nullptr;
 
 public:
@@ -37,7 +37,7 @@ public:
   RegVal(MCRegister Reg, const TargetRegisterInfo &TRI) {
     assert(Register::isPhysicalRegister(Reg) && "Expected physical register");
     if (auto *RC = TRI.getMinimalPhysRegClass(Reg))
-      Mask = maskTrailingOnes<decltype(Mask)>(TRI.getRegSizeInBits(*RC));
+      Mask = maskTrailingOnes<unsigned>(TRI.getRegSizeInBits(*RC));
   }
   RegVal(MachineOperand &MO, MCRegister Reg, const TargetRegisterInfo &TRI)
       : RegVal(Reg, TRI) {
@@ -58,13 +58,18 @@ public:
     Off &= Mask;
     assert(valid() && "Mask should have been less than 32 bits");
   }
-  RegVal(unsigned Imm, MCRegister Reg, const TargetRegisterInfo &TRI)
+  RegVal(int Imm, MCRegister Reg, const TargetRegisterInfo &TRI)
       : RegVal(Reg, TRI) {
     Off = Imm & Mask;
     assert(valid() && "Mask should have been less than 32 bits");
   }
-  RegVal(const RegVal &SuperVal, unsigned Idx, const TargetRegisterInfo &TRI) {
-    Mask = maskTrailingOnes<decltype(Mask)>(TRI.getSubRegIdxSize(Idx));
+  RegVal(int Imm, int KnownMask, MCRegister Reg, const TargetRegisterInfo &TRI)
+      : RegVal{Imm, Reg, TRI} {
+    Mask &= KnownMask;
+  }
+  RegVal(const RegVal &SuperVal, unsigned Idx, MCRegister Reg,
+         const TargetRegisterInfo &TRI) {
+    Mask = maskTrailingOnes<unsigned>(TRI.getSubRegIdxSize(Idx));
     if (!SuperVal.isImm())
       return;
     Off = SuperVal.Off >> TRI.getSubRegIdxOffset(Idx) & Mask;
@@ -86,9 +91,14 @@ public:
     return valid() && GV;
   }
 
-  bool match(RegVal &Val, int Delta = 0) const {
+  bool matches(RegVal &Val, int Delta = 0) const {
     return valid() && Val.valid() && GV == Val.GV && Mask == Val.Mask &&
            Off == ((Val.Off + Delta) & Mask);
+  }
+  std::pair<int, int> getKnownBits(int KnownMask = ~0) const {
+    if (!isImm())
+      return {0, 0};
+    return {Off & KnownMask, Mask & KnownMask};
   }
 
   void setKilledBy(MachineInstr *MI) {
@@ -100,31 +110,53 @@ public:
 
 #ifndef NDEBUG
   friend raw_ostream &operator<<(raw_ostream &OS, RegVal &Val) {
+    OS << " & " << format_hex(Val.Mask, 4, true) << " == ";
     if (!Val.valid())
       return OS << "?";
     if (Val.GV)
       OS << Val.GV << '+';
-    return OS << Val.Off;
+    return OS << format_hex(Val.Off, 4, true);
   }
 #endif
 };
 
 class Z80MachineLateOptimization : public MachineFunctionPass {
-  const TargetRegisterInfo *TRI;
-  RegVal Vals[Z80::NUM_TARGET_REGS];
+  enum {
+    CarryFlag = 1 << 0,
+    SubtractFlag = 1 << 1,
+    ParityOverflowFlag = 1 << 2,
+    HalfCarryFlag = 1 << 4,
+    ZeroFlag = 1 << 6,
+    SignFlag = 1 << 7,
+  };
 
+  const TargetRegisterInfo *TRI;
+  RegVal RegVals[Z80::NUM_TARGET_REGS];
+
+  template <typename... Args> void assign(MCRegister Reg, Args &&...args) {
+    RegVals[Reg] = RegVal(std::forward<Args>(args)..., Reg, *TRI);
+  }
+  void updateFlags(int ResetMask, int SetMask, int PreserveMask) {
+    int KnownVal, KnownMask;
+    std::tie(KnownVal, KnownMask) = RegVals[Z80::F].getKnownBits(PreserveMask);
+    assign(Z80::F, SetMask | KnownVal, ResetMask | SetMask | KnownMask);
+  }
   void clobberAll() {
     for (unsigned Reg = 1; Reg != Z80::NUM_TARGET_REGS; ++Reg)
-      Vals[Reg] = RegVal(Reg, *TRI);
+      assign(Reg);
   }
   template<typename MCRegIterator>
   void clobber(MCRegister Reg, bool IncludeSelf) {
     for (MCRegIterator I(Reg, TRI, IncludeSelf); I.isValid(); ++I)
-      Vals[*I] = RegVal(*I, *TRI);
+      assign(*I);
   }
-  void reuse(MCRegister Reg) {
-    if (MachineInstr *KilledBy = Vals[Reg].takeKilledBy())
+  bool reuse(MCRegister Reg) {
+    bool WasKilled = false;
+    if (MachineInstr *KilledBy = RegVals[Reg].takeKilledBy()) {
+      WasKilled = KilledBy->killsRegister(Reg, TRI);
       KilledBy->clearRegisterKills(Reg, TRI);
+    }
+    return WasKilled;
   }
 
   void debug(const MachineInstr &MI);
@@ -155,33 +187,29 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
       MachineInstr &MI = *I;
       ++I;
       LiveUnits.stepForward(MI);
+      RegVal Val;
+      Register Reg;
+      int KnownFlagVal, KnownFlagMask;
+      std::tie(KnownFlagVal, KnownFlagMask) = RegVals[Z80::F].getKnownBits();
       switch (unsigned Opc = MI.getOpcode()) {
       case Z80::LD8ri:
       case Z80::LD16ri:
       case Z80::LD24ri:
       case Z80::LD24r0:
-      case Z80::LD24r_1: {
-        Register Reg = MI.getOperand(0).getReg();
-        RegVal Val;
+      case Z80::LD24r_1:
+        Reg = MI.getOperand(0).getReg();
         switch (Opc) {
         default:
-          Val = RegVal(MI.getOperand(1), Reg, *TRI);
+          Val = {MI.getOperand(1), Reg, *TRI};
           break;
         case Z80::LD24r0:
-          Val = RegVal(0, Reg, *TRI);
+          Val = {0, Reg, *TRI};
           break;
         case Z80::LD24r_1:
-          Val = RegVal(-1, Reg, *TRI);
+          Val = {-1, Reg, *TRI};
           break;
         }
-        if (Val.match(Vals[Reg])) {
-          LLVM_DEBUG(dbgs() << "Erasing redundant: "; MI.dump());
-          MI.eraseFromParent();
-          reuse(Reg);
-          Changed = true;
-          continue;
-        }
-        if (Val.match(Vals[Reg], 1))
+        if (Val.matches(RegVals[Reg], 1))
           switch (Opc) {
           case Z80::LD8ri:
             if (!LiveUnits.available(Z80::F))
@@ -197,7 +225,7 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
             Opc = Z80::INC24r;
             break;
           }
-        else if (Val.match(Vals[Reg], -1))
+        else if (Val.matches(RegVals[Reg], -1))
           switch (Opc) {
           case Z80::LD8ri:
             if (!LiveUnits.available(Z80::F))
@@ -214,25 +242,50 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
             break;
           }
         if (Opc != MI.getOpcode()) {
-          LLVM_DEBUG(dbgs() << "Replacing: "; MI.dump(););
+          LLVM_DEBUG(dbgs() << "Replacing: "; MI.dump();
+                     dbgs() << "     With: ");
           MI.setDesc(TII.get(Opc));
           MI.RemoveOperand(1);
+          MI.addOperand(MachineOperand::CreateReg(Reg, /*isDef=*/false,
+                                                  /*isImp=*/false,
+                                                  /*isKill=*/reuse(Reg)));
           MI.addImplicitDefUseOperands(MF);
-          reuse(Reg);
-          LLVM_DEBUG(dbgs() << "With: "; MI.dump(););
+          break;
         }
-        clobber<MCSuperRegIterator>(Reg, false);
-        Vals[Reg] = Val;
-        for (MCSubRegIndexIterator SRII(Reg, TRI); SRII.isValid(); ++SRII)
-          Vals[SRII.getSubReg()] = RegVal(Val, SRII.getSubRegIndex(), *TRI);
-        debug(MI);
-        continue;
-      }
+        switch (Opc) {
+        case Z80::LD24r0:
+        case Z80::LD24r_1:
+          if (Reg != Z80::UHL || !(KnownFlagMask & CarryFlag) ||
+              ((Opc == Z80::LD24r0) ^ !(KnownFlagVal & CarryFlag)))
+            break;
+          LLVM_DEBUG(dbgs() << "Replacing: "; MI.dump();
+                     dbgs() << "     With: ");
+          MI.setDesc(TII.get(Z80::SBC24aa));
+          MI.getOperand(0).setImplicit();
+          MI.getOperand(1).setImplicit();
+          MI.addOperand(MachineOperand::CreateReg(
+              Reg, /*isDef=*/false, /*isImp=*/true, /*isKill=*/false,
+              /*isDead=*/false, /*isUndef=*/true));
+          MI.addOperand(MachineOperand::CreateReg(Z80::F, /*isDef=*/false,
+                                                  /*isImp=*/true,
+                                                  /*isKill=*/reuse(Z80::F)));
+          break;
+        }
+        break;
+      case Z80::RCF:
+      case Z80::SCF:
+        Reg = Z80::F;
+        if (!(KnownFlagMask & CarryFlag) ||
+            (Opc == Z80::RCF) ^ !(KnownFlagVal & CarryFlag))
+          break;
+        Val = {KnownFlagVal, KnownFlagMask, Reg, *TRI};
+        break;
       case Z80::RLC8r:
       case Z80::RRC8r:
       case Z80::RL8r:
-      case Z80::RR8r: {
-        if (MI.getOperand(0).getReg() != Z80::A || !LiveUnits.available(Z80::F))
+      case Z80::RR8r:
+        Reg = MI.getOperand(0).getReg();
+        if (Reg != Z80::A || !LiveUnits.available(Z80::F))
           break;
         switch (Opc) {
         case Z80::RLC8r: Opc = Z80::RLCA; break;
@@ -245,12 +298,25 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
         MI.getOperand(0).setImplicit();
         MI.getOperand(1).setImplicit();
         break;
+      case Z80::SUB8ar:
+      case Z80::XOR8ar:
+        Reg = MI.getOperand(0).getReg();
+        if (Reg != Z80::A)
+          break;
+        Val = {0, Reg, *TRI};
+        break;
       }
+      if (Val.matches(RegVals[Reg])) {
+        LLVM_DEBUG(dbgs() << "Erasing redundant: "; MI.dump());
+        MI.eraseFromParent();
+        reuse(Reg);
+        Changed = true;
+        continue;
       }
       for (MachineOperand &MO : MI.operands())
         if (MO.isReg() && MO.isKill() && MO.getReg().isPhysical())
             for (MCRegAliasIterator I(MO.getReg(), TRI, true); I.isValid(); ++I)
-              Vals[*I].setKilledBy(&MI);
+              RegVals[*I].setKilledBy(&MI);
       for (MachineOperand &MO : MI.operands()) {
         if (MO.isReg() && MO.isDef() && MO.getReg().isPhysical() &&
             !(MI.isCopy() && MO.isImplicit()))
@@ -258,7 +324,66 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
         else if (MO.isRegMask())
           for (unsigned Reg = 1; Reg != Z80::NUM_TARGET_REGS; ++Reg)
             if (MO.clobbersPhysReg(Reg))
-              Vals[Reg] = RegVal(Reg, *TRI);
+              assign(Reg);
+      }
+      if (Val.valid()) {
+        clobber<MCSuperRegIterator>(Reg, false);
+        RegVals[Reg] = Val;
+        for (MCSubRegIndexIterator SRII(Reg, TRI); SRII.isValid(); ++SRII)
+          assign(SRII.getSubReg(), Val, SRII.getSubRegIndex());
+      }
+      switch (MI.getOpcode()) {
+      case Z80::LD24r0:
+        assign(Z80::F, ZeroFlag | SubtractFlag,
+               SignFlag | ZeroFlag | HalfCarryFlag | ParityOverflowFlag |
+                   SubtractFlag | CarryFlag);
+        break;
+      case Z80::LD24r_1:
+        assign(Z80::F, SignFlag | HalfCarryFlag | SubtractFlag | CarryFlag,
+               SignFlag | ZeroFlag | HalfCarryFlag | ParityOverflowFlag |
+                   SubtractFlag | CarryFlag);
+        break;
+      case Z80::SCF:
+        assign(Z80::F, CarryFlag, HalfCarryFlag | SubtractFlag | CarryFlag);
+        break;
+      case Z80::CCF:
+      case Z80::ADD8ar:
+      case Z80::ADD8ai:
+      case Z80::ADD8ap:
+      case Z80::ADD8ao:
+      case Z80::ADC8ar:
+      case Z80::ADC8ai:
+      case Z80::ADC8ap:
+      case Z80::ADC8ao:
+        assign(Z80::F, 0, SubtractFlag);
+        break;
+      case Z80::SUB8ar:
+      case Z80::SUB8ai:
+      case Z80::SUB8ap:
+      case Z80::SUB8ao:
+      case Z80::SBC8ar:
+      case Z80::SBC8ai:
+      case Z80::SBC8ap:
+      case Z80::SBC8ao:
+        assign(Z80::F, SubtractFlag, SubtractFlag);
+        break;
+      case Z80::AND8ar:
+      case Z80::AND8ai:
+      case Z80::AND8ap:
+      case Z80::AND8ao:
+        assign(Z80::F, HalfCarryFlag, HalfCarryFlag | SubtractFlag | CarryFlag);
+        break;
+      case Z80::RCF:
+      case Z80::XOR8ar:
+      case Z80::XOR8ai:
+      case Z80::XOR8ap:
+      case Z80::XOR8ao:
+      case Z80::OR8ar:
+      case Z80::OR8ai:
+      case Z80::OR8ap:
+      case Z80::OR8ao:
+        assign(Z80::F, 0, HalfCarryFlag | SubtractFlag | CarryFlag);
+        break;
       }
       debug(MI);
     }
@@ -268,8 +393,8 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
 
 void Z80MachineLateOptimization::debug(const MachineInstr &MI) {
   for (unsigned Reg = 1; Reg != Z80::NUM_TARGET_REGS; ++Reg)
-    if (Vals[Reg].valid())
-      LLVM_DEBUG(dbgs() << TRI->getName(Reg) << " = " << Vals[Reg] << ' ');
+    if (RegVals[Reg].valid())
+      LLVM_DEBUG(dbgs() << TRI->getName(Reg) << RegVals[Reg] << ", ");
   LLVM_DEBUG(MI.dump());
 }
 

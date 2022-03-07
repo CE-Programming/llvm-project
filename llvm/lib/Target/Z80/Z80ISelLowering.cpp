@@ -396,8 +396,23 @@ Z80TargetLowering::EmitLoweredCmp0(MachineInstr &MI,
 MachineBasicBlock *
 Z80TargetLowering::EmitLoweredSelect(MachineInstr &MI,
                                      MachineBasicBlock *BB) const {
+  MachineRegisterInfo &MRI = BB->getParent()->getRegInfo();
   const TargetInstrInfo *TII = Subtarget.getInstrInfo();
   DebugLoc DL = MI.getDebugLoc();
+
+  Register FalseReg, TrueReg;
+  int CCIdx;
+  if (MI.getOpcode() == Z80::SetCC) {
+    FalseReg = MRI.createVirtualRegister(&Z80::R8RegClass);
+    BuildMI(BB, DL, TII->get(Z80::LD8ri), FalseReg).addImm(0);
+    TrueReg = MRI.createVirtualRegister(&Z80::R8RegClass);
+    BuildMI(BB, DL, TII->get(Z80::LD8ri), TrueReg).addImm(1);
+    CCIdx = 1;
+  } else {
+    FalseReg = MI.getOperand(1).getReg();
+    TrueReg = MI.getOperand(2).getReg();
+    CCIdx = 3;
+  }
 
   // To "insert" a SELECT_CC instruction, we actually have to insert the
   // diamond control-flow pattern.  The incoming instruction knows the
@@ -429,7 +444,7 @@ Z80TargetLowering::EmitLoweredSelect(MachineInstr &MI,
   BB->addSuccessor(copy1MBB);
 
   BuildMI(BB, DL, TII->get(Z80::JQCC)).addMBB(copy1MBB)
-    .addImm(MI.getOperand(3).getImm());
+      .add(MI.getOperand(CCIdx));
 
   //  copy0MBB:
   //   %TrueVal = ...
@@ -443,10 +458,8 @@ Z80TargetLowering::EmitLoweredSelect(MachineInstr &MI,
   //   %Result = phi [ %FalseValue, copy0MBB ], [ %TrueValue, thisMBB ]
   //  ...
   BB = copy1MBB;
-  BuildMI(*BB, BB->begin(), DL, TII->get(Z80::PHI),
-          MI.getOperand(0).getReg())
-    .addReg(MI.getOperand(1).getReg()).addMBB(thisMBB)
-    .addReg(MI.getOperand(2).getReg()).addMBB(copy0MBB);
+  BuildMI(*BB, BB->begin(), DL, TII->get(Z80::PHI), MI.getOperand(0).getReg())
+      .addReg(FalseReg).addMBB(thisMBB).addReg(TrueReg).addMBB(copy0MBB);
 
   MI.eraseFromParent();   // The pseudo instruction is gone now.
   LLVM_DEBUG(F->dump());
