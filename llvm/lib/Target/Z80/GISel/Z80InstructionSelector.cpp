@@ -1387,7 +1387,8 @@ Z80::CondCode
 Z80InstructionSelector::foldCond(Register CondReg, MachineIRBuilder &MIB,
                                  MachineRegisterInfo &MRI,
                                  Z80::CondCode PreferredCC) const {
-  assert(MRI.getType(CondReg) == LLT::scalar(1) && "Expected s1 condition");
+  const LLT s1 = LLT::scalar(1), s8 = LLT::scalar(8);
+  assert(MRI.getType(CondReg) == s1 && "Expected s1 condition");
 
   bool OppositeCond = false;
   MachineInstr *CondDef = nullptr;
@@ -1397,7 +1398,7 @@ Z80InstructionSelector::foldCond(Register CondReg, MachineIRBuilder &MIB,
     CondDef = LookthroughDef;
     Register LookthroughReg;
     auto &&LookthroughRegPattern =
-        m_all_of(m_SpecificType(LLT::scalar(1)), m_Reg(LookthroughReg));
+        m_all_of(m_SpecificType(s1), m_Reg(LookthroughReg));
     if (mi_match(*CondDef, MRI, m_Copy(LookthroughRegPattern)) &&
         LookthroughReg.isVirtual()) {
       CondReg = LookthroughReg;
@@ -1407,6 +1408,7 @@ Z80InstructionSelector::foldCond(Register CondReg, MachineIRBuilder &MIB,
                  m_GTrunc(m_GXor(m_GAnyExt(LookthroughRegPattern),
                                  m_SpecificICst(1))))) {
       CondReg = LookthroughReg;
+      PreferredCC = Z80::GetOppositeBranchCondition(PreferredCC);
       OppositeCond = !OppositeCond;
       continue;
     }
@@ -1439,24 +1441,66 @@ Z80InstructionSelector::foldCond(Register CondReg, MachineIRBuilder &MIB,
   }
 
   if (CC == Z80::COND_INVALID) {
-    // Fallback to bit test
-    const TargetRegisterClass *CondRC = selectGRegClass(CondReg, MRI);
-    auto BitI = MIB.buildInstr(Z80::BIT8bg, {}, {int64_t(0), CondReg});
-    if (CondRC != &Z80::G8RegClass)
-      BitI->getOperand(1).setSubReg(Z80::sub_low);
-    if (RBI.constrainGenericRegister(CondReg, *CondRC, MRI))
-      CC = Z80::COND_NZ;
+    // Fallback to rotate/bit test
+    const TargetRegisterClass *CondRC;
+    switch (PreferredCC) {
+    default:
+      break;
+    case Z80::COND_Z:
+    case Z80::COND_PO:
+    case Z80::COND_P: {
+      Register RegA = Z80::A;
+      CondRC = selectRRegClass(CondReg, MRI);
+      auto CopyI = MIB.buildCopy(RegA, CondReg);
+      if (CondRC != &Z80::R8RegClass)
+        CopyI->getOperand(1).setSubReg(Z80::sub_low);
+      MIB.buildInstr(Z80::CPL);
+      if (!RBI.constrainGenericRegister(CondReg, *CondRC, MRI))
+        return Z80::COND_INVALID;
+      CondReg = MIB.buildCopy(s8, RegA).getReg(0);
+      PreferredCC = Z80::GetOppositeBranchCondition(PreferredCC);
+      OppositeCond = !OppositeCond;
+    }
+    }
+    switch (PreferredCC) {
+    default:
+      llvm_unreachable("already handled");
+    case Z80::COND_INVALID:
+    case Z80::COND_NZ:
+    case Z80::COND_PE: {
+      CondRC = selectGRegClass(CondReg, MRI);
+      auto BitI = MIB.buildInstr(Z80::BIT8bg, {}, {int64_t(0), CondReg});
+      if (CondRC != &Z80::G8RegClass)
+        BitI->getOperand(1).setSubReg(Z80::sub_low);
+      if (!constrainSelectedInstRegOperands(*BitI, TII, TRI, RBI))
+        return Z80::COND_INVALID;
+      CC = PreferredCC != Z80::COND_PE ? Z80::COND_NZ : Z80::COND_PE;
+      break;
+    }
+    case Z80::COND_NC:
+    case Z80::COND_C:
+    case Z80::COND_M: {
+      CondRC = selectRRegClass(CondReg, MRI);
+      auto RotateI = MIB.buildInstr(Z80::RRC8r, {s1}, {CondReg});
+      if (CondRC != &Z80::R8RegClass)
+        RotateI->getOperand(1).setSubReg(Z80::sub_low);
+      if (!constrainSelectedInstRegOperands(*RotateI, TII, TRI, RBI))
+        return Z80::COND_INVALID;
+      CC = PreferredCC != Z80::COND_M ? Z80::COND_C : Z80::COND_M;
+      break;
+    }
+    }
+    if (!RBI.constrainGenericRegister(CondReg, *CondRC, MRI))
+      return Z80::COND_INVALID;
   }
 
-  if (OppositeCond)
-    CC = Z80::GetOppositeBranchCondition(CC);
-
-  if (CC == Z80::GetOppositeBranchCondition(PreferredCC)) {
+  if ((PreferredCC == Z80::COND_NC || PreferredCC == Z80::COND_C) &&
+      CC == Z80::GetOppositeBranchCondition(PreferredCC)) {
     MIB.buildInstr(Z80::CCF);
     CC = PreferredCC;
   }
 
-  return CC;
+  return OppositeCond ? Z80::GetOppositeBranchCondition(CC) : CC;
 }
 
 bool Z80InstructionSelector::selectShift(MachineInstr &I,
