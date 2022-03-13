@@ -135,7 +135,8 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .clampScalar(1, s8, s8)
       .clampScalar(0, s8, s64);
 
-  getActionDefinitionsBuilder({G_FSHL, G_FSHR, G_MEMCPY, G_MEMMOVE, G_MEMSET})
+  getActionDefinitionsBuilder(
+      {G_FSHL, G_FSHR, G_UMULO, G_MEMCPY, G_MEMMOVE, G_MEMSET})
       .custom();
 
   getActionDefinitionsBuilder({G_INTRINSIC_TRUNC,
@@ -178,8 +179,6 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
 
   getActionDefinitionsBuilder(G_INTRINSIC_LRINT)
       .libcallFor({{s32, s32}, {s32, s64}});
-
-  getActionDefinitionsBuilder(G_FPOWI).lower();
 
   getActionDefinitionsBuilder(G_FCOPYSIGN)
       .libcallFor({{s32, s32}, {s64, s64}});
@@ -225,12 +224,26 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .legalForCartesianProduct(LegalTypes, {s1})
       .clampScalar(0, s8, sMax);
 
-  getActionDefinitionsBuilder({G_ABS, G_DYN_STACKALLOC, G_SEXT_INREG,
-                               G_CTLZ_ZERO_UNDEF, G_CTTZ_ZERO_UNDEF,
-                               G_CTLZ, G_CTTZ, G_BSWAP,
-                               G_SMULO, G_UMULO, G_SMULH, G_UMULH,
-                               G_SMIN, G_SMAX, G_UMIN, G_UMAX,
-                               G_UADDSAT, G_SADDSAT, G_USUBSAT, G_SSUBSAT})
+  getActionDefinitionsBuilder({G_ABS,
+                               G_DYN_STACKALLOC,
+                               G_SEXT_INREG,
+                               G_CTLZ_ZERO_UNDEF,
+                               G_CTTZ_ZERO_UNDEF,
+                               G_CTLZ,
+                               G_CTTZ,
+                               G_BSWAP,
+                               G_SMULO,
+                               G_SMULH,
+                               G_UMULH,
+                               G_SMIN,
+                               G_SMAX,
+                               G_UMIN,
+                               G_UMAX,
+                               G_UADDSAT,
+                               G_SADDSAT,
+                               G_USUBSAT,
+                               G_SSUBSAT,
+                               G_FPOWI})
       .lower();
 
   getActionDefinitionsBuilder(G_CTPOP)
@@ -276,6 +289,8 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeCustomMaybeLegal(
   case G_ICMP:
   case G_FCMP:
     return legalizeCompare(Helper, MI);
+  case G_UMULO:
+    return legalizeMultiplyWithOverflow(Helper, MI);
   case G_MEMCPY:
   case G_MEMMOVE:
   case G_MEMSET:
@@ -550,6 +565,36 @@ Z80LegalizerInfo::legalizeCompare(LegalizerHelper &Helper,
   } else
     MIRBuilder.buildInstr(Z80::RCF);
   MIRBuilder.buildInstr(Z80::SetCC, {DstReg}, {int64_t(CC)});
+  MI.eraseFromParent();
+  return LegalizerHelper::Legalized;
+}
+
+LegalizerHelper::LegalizeResult
+Z80LegalizerInfo::legalizeMultiplyWithOverflow(LegalizerHelper &Helper,
+                                               MachineInstr &MI) const {
+  MachineIRBuilder &MIRBuilder = Helper.MIRBuilder;
+  MIRBuilder.setInstrAndDebugLoc(MI);
+  MachineRegisterInfo &MRI = *MIRBuilder.getMRI();
+
+  assert(MI.getOpcode() == G_UMULO && "Unexpected opcode");
+
+  Register MulReg = MI.getOperand(0).getReg();
+  Register OverflowReg = MI.getOperand(1).getReg();
+  LLT Ty = MRI.getType(MulReg);
+
+  Register LHSReg = MI.getOperand(2).getReg();
+  Register RHSReg = MI.getOperand(3).getReg();
+
+  MIRBuilder.buildMul(MulReg, LHSReg, RHSReg);
+
+  auto One = MIRBuilder.buildConstant(Ty, 1);
+  auto Max =
+      MIRBuilder.buildConstant(Ty, APInt::getMaxValue(Ty.getSizeInBits()));
+  MIRBuilder.buildICmp(
+      CmpInst::ICMP_UGT, OverflowReg, LHSReg,
+      MIRBuilder.buildInstr(G_UDIV, {Ty},
+                            {Max, MIRBuilder.buildUMax(Ty, RHSReg, One)}));
+
   MI.eraseFromParent();
   return LegalizerHelper::Legalized;
 }
