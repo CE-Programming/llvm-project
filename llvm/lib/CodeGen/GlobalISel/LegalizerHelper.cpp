@@ -3410,7 +3410,6 @@ LegalizerHelper::lower(MachineInstr &MI, unsigned TypeIdx, LLT LowerHintTy) {
     Observer.changedInstr(MI);
 
     auto HiPart = MIRBuilder.buildInstr(Opcode, {Ty}, {LHS, RHS});
-    auto Zero = MIRBuilder.buildConstant(Ty, 0);
 
     // Move insert point forward so we can use the Res register if needed.
     MIRBuilder.setInsertPt(MIRBuilder.getMBB(), ++MIRBuilder.getInsertPt());
@@ -3422,6 +3421,7 @@ LegalizerHelper::lower(MachineInstr &MI, unsigned TypeIdx, LLT LowerHintTy) {
       auto Shifted = MIRBuilder.buildAShr(Ty, Res, ShiftAmt);
       MIRBuilder.buildICmp(CmpInst::ICMP_NE, Overflow, HiPart, Shifted);
     } else {
+      auto Zero = MIRBuilder.buildConstant(Ty, 0);
       MIRBuilder.buildICmp(CmpInst::ICMP_NE, Overflow, HiPart, Zero);
     }
     return Legalized;
