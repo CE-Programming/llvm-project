@@ -59,6 +59,8 @@ private:
   LegalizerHelper::LegalizeResult legalizeCompare(LegalizerHelper &Helper,
                                                   MachineInstr &MI) const;
   LegalizerHelper::LegalizeResult
+  legalizeMultiplyWithOverflow(LegalizerHelper &Helper, MachineInstr &MI) const;
+  LegalizerHelper::LegalizeResult
   legalizeMemIntrinsic(LegalizerHelper &Helper, MachineInstr &MI,
                        LostDebugLocObserver &LocObserver) const;
 };
