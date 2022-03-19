@@ -89,6 +89,7 @@ def CC_Z80 : CallingConv<[
   CCIfCC<"CallingConv::Z80_LibCall_BC", CCDelegateTo<CC_Z80_LC_BC>>,
   CCIfCC<"CallingConv::Z80_LibCall_L", CCDelegateTo<CC_Z80_LC_L>>,
   CCIfCC<"CallingConv::Z80_LibCall_F", CCDelegateTo<CC_Z80_LC_F>>,
+  CCIfCC<"CallingConv::Z80_LibCall_16", CCDelegateTo<CC_Z80_LC>>,
   CCIfSubtarget<"is16Bit()", CCDelegateTo<CC_Z80_C>>,
   CCIfSubtarget<"is24Bit()", CCDelegateTo<CC_EZ80_C>>
 ]>;
@@ -124,5 +125,6 @@ def CSR_Z80_C : CalleeSavedRegs<(add IX)>;
 def CSR_EZ80_C : CalleeSavedRegs<(add UIX)>;
 def CSR_Z80_AllRegs : CalleeSavedRegs<(add R16, A)>;
 def CSR_EZ80_AllRegs : CalleeSavedRegs<(add R24, A)>;
+def CSR_EZ80_AllRegsSubBCU : CalleeSavedRegs<(add (sub R24, UBC), BC, A)>;
 def CSR_Z80_TIFlags : CalleeSavedRegs<(add I16)>;
 def CSR_EZ80_TIFlags : CalleeSavedRegs<(add I24)>;
