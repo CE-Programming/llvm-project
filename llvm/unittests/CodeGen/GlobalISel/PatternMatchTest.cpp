@@ -45,10 +45,10 @@ TEST_F(AArch64GISelMITest, MatchIntConstantRegister) {
   if (!TM)
     return;
   auto MIBCst = B.buildConstant(LLT::scalar(64), 42);
-  Optional<ValueAndVReg> Src0;
-  bool match = mi_match(MIBCst.getReg(0), *MRI, m_GCst(Src0));
+  ValueAndVReg Src0;
+  bool match = mi_match(MIBCst.getReg(0), *MRI, m_ICst(Src0));
   EXPECT_TRUE(match);
-  EXPECT_EQ(Src0->VReg, MIBCst.getReg(0));
+  EXPECT_EQ(Src0.VReg, MIBCst.getReg(0));
 }
 
 TEST_F(AArch64GISelMITest, MatchIntConstantSplat) {
@@ -642,14 +642,14 @@ TEST_F(AArch64GISelMITest, MatchFPOrIntConst) {
 
   Register IntOne = B.buildConstant(LLT::scalar(64), 1).getReg(0);
   Register FPOne = B.buildFConstant(LLT::scalar(64), 1.0).getReg(0);
-  Optional<ValueAndVReg> ValReg;
+  ValueAndVReg ValReg;
   Optional<FPValueAndVReg> FValReg;
 
-  EXPECT_TRUE(mi_match(IntOne, *MRI, m_GCst(ValReg)));
-  EXPECT_EQ(IntOne, ValReg->VReg);
+  EXPECT_TRUE(mi_match(IntOne, *MRI, m_ICst(ValReg)));
+  EXPECT_EQ(IntOne, ValReg.VReg);
   EXPECT_FALSE(mi_match(IntOne, *MRI, m_GFCst(FValReg)));
 
-  EXPECT_FALSE(mi_match(FPOne, *MRI, m_GCst(ValReg)));
+  EXPECT_FALSE(mi_match(FPOne, *MRI, m_ICst(ValReg)));
   EXPECT_TRUE(mi_match(FPOne, *MRI, m_GFCst(FValReg)));
   EXPECT_EQ(FPOne, FValReg->VReg);
 }

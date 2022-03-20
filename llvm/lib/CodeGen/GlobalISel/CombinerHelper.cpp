@@ -2619,8 +2619,8 @@ bool CombinerHelper::matchCombineInsertVecElts(
   unsigned NumElts = DstTy.getNumElements();
   // If this MI is part of a sequence of insert_vec_elts, then
   // don't do the combine in the middle of the sequence.
-  if (MRI.hasOneUse(DstReg) && MRI.use_instr_begin(DstReg)->getOpcode() ==
-                                   TargetOpcode::G_INSERT_VECTOR_ELT)
+  if (MRI.hasOneNonDBGUse(DstReg) && MRI.use_instr_begin(DstReg)->getOpcode() ==
+                                         TargetOpcode::G_INSERT_VECTOR_ELT)
     return false;
   MachineInstr *CurrInst = &MI;
   MachineInstr *TmpInst;
@@ -4593,9 +4593,9 @@ bool CombinerHelper::matchReassocConstantInnerLHS(GPtrAdd &MI,
   // G_PTR_ADD (G_PTR_ADD X, C), Y) -> (G_PTR_ADD (G_PTR_ADD(X, Y), C)
   // if and only if (G_PTR_ADD X, C) has one use.
   Register LHSBase;
-  Optional<ValueAndVReg> LHSCstOff;
+  ValueAndVReg LHSCstOff;
   if (!mi_match(MI.getBaseReg(), MRI,
-                m_OneNonDBGUse(m_GPtrAdd(m_Reg(LHSBase), m_GCst(LHSCstOff)))))
+                m_OneNonDBGUse(m_GPtrAdd(m_Reg(LHSBase), m_ICst(LHSCstOff)))))
     return false;
 
   auto *LHSPtrAdd = cast<GPtrAdd>(LHS);
@@ -4606,7 +4606,7 @@ bool CombinerHelper::matchReassocConstantInnerLHS(GPtrAdd &MI,
     LHSPtrAdd->moveBefore(&MI);
     Register RHSReg = MI.getOffsetReg();
     Observer.changingInstr(MI);
-    MI.getOperand(2).setReg(LHSCstOff->VReg);
+    MI.getOperand(2).setReg(LHSCstOff.VReg);
     Observer.changedInstr(MI);
     Observer.changingInstr(*LHSPtrAdd);
     LHSPtrAdd->getOperand(2).setReg(RHSReg);
@@ -5842,7 +5842,7 @@ bool CombinerHelper::matchReassocFoldConstants(MachineInstr &MI,
   return mi_match(
       MI, MRI,
       m_CommutativeBinOp(Opc,
-                         m_OneUse(m_CommutativeBinOp(
+                         m_OneNonDBGUse(m_CommutativeBinOp(
                              Opc, m_Reg(), m_all_of(m_ICst(), m_Reg(Regs[0])))),
                          m_all_of(m_ICst(), m_Reg(Regs[1]))));
 }
@@ -6210,12 +6210,13 @@ bool CombinerHelper::matchNarrowLoad(MachineInstr &MI,
   unsigned DstSize = DstTy.getSizeInBits();
 
   MatchInfo.Imm = 0;
-  if (!mi_match(
-          DstReg, MRI,
-          m_GTrunc(m_OneUse(m_any_of(
-              m_GLShr(m_OneUse(m_MInstr(MatchInfo.MI)), m_ICst(MatchInfo.Imm)),
-              m_GAShr(m_OneUse(m_MInstr(MatchInfo.MI)), m_ICst(MatchInfo.Imm)),
-              m_MInstr(MatchInfo.MI))))) ||
+  if (!mi_match(DstReg, MRI,
+                m_GTrunc(m_OneNonDBGUse(
+                    m_any_of(m_GLShr(m_OneNonDBGUse(m_MInstr(MatchInfo.MI)),
+                                     m_ICst(MatchInfo.Imm)),
+                             m_GAShr(m_OneNonDBGUse(m_MInstr(MatchInfo.MI)),
+                                     m_ICst(MatchInfo.Imm)),
+                             m_MInstr(MatchInfo.MI))))) ||
       MatchInfo.Imm & 7)
     return false;
 

@@ -136,7 +136,7 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .clampScalar(0, s8, s64);
 
   getActionDefinitionsBuilder(
-      {G_FSHL, G_FSHR, G_UMULO, G_MEMCPY, G_MEMMOVE, G_MEMSET})
+      {G_FSHL, G_FSHR, G_ROTR, G_ROTL, G_UMULO, G_MEMCPY, G_MEMMOVE, G_MEMSET})
       .custom();
 
   getActionDefinitionsBuilder({G_INTRINSIC_TRUNC,
@@ -269,6 +269,8 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeCustomMaybeLegal(
     return legalizeShift(Helper, MI, LocObserver);
   case G_FSHL:
   case G_FSHR:
+  case G_ROTR:
+  case G_ROTL:
     return legalizeFunnelShift(Helper, MI);
   case G_ICMP:
   case G_FCMP:
@@ -449,14 +451,18 @@ Z80LegalizerInfo::legalizeShift(LegalizerHelper &Helper, MachineInstr &MI,
 LegalizerHelper::LegalizeResult
 Z80LegalizerInfo::legalizeFunnelShift(LegalizerHelper &Helper,
                                       MachineInstr &MI) const {
-  assert((MI.getOpcode() == G_FSHL || MI.getOpcode() == G_FSHR) &&
+  unsigned Opc = MI.getOpcode();
+  assert((Opc == G_FSHL || Opc == G_FSHR || Opc == G_ROTR || Opc == G_ROTL) &&
          "Unexpected opcode");
+
   MachineIRBuilder &MIRBuilder = Helper.MIRBuilder;
   MachineRegisterInfo &MRI = *MIRBuilder.getMRI();
+
   Register DstReg = MI.getOperand(0).getReg();
   Register FwdReg = MI.getOperand(1).getReg();
-  Register RevReg = MI.getOperand(2).getReg();
-  Register AmtReg = MI.getOperand(3).getReg();
+  Register RevReg = MI.getOperand(MI.getNumExplicitOperands() - 2).getReg();
+  Register AmtReg = MI.getOperand(MI.getNumExplicitOperands() - 1).getReg();
+
   LLT Ty = MRI.getType(DstReg);
   if (Ty == LLT::scalar(8))
     if (auto Amt = getIConstantVRegValWithLookThrough(AmtReg, MRI))
@@ -464,7 +470,7 @@ Z80LegalizerInfo::legalizeFunnelShift(LegalizerHelper &Helper,
 
   unsigned FwdShiftOpc = G_SHL;
   unsigned RevShiftOpc = G_LSHR;
-  if (MI.getOpcode() == G_FSHR) {
+  if (Opc == G_FSHR || Opc == G_ROTR) {
     std::swap(FwdReg, RevReg);
     std::swap(FwdShiftOpc, RevShiftOpc);
   }
