@@ -204,7 +204,8 @@ bool AMDGPURegBankCombinerImpl::matchIntMinMaxToMed3(
   Register Val;
   std::optional<ValueAndVReg> K0, K1;
   // Match min(max(Val, K0), K1) or max(min(Val, K1), K0). Then see if K0 <= K1.
-  if (!matchMed<GCstAndRegMatch>(MI, MRI, OpcodeTriple, Val, K0, K1))
+  if (!matchMed<ConstantMatch<Optional<ValueAndVReg>>>(MI, MRI, OpcodeTriple,
+                                                       Val, K0, K1))
     return false;
 
   if (OpcodeTriple.Med == AMDGPU::G_AMDGPU_SMED3 && K0->Value.sgt(K1->Value))

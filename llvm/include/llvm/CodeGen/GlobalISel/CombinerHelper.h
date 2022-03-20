@@ -554,6 +554,12 @@ public:
   bool matchPtrAddConstImmed(MachineInstr &MI, APInt &Offset);
   bool applyPtrAddConstImmed(MachineInstr &MI, const APInt &Offset);
 
+  bool matchCombineSubConstToAddNeg(MachineInstr &MI, APInt &Const);
+  void applyCombineSubConstToAddNeg(MachineInstr &MI, const APInt &Const);
+
+  bool matchReassocFoldConstants(MachineInstr &MI, MutableArrayRef<Register> Regs);
+  void applyReassocFoldConstants(MachineInstr &MI, ArrayRef<Register> Regs);
+
   bool matchCombineShlToAdd(MachineInstr &MI, unsigned &ShiftVal);
   bool applyCombineShlToAdd(MachineInstr &MI, unsigned ShiftVal);
 
@@ -577,6 +583,9 @@ public:
 
   bool matchNarrowOp(MachineInstr &MI);
   void applyNarrowOp(MachineInstr &MI);
+
+  bool matchNarrowCountZExt(MachineInstr &MI);
+  void applyNarrowCountZExt(MachineInstr &MI);
 
   bool matchNarrowLoad(MachineInstr &MI, InstrImmPair &MatchInfo);
   void applyNarrowLoad(MachineInstr &MI, const InstrImmPair &MatchInfo);

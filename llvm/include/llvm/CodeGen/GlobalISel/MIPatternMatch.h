@@ -62,20 +62,40 @@ inline OneNonDBGUse_match<SubPat> m_OneNonDBGUse(const SubPat &SP) {
   return SP;
 }
 
+struct IgnoreMatch {};
+
+template <typename ConstT>
+std::optional<ConstT> matchConstant(Register Reg, const MachineRegisterInfo &MRI);
+
+template <>
+inline std::optional<std::optional<ValueAndVReg>>
+matchConstant<std::optional<ValueAndVReg>>(Register Reg,
+                                      const MachineRegisterInfo &MRI) {
+  return getIConstantVRegValWithLookThrough(Reg, MRI);
+}
+
+template <>
+inline std::optional<APInt> matchConstant<APInt>(Register Reg,
+                                            const MachineRegisterInfo &MRI) {
+  const auto& Val = matchConstant<std::optional<ValueAndVReg>>(Reg, MRI);
+  if (Val.has_value())
+    return { Val.value()->Value };
+  return { std::nullopt };
+}
+
+template <>
+inline std::optional<const IgnoreMatch>
+matchConstant<const IgnoreMatch>(Register Reg, const MachineRegisterInfo &MRI) {
+  matchConstant<APInt>(Reg, MRI);
+  return std::optional<const IgnoreMatch>{ IgnoreMatch{} };
+}
+
 template <typename ConstT>
 inline std::optional<ConstT> matchConstant(Register Reg,
                                       const MachineRegisterInfo &MRI) {
   auto Val = matchConstant<APInt>(Reg, MRI);
   if (Val && Val->getBitWidth() <= 64)
-    return Val->getSExtValue();
-  return std::nullopt;
-}
-
-template <>
-inline std::optional<APInt> matchConstant(Register Reg,
-                                          const MachineRegisterInfo &MRI) {
-  if (auto ValAndVReg = getIConstantVRegValWithLookThrough(Reg, MRI))
-    return ValAndVReg->Value;
+    return { Val->getSExtValue() };
   return std::nullopt;
 }
 
@@ -91,8 +111,14 @@ template <typename ConstT> struct ConstantMatch {
   }
 };
 
-template <typename ConstT>
-inline ConstantMatch<ConstT> m_ICst(ConstT &Cst) { return {Cst}; }
+inline ConstantMatch<IgnoreMatch> m_ICst() {
+  static IgnoreMatch ignore;
+  return {ignore};
+}
+
+template <typename ConstT> inline ConstantMatch<ConstT> m_ICst(ConstT &Cst) {
+  return {Cst};
+}
 
 template <typename ConstT>
 inline std::optional<ConstT> matchConstantSplat(Register,
@@ -142,11 +168,11 @@ struct GCstAndRegMatch {
   bool match(const MachineRegisterInfo &MRI, Register Reg) {
     ValReg = getIConstantVRegValWithLookThrough(Reg, MRI);
     return ValReg ? true : false;
-  }
-};
+}
 
-inline GCstAndRegMatch m_GCst(std::optional<ValueAndVReg> &ValReg) {
-  return GCstAndRegMatch(ValReg);
+inline ConstantMatch<std::optional<ValueAndVReg>>
+m_GCst(std::optional<ValueAndVReg> &ValReg) {
+  return {ValReg};
 }
 
 struct GFCstAndRegMatch {
