@@ -469,7 +469,7 @@ static RTLIB::Libcall getRTLibDesc(unsigned Opcode, unsigned Size) {
   case TargetOpcode::G_BITREVERSE:
     RTLIBCASE_ALL(BITREV_I);
   case TargetOpcode::G_CTLZ_ZERO_UNDEF:
-    RTLIBCASE_INT(CTLZ_I);
+    RTLIBCASE_ALL(CTLZ_I);
   case TargetOpcode::G_INTRINSIC_TRUNC:
     RTLIBCASE(TRUNC_F);
   case TargetOpcode::G_INTRINSIC_ROUND:

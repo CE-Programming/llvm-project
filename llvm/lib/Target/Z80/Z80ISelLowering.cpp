@@ -133,6 +133,11 @@ Z80TargetLowering::Z80TargetLowering(const Z80TargetMachine &TM,
   setLibcall(RTLIB::UDIVREM_I24,      "_idvrmu",   CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::UDIVREM_I32,      "_ldvrmu",   CallingConv::Z80_LibCall   );
 
+  setLibcall(RTLIB::CTLZ_I8,          "_bctlz",    CallingConv::Z80_LibCall_AC);
+  setLibcall(RTLIB::CTLZ_I16,         "_sctlz",    CallingConv::Z80_LibCall   );
+  setLibcall(RTLIB::CTLZ_I24,         "_ictlz",    CallingConv::Z80_LibCall   );
+  setLibcall(RTLIB::CTLZ_I32,         "_lctlz",    CallingConv::Z80_LibCall   );
+  setLibcall(RTLIB::CTLZ_I64,         "_llctlz",   CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::POPCNT_I8,        "_bpopcnt",  CallingConv::Z80_LibCall_AC);
   setLibcall(RTLIB::POPCNT_I16,       "_spopcnt",  CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::POPCNT_I24,       "_ipopcnt",  CallingConv::Z80_LibCall   );
@@ -152,9 +157,13 @@ Z80TargetLowering::Z80TargetLowering(const Z80TargetMachine &TM,
   setLibcall(RTLIB::NEG_F32,          "_fneg",     CallingConv::Z80_LibCall_L );
   setLibcall(RTLIB::CMP_F32,          "_fcmp",     CallingConv::Z80_LibCall_F );
   setLibcall(RTLIB::FPTOSINT_F32_I32, "_ftol",     CallingConv::Z80_LibCall_L );
-  setLibcall(RTLIB::FPTOUINT_F32_I32, "_ftol",     CallingConv::Z80_LibCall_L );
+  setLibcall(RTLIB::FPTOSINT_F32_I64, "_ftoll",    CallingConv::Z80_LibCall   );
+  setLibcall(RTLIB::FPTOUINT_F32_I32, "_ftoul",    CallingConv::Z80_LibCall_L );
+  setLibcall(RTLIB::FPTOUINT_F32_I64, "_ftoull",   CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::SINTTOFP_I32_F32, "_ltof",     CallingConv::Z80_LibCall_L );
+  setLibcall(RTLIB::SINTTOFP_I64_F32, "_lltof",    CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::UINTTOFP_I32_F32, "_ultof",    CallingConv::Z80_LibCall_L );
+  setLibcall(RTLIB::UINTTOFP_I64_F32, "_ulltof",   CallingConv::Z80_LibCall   );
 
   setLibcall(RTLIB::ADD_F64,          "_dadd",     CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::SUB_F64,          "_dsub",     CallingConv::Z80_LibCall   );
@@ -166,12 +175,12 @@ Z80TargetLowering::Z80TargetLowering(const Z80TargetMachine &TM,
   setLibcall(RTLIB::FPEXT_F32_F64,    "_ftod",     CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::FPROUND_F64_F32,  "_dtof",     CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::FPTOSINT_F64_I32, "_dtol",     CallingConv::Z80_LibCall   );
-  setLibcall(RTLIB::FPTOUINT_F64_I32, "_dtoul",    CallingConv::Z80_LibCall   );
-  setLibcall(RTLIB::SINTTOFP_I32_F64, "_ltod",     CallingConv::Z80_LibCall   );
-  setLibcall(RTLIB::UINTTOFP_I32_F64, "_ultod",    CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::FPTOSINT_F64_I64, "_dtoll",    CallingConv::Z80_LibCall   );
-  setLibcall(RTLIB::FPTOUINT_F64_I64, "_dtoll",    CallingConv::Z80_LibCall   );
+  setLibcall(RTLIB::FPTOUINT_F64_I32, "_dtoul",    CallingConv::Z80_LibCall   );
+  setLibcall(RTLIB::FPTOUINT_F64_I64, "_dtoull",   CallingConv::Z80_LibCall   );
+  setLibcall(RTLIB::SINTTOFP_I32_F64, "_ltod",     CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::SINTTOFP_I64_F64, "_lltod",    CallingConv::Z80_LibCall   );
+  setLibcall(RTLIB::UINTTOFP_I32_F64, "_ultod",    CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::UINTTOFP_I64_F64, "_ulltod",   CallingConv::Z80_LibCall   );
 }
 
