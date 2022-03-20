@@ -230,7 +230,7 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
        G_UADDSAT, G_SADDSAT, G_USUBSAT, G_SSUBSAT, G_FPOWI})
       .lower();
 
-  getActionDefinitionsBuilder(G_CTPOP, G_CTLZ_ZERO_UNDEF)
+  getActionDefinitionsBuilder({G_CTLZ_ZERO_UNDEF, G_CTPOP})
       .libcallForCartesianProduct({s8}, LegalLibcallScalars)
       .clampScalar(0, s8, s8);
 
