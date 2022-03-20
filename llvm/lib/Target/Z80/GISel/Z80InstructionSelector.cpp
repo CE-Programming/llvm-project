@@ -358,6 +358,8 @@ bool Z80InstructionSelector::select(MachineInstr &I) const {
     return selectShift(I, MRI);
   case TargetOpcode::G_FSHL:
   case TargetOpcode::G_FSHR:
+  case TargetOpcode::G_ROTR:
+  case TargetOpcode::G_ROTL:
     return selectFunnelShift(I, MRI);
   case TargetOpcode::G_UADDO:
   case TargetOpcode::G_UADDE:
@@ -1562,12 +1564,17 @@ bool Z80InstructionSelector::selectShift(MachineInstr &I,
 
 bool Z80InstructionSelector::selectFunnelShift(MachineInstr &I,
                                                MachineRegisterInfo &MRI) const {
-  bool IsLeft = I.getOpcode() == Z80::G_FSHL;
-  assert((IsLeft || I.getOpcode() == Z80::G_FSHR) && "Unexpected opcode");
+  unsigned Opc = I.getOpcode();
+  bool IsLeft = Opc == Z80::G_FSHL || Opc == Z80::G_ROTL;
+  assert((IsLeft || Opc == Z80::G_FSHR || Opc == Z80::G_ROTR) &&
+         "Unexpected opcode");
+
   Register DstReg = I.getOperand(0).getReg();
   Register HiReg = I.getOperand(1).getReg();
-  Register LoReg = I.getOperand(2).getReg();
-  auto Amt = getIConstantVRegValWithLookThrough(I.getOperand(3).getReg(), MRI);
+  Register LoReg = I.getOperand(I.getNumExplicitOperands() - 2).getReg();
+  auto Amt = getIConstantVRegValWithLookThrough(
+      I.getOperand(I.getNumExplicitOperands() - 1).getReg(), MRI);
+
   LLT Ty = MRI.getType(DstReg);
   assert(Ty == LLT::scalar(8) && "Illegal type");
   unsigned TySize = Ty.getSizeInBits();
@@ -1579,7 +1586,7 @@ bool Z80InstructionSelector::selectFunnelShift(MachineInstr &I,
     std::swap(HiReg, LoReg);
   else
     Count = TySize - Count;
-  assert(Count < TySize / 2 && "Unexpected shift amount");
+  assert(Count <= TySize / 2 && "Unexpected shift amount");
   MachineIRBuilder MIB(I);
   while (Count--) {
     auto ShiftI = MIB.buildInstr(

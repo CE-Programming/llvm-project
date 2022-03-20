@@ -62,25 +62,28 @@ inline OneNonDBGUse_match<SubPat> m_OneNonDBGUse(const SubPat &SP) {
   return SP;
 }
 
-struct IgnoreMatch {};
+struct IgnoreMatch {
+  IgnoreMatch() = default;
+  IgnoreMatch(const IgnoreMatch &) = default;
+  const IgnoreMatch &operator=(const IgnoreMatch &) const { return *this; }
+};
 
 template <typename ConstT>
 std::optional<ConstT> matchConstant(Register Reg, const MachineRegisterInfo &MRI);
 
 template <>
-inline std::optional<std::optional<ValueAndVReg>>
-matchConstant<std::optional<ValueAndVReg>>(Register Reg,
-                                      const MachineRegisterInfo &MRI) {
+inline std::optional<ValueAndVReg>
+matchConstant<ValueAndVReg>(Register Reg, const MachineRegisterInfo &MRI) {
   return getIConstantVRegValWithLookThrough(Reg, MRI);
 }
 
 template <>
 inline std::optional<APInt> matchConstant<APInt>(Register Reg,
                                             const MachineRegisterInfo &MRI) {
-  const auto& Val = matchConstant<std::optional<ValueAndVReg>>(Reg, MRI);
+  const auto& Val = matchConstant<ValueAndVReg>(Reg, MRI);
   if (Val.has_value())
-    return { Val.value()->Value };
-  return { std::nullopt };
+    return Val.value().Value;
+  return std::nullopt;
 }
 
 template <>
@@ -111,8 +114,8 @@ template <typename ConstT> struct ConstantMatch {
   }
 };
 
-inline ConstantMatch<IgnoreMatch> m_ICst() {
-  static IgnoreMatch ignore;
+inline ConstantMatch<const IgnoreMatch> m_ICst() {
+  static constexpr IgnoreMatch ignore;
   return {ignore};
 }
 
@@ -168,11 +171,6 @@ struct GCstAndRegMatch {
   bool match(const MachineRegisterInfo &MRI, Register Reg) {
     ValReg = getIConstantVRegValWithLookThrough(Reg, MRI);
     return ValReg ? true : false;
-}
-
-inline ConstantMatch<std::optional<ValueAndVReg>>
-m_GCst(std::optional<ValueAndVReg> &ValReg) {
-  return {ValReg};
 }
 
 struct GFCstAndRegMatch {
