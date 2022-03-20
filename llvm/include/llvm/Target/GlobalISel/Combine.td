@@ -646,7 +646,7 @@ def unmerge_dead_to_trunc : GICombineRule<
 // Transform x,y = unmerge(zext(z)) -> x = zext z; y = 0.
 def unmerge_zext_to_zext : GICombineRule<
   (defs root:$d),
-  (match (wip_match_opcode G_UNMERGE_VALUES): $d,
+  (match (wip_match_opcode G_EXTRACT, G_UNMERGE_VALUES): $d,
   [{ return Helper.matchCombineUnmergeZExtToZExt(*${d}); }]),
   (apply [{ Helper.applyCombineUnmergeZExtToZExt(*${d}); }])
 >;
@@ -1051,6 +1051,21 @@ def ptr_add_const_immed : GICombineRule<
          [{ return Helper.matchPtrAddConstImmed(*${mi}, ${matchinfo}); }]),
   (apply [{ Helper.applyPtrAddConstImmed(*${mi}, ${matchinfo}); }])>;
 
+def sub_const_to_add_neg_matchdata : GIDefMatchData<"APInt">;
+def sub_const_to_add_neg : GICombineRule<
+  (defs root:$mi, sub_const_to_add_neg_matchdata:$matchinfo),
+  (match (wip_match_opcode G_SUB):$mi,
+         [{ return Helper.matchCombineSubConstToAddNeg(*${mi},
+                                                       ${matchinfo}); }]),
+  (apply [{ Helper.applyCombineSubConstToAddNeg(*${mi}, ${matchinfo}); }])>;
+
+def reassoc_fold_consts_matchdata : GIDefMatchData<"std::array<Register, 2>">;
+def reassoc_fold_consts : GICombineRule<
+  (defs root:$mi, reassoc_fold_consts_matchdata:$matchinfo),
+  (match (wip_match_opcode G_ADD, G_MUL, G_AND, G_OR, G_XOR):$mi,
+         [{ return Helper.matchReassocFoldConstants(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyReassocFoldConstants(*${mi}, ${matchinfo}); }])>;
+
 def shl_to_add_matchdata : GIDefMatchData<"unsigned">;
 def shl_to_add : GICombineRule<
   (defs root:$mi, shl_to_add_matchdata:$matchinfo),
@@ -1104,6 +1119,13 @@ def narrow_op : GICombineRule<
   (match (wip_match_opcode G_TRUNC):$mi,
          [{ return Helper.matchNarrowOp(*${mi}); }]),
   (apply [{ Helper.applyNarrowOp(*${mi}); }])>;
+
+def narrow_count_zext : GICombineRule<
+  (defs root:$mi),
+  (match (wip_match_opcode G_CTTZ_ZERO_UNDEF, G_CTLZ, G_CTLZ_ZERO_UNDEF,
+                           G_CTPOP):$mi,
+         [{ return Helper.matchNarrowCountZExt(*${mi}); }]),
+  (apply [{ Helper.applyNarrowCountZExt(*${mi}); }])>;
 
 def narrow_load_matchdata : GIDefMatchData<"InstrImmPair">;
 def narrow_load : GICombineRule<

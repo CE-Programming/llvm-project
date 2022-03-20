@@ -125,6 +125,6 @@ def CSR_Z80_C : CalleeSavedRegs<(add IX)>;
 def CSR_EZ80_C : CalleeSavedRegs<(add UIX)>;
 def CSR_Z80_AllRegs : CalleeSavedRegs<(add R16, A)>;
 def CSR_EZ80_AllRegs : CalleeSavedRegs<(add R24, A)>;
-def CSR_EZ80_AllRegsSubBCU : CalleeSavedRegs<(add (sub R24, UBC), BC, A)>;
+def CSR_EZ80_AllRegs16 : CalleeSavedRegs<(add (sub R24, UHL, UBC), HL, BC, A)>;
 def CSR_Z80_TIFlags : CalleeSavedRegs<(add I16)>;
 def CSR_EZ80_TIFlags : CalleeSavedRegs<(add I24)>;
