@@ -11,7 +11,6 @@ define void @icmp.eq.i24(i24, i24) {
 ; EZ80-NEXT:    add ix, sp
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    ld de, (ix + 9)
-; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
 ; EZ80-NEXT:    call z, _external
 ; EZ80-NEXT:    pop ix
@@ -51,7 +50,6 @@ define void @icmp.eq.i24.64(i24) {
 ; EZ80-NEXT:    add ix, sp
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    ld de, 64
-; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
 ; EZ80-NEXT:    call z, _external
 ; EZ80-NEXT:    pop ix
@@ -71,7 +69,6 @@ define void @icmp.ne.i24(i24, i24) {
 ; EZ80-NEXT:    add ix, sp
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    ld de, (ix + 9)
-; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
 ; EZ80-NEXT:    call nz, _external
 ; EZ80-NEXT:    pop ix
@@ -111,7 +108,6 @@ define void @icmp.ne.i24.64(i24) {
 ; EZ80-NEXT:    add ix, sp
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    ld de, 64
-; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
 ; EZ80-NEXT:    call nz, _external
 ; EZ80-NEXT:    pop ix
@@ -131,7 +127,6 @@ define void @icmp.ult.i24(i24, i24) {
 ; EZ80-NEXT:    add ix, sp
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    ld de, (ix + 9)
-; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
 ; EZ80-NEXT:    call c, _external
 ; EZ80-NEXT:    pop ix
@@ -149,8 +144,7 @@ define void @icmp.ult.i24.0(i24) {
 ; EZ80-NEXT:    push ix
 ; EZ80-NEXT:    ld ix, 0
 ; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    xor a, a
-; EZ80-NEXT:    xor a, 1
+; EZ80-NEXT:    ld a, 1
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    call z, _external
 ; EZ80-NEXT:    pop ix
@@ -170,7 +164,6 @@ define void @icmp.ult.i24.64(i24) {
 ; EZ80-NEXT:    add ix, sp
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    ld de, 64
-; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
 ; EZ80-NEXT:    call c, _external
 ; EZ80-NEXT:    pop ix
@@ -190,7 +183,6 @@ define void @icmp.ule.i24(i24, i24) {
 ; EZ80-NEXT:    add ix, sp
 ; EZ80-NEXT:    ld de, (ix + 6)
 ; EZ80-NEXT:    ld hl, (ix + 9)
-; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
 ; EZ80-NEXT:    call nc, _external
 ; EZ80-NEXT:    pop ix
@@ -210,7 +202,6 @@ define void @icmp.ule.i24.0(i24) {
 ; EZ80-NEXT:    add ix, sp
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    ld de, 1
-; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
 ; EZ80-NEXT:    call c, _external
 ; EZ80-NEXT:    pop ix
@@ -230,7 +221,6 @@ define void @icmp.ule.i24.64(i24) {
 ; EZ80-NEXT:    add ix, sp
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    ld de, 65
-; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
 ; EZ80-NEXT:    call c, _external
 ; EZ80-NEXT:    pop ix
@@ -250,7 +240,6 @@ define void @icmp.ugt.i24(i24, i24) {
 ; EZ80-NEXT:    add ix, sp
 ; EZ80-NEXT:    ld de, (ix + 6)
 ; EZ80-NEXT:    ld hl, (ix + 9)
-; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
 ; EZ80-NEXT:    call c, _external
 ; EZ80-NEXT:    pop ix
@@ -270,7 +259,6 @@ define void @icmp.ugt.i24.0(i24) {
 ; EZ80-NEXT:    add ix, sp
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    ld de, 1
-; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
 ; EZ80-NEXT:    call nc, _external
 ; EZ80-NEXT:    pop ix
@@ -290,7 +278,6 @@ define void @icmp.ugt.i24.64(i24) {
 ; EZ80-NEXT:    add ix, sp
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    ld de, 65
-; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
 ; EZ80-NEXT:    call nc, _external
 ; EZ80-NEXT:    pop ix
@@ -310,7 +297,6 @@ define void @icmp.uge.i24(i24, i24) {
 ; EZ80-NEXT:    add ix, sp
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    ld de, (ix + 9)
-; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
 ; EZ80-NEXT:    call nc, _external
 ; EZ80-NEXT:    pop ix
@@ -328,8 +314,7 @@ define void @icmp.uge.i24.0(i24) {
 ; EZ80-NEXT:    push ix
 ; EZ80-NEXT:    ld ix, 0
 ; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld a, 1
-; EZ80-NEXT:    xor a, 1
+; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    call z, _external
 ; EZ80-NEXT:    pop ix
@@ -349,7 +334,6 @@ define void @icmp.uge.i24.64(i24) {
 ; EZ80-NEXT:    add ix, sp
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    ld de, 64
-; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
 ; EZ80-NEXT:    call nc, _external
 ; EZ80-NEXT:    pop ix
