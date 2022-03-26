@@ -210,9 +210,13 @@ Z80MachineLateOptimization::getKnownFlags(const MachineInstr *MI,
                                           std::uint8_t KnownFlagsMask) const {
   switch (unsigned Opc = MI->getOpcode()) {
   case Z80::LD24r0:
+    if (MI->getOperand(0).getReg() != Z80::UHL)
+      break;
     return {ZeroFlag | SubtractFlag,
             SignFlag | HalfCarryFlag | ParityOverflowFlag | CarryFlag};
   case Z80::LD24r_1:
+    if (MI->getOperand(0).getReg() != Z80::UHL)
+      break;
     return {SignFlag | HalfCarryFlag | SubtractFlag | CarryFlag,
             ZeroFlag | ParityOverflowFlag};
   case Z80::SCF:

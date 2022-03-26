@@ -2,6 +2,111 @@
 ; RUN: llc -mtriple=ez80-code16 < %s
 ; RUN: llc -mtriple=ez80 < %s
 
+declare i8 @llvm.abs.i8(i8, i1)
+define i8 @abs.i8(i8) {
+  call i8 @llvm.abs.i8(i8 %0, i1 false)
+  ret i8 %2
+}
+declare i16 @llvm.abs.i16(i16, i1)
+define i16 @abs.i16(i16) {
+  call i16 @llvm.abs.i16(i16 %0, i1 false)
+  ret i16 %2
+}
+declare i32 @llvm.abs.i32(i32, i1)
+define i32 @abs.i32(i32) {
+  call i32 @llvm.abs.i32(i32 %0, i1 false)
+  ret i32 %2
+}
+declare i64 @llvm.abs.i64(i64, i1)
+define i64 @abs.i64(i64) {
+  call i64 @llvm.abs.i64(i64 %0, i1 false)
+  ret i64 %2
+}
+
+declare i8 @llvm.smax.i8(i8, i8)
+define i8 @smax.i8(i8, i8) {
+  call i8 @llvm.smax.i8(i8 %0, i8 %1)
+  ret i8 %3
+}
+declare i16 @llvm.smax.i16(i16, i16)
+define i16 @smax.i16(i16, i16) {
+  call i16 @llvm.smax.i16(i16 %0, i16 %1)
+  ret i16 %3
+}
+declare i32 @llvm.smax.i32(i32, i32)
+define i32 @smax.i32(i32, i32) {
+  call i32 @llvm.smax.i32(i32 %0, i32 %1)
+  ret i32 %3
+}
+declare i64 @llvm.smax.i64(i64, i64)
+define i64 @smax.i64(i64, i64) {
+  call i64 @llvm.smax.i64(i64 %0, i64 %1)
+  ret i64 %3
+}
+
+declare i8 @llvm.smin.i8(i8, i8)
+define i8 @smin.i8(i8, i8) {
+  call i8 @llvm.smin.i8(i8 %0, i8 %1)
+  ret i8 %3
+}
+declare i16 @llvm.smin.i16(i16, i16)
+define i16 @smin.i16(i16, i16) {
+  call i16 @llvm.smin.i16(i16 %0, i16 %1)
+  ret i16 %3
+}
+declare i32 @llvm.smin.i32(i32, i32)
+define i32 @smin.i32(i32, i32) {
+  call i32 @llvm.smin.i32(i32 %0, i32 %1)
+  ret i32 %3
+}
+declare i64 @llvm.smin.i64(i64, i64)
+define i64 @smin.i64(i64, i64) {
+  call i64 @llvm.smin.i64(i64 %0, i64 %1)
+  ret i64 %3
+}
+
+declare i8 @llvm.umax.i8(i8, i8)
+define i8 @umax.i8(i8, i8) {
+  call i8 @llvm.umax.i8(i8 %0, i8 %1)
+  ret i8 %3
+}
+declare i16 @llvm.umax.i16(i16, i16)
+define i16 @umax.i16(i16, i16) {
+  call i16 @llvm.umax.i16(i16 %0, i16 %1)
+  ret i16 %3
+}
+declare i32 @llvm.umax.i32(i32, i32)
+define i32 @umax.i32(i32, i32) {
+  call i32 @llvm.umax.i32(i32 %0, i32 %1)
+  ret i32 %3
+}
+declare i64 @llvm.umax.i64(i64, i64)
+define i64 @umax.i64(i64, i64) {
+  call i64 @llvm.umax.i64(i64 %0, i64 %1)
+  ret i64 %3
+}
+
+declare i8 @llvm.umin.i8(i8, i8)
+define i8 @umin.i8(i8, i8) {
+  call i8 @llvm.umin.i8(i8 %0, i8 %1)
+  ret i8 %3
+}
+declare i16 @llvm.umin.i16(i16, i16)
+define i16 @umin.i16(i16, i16) {
+  call i16 @llvm.umin.i16(i16 %0, i16 %1)
+  ret i16 %3
+}
+declare i32 @llvm.umin.i32(i32, i32)
+define i32 @umin.i32(i32, i32) {
+  call i32 @llvm.umin.i32(i32 %0, i32 %1)
+  ret i32 %3
+}
+declare i64 @llvm.umin.i64(i64, i64)
+define i64 @umin.i64(i64, i64) {
+  call i64 @llvm.umin.i64(i64 %0, i64 %1)
+  ret i64 %3
+}
+
 declare i8 @llvm.bitreverse.i8(i8)
 define i8 @bitreverse.i8(i8) {
   call i8 @llvm.bitreverse.i8(i8 %0)
@@ -244,6 +349,56 @@ define i1 @usub.with.overflow.i64(i64, i64) {
   ret i1 %4
 }
 
+declare {i8, i1} @llvm.smul.with.overflow.i8(i8, i8)
+define i1 @smul.with.overflow.i8(i8, i8) {
+  call {i8, i1} @llvm.smul.with.overflow.i8(i8 %0, i8 %1)
+  extractvalue {i8, i1} %3, 1
+  ret i1 %4
+}
+declare {i16, i1} @llvm.smul.with.overflow.i16(i16, i16)
+define i1 @smul.with.overflow.i16(i16, i16) {
+  call {i16, i1} @llvm.smul.with.overflow.i16(i16 %0, i16 %1)
+  extractvalue {i16, i1} %3, 1
+  ret i1 %4
+}
+declare {i32, i1} @llvm.smul.with.overflow.i32(i32, i32)
+define i1 @smul.with.overflow.i32(i32, i32) {
+  call {i32, i1} @llvm.smul.with.overflow.i32(i32 %0, i32 %1)
+  extractvalue {i32, i1} %3, 1
+  ret i1 %4
+}
+declare {i64, i1} @llvm.smul.with.overflow.i64(i64, i64)
+define i1 @smul.with.overflow.i64(i64, i64) {
+  call {i64, i1} @llvm.smul.with.overflow.i64(i64 %0, i64 %1)
+  extractvalue {i64, i1} %3, 1
+  ret i1 %4
+}
+
+declare {i8, i1} @llvm.umul.with.overflow.i8(i8, i8)
+define i1 @umul.with.overflow.i8(i8, i8) {
+  call {i8, i1} @llvm.umul.with.overflow.i8(i8 %0, i8 %1)
+  extractvalue {i8, i1} %3, 1
+  ret i1 %4
+}
+declare {i16, i1} @llvm.umul.with.overflow.i16(i16, i16)
+define i1 @umul.with.overflow.i16(i16, i16) {
+  call {i16, i1} @llvm.umul.with.overflow.i16(i16 %0, i16 %1)
+  extractvalue {i16, i1} %3, 1
+  ret i1 %4
+}
+declare {i32, i1} @llvm.umul.with.overflow.i32(i32, i32)
+define i1 @umul.with.overflow.i32(i32, i32) {
+  call {i32, i1} @llvm.umul.with.overflow.i32(i32 %0, i32 %1)
+  extractvalue {i32, i1} %3, 1
+  ret i1 %4
+}
+declare {i64, i1} @llvm.umul.with.overflow.i64(i64, i64)
+define i1 @umul.with.overflow.i64(i64, i64) {
+  call {i64, i1} @llvm.umul.with.overflow.i64(i64 %0, i64 %1)
+  extractvalue {i64, i1} %3, 1
+  ret i1 %4
+}
+
 declare i8 @llvm.sadd.sat.i8(i8, i8)
 define i8 @sadd.sat.i8(i8, i8) {
   call i8 @llvm.sadd.sat.i8(i8 %0, i8 %1)
@@ -325,6 +480,48 @@ define i32 @usub.sat.i32(i32, i32) {
 declare i64 @llvm.usub.sat.i64(i64, i64)
 define i64 @usub.sat.i64(i64, i64) {
   call i64 @llvm.usub.sat.i64(i64 %0, i64 %1)
+  ret i64 %3
+}
+
+declare i8 @llvm.sshl.sat.i8(i8, i8)
+define i8 @sshl.sat.i8(i8, i8) {
+  call i8 @llvm.sshl.sat.i8(i8 %0, i8 %1)
+  ret i8 %3
+}
+declare i16 @llvm.sshl.sat.i16(i16, i16)
+define i16 @sshl.sat.i16(i16, i16) {
+  call i16 @llvm.sshl.sat.i16(i16 %0, i16 %1)
+  ret i16 %3
+}
+declare i32 @llvm.sshl.sat.i32(i32, i32)
+define i32 @sshl.sat.i32(i32, i32) {
+  call i32 @llvm.sshl.sat.i32(i32 %0, i32 %1)
+  ret i32 %3
+}
+declare i64 @llvm.sshl.sat.i64(i64, i64)
+define i64 @sshl.sat.i64(i64, i64) {
+  call i64 @llvm.sshl.sat.i64(i64 %0, i64 %1)
+  ret i64 %3
+}
+
+declare i8 @llvm.ushl.sat.i8(i8, i8)
+define i8 @ushl.sat.i8(i8, i8) {
+  call i8 @llvm.ushl.sat.i8(i8 %0, i8 %1)
+  ret i8 %3
+}
+declare i16 @llvm.ushl.sat.i16(i16, i16)
+define i16 @ushl.sat.i16(i16, i16) {
+  call i16 @llvm.ushl.sat.i16(i16 %0, i16 %1)
+  ret i16 %3
+}
+declare i32 @llvm.ushl.sat.i32(i32, i32)
+define i32 @ushl.sat.i32(i32, i32) {
+  call i32 @llvm.ushl.sat.i32(i32 %0, i32 %1)
+  ret i32 %3
+}
+declare i64 @llvm.ushl.sat.i64(i64, i64)
+define i64 @ushl.sat.i64(i64, i64) {
+  call i64 @llvm.ushl.sat.i64(i64 %0, i64 %1)
   ret i64 %3
 }
 

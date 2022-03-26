@@ -530,6 +530,10 @@ static RTLIB::Libcall getRTLibDesc(unsigned Opcode, unsigned Size) {
     RTLIBCASE(FMIN_F);
   case TargetOpcode::G_FMAXNUM:
     RTLIBCASE(FMAX_F);
+  case TargetOpcode::G_LROUND:
+    RTLIBCASE(LROUND_F);
+  case TargetOpcode::G_LLROUND:
+    RTLIBCASE(LLROUND_F);
   case TargetOpcode::G_FSQRT:
     RTLIBCASE(SQRT_F);
   case TargetOpcode::G_FRINT:
@@ -1111,9 +1115,12 @@ LegalizerHelper::libcall(MachineInstr &MI, LostDebugLocObserver &LocObserver) {
     Type *ResTy = IntegerType::get(Ctx, Size);
     unsigned OpSize = MRI.getType(MI.getOperand(1).getReg()).getSizeInBits();
     Type *OpTy = IntegerType::get(Ctx, OpSize);
-    RTLIB::Libcall Libcall = getRTLibDesc(MI.getOpcode(), OpSize);
-    createLibcall(MIRBuilder, Libcall, {MI.getOperand(0).getReg(), ResTy, 0},
-                  {{MI.getOperand(1).getReg(), OpTy, 0}}, LocObserver, &MI);
+    auto Libcall = getRTLibDesc(MI.getOpcode(), OpSize);
+    auto Status = createLibcall(MIRBuilder, Libcall,
+                                {MI.getOperand(0).getReg(), ResTy, 0},
+                                {{MI.getOperand(1).getReg(), OpTy, 0}}, LocObserver, &MI);
+    if (Status != Legalized)
+      return Status;
     break;
   }
   case TargetOpcode::G_SHL:
@@ -1122,14 +1129,16 @@ LegalizerHelper::libcall(MachineInstr &MI, LostDebugLocObserver &LocObserver) {
     LLT LLTy = MRI.getType(MI.getOperand(0).getReg());
     unsigned Size = LLTy.getSizeInBits();
     Type *OpTy = IntegerType::get(Ctx, Size);
-    RTLIB::Libcall Libcall = getRTLibDesc(MI.getOpcode(), Size);
+    auto Libcall = getRTLibDesc(MI.getOpcode(), Size);
     Register AmountReg = MI.getOperand(2).getReg();
     Type *AmountTy =
         IntegerType::get(Ctx, MRI.getType(AmountReg).getSizeInBits());
-    createLibcall(
+    auto Status = createLibcall(
         MIRBuilder, Libcall, {MI.getOperand(0).getReg(), OpTy, 0},
         {{MI.getOperand(1).getReg(), OpTy, 0}, {AmountReg, AmountTy, 1}},
         LocObserver, &MI);
+    if (Status != Legalized)
+      return Status;
     break;
   }
   case TargetOpcode::G_INTRINSIC_TRUNC:
@@ -1236,26 +1245,48 @@ LegalizerHelper::libcall(MachineInstr &MI, LostDebugLocObserver &LocObserver) {
   case TargetOpcode::G_FPTOSI:
   case TargetOpcode::G_FPTOUI: {
     // FIXME: Support other types
-    Type *FromTy =
-        getFloatTypeForLLT(Ctx, MRI.getType(MI.getOperand(1).getReg()));
+    unsigned FromSize = MRI.getType(MI.getOperand(1).getReg()).getSizeInBits();
     unsigned ToSize = MRI.getType(MI.getOperand(0).getReg()).getSizeInBits();
-    if ((ToSize != 32 && ToSize != 64 && ToSize != 128) || !FromTy)
+    if ((ToSize != 32 && ToSize != 64) || (FromSize != 32 && FromSize != 64))
       return UnableToLegalize;
     LegalizeResult Status = conversionLibcall(
-        MI, MIRBuilder, Type::getIntNTy(Ctx, ToSize), FromTy, LocObserver);
+        MI, MIRBuilder, Type::getIntNTy(Ctx, ToSize),
+        FromSize == 64 ? Type::getDoubleTy(Ctx) : Type::getFloatTy(Ctx),
+        LocObserver);
     if (Status != Legalized)
       return Status;
     break;
   }
   case TargetOpcode::G_SITOFP:
   case TargetOpcode::G_UITOFP: {
+    // FIXME: Support other types
     unsigned FromSize = MRI.getType(MI.getOperand(1).getReg()).getSizeInBits();
-    Type *ToTy =
-        getFloatTypeForLLT(Ctx, MRI.getType(MI.getOperand(0).getReg()));
-    if ((FromSize != 32 && FromSize != 64 && FromSize != 128) || !ToTy)
+    unsigned ToSize = MRI.getType(MI.getOperand(0).getReg()).getSizeInBits();
+    if ((FromSize != 32 && FromSize != 64) || (ToSize != 32 && ToSize != 64))
       return UnableToLegalize;
     LegalizeResult Status = conversionLibcall(
-        MI, MIRBuilder, ToTy, Type::getIntNTy(Ctx, FromSize), LocObserver);
+        MI, MIRBuilder,
+        ToSize == 64 ? Type::getDoubleTy(Ctx) : Type::getFloatTy(Ctx),
+        Type::getIntNTy(Ctx, FromSize), LocObserver);
+    if (Status != Legalized)
+      return Status;
+    break;
+  }
+  case TargetOpcode::G_LROUND:
+  case TargetOpcode::G_LLROUND: {
+    // FIXME: Support other types
+    Register FromReg = MI.getOperand(1).getReg();
+    unsigned FromSize = MRI.getType(FromReg).getSizeInBits();
+    Register ToReg = MI.getOperand(0).getReg();
+    unsigned ToSize = MRI.getType(ToReg).getSizeInBits();
+    if ((ToSize != 32 && ToSize != 64) || (FromSize != 32 && FromSize != 64))
+      return UnableToLegalize;
+    auto Libcall = getRTLibDesc(MI.getOpcode(), ToSize);
+    LegalizeResult Status = createLibcall(
+        MIRBuilder, Libcall, {ToReg, Type::getIntNTy(Ctx, ToSize), 0},
+        {{FromReg,
+          FromSize == 64 ? Type::getDoubleTy(Ctx) : Type::getFloatTy(Ctx), 0}},
+          LocObserver);
     if (Status != Legalized)
       return Status;
     break;

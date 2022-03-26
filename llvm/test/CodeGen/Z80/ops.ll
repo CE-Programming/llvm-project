@@ -23,10 +23,10 @@ define i48 @ret.i48(i48) {
 define i64 @ret.i64(i64) {
   ret i64 %0
 }
-define float @ret.float(float) {
+define float @ret.f32(float) {
   ret float %0
 }
-define double @ret.double(double) {
+define double @ret.f64(double) {
   ret double %0
 }
 
@@ -287,56 +287,56 @@ define i64 @srem.i64(i64, i64) {
   ret i64 %3
 }
 
-define float @fneg.float(float) {
+define float @fneg.f32(float) {
   fneg float %0
   ret float %2
 }
-define double @fneg.double(double) {
+define double @fneg.f64(double) {
   fneg double %0
   ret double %2
 }
 
-define float @fadd.float(float, float) {
+define float @fadd.f32(float, float) {
   fadd float %0, %1
   ret float %3
 }
-define double @fadd.double(double, double) {
+define double @fadd.f64(double, double) {
   fadd double %0, %1
   ret double %3
 }
 
-define float @fsub.float(float, float) {
+define float @fsub.f32(float, float) {
   fsub float %0, %1
   ret float %3
 }
-define double @fsub.double(double, double) {
+define double @fsub.f64(double, double) {
   fsub double %0, %1
   ret double %3
 }
 
-define float @fmul.float(float, float) {
+define float @fmul.f32(float, float) {
   fmul float %0, %1
   ret float %3
 }
-define double @fmul.double(double, double) {
+define double @fmul.f64(double, double) {
   fmul double %0, %1
   ret double %3
 }
 
-define float @fdiv.float(float, float) {
+define float @fdiv.f32(float, float) {
   fdiv float %0, %1
   ret float %3
 }
-define double @fdiv.double(double, double) {
+define double @fdiv.f64(double, double) {
   fdiv double %0, %1
   ret double %3
 }
 
-define float @frem.float(float, float) {
+define float @frem.f32(float, float) {
   frem float %0, %1
   ret float %3
 }
-define double @frem.double(double, double) {
+define double @frem.f64(double, double) {
   frem double %0, %1
   ret double %3
 }
@@ -524,176 +524,176 @@ define i64 @sext.i48.i64(i48) {
   ret i64 %2
 }
 
-define float @fptrunc.double.float(double) {
+define float @fptrunc.f64.f32(double) {
   fptrunc double %0 to float
   ret float %2
 }
 
-define double @fpext.float.double(float) {
+define double @fpext.f32.f64(float) {
   fpext float %0 to double
   ret double %2
 }
 
-define i8 @fptoui.float.i8(float) {
+define i8 @fptoui.f32.i8(float) {
   fptoui float %0 to i8
   ret i8 %2
 }
-define i16 @fptoui.float.i16(float) {
+define i16 @fptoui.f32.i16(float) {
   fptoui float %0 to i16
   ret i16 %2
 }
-define i24 @fptoui.float.i24(float) {
+define i24 @fptoui.f32.i24(float) {
   fptoui float %0 to i24
   ret i24 %2
 }
-define i32 @fptoui.float.i32(float) {
+define i32 @fptoui.f32.i32(float) {
   fptoui float %0 to i32
   ret i32 %2
 }
-define i64 @fptoui.float.i64(float) {
+define i64 @fptoui.f32.i64(float) {
   fptoui float %0 to i64
   ret i64 %2
 }
-define i8 @fptoui.double.i8(double) {
+define i8 @fptoui.f64.i8(double) {
   fptoui double %0 to i8
   ret i8 %2
 }
-define i16 @fptoui.double.i16(double) {
+define i16 @fptoui.f64.i16(double) {
   fptoui double %0 to i16
   ret i16 %2
 }
-define i24 @fptoui.double.i24(double) {
+define i24 @fptoui.f64.i24(double) {
   fptoui double %0 to i24
   ret i24 %2
 }
-define i32 @fptoui.double.i32(double) {
+define i32 @fptoui.f64.i32(double) {
   fptoui double %0 to i32
   ret i32 %2
 }
-define i64 @fptoui.double.i64(double) {
+define i64 @fptoui.f64.i64(double) {
   fptoui double %0 to i64
   ret i64 %2
 }
 
-define i8 @fptosi.float.i8(float) {
+define i8 @fptosi.f32.i8(float) {
   fptosi float %0 to i8
   ret i8 %2
 }
-define i16 @fptosi.float.i16(float) {
+define i16 @fptosi.f32.i16(float) {
   fptosi float %0 to i16
   ret i16 %2
 }
-define i24 @fptosi.float.i24(float) {
+define i24 @fptosi.f32.i24(float) {
   fptosi float %0 to i24
   ret i24 %2
 }
-define i32 @fptosi.float.i32(float) {
+define i32 @fptosi.f32.i32(float) {
   fptosi float %0 to i32
   ret i32 %2
 }
-define i64 @fptosi.float.i64(float) {
+define i64 @fptosi.f32.i64(float) {
   fptosi float %0 to i64
   ret i64 %2
 }
-define i8 @fptosi.double.i8(double) {
+define i8 @fptosi.f64.i8(double) {
   fptosi double %0 to i8
   ret i8 %2
 }
-define i16 @fptosi.double.i16(double) {
+define i16 @fptosi.f64.i16(double) {
   fptosi double %0 to i16
   ret i16 %2
 }
-define i24 @fptosi.double.i24(double) {
+define i24 @fptosi.f64.i24(double) {
   fptosi double %0 to i24
   ret i24 %2
 }
-define i32 @fptosi.double.i32(double) {
+define i32 @fptosi.f64.i32(double) {
   fptosi double %0 to i32
   ret i32 %2
 }
-define i64 @fptosi.double.i64(double) {
+define i64 @fptosi.f64.i64(double) {
   fptosi double %0 to i64
   ret i64 %2
 }
 
-define float @uitofp.i8.float(i8) {
+define float @uitofp.i8.f32(i8) {
   uitofp i8 %0 to float
   ret float %2
 }
-define float @uitofp.i16.float(i16) {
+define float @uitofp.i16.f32(i16) {
   uitofp i16 %0 to float
   ret float %2
 }
-define float @uitofp.i24.float(i24) {
+define float @uitofp.i24.f32(i24) {
   uitofp i24 %0 to float
   ret float %2
 }
-define float @uitofp.i32.float(i32) {
+define float @uitofp.i32.f32(i32) {
   uitofp i32 %0 to float
   ret float %2
 }
-define float @uitofp.i64.float(i64) {
+define float @uitofp.i64.f32(i64) {
   uitofp i64 %0 to float
   ret float %2
 }
-define double @uitofp.i8.double(i8) {
+define double @uitofp.i8.f64(i8) {
   uitofp i8 %0 to double
   ret double %2
 }
-define double @uitofp.i16.double(i16) {
+define double @uitofp.i16.f64(i16) {
   uitofp i16 %0 to double
   ret double %2
 }
-define double @uitofp.i24.double(i24) {
+define double @uitofp.i24.f64(i24) {
   uitofp i24 %0 to double
   ret double %2
 }
-define double @uitofp.i32.double(i32) {
+define double @uitofp.i32.f64(i32) {
   uitofp i32 %0 to double
   ret double %2
 }
-define double @uitofp.i64.double(i64) {
+define double @uitofp.i64.f64(i64) {
   uitofp i64 %0 to double
   ret double %2
 }
 
-define float @sitofp.i8.float(i8) {
+define float @sitofp.i8.f32(i8) {
   sitofp i8 %0 to float
   ret float %2
 }
-define float @sitofp.i16.float(i16) {
+define float @sitofp.i16.f32(i16) {
   sitofp i16 %0 to float
   ret float %2
 }
-define float @sitofp.i24.float(i24) {
+define float @sitofp.i24.f32(i24) {
   sitofp i24 %0 to float
   ret float %2
 }
-define float @sitofp.i32.float(i32) {
+define float @sitofp.i32.f32(i32) {
   sitofp i32 %0 to float
   ret float %2
 }
-define float @sitofp.i64.float(i64) {
+define float @sitofp.i64.f32(i64) {
   sitofp i64 %0 to float
   ret float %2
 }
-define double @sitofp.i8.double(i8) {
+define double @sitofp.i8.f64(i8) {
   sitofp i8 %0 to double
   ret double %2
 }
-define double @sitofp.i16.double(i16) {
+define double @sitofp.i16.f64(i16) {
   sitofp i16 %0 to double
   ret double %2
 }
-define double @sitofp.i24.double(i24) {
+define double @sitofp.i24.f64(i24) {
   sitofp i24 %0 to double
   ret double %2
 }
-define double @sitofp.i32.double(i32) {
+define double @sitofp.i32.f64(i32) {
   sitofp i32 %0 to double
   ret double %2
 }
-define double @sitofp.i64.double(i64) {
+define double @sitofp.i64.f64(i64) {
   sitofp i64 %0 to double
   ret double %2
 }
@@ -748,19 +748,19 @@ define i64* @inttoptr.i64(i64) {
   ret i64* %2
 }
 
-define i32 @bitcast.float.i32(float) {
+define i32 @bitcast.f32.i32(float) {
   bitcast float %0 to i32
   ret i32 %2
 }
-define i64 @bitcast.double.i64(double) {
+define i64 @bitcast.f64.i64(double) {
   bitcast double %0 to i64
   ret i64 %2
 }
-define float @bitcast.i32.float(i32) {
+define float @bitcast.i32.f32(i32) {
   bitcast i32 %0 to float
   ret float %2
 }
-define double @bitcast.i64.double(i64) {
+define double @bitcast.i64.f64(i64) {
   bitcast i64 %0 to double
   ret double %2
 }

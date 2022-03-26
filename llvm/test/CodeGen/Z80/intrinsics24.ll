@@ -1,5 +1,59 @@
 ; RUN: llc -mtriple=ez80 < %s
 
+declare i24 @llvm.abs.i24(i24, i1)
+define i24 @abs.i24(i24) {
+  call i24 @llvm.abs.i24(i24 %0, i1 false)
+  ret i24 %2
+}
+
+declare i24 @llvm.smax.i24(i24, i24)
+define i24 @smax.i24(i24, i24) {
+  call i24 @llvm.smax.i24(i24 %0, i24 %1)
+  ret i24 %3
+}
+
+declare i24 @llvm.smin.i24(i24, i24)
+define i24 @smin.i24(i24, i24) {
+  call i24 @llvm.smin.i24(i24 %0, i24 %1)
+  ret i24 %3
+}
+
+declare i24 @llvm.umax.i24(i24, i24)
+define i24 @umax.i24(i24, i24) {
+  call i24 @llvm.umax.i24(i24 %0, i24 %1)
+  ret i24 %3
+}
+
+declare i24 @llvm.umin.i24(i24, i24)
+define i24 @umin.i24(i24, i24) {
+  call i24 @llvm.umin.i24(i24 %0, i24 %1)
+  ret i24 %3
+}
+
+declare void @llvm.memcpy.p0i8.p0i8.i24(i8*, i8*, i24, i1)
+define void @memcpy.p0i8.p0i8.i24(i8*, i8*, i24) {
+  call void @llvm.memcpy.p0i8.p0i8.i24(i8* %0, i8* %1, i24 %2, i1 false)
+  ret void
+}
+
+declare void @llvm.memcpy.inline.p0i8.p0i8.i24(i8*, i8*, i24, i1)
+define void @memcpy.inline.p0i8.p0i8.i24(i8*, i8*) {
+  call void @llvm.memcpy.inline.p0i8.p0i8.i24(i8* %0, i8* %1, i24 32, i1 false)
+  ret void
+}
+
+declare void @llvm.memmove.p0i8.p0i8.i24(i8*, i8*, i24, i1)
+define void @memmove.p0i8.p0i8.i24(i8*, i8*, i24) {
+  call void @llvm.memmove.p0i8.p0i8.i24(i8* %0, i8* %1, i24 %2, i1 false)
+  ret void
+}
+
+declare void @llvm.memset.p0i8.i24(i8*, i8, i24, i1)
+define void @memset.p0i8.i24(i8*, i8, i24) {
+  call void @llvm.memset.p0i8.i24(i8* %0, i8 %1, i24 %2, i1 false)
+  ret void
+}
+
 declare i24 @llvm.bitreverse.i24(i24)
 define i24 @bitreverse.i24(i24) {
   call i24 @llvm.bitreverse.i24(i24 %0)
