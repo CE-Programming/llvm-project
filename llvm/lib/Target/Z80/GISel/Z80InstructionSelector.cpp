@@ -936,14 +936,38 @@ bool Z80InstructionSelector::selectExtract(MachineInstr &I,
   Register SrcReg = I.getOperand(1).getReg();
   const TargetRegisterClass *SrcRC = getRegClass(SrcReg, MRI);
 
-  unsigned SubIdx =
-      getSubRegIndex(TRI.getRegSizeInBits(*DstRC), I.getOperand(2).getImm());
-  if (SubIdx == Z80::NoSubRegister)
-    return false;
+  unsigned Offset = I.getOperand(2).getImm();
 
-  I.setDesc(TII.get(TargetOpcode::COPY));
-  I.getOperand(1).setSubReg(SubIdx);
-  I.RemoveOperand(2);
+  unsigned SubIdx = getSubRegIndex(TRI.getRegSizeInBits(*DstRC), Offset);
+  if (SubIdx != Z80::NoSubRegister) {
+    I.setDesc(TII.get(TargetOpcode::EXTRACT_SUBREG));
+    I.getOperand(2).setImm(SubIdx);
+  } else if (Offset % 8 == 0) {
+    unsigned Opc;
+    MachineIRBuilder MIB(I);
+    int FI = MF.getFrameInfo().CreateStackObject(
+        TRI.getSpillSize(*SrcRC), TRI.getSpillAlign(*SrcRC), false);
+    if (SrcRC == &Z80::R8RegClass)
+      Opc = Z80::LD8or;
+    else if (SrcRC == &Z80::R16RegClass)
+      Opc = Z80::LD16or;
+    else if (SrcRC == &Z80::R24RegClass)
+      Opc = Z80::LD24or;
+    else
+      return false;
+    MIB.buildInstr(Opc).addFrameIndex(FI).addImm(0).addReg(SrcReg);
+    if (DstRC == &Z80::R8RegClass)
+      Opc = Z80::LD8ro;
+    else if (DstRC == &Z80::R16RegClass)
+      Opc = Z80::LD16ro;
+    else if (DstRC == &Z80::R24RegClass)
+      Opc = Z80::LD24ro;
+    else
+      return false;
+    MIB.buildInstr(Opc, {DstReg}, {}).addFrameIndex(FI).addImm(Offset / 8);
+    I.eraseFromParent();
+  } else
+    return false;
 
   return RBI.constrainGenericRegister(DstReg, *DstRC, MRI) &&
          RBI.constrainGenericRegister(SrcReg, *SrcRC, MRI);
@@ -1001,7 +1025,61 @@ bool Z80InstructionSelector::selectInsert(MachineInstr &I,
                                           MachineRegisterInfo &MRI,
                                           MachineFunction &MF) const {
   assert(I.getOpcode() == TargetOpcode::G_INSERT && "unexpected instruction");
-  return false;
+
+  Register DstReg = I.getOperand(0).getReg();
+  const TargetRegisterClass *DstRC = getRegClass(DstReg, MRI);
+
+  Register SrcReg = I.getOperand(1).getReg();
+  const TargetRegisterClass *SrcRC = getRegClass(SrcReg, MRI);
+
+  Register InsertReg = I.getOperand(2).getReg();
+  const TargetRegisterClass *InsertRC = getRegClass(InsertReg, MRI);
+
+  unsigned Offset = I.getOperand(3).getImm();
+
+  unsigned SubIdx = getSubRegIndex(TRI.getRegSizeInBits(*InsertRC), Offset);
+  if (SubIdx != Z80::NoSubRegister) {
+    I.setDesc(TII.get(TargetOpcode::INSERT_SUBREG));
+    I.getOperand(3).setImm(SubIdx);
+  } else if (Offset % 8 == 0) {
+    unsigned Opc;
+    MachineIRBuilder MIB(I);
+    int FI = MF.getFrameInfo().CreateStackObject(
+        TRI.getSpillSize(*SrcRC), TRI.getSpillAlign(*SrcRC), false);
+    if (SrcRC == &Z80::R8RegClass)
+      Opc = Z80::LD8or;
+    else if (SrcRC == &Z80::R16RegClass)
+      Opc = Z80::LD16or;
+    else if (SrcRC == &Z80::R24RegClass)
+      Opc = Z80::LD24or;
+    else
+      return false;
+    MIB.buildInstr(Opc).addFrameIndex(FI).addImm(0).addReg(SrcReg);
+    if (InsertRC == &Z80::R8RegClass)
+      Opc = Z80::LD8or;
+    else if (InsertRC == &Z80::R16RegClass)
+      Opc = Z80::LD16or;
+    else if (InsertRC == &Z80::R24RegClass)
+      Opc = Z80::LD24or;
+    else
+      return false;
+    MIB.buildInstr(Opc).addFrameIndex(FI).addImm(Offset / 8).addReg(InsertReg);
+    if (DstRC == &Z80::R8RegClass)
+      Opc = Z80::LD8ro;
+    else if (DstRC == &Z80::R16RegClass)
+      Opc = Z80::LD16ro;
+    else if (DstRC == &Z80::R24RegClass)
+      Opc = Z80::LD24ro;
+    else
+      return false;
+    MIB.buildInstr(Opc, {DstReg}, {}).addFrameIndex(FI).addImm(0);
+    I.eraseFromParent();
+  } else
+    return false;
+
+  return RBI.constrainGenericRegister(DstReg, *DstRC, MRI) &&
+         RBI.constrainGenericRegister(SrcReg, *SrcRC, MRI) &&
+         RBI.constrainGenericRegister(InsertReg, *InsertRC, MRI);
 }
 
 bool Z80InstructionSelector::selectMergeValues(MachineInstr &I,

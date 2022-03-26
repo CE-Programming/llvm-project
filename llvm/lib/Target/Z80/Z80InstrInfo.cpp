@@ -1436,7 +1436,7 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   case Z80::CALL16r:
   case Z80::CALL24r: {
     const char *Symbol;
-    switch (MIB->getOperand(0).getReg()) {
+    switch (MI.getOperand(0).getReg()) {
     default: llvm_unreachable("Unexpected indcall register");
     case Z80::HL: case Z80::UHL: Symbol = "_indcallhl"; break;
     case Z80::IX: case Z80::UIX: Symbol = "_indcallix"; break;
@@ -1462,8 +1462,24 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   case Z80::TCRETURN24r:
     MI.setDesc(get(Z80::JP24r));
     break;
+  case TargetOpcode::INSERT_SUBREG:
+    copyPhysReg(MBB, MI, DL, MI.getOperand(0).getReg(),
+                MI.getOperand(1).getReg(), MI.getOperand(1).isKill());
+    copyPhysReg(
+        MBB, MI, DL,
+        TRI.getSubReg(MI.getOperand(0).getReg(), MI.getOperand(3).getImm()),
+        MI.getOperand(2).getReg(), MI.getOperand(2).isKill());
+    MI.eraseFromParent();
+    return true;
+  case TargetOpcode::EXTRACT_SUBREG:
+    copyPhysReg(
+        MBB, MI, DL, MI.getOperand(0).getReg(),
+        TRI.getSubReg(MI.getOperand(1).getReg(), MI.getOperand(2).getImm()),
+        MI.getOperand(1).isKill());
+    MI.eraseFromParent();
+    return true;
   }
-  LLVM_DEBUG(MIB->dump());
+  LLVM_DEBUG(MI.dump());
   return true;
 }
 
