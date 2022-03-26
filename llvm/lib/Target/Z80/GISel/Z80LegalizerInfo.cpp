@@ -50,6 +50,9 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
   auto NotMaxWithOne24 = {s1, s8, s16}, NotMaxWithOne16 = {s1, s8};
   auto NotMaxWithOne = Is24Bit ? NotMaxWithOne24 : NotMaxWithOne16;
 
+  getActionDefinitionsBuilder(G_IMPLICIT_DEF)
+      .legalFor(LegalTypes);
+
   getActionDefinitionsBuilder(G_MERGE_VALUES)
       .legalForCartesianProduct(NotMin, NotMax)
       .clampScalar(0, *NotMin.begin(), *std::prev(NotMin.end()))
@@ -60,12 +63,8 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .clampScalar(1, *NotMin.begin(), *std::prev(NotMin.end()))
       .clampScalar(0, *NotMax.begin(), *std::prev(NotMax.end()));
 
-  getActionDefinitionsBuilder(G_INSERT)
-      .customForCartesianProduct(NotMin, {s8})
-      .unsupported();
-
-  getActionDefinitionsBuilder(G_EXTRACT)
-      .customForCartesianProduct({s8}, NotMin)
+  getActionDefinitionsBuilder({G_EXTRACT, G_INSERT})
+      .customForCartesianProduct(LegalTypes, LegalTypes)
       .unsupported();
 
   getActionDefinitionsBuilder({G_ZEXT, G_ANYEXT})
@@ -84,7 +83,7 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .clampScalar(1, *LegalScalars.begin(), *std::prev(LegalScalars.end()))
       .clampScalar(0, *NotMaxWithOne.begin(), *std::prev(NotMaxWithOne.end()));
 
-  getActionDefinitionsBuilder({G_FREEZE, G_IMPLICIT_DEF, G_PHI, G_CONSTANT})
+  getActionDefinitionsBuilder({G_FREEZE, G_PHI, G_CONSTANT})
       .legalFor(LegalTypes)
       .clampScalar(0, s8, sMax);
 
@@ -135,8 +134,9 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .clampScalar(1, s8, s8)
       .clampScalar(0, s8, s64);
 
-  getActionDefinitionsBuilder(
-      {G_FSHL, G_FSHR, G_ROTR, G_ROTL, G_UMULO, G_MEMCPY, G_MEMMOVE, G_MEMSET})
+  getActionDefinitionsBuilder({G_FSHL, G_FSHR, G_ROTR, G_ROTL, G_UMULO,
+                               G_FCANONICALIZE, G_MEMCPY, G_MEMCPY_INLINE,
+                               G_MEMMOVE, G_MEMSET, G_BZERO})
       .custom();
 
   getActionDefinitionsBuilder({G_INTRINSIC_TRUNC,
@@ -157,13 +157,8 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
                                G_FLOG10,
                                G_FNEG,
                                G_FABS,
-                               G_FCANONICALIZE,
                                G_FMINNUM,
                                G_FMAXNUM,
-                               G_FMINNUM_IEEE,
-                               G_FMAXNUM_IEEE,
-                               G_FMINIMUM,
-                               G_FMAXIMUM,
                                G_FCEIL,
                                G_FCOS,
                                G_FSIN,
@@ -173,15 +168,15 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
                                G_FNEARBYINT})
       .libcallFor({s32, s64});
 
+  getActionDefinitionsBuilder({G_INTRINSIC_LRINT, G_LROUND})
+      .libcallForCartesianProduct({s32}, {s32, s64});
+
+  getActionDefinitionsBuilder({G_INTRINSIC_LLRINT, G_LLROUND})
+      .libcallForCartesianProduct({s64}, {s32, s64});
+
   getActionDefinitionsBuilder(G_FPEXT).libcallFor({{s64, s32}});
 
   getActionDefinitionsBuilder(G_FPTRUNC).libcallFor({{s32, s64}});
-
-  getActionDefinitionsBuilder(G_INTRINSIC_LRINT)
-      .libcallFor({{s32, s32}, {s32, s64}});
-
-  getActionDefinitionsBuilder(G_FCOPYSIGN)
-      .libcallFor({{s32, s32}, {s64, s64}});
 
   getActionDefinitionsBuilder({G_FPTOSI, G_FPTOUI})
       .libcallForCartesianProduct({s32, s64}, {s32, s64})
@@ -190,6 +185,8 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
   getActionDefinitionsBuilder({G_SITOFP, G_UITOFP})
       .libcallForCartesianProduct({s32, s64}, {s32, s64})
       .clampScalar(1, s32, s64);
+
+  getActionDefinitionsBuilder(G_FCOPYSIGN).libcallFor({{s32, s32}, {s64, s64}});
 
   getActionDefinitionsBuilder({G_LOAD, G_STORE})
       .legalForCartesianProduct(LegalTypes, {p0})
@@ -225,11 +222,13 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .clampScalar(0, s8, sMax);
 
   getActionDefinitionsBuilder(
-      {G_ABS, G_DYN_STACKALLOC, G_SEXT_INREG, G_CTTZ_ZERO_UNDEF, G_CTLZ, G_CTTZ,
-       G_BSWAP, G_SMULO, G_SMULH, G_UMULH, G_SMIN, G_SMAX, G_UMIN, G_UMAX,
-       G_UADDSAT, G_SADDSAT, G_USUBSAT, G_SSUBSAT, G_FPOWI})
+      {G_ABS,     G_DYN_STACKALLOC, G_SEXT_INREG, G_CTTZ_ZERO_UNDEF,
+       G_CTLZ,    G_CTTZ,           G_BSWAP,      G_SMULO,
+       G_SMULH,   G_UMULH,          G_SMIN,       G_SMAX,
+       G_UMIN,    G_UMAX,           G_UADDSAT,    G_SADDSAT,
+       G_USUBSAT, G_SSUBSAT,        G_USHLSAT,    G_SSHLSAT,
+       G_FPOWI})
       .lower();
-
   getActionDefinitionsBuilder({G_CTLZ_ZERO_UNDEF, G_CTPOP})
       .libcallForCartesianProduct({s8}, LegalLibcallScalars)
       .clampScalar(0, s8, s8);
@@ -258,6 +257,7 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeCustomMaybeLegal(
   case G_XOR:
     return legalizeBitwise(Helper, MI, LocObserver);
   case G_EXTRACT:
+  case G_INSERT:
     return legalizeExtractInsert(Helper, MI);
   case G_FCONSTANT:
     return legalizeFConstant(Helper, MI);
@@ -277,9 +277,13 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeCustomMaybeLegal(
     return legalizeCompare(Helper, MI);
   case G_UMULO:
     return legalizeMultiplyWithOverflow(Helper, MI);
+  case G_FCANONICALIZE:
+    return legalizeFCanonicalize(Helper, MI);
   case G_MEMCPY:
+  case G_MEMCPY_INLINE:
   case G_MEMMOVE:
   case G_MEMSET:
+  case G_BZERO:
     return legalizeMemIntrinsic(Helper, MI, LocObserver);
   }
 }
@@ -383,9 +387,9 @@ Z80LegalizerInfo::legalizeBitwise(LegalizerHelper &Helper, MachineInstr &MI,
 LegalizerHelper::LegalizeResult
 Z80LegalizerInfo::legalizeExtractInsert(LegalizerHelper &Helper,
                                         MachineInstr &MI) const {
-  bool OpOff = MI.getOpcode() == G_INSERT;
-  assert((MI.getOpcode() == G_EXTRACT || OpOff) && "Unexpected opcode");
-  return MI.getOperand(2 + OpOff).getImm() & 7
+  assert((MI.getOpcode() == G_EXTRACT || MI.getOpcode() == G_INSERT) &&
+         "Unexpected opcode");
+  return MI.getOperand(MI.getNumExplicitOperands() - 1).getImm() & 7
              ? LegalizerHelper::UnableToLegalize
              : LegalizerHelper::Legalized;
 }
@@ -589,6 +593,15 @@ Z80LegalizerInfo::legalizeMultiplyWithOverflow(LegalizerHelper &Helper,
   return LegalizerHelper::Legalized;
 }
 
+LegalizerHelper::LegalizeResult
+Z80LegalizerInfo::legalizeFCanonicalize(LegalizerHelper &Helper,
+                                        MachineInstr &MI) const {
+  Helper.Observer.changingInstr(MI);
+  MI.setDesc(Helper.MIRBuilder.getTII().get(COPY));
+  Helper.Observer.changedInstr(MI);
+  return LegalizerHelper::Legalized;
+}
+
 LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeMemIntrinsic(
     LegalizerHelper &Helper, MachineInstr &MI,
     LostDebugLocObserver &LocObserver) const {
@@ -600,23 +613,28 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeMemIntrinsic(
   bool Is24Bit = Subtarget.is24Bit();
 
   unsigned Opc = MI.getOpcode();
-  assert((Opc == G_MEMCPY || Opc == G_MEMMOVE || Opc == G_MEMSET) &&
+  assert((Opc == G_MEMCPY || Opc == G_MEMCPY_INLINE || Opc == G_MEMMOVE ||
+          Opc == G_MEMSET || Opc == G_BZERO) &&
          "Unexpected opcode");
 
-  Register DstReg = MI.getOperand(0).getReg();
+  auto MOI = MI.operands_begin();
+
+  Register DstReg = MOI->getReg();
   LLT DstTy = MRI.getType(DstReg);
 
-  Register SrcReg = MI.getOperand(1).getReg();
+  Register SrcReg = Opc != G_BZERO
+                        ? (++MOI)->getReg()
+                        : MIRBuilder.buildConstant(LLT::scalar(8), 0).getReg(0);
   LLT SrcTy = MRI.getType(SrcReg);
 
-  Register LenReg = MI.getOperand(2).getReg();
+  Register LenReg = (++MOI)->getReg();
   LLT LenTy = LLT::scalar(DL.getIndexSizeInBits(DstTy.getAddressSpace()));
   LenReg = MIRBuilder.buildZExtOrTrunc(LenTy, LenReg).getReg(0);
 
   // We need to make sure the number of bytes is non-zero for this lowering to
   // be correct.  Since we only need to lower constant-length intrinsics for
   // now, just support those.
-  if (!MF.getFunction().hasOptNone()) {
+  if (Opc == G_MEMCPY_INLINE || !MF.getFunction().hasOptNone()) {
     if (auto ConstLen = getIConstantVRegValWithLookThrough(LenReg, MRI)) {
       // Doing something with zero bytes is a noop anyway.
       if (!ConstLen->Value) {
@@ -727,7 +745,7 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeMemIntrinsic(
     }
   }
 
-  MI.getOperand(2).setReg(LenReg);
+  MOI->setReg(LenReg);
   auto Result = createMemLibcall(MIRBuilder, MRI, MI, LocObserver);
   MI.eraseFromParent();
   return Result;
