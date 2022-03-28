@@ -36,7 +36,8 @@ public:
   legalizeCustomMaybeLegal(LegalizerHelper &Helper, MachineInstr &MI,
                            LostDebugLocObserver &LocObserver) const override;
 
-  bool legalizeIntrinsic(LegalizerHelper &Helper, MachineInstr &MI) const override;
+  bool legalizeIntrinsic(LegalizerHelper &Helper,
+                         MachineInstr &MI) const override;
 
 private:
   LegalizerHelper::LegalizeResult
@@ -58,6 +59,10 @@ private:
                                                       MachineInstr &MI) const;
   LegalizerHelper::LegalizeResult legalizeCompare(LegalizerHelper &Helper,
                                                   MachineInstr &MI) const;
+  LegalizerHelper::LegalizeResult legalizeFixedMultiply(LegalizerHelper &Helper,
+                                                        MachineInstr &MI) const;
+  LegalizerHelper::LegalizeResult legalizeFixedDivide(LegalizerHelper &Helper,
+                                                      MachineInstr &MI) const;
   LegalizerHelper::LegalizeResult
   legalizeMultiplyWithOverflow(LegalizerHelper &Helper, MachineInstr &MI) const;
   LegalizerHelper::LegalizeResult legalizeFCanonicalize(LegalizerHelper &Helper,
