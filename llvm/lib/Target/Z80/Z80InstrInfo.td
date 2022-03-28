@@ -266,10 +266,8 @@ let hasSideEffects = 0, usesCustomInserter = 1 in {
                      [(set R24:$dst, (Z80select R24:$true, R24:$false, imm:$cc,
                                       F))]>,
                      Requires<[In24BitMode]>;
-  }
-  let Uses = [F] in {
     let Defs = [A,   F] in
-    def SExt8  : P<(outs), (ins),[(set A,   (Z80sext F))]>;
+    def SExt8  : P<(outs), (ins), [(set A,   (Z80sext F))]>;
     let Defs = [HL,  F] in
     def SExt16 : P<(outs), (ins), [(set HL,  (Z80sext F))]>;
     let Defs = [UHL, F] in

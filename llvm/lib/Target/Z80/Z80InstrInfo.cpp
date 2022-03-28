@@ -1495,7 +1495,7 @@ bool Z80InstrInfo::analyzeCompare(const MachineInstr &MI, Register &SrcReg,
       return false;
     // Compare against zero.
     SrcReg2 = 0;
-    CmpMask = ~0;
+    CmpMask = 0;
     CmpValue = 0;
     break;
   case Z80::CP8ai:
@@ -1515,7 +1515,7 @@ bool Z80InstrInfo::analyzeCompare(const MachineInstr &MI, Register &SrcReg,
   case Z80::SUB8ar:
     SrcReg = Z80::A;
     SrcReg2 = MI.getOperand(0).getReg();
-    CmpMask = ~0;
+    CmpMask = 0;
     CmpValue = 0;
     break;
   case Z80::CP8ap:
