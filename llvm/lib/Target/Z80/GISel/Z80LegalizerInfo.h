@@ -67,6 +67,8 @@ private:
   legalizeMultiplyWithOverflow(LegalizerHelper &Helper, MachineInstr &MI) const;
   LegalizerHelper::LegalizeResult legalizeFCanonicalize(LegalizerHelper &Helper,
                                                         MachineInstr &MI) const;
+  LegalizerHelper::LegalizeResult legalizeCtlz(LegalizerHelper &Helper,
+                                               MachineInstr &MI) const;
   LegalizerHelper::LegalizeResult
   legalizeMemIntrinsic(LegalizerHelper &Helper, MachineInstr &MI,
                        LostDebugLocObserver &LocObserver) const;
