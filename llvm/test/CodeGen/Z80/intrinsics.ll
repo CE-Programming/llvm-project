@@ -566,3 +566,235 @@ define i64 @umul.sat.i64(i64, i64) {
   call i64 @llvm.umul.sat.i64(i64 %0, i64 %1)
   ret i64 %3
 }
+
+declare i8 @llvm.smul.fix.i8(i8, i8, i32 immarg)
+define i8 @smul.fix.i8.7(i8, i8) {
+  call i8 @llvm.smul.fix.i8(i8 %0, i8 %1, i32 7)
+  ret i8 %3
+}
+declare i16 @llvm.smul.fix.i16(i16, i16, i32 immarg)
+define i16 @smul.fix.i16.7(i16, i16) {
+  call i16 @llvm.smul.fix.i16(i16 %0, i16 %1, i32 7)
+  ret i16 %3
+}
+define i16 @smul.fix.i16.15(i16, i16) {
+  call i16 @llvm.smul.fix.i16(i16 %0, i16 %1, i32 15)
+  ret i16 %3
+}
+declare i32 @llvm.smul.fix.i32(i32, i32, i32 immarg)
+define i32 @smul.fix.i32.15(i32, i32) {
+  call i32 @llvm.smul.fix.i32(i32 %0, i32 %1, i32 15)
+  ret i32 %3
+}
+define i32 @smul.fix.i32.31(i32, i32) {
+  call i32 @llvm.smul.fix.i32(i32 %0, i32 %1, i32 31)
+  ret i32 %3
+}
+declare i64 @llvm.smul.fix.i64(i64, i64, i32 immarg)
+define i64 @smul.fix.i64.31(i64, i64) {
+  call i64 @llvm.smul.fix.i64(i64 %0, i64 %1, i32 31)
+  ret i64 %3
+}
+
+declare i8 @llvm.umul.fix.i8(i8, i8, i32 immarg)
+define i8 @umul.fix.i8.8(i8, i8) {
+  call i8 @llvm.umul.fix.i8(i8 %0, i8 %1, i32 8)
+  ret i8 %3
+}
+declare i16 @llvm.umul.fix.i16(i16, i16, i32 immarg)
+define i16 @umul.fix.i16.8(i16, i16) {
+  call i16 @llvm.umul.fix.i16(i16 %0, i16 %1, i32 8)
+  ret i16 %3
+}
+define i16 @umul.fix.i16.16(i16, i16) {
+  call i16 @llvm.umul.fix.i16(i16 %0, i16 %1, i32 16)
+  ret i16 %3
+}
+declare i32 @llvm.umul.fix.i32(i32, i32, i32 immarg)
+define i32 @umul.fix.i32.16(i32, i32) {
+  call i32 @llvm.umul.fix.i32(i32 %0, i32 %1, i32 16)
+  ret i32 %3
+}
+define i32 @umul.fix.i32.32(i32, i32) {
+  call i32 @llvm.umul.fix.i32(i32 %0, i32 %1, i32 32)
+  ret i32 %3
+}
+declare i64 @llvm.umul.fix.i64(i64, i64, i32 immarg)
+define i64 @umul.fix.i64.32(i64, i64) {
+  call i64 @llvm.umul.fix.i64(i64 %0, i64 %1, i32 32)
+  ret i64 %3
+}
+
+declare i8 @llvm.smul.fix.sat.i8(i8, i8, i32 immarg)
+define i8 @smul.fix.sat.i8.7(i8, i8) {
+  call i8 @llvm.smul.fix.sat.i8(i8 %0, i8 %1, i32 7)
+  ret i8 %3
+}
+declare i16 @llvm.smul.fix.sat.i16(i16, i16, i32 immarg)
+define i16 @smul.fix.sat.i16.7(i16, i16) {
+  call i16 @llvm.smul.fix.sat.i16(i16 %0, i16 %1, i32 7)
+  ret i16 %3
+}
+define i16 @smul.fix.sat.i16.15(i16, i16) {
+  call i16 @llvm.smul.fix.sat.i16(i16 %0, i16 %1, i32 15)
+  ret i16 %3
+}
+declare i32 @llvm.smul.fix.sat.i32(i32, i32, i32 immarg)
+define i32 @smul.fix.sat.i32.15(i32, i32) {
+  call i32 @llvm.smul.fix.sat.i32(i32 %0, i32 %1, i32 15)
+  ret i32 %3
+}
+define i32 @smul.fix.sat.i32.31(i32, i32) {
+  call i32 @llvm.smul.fix.sat.i32(i32 %0, i32 %1, i32 31)
+  ret i32 %3
+}
+declare i64 @llvm.smul.fix.sat.i64(i64, i64, i32 immarg)
+define i64 @smul.fix.sat.i64.31(i64, i64) {
+  call i64 @llvm.smul.fix.sat.i64(i64 %0, i64 %1, i32 31)
+  ret i64 %3
+}
+
+declare i8 @llvm.umul.fix.sat.i8(i8, i8, i32 immarg)
+define i8 @umul.fix.sat.i8.8(i8, i8) {
+  call i8 @llvm.umul.fix.sat.i8(i8 %0, i8 %1, i32 8)
+  ret i8 %3
+}
+declare i16 @llvm.umul.fix.sat.i16(i16, i16, i32 immarg)
+define i16 @umul.fix.sat.i16.8(i16, i16) {
+  call i16 @llvm.umul.fix.sat.i16(i16 %0, i16 %1, i32 8)
+  ret i16 %3
+}
+define i16 @umul.fix.sat.i16.16(i16, i16) {
+  call i16 @llvm.umul.fix.sat.i16(i16 %0, i16 %1, i32 16)
+  ret i16 %3
+}
+declare i32 @llvm.umul.fix.sat.i32(i32, i32, i32 immarg)
+define i32 @umul.fix.sat.i32.16(i32, i32) {
+  call i32 @llvm.umul.fix.sat.i32(i32 %0, i32 %1, i32 16)
+  ret i32 %3
+}
+define i32 @umul.fix.sat.i32.32(i32, i32) {
+  call i32 @llvm.umul.fix.sat.i32(i32 %0, i32 %1, i32 32)
+  ret i32 %3
+}
+declare i64 @llvm.umul.fix.sat.i64(i64, i64, i32 immarg)
+define i64 @umul.fix.sat.i64.32(i64, i64) {
+  call i64 @llvm.umul.fix.sat.i64(i64 %0, i64 %1, i32 32)
+  ret i64 %3
+}
+
+declare i8 @llvm.sdiv.fix.i8(i8, i8, i32 immarg)
+define i8 @sdiv.fix.i8.7(i8, i8) {
+  call i8 @llvm.sdiv.fix.i8(i8 %0, i8 %1, i32 7)
+  ret i8 %3
+}
+declare i16 @llvm.sdiv.fix.i16(i16, i16, i32 immarg)
+define i16 @sdiv.fix.i16.7(i16, i16) {
+  call i16 @llvm.sdiv.fix.i16(i16 %0, i16 %1, i32 7)
+  ret i16 %3
+}
+define i16 @sdiv.fix.i16.15(i16, i16) {
+  call i16 @llvm.sdiv.fix.i16(i16 %0, i16 %1, i32 15)
+  ret i16 %3
+}
+declare i32 @llvm.sdiv.fix.i32(i32, i32, i32 immarg)
+define i32 @sdiv.fix.i32.15(i32, i32) {
+  call i32 @llvm.sdiv.fix.i32(i32 %0, i32 %1, i32 15)
+  ret i32 %3
+}
+define i32 @sdiv.fix.i32.31(i32, i32) {
+  call i32 @llvm.sdiv.fix.i32(i32 %0, i32 %1, i32 31)
+  ret i32 %3
+}
+declare i64 @llvm.sdiv.fix.i64(i64, i64, i32 immarg)
+define i64 @sdiv.fix.i64.31(i64, i64) {
+  call i64 @llvm.sdiv.fix.i64(i64 %0, i64 %1, i32 31)
+  ret i64 %3
+}
+
+declare i8 @llvm.udiv.fix.i8(i8, i8, i32 immarg)
+define i8 @udiv.fix.i8.8(i8, i8) {
+  call i8 @llvm.udiv.fix.i8(i8 %0, i8 %1, i32 8)
+  ret i8 %3
+}
+declare i16 @llvm.udiv.fix.i16(i16, i16, i32 immarg)
+define i16 @udiv.fix.i16.8(i16, i16) {
+  call i16 @llvm.udiv.fix.i16(i16 %0, i16 %1, i32 8)
+  ret i16 %3
+}
+define i16 @udiv.fix.i16.16(i16, i16) {
+  call i16 @llvm.udiv.fix.i16(i16 %0, i16 %1, i32 16)
+  ret i16 %3
+}
+declare i32 @llvm.udiv.fix.i32(i32, i32, i32 immarg)
+define i32 @udiv.fix.i32.16(i32, i32) {
+  call i32 @llvm.udiv.fix.i32(i32 %0, i32 %1, i32 16)
+  ret i32 %3
+}
+define i32 @udiv.fix.i32.32(i32, i32) {
+  call i32 @llvm.udiv.fix.i32(i32 %0, i32 %1, i32 32)
+  ret i32 %3
+}
+declare i64 @llvm.udiv.fix.i64(i64, i64, i32 immarg)
+define i64 @udiv.fix.i64.32(i64, i64) {
+  call i64 @llvm.udiv.fix.i64(i64 %0, i64 %1, i32 32)
+  ret i64 %3
+}
+
+declare i8 @llvm.sdiv.fix.sat.i8(i8, i8, i32 immarg)
+define i8 @sdiv.fix.sat.i8.7(i8, i8) {
+  call i8 @llvm.sdiv.fix.sat.i8(i8 %0, i8 %1, i32 7)
+  ret i8 %3
+}
+declare i16 @llvm.sdiv.fix.sat.i16(i16, i16, i32 immarg)
+define i16 @sdiv.fix.sat.i16.7(i16, i16) {
+  call i16 @llvm.sdiv.fix.sat.i16(i16 %0, i16 %1, i32 7)
+  ret i16 %3
+}
+define i16 @sdiv.fix.sat.i16.15(i16, i16) {
+  call i16 @llvm.sdiv.fix.sat.i16(i16 %0, i16 %1, i32 15)
+  ret i16 %3
+}
+declare i32 @llvm.sdiv.fix.sat.i32(i32, i32, i32 immarg)
+define i32 @sdiv.fix.sat.i32.15(i32, i32) {
+  call i32 @llvm.sdiv.fix.sat.i32(i32 %0, i32 %1, i32 15)
+  ret i32 %3
+}
+define i32 @sdiv.fix.sat.i32.31(i32, i32) {
+  call i32 @llvm.sdiv.fix.sat.i32(i32 %0, i32 %1, i32 31)
+  ret i32 %3
+}
+declare i64 @llvm.sdiv.fix.sat.i64(i64, i64, i32 immarg)
+define i64 @sdiv.fix.sat.i64.31(i64, i64) {
+  call i64 @llvm.sdiv.fix.sat.i64(i64 %0, i64 %1, i32 31)
+  ret i64 %3
+}
+
+declare i8 @llvm.udiv.fix.sat.i8(i8, i8, i32 immarg)
+define i8 @udiv.fix.sat.i8.8(i8, i8) {
+  call i8 @llvm.udiv.fix.sat.i8(i8 %0, i8 %1, i32 8)
+  ret i8 %3
+}
+declare i16 @llvm.udiv.fix.sat.i16(i16, i16, i32 immarg)
+define i16 @udiv.fix.sat.i16.8(i16, i16) {
+  call i16 @llvm.udiv.fix.sat.i16(i16 %0, i16 %1, i32 8)
+  ret i16 %3
+}
+define i16 @udiv.fix.sat.i16.16(i16, i16) {
+  call i16 @llvm.udiv.fix.sat.i16(i16 %0, i16 %1, i32 16)
+  ret i16 %3
+}
+declare i32 @llvm.udiv.fix.sat.i32(i32, i32, i32 immarg)
+define i32 @udiv.fix.sat.i32.16(i32, i32) {
+  call i32 @llvm.udiv.fix.sat.i32(i32 %0, i32 %1, i32 16)
+  ret i32 %3
+}
+define i32 @udiv.fix.sat.i32.32(i32, i32) {
+  call i32 @llvm.udiv.fix.sat.i32(i32 %0, i32 %1, i32 32)
+  ret i32 %3
+}
+declare i64 @llvm.udiv.fix.sat.i64(i64, i64, i32 immarg)
+define i64 @udiv.fix.sat.i64.32(i64, i64) {
+  call i64 @llvm.udiv.fix.sat.i64(i64 %0, i64 %1, i32 32)
+  ret i64 %3
+}

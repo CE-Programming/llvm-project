@@ -1491,8 +1491,8 @@ public:
     //    %3 = G_EXTRACT %1, (N - %0.getSizeInBits()
 
     Register SrcReg = lookThroughCopyInstrs(MI.getOperand(1).getReg());
-    MachineInstr *MergeI = MRI.getVRegDef(SrcReg);
-    if (!MergeI || !isa<GMergeLikeInstr>(MergeI))
+    MachineInstr *SrcDef = MRI.getVRegDef(SrcReg);
+    if (!SrcDef || !isa<GMergeLikeInstr>(SrcDef))
       return false;
 
     Register DstReg = MI.getOperand(0).getReg();
@@ -1503,7 +1503,7 @@ public:
     unsigned ExtractOffset = MI.getOperand(2).getImm();
 
     Builder.setInstr(MI);
-    switch (MergeI->getOpcode()) {
+    switch (SrcDef->getOpcode()) {
     case TargetOpcode::G_IMPLICIT_DEF:
       Builder.buildUndef(DstReg);
       break;
@@ -1514,14 +1514,33 @@ public:
       // %2 = G_EXTRACT %1, N1
       // =>
       // %2 = G_EXTRACT %0, N0 + N1
-      markDefDead(MI, *MergeI, DeadInsts);
+      markDefDead(MI, *SrcDef, DeadInsts);
       Observer.changingInstr(MI);
-      MI.getOperand(1).setReg(MergeI->getOperand(1).getReg());
-      MI.getOperand(2).setImm(MergeI->getOperand(2).getImm() +
-                              MI.getOperand(2).getImm());
+      MI.getOperand(1).setReg(SrcDef->getOperand(1).getReg());
+      MI.getOperand(2).setImm(SrcDef->getOperand(2).getImm() + ExtractOffset);
       Observer.changedInstr(MI);
       UpdatedDefs.push_back(DstReg);
       return true;
+    case TargetOpcode::G_UNMERGE_VALUES: {
+      // Try to look through unmerge values
+      //
+      // %1, %2 = G_UNMERGE_VALUES %0
+      // %3 = G_EXTRACT %2, N0
+      // =>
+      // %3 = G_EXTRACT %0, (%2.offset + N0)
+      unsigned SrcDefIdx = getDefIndex(*SrcDef, SrcReg);
+      unsigned UnmergeSize =
+          MRI.getType(SrcDef->getOperand(SrcDefIdx).getReg()).getSizeInBits();
+
+      markDefDead(MI, *SrcDef, DeadInsts, SrcDefIdx);
+      Observer.changingInstr(MI);
+      MI.getOperand(1).setReg(
+          SrcDef->getOperand(SrcDef->getNumOperands() - 1).getReg());
+      MI.getOperand(2).setImm(SrcDefIdx * UnmergeSize + ExtractOffset);
+      Observer.changedInstr(MI);
+      UpdatedDefs.push_back(DstReg);
+      return true;
+    }
     case TargetOpcode::G_INSERT: {
       // Try to look through insert
       //
@@ -1547,11 +1566,11 @@ public:
       //     %5:(N1 + %1.size - N0) = G_EXTRACT %0, 0
       //     %3 = G_INSERT %4, %5, (N0 - N1)
 
-      Register InsertSrcReg = MergeI->getOperand(1).getReg();
-      Register InsertReg = MergeI->getOperand(2).getReg();
+      Register InsertSrcReg = SrcDef->getOperand(1).getReg();
+      Register InsertReg = SrcDef->getOperand(2).getReg();
       LLT InsertTy = MRI.getType(InsertReg);
       unsigned InsertSize = InsertTy.getSizeInBits();
-      unsigned InsertOffset = MergeI->getOperand(3).getImm();
+      unsigned InsertOffset = SrcDef->getOperand(3).getImm();
       if (InsertOffset == ExtractOffset && InsertSize == ExtractSize)
         // intervals are equal, use inserted value directly
         replaceRegOrBuildCopy(DstReg, InsertReg, MRI, Builder, UpdatedDefs,
@@ -1597,7 +1616,7 @@ public:
     case TargetOpcode::G_BUILD_VECTOR:
     case TargetOpcode::G_CONCAT_VECTORS: {
       // TODO: Do we need to check if the resulting extract is supported?
-      unsigned NumMergeSrcs = MergeI->getNumOperands() - 1;
+      unsigned NumMergeSrcs = SrcDef->getNumOperands() - 1;
       unsigned MergeSrcSize = ExtractSrcSize / NumMergeSrcs;
       unsigned MergeSrcIdx = ExtractOffset / MergeSrcSize;
 
@@ -1610,30 +1629,30 @@ public:
         if (MergeSrcIdx == 0 && EndMergeSrcIdx == NumMergeSrcs - 1) {
           replaceRegOrBuildCopy(DstReg, SrcReg, MRI, Builder, UpdatedDefs,
                                 Observer);
-          markInstAndDefDead(MI, *MergeI, DeadInsts);
+          markInstAndDefDead(MI, *SrcDef, DeadInsts);
           return true;
         }
         if (MergeSrcIdx == EndMergeSrcIdx) {
           replaceRegOrBuildCopy(DstReg,
-                                MergeI->getOperand(1 + MergeSrcIdx).getReg(),
+                                SrcDef->getOperand(1 + MergeSrcIdx).getReg(),
                                 MRI, Builder, UpdatedDefs, Observer);
-          markInstAndDefDead(MI, *MergeI, DeadInsts);
+          markInstAndDefDead(MI, *SrcDef, DeadInsts);
           return true;
         }
         unsigned NumSubSrcs = EndMergeSrcIdx - MergeSrcIdx + 1;
         SmallVector<Register, 4> SubRegs;
         SubRegs.reserve(NumSubSrcs);
         for (unsigned Idx = MergeSrcIdx; Idx <= EndMergeSrcIdx; ++Idx)
-          SubRegs.push_back(MergeI->getOperand(Idx + 1).getReg());
+          SubRegs.push_back(SrcDef->getOperand(Idx + 1).getReg());
         UpdatedDefs.push_back(Builder.buildMergeValues(DstReg, SubRegs).getReg(0));
-        markInstAndDefDead(MI, *MergeI, DeadInsts);
+        markInstAndDefDead(MI, *SrcDef, DeadInsts);
         return true;
       }
 
       if (MergeSrcIdx == EndMergeSrcIdx) {
-        markDefDead(MI, *MergeI, DeadInsts);
+        markDefDead(MI, *SrcDef, DeadInsts);
         Observer.changingInstr(MI);
-        MI.getOperand(1).setReg(MergeI->getOperand(1 + MergeSrcIdx).getReg());
+        MI.getOperand(1).setReg(SrcDef->getOperand(1 + MergeSrcIdx).getReg());
         MI.getOperand(2).setImm(ExtractOffset - MergeSrcIdx * MergeSrcSize);
         Observer.changedInstr(MI);
         UpdatedDefs.push_back(DstReg);
@@ -1648,7 +1667,7 @@ public:
         Register FirstPart =
             Builder
                 .buildExtract(LLT::scalar(MergeSrcSize - FirstPartOffset),
-                              MergeI->getOperand(++PartIdx).getReg(),
+                              SrcDef->getOperand(++PartIdx).getReg(),
                               FirstPartOffset)
                 .getReg(0);
         UpdatedDefs.push_back(FirstPart);
@@ -1661,12 +1680,12 @@ public:
         TmpReg =
             Builder
                 .buildInsert(ExtractTy, TmpReg,
-                             MergeI->getOperand(++PartIdx).getReg(), PartOffset)
+                             SrcDef->getOperand(++PartIdx).getReg(), PartOffset)
                 .getReg(0);
         PartOffset += MergeSrcSize;
         UpdatedDefs.push_back(TmpReg);
       }
-      Register LastPart = MergeI->getOperand(++PartIdx).getReg();
+      Register LastPart = SrcDef->getOperand(++PartIdx).getReg();
       if (unsigned LastPartSize =
               (ExtractOffset + ExtractSize) % MergeSrcSize) {
         LastPart = Builder.buildExtract(LLT::scalar(LastPartSize), LastPart, 0)
@@ -1681,7 +1700,7 @@ public:
     }
 
     UpdatedDefs.push_back(DstReg);
-    markInstAndDefDead(MI, *MergeI, DeadInsts);
+    markInstAndDefDead(MI, *SrcDef, DeadInsts);
     return true;
   }
 
