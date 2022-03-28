@@ -91,7 +91,8 @@ private:
     return selectSetCond(ExtOpc, CondReg, CondReg, I, MRI);
   }
 
-  bool selectSelect(MachineInstr &I, MachineRegisterInfo &MRI) const;
+  bool selectSelect(MachineInstr &I, MachineRegisterInfo &MRI,
+                    MachineFunction &MF) const;
   bool selectBrCond(MachineInstr &I, MachineRegisterInfo &MRI) const;
   bool selectBrJT(MachineInstr &I, MachineRegisterInfo &MRI,
                   MachineFunction &MF) const;
@@ -351,7 +352,7 @@ bool Z80InstructionSelector::select(MachineInstr &I) const {
   case TargetOpcode::G_MERGE_VALUES:
     return selectMergeValues(I, MRI, MF);
   case TargetOpcode::G_SELECT:
-    return selectSelect(I, MRI);
+    return selectSelect(I, MRI, MF);
   case TargetOpcode::G_SHL:
   case TargetOpcode::G_LSHR:
   case TargetOpcode::G_ASHR:
@@ -1779,20 +1780,21 @@ bool Z80InstructionSelector::selectSetCond(unsigned ExtOpc, Register DstReg,
 }
 
 bool Z80InstructionSelector::selectSelect(MachineInstr &I,
-                                          MachineRegisterInfo &MRI) const {
+                                          MachineRegisterInfo &MRI,
+                                          MachineFunction &MF) const {
   assert(I.getOpcode() == TargetOpcode::G_SELECT && "unexpected instruction");
 
   LLT OpTy = MRI.getType(I.getOperand(2).getReg());
-  unsigned Select;
+  unsigned SelectOpc;
   switch (OpTy.getSizeInBits()) {
   case 8:
-    Select = Z80::Select8;
+    SelectOpc = Z80::Select8;
     break;
   case 16:
-    Select = Z80::Select16;
+    SelectOpc = Z80::Select16;
     break;
   case 24:
-    Select = Z80::Select24;
+    SelectOpc = Z80::Select24;
     break;
   default:
     return false;
@@ -1803,10 +1805,12 @@ bool Z80InstructionSelector::selectSelect(MachineInstr &I,
   if (CC == Z80::COND_INVALID)
     return false;
 
-  I.setDesc(TII.get(Select));
+  I.setDesc(TII.get(SelectOpc));
   I.getOperand(1).setReg(I.getOperand(2).getReg());
   I.getOperand(2).setReg(I.getOperand(3).getReg());
   I.getOperand(3).ChangeToImmediate(CC);
+  I.addImplicitDefUseOperands(MF);
+
   return constrainSelectedInstRegOperands(I, TII, TRI, RBI);
 }
 
