@@ -224,16 +224,21 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .clampScalar(0, s8, sMax);
 
   getActionDefinitionsBuilder(
-      {G_SDIVREM,        G_UDIVREM,    G_ABS,
-       G_DYN_STACKALLOC, G_SEXT_INREG, G_CTTZ_ZERO_UNDEF,
-       G_CTLZ,           G_CTTZ,       G_BSWAP,
-       G_SMULO,          G_SMULH,      G_UMULH,
-       G_SMIN,           G_SMAX,       G_UMIN,
-       G_UMAX,           G_UADDSAT,    G_SADDSAT,
-       G_USUBSAT,        G_SSUBSAT,    G_USHLSAT,
-       G_SSHLSAT,        G_FPOWI})
+      {G_SDIVREM, G_UDIVREM, G_ABS,     G_DYN_STACKALLOC, G_SEXT_INREG,
+       G_BSWAP,   G_SMULO,   G_SMULH,   G_UMULH,          G_SMIN,
+       G_SMAX,    G_UMIN,    G_UMAX,    G_UADDSAT,        G_SADDSAT,
+       G_USUBSAT, G_SSUBSAT, G_USHLSAT, G_SSHLSAT,        G_FPOWI})
       .lower();
-  getActionDefinitionsBuilder({G_CTLZ_ZERO_UNDEF, G_CTPOP})
+
+  getActionDefinitionsBuilder({G_CTTZ, G_CTTZ_ZERO_UNDEF, G_CTLZ_ZERO_UNDEF})
+      .lowerForCartesianProduct({s8}, LegalLibcallScalars)
+      .clampScalar(0, s8, s8);
+
+  getActionDefinitionsBuilder(G_CTLZ)
+      .customForCartesianProduct({s8}, LegalLibcallScalars)
+      .clampScalar(0, s8, s8);
+
+  getActionDefinitionsBuilder(G_CTPOP)
       .libcallForCartesianProduct({s8}, LegalLibcallScalars)
       .clampScalar(0, s8, s8);
 
@@ -293,6 +298,8 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeCustomMaybeLegal(
     return legalizeFixedDivide(Helper, MI);
   case G_FCANONICALIZE:
     return legalizeFCanonicalize(Helper, MI);
+  case G_CTLZ:
+    return legalizeCtlz(Helper, MI);
   case G_MEMCPY:
   case G_MEMCPY_INLINE:
   case G_MEMMOVE:
@@ -336,10 +343,10 @@ Z80LegalizerInfo::legalizeAddSub(LegalizerHelper &Helper, MachineInstr &MI,
       llvm_unreachable("Unexpected type");
     }
     Type *Ty = IntegerType::get(Ctx, Size);
-    createLibcall(Helper.MIRBuilder, Libcall, {DstReg, Ty, 0},
-                  {{LHSReg, Ty, 0}});
+    auto Result = createLibcall(Helper.MIRBuilder, Libcall, {DstReg, Ty, 0},
+                                {{LHSReg, Ty, 0}});
     MI.eraseFromParent();
-    return LegalizerHelper::Legalized;
+    return Result;
   }
   if (LegalSize)
     return LegalizerHelper::Legalized;
@@ -390,10 +397,10 @@ Z80LegalizerInfo::legalizeBitwise(LegalizerHelper &Helper, MachineInstr &MI,
       llvm_unreachable("Unexpected type");
     }
     Type *Ty = IntegerType::get(Ctx, Size);
-    createLibcall(Helper.MIRBuilder, Libcall, {DstReg, Ty, 0},
-                  {{LHSReg, Ty, 0}});
+    auto Result = createLibcall(Helper.MIRBuilder, Libcall, {DstReg, Ty, 0},
+                                {{LHSReg, Ty, 0}});
     MI.eraseFromParent();
-    return LegalizerHelper::Legalized;
+    return Result;
   }
   return Helper.libcall(MI, LocObserver);
 }
@@ -569,8 +576,10 @@ Z80LegalizerInfo::legalizeCompare(LegalizerHelper &Helper,
     CallLowering::ArgInfo FlagsArg(FlagsReg, Int8Ty,
                                    CallLowering::ArgInfo::NoArgIndex);
     CallLowering::ArgInfo Args[2] = {{LHSReg, Ty, 0}, {RHSReg, Ty, 1}};
-    createLibcall(MIRBuilder, Libcall, FlagsArg,
-                  makeArrayRef(Args, 2 - ZeroRHS));
+    auto Result = createLibcall(MIRBuilder, Libcall, FlagsArg,
+                                makeArrayRef(Args, 2 - ZeroRHS));
+    if (Result != LegalizerHelper::Legalized)
+      return Result;
     MIRBuilder.buildCopy(Register(Z80::F), FlagsReg);
     if (IsSigned && !ZeroRHS)
       Subtarget.getCallLowering()->buildSCMP(MIRBuilder);
@@ -789,6 +798,40 @@ Z80LegalizerInfo::legalizeFCanonicalize(LegalizerHelper &Helper,
   MI.setDesc(Helper.MIRBuilder.getTII().get(COPY));
   Helper.Observer.changedInstr(MI);
   return LegalizerHelper::Legalized;
+}
+
+LegalizerHelper::LegalizeResult
+Z80LegalizerInfo::legalizeCtlz(LegalizerHelper &Helper,
+                               MachineInstr &MI) const {
+  assert(MI.getOpcode() == G_CTLZ);
+  MachineIRBuilder &MIRBuilder = Helper.MIRBuilder;
+  MachineRegisterInfo &MRI = *MIRBuilder.getMRI();
+  auto &Ctx = MIRBuilder.getMF().getFunction().getContext();
+
+  Register DstReg = MI.getOperand(0).getReg();
+  LLT DstTy = MRI.getType(DstReg);
+  unsigned DstSize = DstTy.getSizeInBits();
+  Register SrcReg = MI.getOperand(1).getReg();
+  LLT SrcTy = MRI.getType(SrcReg);
+  unsigned SrcSize = SrcTy.getSizeInBits();
+
+  if (DstTy != LLT::scalar(8) || !SrcTy.isScalar())
+    return LegalizerHelper::UnableToLegalize;
+
+  RTLIB::Libcall Libcall;
+  switch (SrcSize) {
+  default: return LegalizerHelper::UnableToLegalize;
+  case  8: Libcall = RTLIB::CTLZ_I8 ; break;
+  case 16: Libcall = RTLIB::CTLZ_I16; break;
+  case 24: Libcall = RTLIB::CTLZ_I24; break;
+  case 32: Libcall = RTLIB::CTLZ_I32; break;
+  case 64: Libcall = RTLIB::CTLZ_I64; break;
+  }
+  auto Result = createLibcall(MIRBuilder, Libcall,
+                              {DstReg, IntegerType::get(Ctx, DstSize), 0},
+                              {{SrcReg, IntegerType::get(Ctx, SrcSize), 0}});
+  MI.eraseFromParent();
+  return Result;
 }
 
 LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeMemIntrinsic(
