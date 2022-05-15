@@ -116,7 +116,6 @@ void Z80AsmPrinter::PrintOperand(const MachineInstr *MI, unsigned OpNum,
     Register Reg = MO.getReg();
     assert(Register::isPhysicalRegister(Reg));
     assert(!MO.getSubReg() && "Subregs should be eliminated!");
-    dbgs() << SubRegIdx << '\n';
     if (SubRegIdx)
       if (Register SubReg =
               getSubtarget().getRegisterInfo()->getSubReg(Reg, SubRegIdx))
