@@ -15,7 +15,14 @@
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/MC/MCExpr.h"
+#include "llvm/Support/CommandLine.h"
 using namespace llvm;
+
+static cl::opt<bool> EscapeNonPrint(
+    "z80-escape-non-print",
+    cl::desc(
+        "Avoid outputting non-printable ascii characters to assembly files."),
+    cl::Hidden);
 
 void Z80MCAsmInfoELF::anchor() { }
 
@@ -39,7 +46,7 @@ Z80MCAsmInfoELF::Z80MCAsmInfoELF(const Triple &T) {
   CharacterLiteralSyntax = ACLS_SingleQuotes;
   HasPairedDoubleQuoteStringConstants = true;
   HasBackslashEscapesInStringConstants = false;
-  StringConstantsEscapeNonPrint = false;
+  StringConstantsEscapeNonPrint = EscapeNonPrint;
   StringConstantsRequiredEscapes = {"\n\r\32", 4}; // include null
   Data16bitsDirective = "\tdw\t";
   Data24bitsDirective = "\tdl\t";
