@@ -272,9 +272,9 @@ Z80MachineLateOptimization::getKnownFlags(const MachineInstr *MI,
   case Z80::OR8ap:
   case Z80::OR8ao:
     return {0, HalfCarryFlag | SubtractFlag, CarryFlag};
-  case Z80::ADD16SP:
-  case Z80::ADD24SP:
-    if (isKnownSpecificImm(Opc == Z80::ADD16SP ? Z80::SPS : Z80::SPL, 0))
+  case Z80::ADD16as:
+  case Z80::ADD24as:
+    if (isKnownSpecificImm(Opc == Z80::ADD16as ? Z80::SPS : Z80::SPL, 0))
       return {0, HalfCarryFlag | SubtractFlag | CarryFlag, SignFlag | ZeroFlag};
     LLVM_FALLTHROUGH;
   case Z80::ADD16aa:
@@ -291,8 +291,8 @@ Z80MachineLateOptimization::getKnownFlags(const MachineInstr *MI,
     return {0, SubtractFlag};
   case Z80::ADC16ao:
   case Z80::ADC24ao:
-  case Z80::ADC16SP:
-  case Z80::ADC24SP:
+  case Z80::ADC16as:
+  case Z80::ADC24as:
     return {0, SubtractFlag};
   case Z80::SBC16aa:
   case Z80::SBC24aa:
@@ -310,11 +310,11 @@ Z80MachineLateOptimization::getKnownFlags(const MachineInstr *MI,
          isKnownSpecificImm(MI->getOperand(0), 0)))
       return {SubtractFlag, HalfCarryFlag | ParityOverflowFlag | CarryFlag};
     return {SubtractFlag};
-  case Z80::SBC16SP:
-  case Z80::SBC24SP:
+  case Z80::SBC16as:
+  case Z80::SBC24as:
     if ((~KnownFlagsVal & KnownFlagsMask & CarryFlag) &&
-        (isKnownSpecificImm(Opc == Z80::SBC16SP ? Z80::HL : Z80::UHL, 0) ||
-         isKnownSpecificImm(Opc == Z80::SBC16SP ? Z80::SPS : Z80::SPL, 0)))
+        (isKnownSpecificImm(Opc == Z80::SBC16as ? Z80::HL : Z80::UHL, 0) ||
+         isKnownSpecificImm(Opc == Z80::SBC16as ? Z80::SPS : Z80::SPL, 0)))
       return {SubtractFlag, HalfCarryFlag | ParityOverflowFlag | CarryFlag};
     return {SubtractFlag};
   case Z80::SUB16ao:
