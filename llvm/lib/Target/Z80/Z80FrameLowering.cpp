@@ -150,9 +150,8 @@ void Z80FrameLowering::BuildStackAdjustment(
          --IncDecCount)
       TII.applySPAdjust(
           *BuildMI(MBB, MBBI, DL,
-                   TII.get(Offset >= 0
-                               ? (Is24Bit ? Z80::INC24SP : Z80::INC16SP)
-                               : (Is24Bit ? Z80::DEC24SP : Z80::DEC16SP)))
+                   TII.get(Offset >= 0 ? (Is24Bit ? Z80::INC24s : Z80::INC16s)
+                                       : (Is24Bit ? Z80::DEC24s : Z80::DEC16s)))
                .setMIFlag(Flag));
     return;
   case SAM_All:
@@ -172,7 +171,7 @@ void Z80FrameLowering::BuildStackAdjustment(
             ScratchReg)
         .addImm(Offset)
         .setMIFlag(Flag);
-    BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::ADD24SP : Z80::ADD16SP),
+    BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::ADD24as : Z80::ADD16as),
             ScratchReg)
         .addUse(ScratchReg)
         .setMIFlag(Flag)
@@ -181,7 +180,7 @@ void Z80FrameLowering::BuildStackAdjustment(
     break;
   }
 
-  BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::LD24SP : Z80::LD16SP))
+  BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::LD24sa : Z80::LD16sa))
       .addUse(ResultReg, RegState::Kill)
       .setMIFlag(Flag);
   if (MF.needsFrameMoves() && !hasFP(MF))
@@ -257,7 +256,7 @@ void Z80FrameLowering::emitPrologue(MachineFunction &MF,
             FrameReg)
         .addImm(0)
         .setMIFlag(MachineInstr::FrameSetup);
-    BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::ADD24SP : Z80::ADD16SP),
+    BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::ADD24as : Z80::ADD16as),
             FrameReg)
         .addUse(FrameReg)
         .setMIFlag(MachineInstr::FrameSetup)
@@ -307,14 +306,14 @@ void Z80FrameLowering::emitEpilogue(MachineFunction &MF,
     if ((Opc == Z80::POP24r || Opc == Z80::POP16r) &&
         PI->getOperand(0).isDead()) {
       StackSize += SlotSize;
-    } else if (Opc == Z80::LD24SP || Opc == Z80::LD16SP) {
-      bool Is24Bit = Opc == Z80::LD24SP;
+    } else if (Opc == Z80::LD24sa || Opc == Z80::LD16sa) {
+      bool Is24Bit = Opc == Z80::LD24sa;
       unsigned Reg = PI->getOperand(0).getReg();
       if (PI == MBB.begin())
         break;
       MachineBasicBlock::iterator AI = std::prev(PI);
       Opc = AI->getOpcode();
-      if (AI == MBB.begin() || Opc != (Is24Bit ? Z80::ADD24SP : Z80::ADD16SP) ||
+      if (AI == MBB.begin() || Opc != (Is24Bit ? Z80::ADD24as : Z80::ADD16as) ||
           AI->getOperand(0).getReg() != Reg ||
           AI->getOperand(1).getReg() != Reg)
         break;
@@ -374,7 +373,8 @@ void Z80FrameLowering::shadowCalleeSavedRegisters(
   if (SaveAF)
     BuildMI(MBB, MI, DL, TII.get(Z80::EXAF)).setMIFlag(Flag);
   if (SaveG)
-    BuildMI(MBB, MI, DL, TII.get(Z80::EXX)).setMIFlag(Flag);
+    BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::EXX24 : Z80::EXX16))
+        .setMIFlag(Flag);
 }
 
 static Z80MachineFunctionInfo::AltFPMode

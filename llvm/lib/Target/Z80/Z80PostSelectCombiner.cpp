@@ -142,7 +142,7 @@ bool Z80PostSelectCombiner::runOnMachineFunction(MachineFunction &MF) {
                                                          : &Z80::A16RegClass);
         BuildMI(MBB, MI, MI.getDebugLoc(), TII.get(TargetOpcode::COPY), TmpReg)
             .add(MI.getOperand(1));
-        MI.setDesc(TII.get(DstReg == Z80::SPL ? Z80::LD24SP : Z80::LD16SP));
+        MI.setDesc(TII.get(DstReg == Z80::SPL ? Z80::LD24sa : Z80::LD16sa));
         MI.RemoveOperand(0);
         MI.getOperand(0).setReg(TmpReg);
         Changed = true;

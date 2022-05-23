@@ -19,20 +19,20 @@ def CurMode  : Mode<1>;
 def Z80Mode  : Mode<2>;
 def EZ80Mode : Mode<3>;
 
-class Prefix<bits<4> val> {
-  bits<4> Value = val;
+class Prefix<bits<2> val, bit cb = false, bit indexed = false> {
+  bits<4> Value = { indexed, cb, val };
 }
 def NoPre    : Prefix<0>;
-def CBPre    : Prefix<1>;
-def DDPre    : Prefix<2>;
-def DDCBPre  : Prefix<3>;
-def EDPre    : Prefix<4>;
-def FDPre    : Prefix<5>;
-def FDCBPre  : Prefix<6>;
-def IdxPre   : Prefix<7>;
-def IdxCBPre : Prefix<8>;
-foreach i = 0-7 in
-def Idx#i#Pre : Prefix<!add(8, i)>;
+def CBPre    : Prefix<0, true>;
+def DDPre    : Prefix<1>;
+def DDCBPre  : Prefix<1, true>;
+def EDPre    : Prefix<2>;
+def FDPre    : Prefix<3>;
+def FDCBPre  : Prefix<3, true>;
+foreach i = 0-3 in {
+  def Idx#i#Pre   : Prefix<i, false, true>;
+  def Idx#i#CBPre : Prefix<i, true, true>;
+}
 
 class ImmType<bits<2> val> {
   bits<2> Value = val;
@@ -58,8 +58,8 @@ class Z80Inst<Mode mode, Prefix prefix, bits<8> opcode, ImmType immediate,
   let AsmString = asm;
   let Constraints = constraints;
 
-  let TSFlags{3-0} = prefix.Value;
-  let TSFlags{5-4} = mode.Value;
+  let TSFlags{1-0} = mode.Value;
+  let TSFlags{5-2} = prefix.Value;
   let TSFlags{7-6} = immediate.Value;
   let TSFlags{15-8} = opcode;
 
