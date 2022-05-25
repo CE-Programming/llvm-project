@@ -182,8 +182,6 @@ INITIALIZE_PASS_END(Z80PreLegalizerCombiner, DEBUG_TYPE,
                     "Combine Z80 machine instrs before legalization", false,
                     false)
 
-namespace llvm {
-FunctionPass *createZ80PreLegalizeCombiner(bool IsOptNone) {
+FunctionPass *llvm::createZ80PreLegalizeCombiner(bool IsOptNone) {
   return new Z80PreLegalizerCombiner(IsOptNone);
 }
-} // end namespace llvm

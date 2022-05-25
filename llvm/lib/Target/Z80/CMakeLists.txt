@@ -26,6 +26,7 @@ set(sources
   GISel/Z80PreLegalizerCombiner.cpp
   GISel/Z80RegisterBankInfo.cpp
   Z80AsmPrinter.cpp
+  Z80BranchSelector.cpp
   Z80CallingConv.cpp
   Z80FrameLowering.cpp
   Z80ISelLowering.cpp

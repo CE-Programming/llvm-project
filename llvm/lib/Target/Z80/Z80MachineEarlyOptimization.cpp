@@ -194,8 +194,6 @@ char Z80MachineEarlyOptimization::ID = 0;
 INITIALIZE_PASS(Z80MachineEarlyOptimization, DEBUG_TYPE,
                 "Optimize Z80 machine instrs before regselect", false, false)
 
-namespace llvm {
-FunctionPass *createZ80MachineEarlyOptimizationPass() {
+FunctionPass *llvm::createZ80MachineEarlyOptimizationPass() {
   return new Z80MachineEarlyOptimization();
 }
-} // end namespace llvm
