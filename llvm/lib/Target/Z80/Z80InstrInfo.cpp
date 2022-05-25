@@ -336,23 +336,25 @@ bool Z80InstrInfo::analyzeBranch(MachineBasicBlock &MBB,
 
 unsigned Z80InstrInfo::removeBranch(MachineBasicBlock &MBB,
                                     int *BytesRemoved) const {
-  assert(!BytesRemoved && "code size not handled");
   MachineBasicBlock::iterator I = MBB.end();
+  int Bytes = 0;
   unsigned Count = 0;
 
   while (I != MBB.begin()) {
     --I;
     if (I->isDebugValue())
       continue;
-    if (I->getOpcode() != Z80::JQ &&
-        I->getOpcode() != Z80::JQCC)
+    if (!I->isBranch())
       break;
     // Remove the branch.
+    Bytes += getInstSizeInBytes(*I);
     I->eraseFromParent();
     I = MBB.end();
     ++Count;
   }
 
+  if (BytesRemoved)
+    *BytesRemoved = Bytes;
   return Count;
 }
 
@@ -365,26 +367,30 @@ unsigned Z80InstrInfo::insertBranch(MachineBasicBlock &MBB,
   // Shouldn't be a fall through.
   assert(TBB && "InsertBranch must not be told to insert a fallthrough");
   assert(Cond.size() <= 1 && "Z80 branch conditions have one component!");
-  assert(!BytesAdded && "code size not handled");
+  int Bytes = 0;
+  unsigned Count = 0;
 
   if (Cond.empty()) {
     // Unconditional branch?
     assert(!FBB && "Unconditional branch with multiple successors!");
-    BuildMI(&MBB, DL, get(Z80::JQ)).addMBB(TBB);
-    return 1;
-  }
-
-  // Conditional branch.
-  unsigned Count = 0;
-  BuildMI(&MBB, DL, get(Z80::JQCC)).addMBB(TBB).add(Cond[0]);
-  ++Count;
-
-  // If FBB is null, it is implied to be a fall-through block.
-  if (FBB) {
-    // Two-way Conditional branch. Insert the second branch.
-    BuildMI(&MBB, DL, get(Z80::JQ)).addMBB(FBB);
+    Bytes += getInstSizeInBytes(*BuildMI(&MBB, DL, get(Z80::JQ)).addMBB(TBB));
     ++Count;
+  } else {
+    // Conditional branch.
+    Bytes += getInstSizeInBytes(
+        *BuildMI(&MBB, DL, get(Z80::JQCC)).addMBB(TBB).add(Cond[0]));
+    ++Count;
+
+    // If FBB is null, it is implied to be a fall-through block.
+    if (FBB) {
+      // Two-way Conditional branch. Insert the second branch.
+      Bytes += getInstSizeInBytes(*BuildMI(&MBB, DL, get(Z80::JQ)).addMBB(FBB));
+      ++Count;
+    }
   }
+
+  if (BytesAdded)
+    *BytesAdded = Bytes;
   return Count;
 }
 

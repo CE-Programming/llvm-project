@@ -291,8 +291,6 @@ INITIALIZE_PASS_END(Z80PostSelectCombiner, DEBUG_TYPE,
                     false)
 
 
-namespace llvm {
-FunctionPass *createZ80PostSelectCombiner() {
+FunctionPass *llvm::createZ80PostSelectCombiner() {
   return new Z80PostSelectCombiner;
 }
-} // end namespace llvm
