@@ -112,8 +112,6 @@ char Z80MachinePreRAOptimization::ID = 0;
 INITIALIZE_PASS(Z80MachinePreRAOptimization, DEBUG_TYPE,
                 "Optimize Z80 machine instrs before regalloc", false, false)
 
-namespace llvm {
-FunctionPass *createZ80MachinePreRAOptimizationPass() {
+FunctionPass *llvm::createZ80MachinePreRAOptimizationPass() {
   return new Z80MachinePreRAOptimization();
 }
-} // end namespace llvm

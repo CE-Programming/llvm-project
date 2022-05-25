@@ -542,8 +542,6 @@ char Z80MachineLateOptimization::ID = 0;
 INITIALIZE_PASS(Z80MachineLateOptimization, DEBUG_TYPE,
                 "Optimize Z80 machine instrs after regselect", false, false)
 
-namespace llvm {
-FunctionPass *createZ80MachineLateOptimizationPass() {
+FunctionPass *llvm::createZ80MachineLateOptimizationPass() {
   return new Z80MachineLateOptimization();
 }
-} // end namespace llvm
