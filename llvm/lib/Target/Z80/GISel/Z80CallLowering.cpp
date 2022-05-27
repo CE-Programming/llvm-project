@@ -59,7 +59,7 @@ struct Z80OutgoingValueHandler : public CallLowering::OutgoingValueHandler {
 
   void assignValueToReg(Register ValVReg, Register PhysReg,
                         CCValAssign VA) override {
-    MIB.addUse(PhysReg, RegState::Implicit);
+    MIB.addReg(PhysReg, RegState::Implicit);
     MIRBuilder.buildCopy(PhysReg, ValVReg);
   }
 
@@ -154,8 +154,12 @@ struct CallArgHandler : public Z80OutgoingValueHandler {
     --StackPushes;
     if (MemTy.getSizeInBits() < SlotTy.getSizeInBits())
       ValVReg = MIRBuilder.buildAnyExt(SlotTy, ValVReg).getReg(0);
-    MIRBuilder.buildInstr(STI.is24Bit() ? Z80::PUSH24r : Z80::PUSH16r, {},
-                          {ValVReg});
+    MachineInstr &PushI = *MIRBuilder.buildInstr(
+        STI.is24Bit() ? Z80::PUSH24r : Z80::PUSH16r, {}, {ValVReg});
+    constrainOperandRegClass(MIRBuilder.getMF(), *STI.getRegisterInfo(),
+                             *MIRBuilder.getMRI(), *STI.getInstrInfo(),
+                             *STI.getRegBankInfo(), PushI, PushI.getOperand(0),
+                             0);
     ++StackPushes;
     MIRBuilder.setInsertPt(MIRBuilder.getMBB(), std::next(SaveInsertPt));
     SetupFrameAdjustment += SlotTy.getSizeInBytes();
@@ -260,7 +264,7 @@ struct CallReturnHandler : public Z80IncomingValueHandler {
       : Z80IncomingValueHandler(MIRBuilder, MRI), MIB(MIB) {}
 
   void markPhysRegUsed(MCRegister PhysReg) override {
-    MIB.addDef(PhysReg, RegState::Implicit);
+    MIB.addReg(PhysReg, RegState::ImplicitDefine);
   }
 
 protected:
@@ -708,7 +712,7 @@ bool Z80CallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
       break;
     case Z80FrameLowering::SAM_Large:
       // This method also clobbers flags.
-      CallSeq.addDef(Z80::F, RegState::Implicit | RegState::Dead);
+      CallSeq.addReg(Z80::F, RegState::ImplicitDefine | RegState::Dead);
       LLVM_FALLTHROUGH;
     case Z80FrameLowering::SAM_Medium:
       // These methods clobber an A register.
@@ -716,8 +720,8 @@ bool Z80CallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
       break;
     }
     if (ScratchRC)
-      CallSeq.addDef(MRI.createVirtualRegister(ScratchRC),
-                     RegState::Implicit | RegState::Dead);
+      CallSeq.addReg(MRI.createVirtualRegister(ScratchRC),
+                     RegState::ImplicitDefine | RegState::Dead);
   }
 
   return true;
@@ -831,8 +835,8 @@ Z80CallLowering::buildSCMP(MachineIRBuilder &MIRBuilder) const {
   return MIRBuilder.buildInstr(Is24Bit ? Z80::CALL24CC : Z80::CALL16CC)
       .addExternalSymbol(TLI.getLibcallName(RTLIB::SCMP))
       .addImm(Z80::COND_PE)
-      .addDef(Z80::F, RegState::Implicit)
-      .addUse(Z80::F, RegState::ImplicitKill)
+      .addReg(Z80::F, RegState::ImplicitDefine)
+      .addReg(Z80::F, RegState::ImplicitKill)
       .addRegMask(
           TRI.getCallPreservedMask(MF, TLI.getLibcallCallingConv(RTLIB::SCMP)));
 }
