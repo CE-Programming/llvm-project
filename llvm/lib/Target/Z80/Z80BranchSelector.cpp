@@ -20,9 +20,7 @@
 #include "Z80Subtarget.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/SparseSet.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/Support/MathExtras.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "z80-branch-select"
@@ -205,7 +203,7 @@ private:
     return Idx;
   }
 
-  SmallVector<T, 0> Tree{{T()}};
+  SmallVector<T> Tree{{T()}};
 #ifndef NDEBUG
   bool IsFrozen = false;
 #endif
@@ -223,11 +221,14 @@ public:
     assert(Phase == Phase::Invalid && "Forgot to call done()");
   }
 
-  MachineInstr *operator[](size_type BranchIdx) { return Branches[BranchIdx]; }
-  size_type size() {
+  size_type size() const {
     assert(Branches.size() == BranchTree.size());
     return Branches.size();
   }
+  MachineInstr *operator[](size_type BranchIdx) const {
+    return Branches[BranchIdx];
+  }
+  MachineInstr *&operator[](size_type BranchIdx) { return Branches[BranchIdx]; }
 
   void init(MachineFunction &MF) {
     assert(std::exchange(Phase, Phase::Build) == Phase::Invalid);
@@ -298,10 +299,7 @@ public:
   void adjustBranchSize(size_type BranchIdx, Range<Offset> Amt) {
     assert(Phase == Phase::Query);
     BranchTree.adjust(BranchIdx + 1, -Amt);
-    TargetTree.adjust(
-        getTargetIndex(
-            *std::exchange(Branches[BranchIdx], nullptr)->getParent()),
-        -Amt);
+    TargetTree.adjust(getTargetIndex(*Branches[BranchIdx]->getParent()), -Amt);
   }
 
   void done() { assert(std::exchange(Phase, Phase::Invalid) == Phase::Query); }
@@ -324,17 +322,19 @@ public:
   }
 
   void dump() const {
-    for (size_type Idx = TargetTree.size(), Num = 0; Idx--; ++Num)
-      dbgs() << TargetTree.get<Tree::Debug>(Idx) -
+    for (size_type TargetIdx = TargetTree.size(); TargetIdx--;)
+      dbgs() << TargetTree.get<Tree::Debug>(TargetIdx) -
                     TargetTree.current<Tree::Debug>()
-             << '\t' << printMBBReference(*DebugMF->getBlockNumbered(Num))
+             << '\t'
+             << printMBBReference(*DebugMF->getBlockNumbered(
+                    DebugMF->getNumBlockIDs() - 1 - TargetIdx))
              << ":\n";
-    for (size_type Idx = BranchTree.size(); Idx--;) {
-      dbgs() << BranchTree.get<Tree::Debug>(Idx) -
+    for (size_type BranchIdx = BranchTree.size(); BranchIdx--;) {
+      dbgs() << BranchTree.get<Tree::Debug>(BranchIdx) -
                     BranchTree.current<Tree::Debug>()
              << "\t\t";
-      if (Branches[Idx])
-        Branches[Idx]->dump();
+      if (MachineInstr *Branch = Branches[BranchIdx])
+        Branch->dump();
       else
         dbgs() << "\t(selected)\n";
     }
@@ -351,7 +351,7 @@ private:
   MachineFunction *DebugMF;
 #endif
 
-  SmallVector<MachineInstr *, 0> Branches;
+  SmallVector<MachineInstr *> Branches;
   Tree BranchTree, TargetTree;
 };
 
@@ -482,47 +482,48 @@ bool Z80BranchSelector::runOnMachineFunction(MachineFunction &MF) {
   LLVM_DEBUG(dbgs() << '\n'; Tracker.dump());
 
   // Phase 2: Select definite relative and required absolute branches.
-  SparseSet<BranchTracker::size_type, identity<unsigned>, uint16_t>
-      PendingRelaxBranch;
-  PendingRelaxBranch.setUniverse(Tracker.size());
-  const auto relaxBranch = [&](BranchTracker::size_type BranchIdx,
-                               BranchTracker::size_type MaxBranchIdx) {
-    makeBranchAbsolute(*Tracker[BranchIdx]);
-    Tracker.adjustBranchSize(BranchIdx, {BranchSize.delta(), 0});
-    LLVM_DEBUG(dbgs() << ".. Making absolute\n"; Tracker.dump());
-    for (auto Idx = BranchIdx;
-         ++Idx != MaxBranchIdx &&
-         isInt<8>(Tracker.getBranchToBranchOffset(Idx, BranchIdx).Min -
-                  BranchSize.delta());)
-      if (Tracker[Idx] && !isInt<8>(Tracker.getBranchDisplacement(Idx).Min))
-        PendingRelaxBranch.insert(Idx);
-    for (auto Idx = BranchIdx;
-         Idx && isInt<8>(Tracker.getBranchToBranchOffset(--Idx, BranchIdx).Min -
-                         BranchSize.delta());)
-      if (Tracker[Idx] && !isInt<8>(Tracker.getBranchDisplacement(Idx).Min))
-        PendingRelaxBranch.insert(Idx);
-  };
-  for (BranchTracker::size_type BranchIdx = 0; BranchIdx != Tracker.size();
-       ++BranchIdx) {
-    if (!Tracker[BranchIdx])
-      continue;
+  SmallVector<BranchTracker::size_type> Queue;
+  const auto selectBranch = [&,
+                             BranchSize](BranchTracker::size_type BranchIdx) {
+    MachineInstr *&Branch = Tracker[BranchIdx];
     auto Displacement = Tracker.getBranchDisplacement(BranchIdx);
-    LLVM_DEBUG(dbgs() << Displacement; Tracker[BranchIdx]->dump());
+    LLVM_DEBUG(dbgs() << Displacement; Branch->dump());
     if (isInt<8>(Displacement.Max)) {
-      makeBranchRelative(*Tracker[BranchIdx]);
+      makeBranchRelative(*Branch);
       Tracker.adjustBranchSize(BranchIdx, {0, -BranchSize.delta()});
+      Branch = nullptr;
       LLVM_DEBUG(dbgs() << ".. Making relative\n"; Tracker.dump());
     } else if (!isInt<8>(Displacement.Min)) {
-      relaxBranch(BranchIdx, BranchIdx + 1);
-      while (!PendingRelaxBranch.empty())
-        relaxBranch(PendingRelaxBranch.pop_back_val(), BranchIdx);
+      makeBranchAbsolute(*Branch);
+      Tracker.adjustBranchSize(BranchIdx, {BranchSize.delta(), 0});
+      Branch = nullptr;
+      LLVM_DEBUG(dbgs() << ".. Making absolute\n"; Tracker.dump());
+      Queue.push_back(BranchIdx);
+    }
+  };
+  for (BranchTracker::size_type MaxBranchIdx = 0, BranchCount = Tracker.size();
+       MaxBranchIdx != BranchCount; ++MaxBranchIdx) {
+    selectBranch(MaxBranchIdx);
+    while (!Queue.empty()) {
+      auto BranchIdx = Queue.pop_back_val();
+      for (auto Idx = BranchIdx;
+           Idx != MaxBranchIdx &&
+           isInt<8>(Tracker.getBranchToBranchOffset(++Idx, BranchIdx).Min -
+                    BranchSize.delta());)
+        if (Tracker[Idx])
+          selectBranch(Idx);
+      for (auto Idx = BranchIdx;
+           Idx &&
+           isInt<8>(Tracker.getBranchToBranchOffset(--Idx, BranchIdx).Min -
+                    BranchSize.delta());)
+        if (Tracker[Idx])
+          selectBranch(Idx);
     }
   }
-  assert(PendingRelaxBranch.empty());
 
-  // Phase 3: All of the remaining branches can now be made relative.
-  for (BranchTracker::size_type BranchIdx = 0; BranchIdx != Tracker.size();
-       ++BranchIdx)
+  // Phase 3: All of the remaining ambiguous branches can now be made relative.
+  for (BranchTracker::size_type BranchIdx = 0, BranchCount = Tracker.size();
+       BranchIdx != BranchCount; ++BranchIdx)
     if (MachineInstr *Branch = Tracker[BranchIdx])
       makeBranchRelative(*Branch);
 
