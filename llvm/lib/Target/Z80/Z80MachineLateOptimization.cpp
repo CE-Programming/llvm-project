@@ -479,6 +479,7 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
         switch (Opc) {
         case Z80::CP16ao:
         case Z80::CP24ao:
+          MIB.addReg(Reg, RegState::ImplicitDefine);
           if (LiveUnits.available(Reg))
             break;
           MachineOperand &SrcMO = MIB->getOperand(0);

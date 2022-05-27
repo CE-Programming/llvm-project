@@ -508,8 +508,7 @@ void Z80InstrInfo::copyPhysReg(MachineBasicBlock &MBB,
         // an intermediate register.
         applySPAdjust(
             *BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF)))
-            .findRegisterUseOperand(Z80::AF)
-            ->setIsUndef();
+            .findRegisterUseOperand(Z80::AF)->setIsUndef();
         BuildMI(MBB, MI, DL, get(Z80::X8RegClass.contains(SrcReg) ? Z80::LD8xx
                                                                   : Z80::LD8yy),
                 Z80::A).addReg(SrcReg, getKillRegState(KillSrc));
@@ -594,7 +593,8 @@ void Z80InstrInfo::copyPhysReg(MachineBasicBlock &MBB,
           .addReg(Is24Bit ? Z80::UDE : Z80::DE, RegState::ImplicitDefine)
           .addReg(TempReg, RegState::ImplicitDefine);
     applySPAdjust(
-        *BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF)));
+        *BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF)))
+        .findRegisterUseOperand(Z80::AF)->setIsUndef();
     BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::EX24sa : Z80::EX16sa), TempReg)
         .addReg(TempReg, RegState::Undef);
     copyPhysReg(MBB, MI, DL, DstReg, Z80::L, KillSrc);
@@ -784,7 +784,8 @@ void Z80InstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
   case Z80::F: {
     Register TempReg = Is24Bit ? Z80::UHL : Z80::HL;
     applySPAdjust(
-        *BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF)));
+        *BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF)))
+        .findRegisterUseOperand(Z80::AF)->setIsUndef();
     BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::EX24sa : Z80::EX16sa), TempReg)
         .addReg(TempReg, RegState::Undef);
     storeRegToStackSlot(MBB, MI, Z80::L, true, FI, &Z80::R8RegClass, TRI);
@@ -857,6 +858,10 @@ void Z80InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
   case 3:
     assert(Is24Bit && "Only 24-bit should have 3 byte stack slots");
     Opc = Z80::LD24ro;
+    if (DstReg.isPhysical())
+      if (auto SuperReg = TRI->getMatchingSuperReg(DstReg, Z80::sub_short,
+                                                   &Z80::R24RegClass))
+        DstReg = SuperReg;
     break;
   }
   BuildMI(MBB, MI, DL, get(Opc), DstReg).addFrameIndex(FI).addImm(0);
@@ -950,12 +955,15 @@ void Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
         .addImm(NewOffset);
     copyRegister(MBB, II, DL, Op0Reg, BaseReg);
     if (SaveFlags)
-      BuildMI(MBB, II, DL, get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF));
+      applySPAdjust(
+          *BuildMI(MBB, II, DL, get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF)))
+          .findRegisterUseOperand(Z80::AF)->setIsUndef();
     BuildMI(MBB, II, DL, get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao), Op0Reg)
         .addReg(Op0Reg).addReg(OffsetReg, RegState::Kill)
         ->addRegisterDead(Z80::F, &TRI);
     if (SaveFlags)
-      BuildMI(MBB, II, DL, get(Is24Bit ? Z80::POP24AF : Z80::POP16AF));
+      applySPAdjust(
+          *BuildMI(MBB, II, DL, get(Is24Bit ? Z80::POP24AF : Z80::POP16AF)));
     MI.eraseFromParent();
     return;
   }
@@ -966,13 +974,16 @@ void Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
         .addImm(NewOffset);
     copyRegister(MBB, II, DL, ScratchReg, BaseReg);
     if (SaveFlags)
-      BuildMI(MBB, II, DL, get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF));
+      applySPAdjust(
+          *BuildMI(MBB, II, DL, get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF)))
+          .findRegisterUseOperand(Z80::AF)->setIsUndef();
     Register TempReg = createIfVirtual(ScratchReg, MRI);
     BuildMI(MBB, II, DL, get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao), TempReg)
         .addReg(ScratchReg).addReg(OffsetReg, RegState::Kill)
         ->addRegisterDead(Z80::F, &TRI);
     if (SaveFlags)
-      BuildMI(MBB, II, DL, get(Is24Bit ? Z80::POP24AF : Z80::POP16AF));
+      applySPAdjust(
+          *BuildMI(MBB, II, DL, get(Is24Bit ? Z80::POP24AF : Z80::POP16AF)));
     if (IllegalLEA) {
       copyRegister(MBB, II, DL, MI.getOperand(0).getReg(), TempReg);
       MI.eraseFromParent();
@@ -1029,17 +1040,21 @@ void Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
     return;
   }
 
-  BuildMI(MBB, II, DL, get(Is24Bit ? Z80::PUSH24r : Z80::PUSH16r))
-      .addReg(BaseReg);
+  applySPAdjust(
+      *BuildMI(MBB, II, DL, get(Is24Bit ? Z80::PUSH24r : Z80::PUSH16r))
+           .addReg(BaseReg));
   BuildMI(MBB, II, DL, get(Is24Bit ? Z80::LD24ri : Z80::LD16ri), OffsetReg)
       .addImm(NewOffset);
   if (SaveFlags)
-    BuildMI(MBB, II, DL, get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF));
+    applySPAdjust(
+        *BuildMI(MBB, II, DL, get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF)))
+        .findRegisterUseOperand(Z80::AF)->setIsUndef();
   BuildMI(MBB, II, DL, get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao), BaseReg)
       .addReg(BaseReg).addReg(OffsetReg, RegState::Kill)
       ->addRegisterDead(Z80::F, &TRI);
   if (SaveFlags)
-    BuildMI(MBB, II, DL, get(Is24Bit ? Z80::POP24AF : Z80::POP16AF));
+    applySPAdjust(
+        *BuildMI(MBB, II, DL, get(Is24Bit ? Z80::POP24AF : Z80::POP16AF)));
   if (Opc == Z80::PEA24o || Opc == Z80::PEA16o) {
     MI.setDesc(get(Opc == Z80::PEA24o ? Z80::EX24sa : Z80::EX16sa));
     MI.getOperand(FIOperandNum).ChangeToRegister(BaseReg, true);
@@ -1055,7 +1070,8 @@ void Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
     MI.getOperand(FIOperandNum).ChangeToRegister(BaseReg, false);
     MI.getOperand(FIOperandNum + 1).ChangeToImmediate(0);
   }
-  BuildMI(MBB, II, DL, get(Is24Bit ? Z80::POP24r : Z80::POP16r), BaseReg);
+  applySPAdjust(
+      *BuildMI(MBB, II, DL, get(Is24Bit ? Z80::POP24r : Z80::POP16r), BaseReg));
 }
 
 static bool isFrameStoreOpcode(int Opcode) {
@@ -1138,7 +1154,8 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     return false;
   case Z80::RCF:
     MI.setDesc(get(Z80::OR8ar));
-    MIB.addReg(Z80::A, RegState::Undef);
+    MIB.addReg(Z80::A, RegState::Undef)
+        .addReg(Z80::A, RegState::ImplicitDefine);
     break;
   case Z80::LD8r0:
     if (MI.getOperand(0).getReg() == Z80::A) {
@@ -1160,8 +1177,8 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
         BuildMI(MBB, MI, DL, get(Z80::SCF));
       MI.setDesc(get(Z80::SBC24aa));
       MI.getOperand(0).setImplicit();
-      MIB.addReg(Z80::UHL, RegState::Implicit | RegState::Undef);
-      MIB.addReg(Z80::F, RegState::Implicit);
+      MIB.addReg(Z80::UHL, RegState::Implicit | RegState::Undef)
+          .addReg(Z80::F, RegState::Implicit);
     } else {
       MI.setDesc(get(Z80::LD24ri));
       MI.findRegisterDefOperand(Z80::F)
@@ -1178,6 +1195,7 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
         .addReg(Reg).add(MI.getOperand(0));
       MI.getOperand(0).setIsKill(false);
     }
+    MIB.addReg(Reg, RegState::ImplicitDefine);
     LLVM_FALLTHROUGH;
   }
   case Z80::SUB16ao:
@@ -1185,6 +1203,7 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     expandPostRAPseudo(*BuildMI(MBB, MI, DL, get(Z80::RCF)));
     MI.setDesc(get(Opc == Z80::CP24ao || Opc == Z80::SUB24ao ? Z80::SBC24ao
                                                              : Z80::SBC16ao));
+    MIB.addReg(Z80::F, RegState::Implicit);
     break;
   case Z80::CP16a0:
   case Z80::CP24a0: {
@@ -1194,7 +1213,8 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
             Reg).addReg(Reg).addReg(UndefReg, RegState::Undef);
     expandPostRAPseudo(*BuildMI(MBB, MI, DL, get(Z80::RCF)));
     MI.setDesc(get(Opc == Z80::CP24a0 ? Z80::SBC24ao : Z80::SBC16ao));
-    MIB.addReg(UndefReg, RegState::Undef);
+    MIB.addReg(UndefReg, RegState::Undef).addReg(Reg, RegState::ImplicitDefine)
+        .addReg(Z80::F, RegState::Implicit);
     break;
   }
   case Z80::LD8ro:
@@ -1203,8 +1223,7 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     if (Z80::I8RegClass.contains(DstOp.getReg())) {
       applySPAdjust(
           *BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF)))
-          .findRegisterUseOperand(Z80::AF)
-          ->setIsUndef();
+          .findRegisterUseOperand(Z80::AF)->setIsUndef();
       copyPhysReg(MBB, Next, DL, DstOp.getReg(), Z80::A, true);
       DstOp.setReg(Z80::A);
       applySPAdjust(
@@ -1294,8 +1313,7 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     if (Z80::I8RegClass.contains(SrcOp.getReg())) {
       applySPAdjust(
           *BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF)))
-          .findRegisterUseOperand(Z80::AF)
-          ->setIsUndef();
+          .findRegisterUseOperand(Z80::AF)->setIsUndef();
       copyPhysReg(MBB, MI, DL, Z80::A, SrcOp.getReg(), SrcOp.isKill());
       SrcOp.setReg(Z80::A);
       SrcOp.setIsKill();
@@ -1359,8 +1377,7 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       // Save A
       applySPAdjust(
           *BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF)))
-          .findRegisterUseOperand(Z80::AF)
-          ->setIsUndef();
+          .findRegisterUseOperand(Z80::AF)->setIsUndef();
       HighReg = Z80::A;
     }
     MI.setDesc(get(HighOpc));

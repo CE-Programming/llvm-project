@@ -161,7 +161,7 @@ void Z80FrameLowering::BuildStackAdjustment(
   case SAM_Medium:
     BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::LEA24ro : Z80::LEA16ro),
             ScratchReg)
-        .addUse(FrameReg)
+        .addReg(FrameReg)
         .addImm(Offset - FPOffset)
         .setMIFlag(Flag);
     ResultReg = ScratchReg;
@@ -173,7 +173,7 @@ void Z80FrameLowering::BuildStackAdjustment(
         .setMIFlag(Flag);
     BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::ADD24as : Z80::ADD16as),
             ScratchReg)
-        .addUse(ScratchReg)
+        .addReg(ScratchReg)
         .setMIFlag(Flag)
         ->addRegisterDead(Z80::F, TRI);
     ResultReg = ScratchReg;
@@ -181,7 +181,7 @@ void Z80FrameLowering::BuildStackAdjustment(
   }
 
   BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::LD24sa : Z80::LD16sa))
-      .addUse(ResultReg, RegState::Kill)
+      .addReg(ResultReg, RegState::Kill)
       .setMIFlag(Flag);
   if (MF.needsFrameMoves() && !hasFP(MF))
     BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
@@ -219,7 +219,7 @@ void Z80FrameLowering::emitPrologue(MachineFunction &MF,
             .setMIFlag(MachineInstr::FrameSetup);
         BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::CALL24 : Z80::CALL16))
             .addExternalSymbol("_frameset")
-            .addUse(ScratchReg, RegState::ImplicitKill)
+            .addReg(ScratchReg, RegState::ImplicitKill)
             .addRegMask(TRI->getNoPreservedMask())
             .setMIFlag(MachineInstr::FrameSetup);
       } else
@@ -240,7 +240,7 @@ void Z80FrameLowering::emitPrologue(MachineFunction &MF,
 
     if (isFPSaved(MF)) {
       BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::PUSH24r : Z80::PUSH16r))
-          .addUse(FrameReg)
+          .addReg(FrameReg)
           .setMIFlag(MachineInstr::FrameSetup);
       if (MF.needsFrameMoves()) {
         BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
@@ -258,7 +258,7 @@ void Z80FrameLowering::emitPrologue(MachineFunction &MF,
         .setMIFlag(MachineInstr::FrameSetup);
     BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::ADD24as : Z80::ADD16as),
             FrameReg)
-        .addUse(FrameReg)
+        .addReg(FrameReg)
         .setMIFlag(MachineInstr::FrameSetup)
         ->addRegisterDead(Z80::F, TRI);
     FPOffset = 0;
@@ -454,7 +454,7 @@ bool Z80FrameLowering::spillCalleeSavedRegisters(
           .setMIFlag(MachineInstr::FrameSetup);
     else
       BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::PUSH24r : Z80::PUSH16r))
-          .addUse(Reg, getKillRegState(CanKill))
+          .addReg(Reg, getKillRegState(CanKill))
           .setMIFlag(MachineInstr::FrameSetup);
   }
   return true;
