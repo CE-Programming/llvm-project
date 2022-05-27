@@ -586,6 +586,7 @@ Z80LegalizerInfo::legalizeCompare(LegalizerHelper &Helper,
   } else
     MIRBuilder.buildInstr(Z80::RCF);
   MIRBuilder.buildInstr(Z80::SetCC, {DstReg}, {int64_t(CC)});
+  MRI.setRegClass(DstReg, &Z80::R8RegClass);
   MI.eraseFromParent();
   return LegalizerHelper::Legalized;
 }

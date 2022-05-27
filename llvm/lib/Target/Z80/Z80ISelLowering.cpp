@@ -571,9 +571,9 @@ Z80TargetLowering::EmitLoweredMemMove(MachineInstr &MI,
         .add(MI.getOperand(I));
   for (int I = 0; I != 2; ++I) {
     BuildMI(LDDR_BB, DL, TII->get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao), HL)
-        .addUse(HL).addUse(BC);
+        .addReg(HL).addReg(BC);
     BuildMI(LDDR_BB, DL, TII->get(Is24Bit ? Z80::DEC24r : Z80::DEC16r), HL)
-        .addUse(HL);
+        .addReg(HL);
     BuildMI(LDDR_BB, DL, TII->get(Is24Bit ? Z80::EX24DE : Z80::EX16DE));
   }
   BuildMI(LDDR_BB, DL, TII->get(Is24Bit ? Z80::LDDR24 : Z80::LDDR16));

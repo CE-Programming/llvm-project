@@ -886,6 +886,7 @@ bool Z80InstructionSelector::selectLoadStore(MachineInstr &I,
 bool Z80InstructionSelector::selectFrameIndexOrGep(MachineInstr &I,
                                                    MachineRegisterInfo &MRI,
                                                    MachineFunction &MF) const {
+  MachineInstrBuilder MIB(MF, I);
   bool Is24Bit = STI.is24Bit();
   bool HasLEA = STI.hasEZ80Ops();
   unsigned Opc = I.getOpcode();
@@ -908,6 +909,7 @@ bool Z80InstructionSelector::selectFrameIndexOrGep(MachineInstr &I,
     }
     if (!HasLEA || !OffConst || !OffConst->isSignedIntN(8)) {
       I.setDesc(TII.get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao));
+      MIB.addReg(Z80::F, RegState::ImplicitDefine);
       return constrainSelectedInstRegOperands(I, TII, TRI, RBI);
     }
     I.getOperand(2).ChangeToImmediate(OffConst->getSExtValue());
@@ -921,7 +923,7 @@ bool Z80InstructionSelector::selectFrameIndexOrGep(MachineInstr &I,
     MF.getInfo<Z80MachineFunctionInfo>()->setHasIllegalLEA();
 
   if (Opc == TargetOpcode::G_FRAME_INDEX)
-    MachineInstrBuilder(MF, I).addImm(0);
+    MIB.addImm(0);
 
   return constrainSelectedInstRegOperands(I, TII, TRI, RBI);
 }
@@ -1041,6 +1043,7 @@ bool Z80InstructionSelector::selectInsert(MachineInstr &I,
   unsigned SubIdx = getSubRegIndex(TRI.getRegSizeInBits(*InsertRC), Offset);
   if (SubIdx != Z80::NoSubRegister) {
     I.setDesc(TII.get(TargetOpcode::INSERT_SUBREG));
+    I.tieOperands(0, 1);
     I.getOperand(3).setImm(SubIdx);
   } else if (Offset % 8 == 0) {
     unsigned Opc;
@@ -1277,15 +1280,6 @@ Z80InstructionSelector::foldCompare(MachineInstr &I, MachineIRBuilder &MIB,
         if (mi_match(LHSReg, MRI,
                      m_OneUse(m_GAnd(m_Reg(SrcReg), m_ICst(Mask)))) &&
             isPowerOf2_32(Mask)) {
-          //Register CondReg;
-          //if (Mask == 1 && mi_match(SrcReg, MRI, m_GAnyExt(m_Reg(CondReg))) &&
-          //    MRI.getType(CondReg) == LLT::scalar(1)) {
-          //  asm("int3");
-          //  Z80::CondCode FoldCC = foldCond(CondReg, MIB, MRI);
-          //  if (FoldCC != Z80::COND_INVALID) {
-          //    asm("int3");
-          //  }
-          //}
           Opc = Z80::BIT8bg;
           Reg = {};
           Ops = {uint64_t(findFirstSet(Mask)), SrcReg};
@@ -1760,7 +1754,7 @@ bool Z80InstructionSelector::selectSetCond(unsigned ExtOpc, Register DstReg,
     auto FillI = MIB.buildInstr(FillOpc);
     FillI->findRegisterUseOperand(FillReg)->setIsUndef();
     if (UndefReg)
-      FillI.addUse(UndefReg, RegState::Undef);
+      FillI.addReg(UndefReg, RegState::Undef);
     if (!constrainSelectedInstRegOperands(*FillI, TII, TRI, RBI))
       return false;
     if (ExtOpc == TargetOpcode::G_ZEXT) {
