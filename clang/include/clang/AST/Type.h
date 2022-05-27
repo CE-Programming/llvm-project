@@ -1939,11 +1939,6 @@ protected:
     LLVM_PREFERRED_TYPE(TypeBitfields)
     unsigned : NumTypeBits;
 
-    /// Extra information which affects how the function is called, like
-    /// regparm and the calling convention.
-    LLVM_PREFERRED_TYPE(CallingConv)
-    unsigned ExtInfo : 13;
-
     /// The ref-qualifier associated with a \c FunctionProtoType.
     ///
     /// This is a value of type \c RefQualifierKind.
@@ -1961,12 +1956,6 @@ protected:
     /// Whether this function has extended Qualifiers.
     LLVM_PREFERRED_TYPE(bool)
     unsigned HasExtQuals : 1;
-
-    /// The number of parameters this function has, not counting '...'.
-    /// According to [implimits] 8 bits should be enough here but this is
-    /// somewhat easy to exceed with metaprogramming and so we would like to
-    /// keep NumParams as wide as reasonably possible.
-    unsigned NumParams : 16;
 
     /// The type of exception specification this function has.
     LLVM_PREFERRED_TYPE(ExceptionSpecificationType)
@@ -1987,6 +1976,17 @@ protected:
     /// Whether this function has a trailing return type.
     LLVM_PREFERRED_TYPE(bool)
     unsigned HasTrailingReturn : 1;
+
+    /// The number of parameters this function has, not counting '...'.
+    /// According to [implimits] 8 bits should be enough here but this is
+    /// somewhat easy to exceed with metaprogramming and so we would like to
+    /// keep NumParams as wide as reasonably possible.
+    unsigned NumParams : 16;
+
+    /// Extra information which affects how the function is called, like
+    /// regparm and the calling convention.
+    LLVM_PREFERRED_TYPE(CallingConv)
+    unsigned ExtInfo : 14;
   };
 
   class ObjCObjectTypeBitfields {
