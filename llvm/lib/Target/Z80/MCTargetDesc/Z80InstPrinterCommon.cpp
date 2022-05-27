@@ -75,12 +75,11 @@ void Z80InstPrinterCommon::printInst(const MCInst *MI, uint64_t Address,
 void Z80InstPrinterCommon::printOperand(const MCInst *MI, unsigned OpNo,
                                         raw_ostream &OS) {
   const MCOperand &Op = MI->getOperand(OpNo);
-  if (Op.isReg()) {
+  if (Op.isReg())
     printRegName(OS, Op.getReg());
-  } else if (Op.isImm()) {
+  else if (Op.isImm())
     OS << markup("<imm:") << formatImm(Op.getImm()) << markup(">");
-    ;
-  } else {
+  else {
     assert(Op.isExpr() && "unknown operand kind in printOperand");
     OS << markup("<imm:");
     Op.getExpr()->print(OS, &MAI);
