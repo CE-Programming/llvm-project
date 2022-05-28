@@ -24,8 +24,8 @@ namespace llvm {
 class Z80Subtarget;
 
 namespace Z80 {
-  // Z80 specific condition code. These correspond to Z80_*_COND in
-  // Z80InstrInfo.td. They must be kept in synch.
+// Z80 specific condition code. These correspond to Z80_*_COND in
+// Z80InstrInfo.td. They must be kept in synch.
 enum CondCode {
   COND_NZ = 0,
   COND_Z = 1,
@@ -54,33 +54,31 @@ CondCode parseConstraintCode(StringRef Constraint);
 bool splitReg(unsigned ByteSize, unsigned Opc8, unsigned Opc16, unsigned Opc24,
               unsigned &RC, unsigned &LoOpc, unsigned &LoIdx, unsigned &HiOpc,
               unsigned &HiIdx, unsigned &HiOff, bool Has16BitEZ80Ops);
-} // end namespace Z80;
+} // namespace Z80
 
 namespace Z80II {
-  enum {
-    ModeShift = 0,
-    AnyMode = 0 << ModeShift,
-    CurMode = 1 << ModeShift,
-    Z80Mode = 2 << ModeShift,
-    EZ80Mode = 3 << ModeShift,
-    ModeMask = 3 << ModeShift,
+enum {
+  ModeShift = 0,
+  AnyMode = 0 << ModeShift,
+  CurMode = 1 << ModeShift,
+  Z80Mode = 2 << ModeShift,
+  EZ80Mode = 3 << ModeShift,
+  ModeMask = 3 << ModeShift,
 
-    PrefixShift = 2,
-    NoPrefix = 0 << PrefixShift,
-    DDPrefix = 1 << PrefixShift,
-    EDPrefix = 2 << PrefixShift,
-    FDPrefix = 3 << PrefixShift,
-    IndexMask = 3 << PrefixShift,
-    HasCBPrefix = 1 << (PrefixShift + 2),
-    HasIndexedPrefix = 1 << (PrefixShift + 3),
+  PrefixShift = 2,
+  Idx0Pre = 1 << 0 << PrefixShift,
+  Idx1Pre = 1 << 1 << PrefixShift,
+  CBPre = 1 << 2 << PrefixShift,
+  EDPre = 1 << 3 << PrefixShift,
+  PrefixMask = ((1 << 4) - 1) << PrefixShift,
 
-    HasImm = 1 << 6,
-    HasOff = 1 << 7,
+  HasImm = 1 << 6,
+  HasOff = 1 << 7,
 
-    OpcodeShift = 8,
-    OpcodeMask = 0xFF << OpcodeShift
-  };
-} // end namespace Z80II;
+  OpcodeShift = 8,
+  OpcodeMask = 0xFF << OpcodeShift
+};
+}
 
 class Z80InstrInfo final : public Z80GenInstrInfo {
   Z80Subtarget &Subtarget;
@@ -215,6 +213,6 @@ private:
                            MachineInstr &MI, unsigned RegIdx) const;
 };
 
-} // End llvm namespace
+} // namespace llvm
 
 #endif
