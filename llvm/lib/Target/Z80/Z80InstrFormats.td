@@ -19,19 +19,27 @@ def CurMode  : Mode<1>;
 def Z80Mode  : Mode<2>;
 def EZ80Mode : Mode<3>;
 
-class Prefix<bits<2> val, bit cb = false, bit indexed = false> {
-  bits<4> Value = { indexed, cb, val };
+class Prefix {
+  bits<4> Value = 0;
 }
-def NoPre    : Prefix<0>;
-def CBPre    : Prefix<0, true>;
-def DDPre    : Prefix<1>;
-def DDCBPre  : Prefix<1, true>;
-def EDPre    : Prefix<2>;
-def FDPre    : Prefix<3>;
-def FDCBPre  : Prefix<3, true>;
-foreach i = 0-3 in {
-  def Idx#i#Pre   : Prefix<i, false, true>;
-  def Idx#i#CBPre : Prefix<i, true, true>;
+
+class IndexPrefix<bit index0, bit index1> : Prefix {
+  let Value{0-1} = {index0, index1};
+}
+def NoIdxPre : IndexPrefix<false, false>;
+def  Idx0Pre : IndexPrefix< true, false>;
+def  Idx1Pre : IndexPrefix<false,  true>;
+def Idx01Pre : IndexPrefix< true,  true>;
+
+class OtherPrefix<bit cb, bit ed> : Prefix {
+  let Value{2-3} = {cb, ed};
+}
+def NoPre : OtherPrefix<false, false>;
+def CBPre : OtherPrefix< true, false>;
+def EDPre : OtherPrefix<false,  true>;
+
+class Pre<IndexPrefix index = NoIdxPre, OtherPrefix other = NoPre> : Prefix {
+  let Value{0-3} = {index.Value{0-1}, other.Value{2-3}};
 }
 
 class ImmType<bits<2> val> {
