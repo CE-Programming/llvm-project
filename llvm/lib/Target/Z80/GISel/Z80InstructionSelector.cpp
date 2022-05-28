@@ -677,13 +677,13 @@ bool Z80InstructionSelector::selectLoadStore(MachineInstr &I,
             case TargetOpcode::G_AND: {
               auto Bit = (~ImmConst->zextOrTrunc(8)).exactLogBase2();
               if (Bit >= 0)
-                RMWOps = {Z80::RES8bp, Z80::RES8bo, unsigned(Bit)};
+                RMWOps = {Z80::RES8pb, Z80::RES8ob, unsigned(Bit)};
               break;
             }
             case TargetOpcode::G_OR: {
               auto Bit = ImmConst->zextOrTrunc(8).exactLogBase2();
               if (Bit >= 0)
-                RMWOps = {Z80::SET8bp, Z80::SET8bo, unsigned(Bit)};
+                RMWOps = {Z80::SET8pb, Z80::SET8ob, unsigned(Bit)};
               break;
             }
             case TargetOpcode::G_ADD:
@@ -843,10 +843,10 @@ bool Z80InstructionSelector::selectLoadStore(MachineInstr &I,
   } else {
     assert(Ty == LLT::scalar(8) && "Expected RMW operation to be 8 bits");
     I.setDesc(TII.get(RMWOps[IsOff]));
-    if (RMWOps.size() > 2)
-      MIB.addImm(RMWOps[2]);
     for (auto &MO : MOs)
       MIB.add(MO);
+    if (RMWOps.size() > 2)
+      MIB.addImm(RMWOps[2]);
     I.addImplicitDefUseOperands(MF);
     MIB.cloneMergedMemRefs(MemMOs);
     if (!MRI.use_empty(ValReg)) {
@@ -1280,9 +1280,9 @@ Z80InstructionSelector::foldCompare(MachineInstr &I, MachineIRBuilder &MIB,
         if (mi_match(LHSReg, MRI,
                      m_OneUse(m_GAnd(m_Reg(SrcReg), m_ICst(Mask)))) &&
             isPowerOf2_32(Mask)) {
-          Opc = Z80::BIT8bg;
+          Opc = Z80::BIT8gb;
           Reg = {};
-          Ops = {uint64_t(findFirstSet(Mask)), SrcReg};
+          Ops = {SrcReg, uint64_t(findFirstSet(Mask))};
         } else {
           Opc = Z80::OR8ar;
           Ops = {Reg};
@@ -1544,7 +1544,7 @@ Z80InstructionSelector::foldCond(Register CondReg, MachineIRBuilder &MIB,
     case Z80::COND_NZ:
     case Z80::COND_PE: {
       CondRC = selectGRegClass(CondReg, MRI);
-      auto BitI = MIB.buildInstr(Z80::BIT8bg, {}, {int64_t(0), CondReg});
+      auto BitI = MIB.buildInstr(Z80::BIT8gb, {}, {CondReg, int64_t(0)});
       if (CondRC != &Z80::G8RegClass)
         BitI->getOperand(1).setSubReg(Z80::sub_low);
       if (!constrainSelectedInstRegOperands(*BitI, TII, TRI, RBI))

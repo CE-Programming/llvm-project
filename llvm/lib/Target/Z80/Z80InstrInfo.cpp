@@ -99,29 +99,46 @@ static bool isIndex(const MachineOperand &MO, const MCRegisterInfo &RI) {
 }
 
 unsigned Z80InstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
+  unsigned Size = 0;
   auto TSFlags = MI.getDesc().TSFlags;
-  // opcode byte
-  unsigned Size = 1;
+
+  // compute the prefix and offset
+  bool IdxPre = false;
+  bool CBPre = TSFlags & Z80II::CBPre;
+  bool EDPre = TSFlags & Z80II::EDPre;
+  bool HasOff = TSFlags & Z80II::HasOff;
+  assert(!(CBPre && EDPre));
+  for (unsigned OpIdx = 0; OpIdx != 2; ++OpIdx) {
+    if (!(TSFlags & Z80II::Idx0Pre << OpIdx) ||
+        !isIndex(MI.getOperand(OpIdx), getRegisterInfo()))
+      continue;
+    IdxPre = true;
+    // index prefix cannot be combined with ED prefix
+    EDPre = false;
+    // (ix) gains an offset
+    if (MI.getDesc().OpInfo[OpIdx].OperandType == MCOI::OPERAND_MEMORY)
+      HasOff = true;
+  }
+
   // suffix byte
   switch (TSFlags & Z80II::ModeMask) {
   case Z80II::AnyMode:
   case Z80II::CurMode:
     break;
   case Z80II::Z80Mode:
-    Size += Subtarget.is24Bit();
+    Size += !Subtarget.is16Bit();
     break;
   case Z80II::EZ80Mode:
-    Size += Subtarget.is16Bit();
+    Size += !Subtarget.is24Bit();
     break;
   }
+
   // prefix byte(s)
-  Size += TSFlags & Z80II::HasIndexedPrefix
-              ? isIndex(MI.getOperand((TSFlags & Z80II::IndexMask) >>
-                                      Z80II::PrefixShift),
-                        getRegisterInfo())
-              : (TSFlags & Z80II::IndexMask) != Z80II::NoPrefix;
-  if (TSFlags & Z80II::HasCBPrefix)
-    Size += 1;
+  Size += IdxPre + CBPre + EDPre;
+
+  // opcode byte
+  Size += 1;
+
   // immediate byte(s)
   if (TSFlags & Z80II::HasImm)
     switch (TSFlags & Z80II::ModeMask) {
@@ -129,7 +146,7 @@ unsigned Z80InstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
       Size += 1;
       break;
     case Z80II::CurMode:
-      Size += Subtarget.is24Bit() ? 3 : 2;
+      Size += 2 + Subtarget.is24Bit();;
       break;
     case Z80II::Z80Mode:
       Size += 2;
@@ -138,9 +155,10 @@ unsigned Z80InstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
       Size += 3;
       break;
     }
+
   // offset byte
-  if (TSFlags & Z80II::HasOff)
-    Size += 1;
+  Size += HasOff;
+
   return Size;
 }
 
@@ -1016,9 +1034,9 @@ void Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
     case Z80::SLA8o:   Opc = Z80::SLA8p;   break;
     case Z80::SRA8o:   Opc = Z80::SRA8p;   break;
     case Z80::SRL8o:   Opc = Z80::SRL8p;   break;
-    case Z80::BIT8bo:  Opc = Z80::BIT8bp;  break;
-    case Z80::RES8bo:  Opc = Z80::RES8bp;  break;
-    case Z80::SET8bo:  Opc = Z80::SET8bp;  break;
+    case Z80::BIT8ob:  Opc = Z80::BIT8pb;  break;
+    case Z80::RES8ob:  Opc = Z80::RES8pb;  break;
+    case Z80::SET8ob:  Opc = Z80::SET8pb;  break;
     case Z80::INC8o:   Opc = Z80::INC8p;   break;
     case Z80::DEC8o:   Opc = Z80::DEC8p;   break;
     case Z80::ADD8ao:  Opc = Z80::ADD8ap;  break;
@@ -1867,7 +1885,7 @@ MachineInstr *Z80InstrInfo::foldMemoryOperandImpl(
   case 1:
     switch (MI.getOpcode()) {
     default: return nullptr;
-    case Z80::BIT8bg: Opc = IsOff ? Z80::BIT8bo : Z80::BIT8bp; break;
+    case Z80::BIT8gb: Opc = IsOff ? Z80::BIT8ob : Z80::BIT8pb; break;
     case Z80::ADD8ar: Opc = IsOff ? Z80::ADD8ao : Z80::ADD8ap; break;
     case Z80::ADC8ar: Opc = IsOff ? Z80::ADC8ao : Z80::ADC8ap; break;
     case Z80::SUB8ar: Opc = IsOff ? Z80::SUB8ao : Z80::SUB8ap; break;

@@ -292,6 +292,15 @@ def SLP   : I<EDPre, 0x76, "slp">, Requires<[HaveZ180Ops]>;
 def STMIX : I<EDPre, 0x7D, "stmix">, Requires<[HaveEZ80Ops]>;
 def RSMIX : I<EDPre, 0x7E, "rsmix">, Requires<[HaveEZ80Ops]>;
 
+let Defs = [F] in {
+  let isReMaterializable = true in {
+    def RCF : P;
+    def SCF : I<NoPre, 0x37, "scf">;
+  }
+  let Uses = [F] in
+  def CCF : I<NoPre, 0x3F, "ccf">;
+}
+
 //===----------------------------------------------------------------------===//
 //  Control Flow Instructions.
 //===----------------------------------------------------------------------===//
@@ -403,11 +412,11 @@ let isBranch = true, isTerminator = true in {
 //  Load Instructions.
 //===----------------------------------------------------------------------===//
 
-def LD8gg  : I<NoPre, 0x40, "ld", "\t$dst, $src", "",
+def LD8gg  : I<   NoPre, 0x40, "ld", "\t$dst, $src", "",
                (outs G8:$dst), (ins G8:$src)>;
-def LD8xx  : I<DDPre, 0x40, "ld", "\t$dst, $src", "",
+def LD8xx  : I<Idx01Pre, 0x40, "ld", "\t$dst, $src", "",
                (outs X8:$dst), (ins X8:$src)>, Requires<[HaveIdxHalf]>;
-def LD8yy  : I<FDPre, 0x40, "ld", "\t$dst, $src", "",
+def LD8yy  : I<Idx01Pre, 0x40, "ld", "\t$dst, $src", "",
                (outs Y8:$dst), (ins Y8:$src)>, Requires<[HaveIdxHalf]>;
 let Defs = [I], Uses = [A] in
 def LD8ia  : I<EDPre, 0x47, "ld", "\ti, a">;
@@ -451,7 +460,7 @@ let isMoveImm = true, isReMaterializable = true in {
 
 let mayLoad = true, canFoldAsLoad = true, isReMaterializable = true in {
   let Defs = [A] in
-  def LD8am  : I8i   <NoPre,   0x3A, "ld", "\ta, $src",    "",
+  def LD8am  : I8i   <  NoPre, 0x3A, "ld", "\ta, $src",    "",
                       (outs), (ins mem:$src), [(set A, (load mempat:$src))]>;
   def LD16rm : Pseudo<               "ld", "\t$dst, $src", "",
                       (outs R16:$dst), (ins mem:$src),
@@ -477,19 +486,19 @@ let mayLoad = true, canFoldAsLoad = true, isReMaterializable = true in {
   def LD8rp  : Pseudo<               "ld", "\t$dst, $src", "",
                      (outs R8:$dst), (ins aptr:$src)>;
   let Defs = [A] in
-  def LD8ap  : I     <  NoPre, 0x02, "ld", "\ta, $src", "",
+  def LD8ap  : I     <Idx0Pre, 0x02, "ld", "\ta, $src", "",
                       (outs), (ins optr:$src), [(set A, (load iPTR:$src))]>;
-  def LD8gp  : I     <NoPre,   0x46, "ld", "\t$dst, $src", "",
+  def LD8gp  : I     <Idx1Pre, 0x46, "ld", "\t$dst, $src", "",
                       (outs G8:$dst), (ins aptr:$src),
                       [(set G8:$dst, (load iPTR:$src))]>;
-  def LD16rp : I16   <EDPre,   0x07, "ld", "\t$dst, $src", "",
+  def LD16rp : I16   <Pre<Idx1Pre, EDPre>, 0x07, "ld", "\t$dst, $src", "",
                       (outs R16:$dst), (ins aptr:$src),
                       [(set R16:$dst, (load iPTR:$src))]>,
                Requires<[HaveEZ80Ops]>;
   def LD88rp : Pseudo<               "ld", "\t$dst, $src", "",
                       (outs R16:$dst), (ins aptr:$src),
                       [(set R16:$dst, (load iPTR:$src))]>;
-  def LD24rp : I24   <EDPre,   0x07, "ld", "\t$dst, $src", "",
+  def LD24rp : I24   <Pre<Idx1Pre, EDPre>, 0x07, "ld", "\t$dst, $src", "",
                       (outs R24:$dst), (ins aptr:$src),
                       [(set R24:$dst, (load iPTR:$src))]>;
 
@@ -551,19 +560,19 @@ let mayStore = true in {
   def LD8pr  : Pseudo<               "ld", "\t$dst, $src", "",
                       (outs), (ins aptr:$dst, R8:$src)>;
   let Uses = [A] in
-  def LD8pa  : I     <  NoPre, 0x02, "ld", "\t$dst, a", "",
+  def LD8pa  : I     <Idx0Pre, 0x02, "ld", "\t$dst, a", "",
                       (outs), (ins optr:$dst), [(store A, iPTR:$dst)]>;
-  def LD8pg  : I     <  NoPre, 0x70, "ld", "\t$dst, $src", "",
+  def LD8pg  : I     <Idx0Pre, 0x70, "ld", "\t$dst, $src", "",
                       (outs), (ins aptr:$dst, G8:$src),
                       [(store G8 :$src, iPTR:$dst)]>;
-  def LD16pr : I16   <  EDPre, 0x0F, "ld", "\t$dst, $src", "",
+  def LD16pr : I16   <Pre<Idx0Pre, EDPre>, 0x0F, "ld", "\t$dst, $src", "",
                       (outs), (ins aptr:$dst, R16:$src),
                       [(store R16:$src, iPTR:$dst)]>,
                Requires<[In16BitMode, HaveEZ80Ops]>;
   def LD88pr : Pseudo<               "ld", "\t$dst, $src", "",
                       (outs), (ins aptr:$dst, R16:$src),
                       [(store R16:$src, iPTR:$dst)]>;
-  def LD24pr : I24   <  EDPre, 0x0F, "ld", "\t$dst, $src", "",
+  def LD24pr : I24   <Pre<Idx0Pre, EDPre>, 0x0F, "ld", "\t$dst, $src", "",
                       (outs), (ins aptr:$dst, R24:$src),
                       [(store R24:$src, iPTR:$dst)]>;
 
@@ -593,7 +602,7 @@ let mayStore = true in {
 def : Pat<(store G24:$src, offpat:$dst), (LD24or off:$dst, R24:$src)>;
 
 let mayStore = true in {
-  def LD8pi  : Ii    <  NoPre, 0x36, "ld", "\t$dst, $src", "",
+  def LD8pi  : Ii    <Idx0Pre, 0x36, "ld", "\t$dst, $src", "",
                       (outs), (ins aptr:$dst, i8imm:$src),
                       [(store (i8 imm:$src),   iPTR:$dst)]>;
   def LD8oi  : Ioi   <Idx0Pre, 0x36, "ld", "\t$dst, $src", "",
@@ -610,12 +619,12 @@ let Defs = [SPS] in {
 let Defs = [SPL] in {
   def LD24si : I16i<  NoPre, 0x31, "ld", "\tsp, $src", "",
                     (outs), (ins i24imm:$src), [(set SPL, imm:$src)]>;
-  def LD24sa : I24<Idx0Pre, 0xF9, "ld", "\tsp, $src", "",
-                   (outs), (ins A24:$src)>;
+  def LD24sa : I24 <Idx0Pre, 0xF9, "ld", "\tsp, $src", "",
+                    (outs), (ins A24:$src)>;
 }
 
 let Defs = [AF], Uses = [AF] in
-def EXAF : I<NoPre, 0x08, "ex", "\taf, af'">;
+def EXAF   : I  <NoPre, 0x08, "ex", "\taf, af'">;
 let Defs = [HL, DE, BC], Uses = [HL, DE, BC] in
 def EXX16  : I16<NoPre, 0xD9, "exx">;
 let Defs = [UHL, UDE, UBC], Uses = [UHL, UDE, UBC] in
@@ -626,14 +635,12 @@ def EX16DE : I16<NoPre, 0xEB, "ex", "\tde, hl">;
 let Defs = [UDE, UHL], Uses = [UDE, UHL] in
 def EX24DE : I24<NoPre, 0xEB, "ex", "\tde, hl">;
 
-let Constraints = "$imp = $dst" in {
 let Uses = [SPS] in
-def EX16sa : I16<Idx0Pre, 0xE3, "ex", "\t(sp), $dst", "",
+def EX16sa : I16<Idx0Pre, 0xE3, "ex", "\t(sp), $dst", "$imp = $dst",
                  (outs A16:$dst), (ins A16:$imp)>;
 let Uses = [SPL] in
-def EX24sa : I24<Idx0Pre, 0xE3, "ex", "\t(sp), $dst", "",
+def EX24sa : I24<Idx0Pre, 0xE3, "ex", "\t(sp), $dst", "$imp = $dst",
                  (outs A24:$dst), (ins A24:$imp)>;
-}
 
 let Defs = [SPS], Uses = [SPS] in {
   let mayLoad = true in
@@ -644,7 +651,7 @@ let Defs = [SPS], Uses = [SPS] in {
     def PUSH16r : I16 <Idx0Pre, 0xC5, "push", "\t$src", "",
                        (outs), (ins R16:$src), [(Z80push R16:$src)]>,
                   Requires<[In16BitMode]>;
-    def PEA16o  : I16o<EDPre, 0x65, "pea", "\t$src", "",
+    def PEA16o  : I16o<  EDPre, 0x65, "pea", "\t$src", "",
                        (outs), (ins off16:$src), [(Z80push offpat:$src)]>,
                   Requires<[In16BitMode, HaveEZ80Ops]>;
   }
@@ -664,7 +671,7 @@ let Defs = [SPL], Uses = [SPL] in {
   let mayStore = true in {
     def PUSH24r : I24 <Idx0Pre, 0xC5, "push", "\t$src", "",
                        (outs), (ins R24:$src), [(Z80push R24:$src)]>;
-    def PEA24o  : I24o<EDPre,   0x65, "pea", "\t$src", "",
+    def PEA24o  : I24o<  EDPre,  0x65, "pea", "\t$src", "",
                        (outs), (ins off24:$src), [(Z80push offpat:$src)]>;
   }
 }
@@ -675,94 +682,87 @@ let Defs = [SPL], Uses = [AF, SPL], mayStore = true in
 def PUSH24AF : I24<NoPre, 0xF5, "push", "\taf", "",
                    (outs), (ins), [(Z80push AF)]>;
 
-let Defs = [F] in {
-  let isReMaterializable = true in {
-    def RCF : P;
-    def SCF : I<NoPre, 0x37, "scf">;
-  }
-  let Uses = [F] in
-  def CCF : I<NoPre, 0x3F, "ccf">;
-}
-
 //===----------------------------------------------------------------------===//
 //  Arithmetic Instructions.
 //===----------------------------------------------------------------------===//
 
 let Defs = [A, F], Uses = [A] in {
-  def CPL  : I<NoPre, 0x2F, "cpl", "", "", (outs), (ins), [(set A, ( not A))]>;
-  def NEG  : I<EDPre, 0x44, "neg", "", "", (outs), (ins), [(set A, (ineg A))]>;
-  def RLCA : I<NoPre, 0x07, "rlca">;
-  def RRCA : I<NoPre, 0x0F, "rrca">;
+  def CPL   : I  <NoPre, 0x2F, "cpl", "", "", (outs), (ins), [(set A, ( not A))]>;
+  def NEG   : I  <EDPre, 0x44, "neg", "", "", (outs), (ins), [(set A, (ineg A))]>;
+  def RLCA  : I  <NoPre, 0x07, "rlca">;
+  def RRCA  : I  <NoPre, 0x0F, "rrca">;
 }
 
 let Defs = [A, F], Uses = [A, F] in {
-  def RLA : I<NoPre, 0x17, "rla">;
-  def RRA : I<NoPre, 0x1F, "rra">;
-  def DAA : I<NoPre, 0x27, "daa">;
+  def RLA   : I  <NoPre, 0x17, "rla">;
+  def RRA   : I  <NoPre, 0x1F, "rra">;
+  def DAA   : I  <NoPre, 0x27, "daa">;
 }
 
 let Defs = [A, F], Uses = [HL, A] in {
   def RRD16 : I16<EDPre, 0x67, "rrd">;
-  def RLD16 : I16<EDPre, 0x67, "rld">;
+  def RLD16 : I16<EDPre, 0x6F, "rld">;
 }
 
 let Defs = [A, F], Uses = [UHL, A] in {
   def RRD24 : I24<EDPre, 0x67, "rrd">;
-  def RLD24 : I24<EDPre, 0x67, "rld">;
+  def RLD24 : I24<EDPre, 0x6F, "rld">;
 }
 
 let Defs = [F] in
-multiclass UnOp8RF<Prefix prefix, bits<8> opcode, string mnemonic,
+multiclass UnOp8RF<OtherPrefix prefix, bits<8> opcode, string mnemonic,
                    list<Predicate> Preds = []> {
   defvar rc8 = !if(!eq(prefix, CBPre), G8, R8);
-  def 8r   : I <prefix, opcode, mnemonic, "\t$dst", "$imp = $dst",
+  def 8r   : I <Pre<Idx0Pre, prefix>, opcode, mnemonic, "\t$dst", "$imp = $dst",
                 (outs rc8:$dst), (ins rc8:$imp),
                 [(set rc8:$dst, F,
                         (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
                             rc8:$imp))]>,
              Requires<Preds>;
   let mayLoad = true, mayStore = true in {
-    def 8p   : I <prefix, opcode, mnemonic, "\t$adr", "",
+    def 8p   : I <Pre<Idx0Pre, prefix>, opcode, mnemonic, "\t$adr", "",
                   (outs), (ins aptr:$adr),
                   [(store (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
                               (i8 (load iPTR:$adr))), iPTR:$adr),
                    (implicit F)]>,
                Requires<Preds>;
-    def 8o   : Io<prefix, opcode, mnemonic, "\t$adr", "", (outs), (ins  off:$adr),
+    def 8o   : Io<Pre<Idx0Pre, prefix>, opcode, mnemonic, "\t$adr", "",
+                  (outs), (ins  off:$adr),
                   [(store (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
                               (i8 (load offpat:$adr))), offpat:$adr),
                    (implicit F)]>,
                Requires<Preds>;
-    if !eq(prefix, Idx0CBPre) then
-    def 8go  : Io<Idx1CBPre, opcode, mnemonic, "\t$adr, $dst", "",
+    if !eq(prefix, CBPre) then
+    def 8go  : Io<Pre<Idx1Pre, prefix>, opcode, mnemonic, "\t$adr, $dst", "",
                   (outs rc8:$dst), (ins off:$adr)>,
                Requires<!listconcat(Preds, [HaveUndocOps])>;
   }
 }
 let Defs = [F], Uses = [F] in
-multiclass UnOp8RFF<Prefix prefix, bits<8> opcode, string mnemonic,
+multiclass UnOp8RFF<OtherPrefix prefix, bits<8> opcode, string mnemonic,
                     list<Predicate> Preds = []> {
   defvar rc8 = !if(!eq(prefix, CBPre), G8, R8);
-  def 8r   : I <prefix, opcode, mnemonic, "\t$dst", "$imp = $dst",
+  def 8r   : I <Pre<Idx0Pre, prefix>, opcode, mnemonic, "\t$dst", "$imp = $dst",
                 (outs rc8:$dst), (ins rc8:$imp),
                 [(set rc8:$dst, F,
                         (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
                             rc8:$imp, F))]>,
              Requires<Preds>;
   let mayLoad = true, mayStore = true in {
-    def 8p   : I <prefix, opcode, mnemonic, "\t$adr", "",
+    def 8p   : I <Pre<Idx0Pre, prefix>, opcode, mnemonic, "\t$adr", "",
                   (outs), (ins aptr:$adr),
                   [(store (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
                               (i8 (load iPTR:$adr)), F), iPTR:$adr),
                    (implicit F)]>,
                Requires<Preds>;
-    def 8o   : Io<prefix, opcode, mnemonic, "\t$adr", "", (outs), (ins  off:$adr),
+    def 8o   : Io<Pre<Idx0Pre, prefix>, opcode, mnemonic, "\t$adr", "",
+                  (outs), (ins  off:$adr),
                   [(store (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
                               (i8 (load offpat:$adr)), F), offpat:$adr),
                    (implicit F)]>,
                Requires<Preds>;
-    if !eq(prefix, Idx0CBPre) then
-    def 8go  : Io<Idx1CBPre, opcode, mnemonic, "\t$adr, $dst", "",
+    if !eq(prefix, CBPre) then
+    def 8go  : Io<Pre<Idx1Pre, prefix>, opcode, mnemonic, "\t$adr, $dst", "",
                   (outs rc8:$dst), (ins off:$adr)>,
                Requires<!listconcat(Preds, [HaveUndocOps])>;
   }
@@ -865,75 +865,75 @@ multiclass BinOp8F<Prefix prefix, bits<3> opcode, string mnemonic,
 }
 let Defs = [F] in
 multiclass BitOp8F<bits<2> opcode, string mnemonic> {
-  def 8bg  : I <    CBPre, {opcode, 0b000, 0b000},
+  def 8gb  : I <CBPre, {opcode, 0b000, 0b000},
                 mnemonic, "\t$bit, $src", "",
-                (outs), (ins bitimm:$bit, G8:$src),
+                (outs), (ins   G8:$src, bitimm:$bit),
                 [(set F, (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
                              bitimm:$bit, G8:$src))]>;
   let mayLoad = true in {
-    def 8bp  : I <    CBPre, {opcode, 0b000, 0b110},
+    def 8pb  : I <Pre<Idx0Pre, CBPre>, {opcode, 0b000, 0b110},
                   mnemonic, "\t$bit, $adr", "",
-                  (outs), (ins bitimm:$bit, aptr:$adr),
+                  (outs), (ins aptr:$adr, bitimm:$bit),
                   [(set F, (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
                                bitimm:$bit, (i8 (load iPTR:$adr))))]>;
-    def 8bo  : Io<Idx1CBPre, {opcode, 0b000, 0b110},
+    def 8ob  : Io<Pre<Idx0Pre, CBPre>, {opcode, 0b000, 0b110},
                   mnemonic, "\t$bit, $adr", "",
-                  (outs), (ins bitimm:$bit,  off:$adr),
+                  (outs), (ins  off:$adr, bitimm:$bit),
                   [(set F, (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
                                bitimm:$bit, (i8 (load offpat:$adr))))]>;
   }
 }
 multiclass BitOp8R<bits<2> opcode, string mnemonic> {
-  def 8bg  : I <   CBPre, {opcode, 0b000, 0b000},
+  def 8gb  : I <CBPre, {opcode, 0b000, 0b000},
                 mnemonic, "\t$bit, $dst", "$imp = $dst",
-                (outs G8:$dst), (ins bitimm:$bit, G8:$imp),
+                (outs   G8:$dst), (ins   G8:$imp, bitimm:$bit),
                 [(set G8:$dst,
                       (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
                           bitimm:$bit, G8:$imp))]>;
   let mayLoad = true, mayStore = true in {
-    def 8bp  : I <    CBPre, {opcode, 0b000, 0b110},
+    def 8pb  : I <Pre<Idx0Pre, CBPre>, {opcode, 0b000, 0b110},
                   mnemonic, "\t$bit, $adr", "",
-                  (outs), (ins bitimm:$bit, aptr:$adr),
+                  (outs), (ins aptr:$adr, bitimm:$bit),
                   [(store (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
                               bitimm:$bit, (i8 (load   iPTR:$adr))),
                               iPTR:$adr),
                    (implicit F)]>;
-    def 8bo  : Io<Idx1CBPre, {opcode, 0b000, 0b110},
+    def 8ob  : Io<Pre<Idx0Pre, CBPre>, {opcode, 0b000, 0b110},
                   mnemonic, "\t$bit, $adr", "",
-                  (outs), (ins bitimm:$bit,  off:$adr),
+                  (outs), (ins  off:$adr, bitimm:$bit),
                   [(store (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
                               bitimm:$bit, (i8 (load offpat:$adr))),
                               offpat:$adr),
                    (implicit F)]>;
-    def 8gbo : Io<Idx2CBPre, {opcode, 0b000, 0b000},
+    def 8gob : Io<Pre<Idx1Pre, CBPre>, {opcode, 0b000, 0b000},
                   mnemonic, "\t$bit, $adr, $dst", "",
-                  (outs G8:$dst), (ins bitimm:$bit,  off:$adr)>,
+                  (outs G8:$dst), (ins  off:$adr, bitimm:$bit)>,
                Requires<[HaveUndocOps]>;
   }
 }
 
-defm RLC : UnOp8RF  <Idx0CBPre, 0, "rlc">;
-defm RRC : UnOp8RF  <Idx0CBPre, 1, "rrc">;
-defm RL  : UnOp8RFF <Idx0CBPre, 2, "rl">;
-defm RR  : UnOp8RFF <Idx0CBPre, 3, "rr">;
-defm SLA : UnOp8RF  <Idx0CBPre, 4, "sla">;
-defm SRA : UnOp8RF  <Idx0CBPre, 5, "sra">;
-defm SLI : UnOp8RF  <Idx0CBPre, 6, "sli", [HaveSliOp]>;
-defm SRL : UnOp8RF  <Idx0CBPre, 7, "srl">;
-defm BIT : BitOp8F  <           1, "bit">;
-defm RES : BitOp8R  <           2, "res">;
-defm SET : BitOp8R  <           3, "set">;
-defm INC : UnOp8RF  <  Idx0Pre, 4, "inc">;
-defm DEC : UnOp8RF  <  Idx0Pre, 5, "dec">;
-defm ADD : BinOp8RF <           0, "add">;
-defm ADC : BinOp8RFF<           1, "adc", adde>;
-defm SUB : BinOp8RF <           2, "sub", true>;
-defm SBC : BinOp8RFF<           3, "sbc", sube>;
-defm AND : BinOp8RF <           4, "and">;
-defm XOR : BinOp8RF <           5, "xor">;
-defm OR  : BinOp8RF <           6, "or",  true>;
-defm CP  : BinOp8F  <  Idx0Pre, 7, "cp",  true>;
-defm TST : BinOp8F  <    EDPre, 4, "tst", true>, Requires<[HaveZ180Ops]>;
+defm RLC : UnOp8RF  <  CBPre, 0, "rlc">;
+defm RRC : UnOp8RF  <  CBPre, 1, "rrc">;
+defm RL  : UnOp8RFF <  CBPre, 2, "rl">;
+defm RR  : UnOp8RFF <  CBPre, 3, "rr">;
+defm SLA : UnOp8RF  <  CBPre, 4, "sla">;
+defm SRA : UnOp8RF  <  CBPre, 5, "sra">;
+defm SLI : UnOp8RF  <  CBPre, 6, "sli", [HaveSliOp]>;
+defm SRL : UnOp8RF  <  CBPre, 7, "srl">;
+defm BIT : BitOp8F  <         1, "bit">;
+defm RES : BitOp8R  <         2, "res">;
+defm SET : BitOp8R  <         3, "set">;
+defm INC : UnOp8RF  <  NoPre, 4, "inc">;
+defm DEC : UnOp8RF  <  NoPre, 5, "dec">;
+defm ADD : BinOp8RF <         0, "add">;
+defm ADC : BinOp8RFF<         1, "adc", adde>;
+defm SUB : BinOp8RF <         2, "sub", true>;
+defm SBC : BinOp8RFF<         3, "sbc", sube>;
+defm AND : BinOp8RF <         4, "and">;
+defm XOR : BinOp8RF <         5, "xor">;
+defm OR  : BinOp8RF <         6, "or",  true>;
+defm CP  : BinOp8F  <Idx0Pre, 7, "cp",  true>;
+defm TST : BinOp8F  <  EDPre, 4, "tst", true>, Requires<[HaveZ180Ops]>;
 
 def : MnemonicAlias<"sll", "sli">, Requires<[HaveSliOp]>;
 def : MnemonicAlias<"sl1", "sli">, Requires<[HaveSliOp]>;
@@ -961,15 +961,15 @@ def DEC24r : I24<Idx0Pre, 0x0B, "dec", "\t$dst", "$imp = $dst",
                  (outs R24:$dst), (ins R24:$imp),
                  [(set R24:$dst, (Z80dec_flag R24:$imp))]>;
 let Defs = [SPS], Uses = [SPS] in {
-def INC16s : I16<NoPre, 0x33, "inc", "\tsp", "",
+def INC16s : I16<  NoPre, 0x33, "inc", "\tsp", "",
                  (outs), (ins), [(set SPS, (Z80inc_flag SPS))]>;
-def DEC16s : I16<NoPre, 0x3B, "dec", "\tsp", "",
+def DEC16s : I16<  NoPre, 0x3B, "dec", "\tsp", "",
                  (outs), (ins), [(set SPS, (Z80dec_flag SPS))]>;
 }
 let Defs = [SPL], Uses = [SPL] in {
-def INC24s : I24<NoPre, 0x33, "inc", "\tsp", "",
+def INC24s : I24<  NoPre, 0x33, "inc", "\tsp", "",
                  (outs), (ins), [(set SPL, (Z80inc_flag SPL))]>;
-def DEC24s : I24<NoPre, 0x3B, "dec", "\tsp", "",
+def DEC24s : I24<  NoPre, 0x3B, "dec", "\tsp", "",
                  (outs), (ins), [(set SPL, (Z80dec_flag SPL))]>;
 }
 def : Pat<(add R16:$imp,  1), (INC16r R16:$imp)>;
@@ -978,26 +978,26 @@ def : Pat<(add R24:$imp,  1), (INC24r R24:$imp)>;
 def : Pat<(add R24:$imp, -1), (DEC24r R24:$imp)>;
 
 let Defs = [F] in {
+  def ADD16ao : I16<Idx01Pre, 0x09, "add", "\t$dst, $src", "$imp = $dst",
+                    (outs A16:$dst), (ins A16:$imp, O16:$src),
+                    [(set A16:$dst, F, (Z80add_flag A16:$imp, O16:$src))]>;
+  def ADD24ao : I24<Idx01Pre, 0x09, "add", "\t$dst, $src", "$imp = $dst",
+                    (outs A24:$dst), (ins A24:$imp, O24:$src),
+                    [(set A24:$dst, F, (Z80add_flag A24:$imp, O24:$src))]>;
   let AddedComplexity = 1 in {
-    def ADD16aa : I16<Idx0Pre, 0x29, "add", "\t$dst, $imp", "$imp = $dst",
+    def ADD16aa : I16<Idx01Pre, 0x29, "add", "\t$dst, $imp", "$imp = $dst",
                       (outs A16:$dst), (ins A16:$imp),
                       [(set A16:$dst, F, (Z80add_flag A16:$imp, A16:$imp))]>;
-    def ADD24aa : I24<Idx0Pre, 0x29, "add", "\t$dst, $imp", "$imp = $dst",
+    def ADD24aa : I24<Idx01Pre, 0x29, "add", "\t$dst, $imp", "$imp = $dst",
                       (outs A24:$dst), (ins A24:$imp),
                       [(set A24:$dst, F, (Z80add_flag A24:$imp, A24:$imp))]>;
   }
-  def ADD16ao : I16<Idx0Pre, 0x09, "add", "\t$dst, $src", "$imp = $dst",
-                    (outs A16:$dst), (ins A16:$imp, O16:$src),
-                    [(set A16:$dst, F, (Z80add_flag A16:$imp, O16:$src))]>;
-  def ADD24ao : I24<Idx0Pre, 0x09, "add", "\t$dst, $src", "$imp = $dst",
-                    (outs A24:$dst), (ins A24:$imp, O24:$src),
-                    [(set A24:$dst, F, (Z80add_flag A24:$imp, O24:$src))]>;
   let Uses = [SPS] in
-  def ADD16as : I16<Idx0Pre, 0x39, "add", "\t$dst, sp",   "$imp = $dst",
+  def ADD16as : I16<Idx01Pre, 0x39, "add", "\t$dst, sp",   "$imp = $dst",
                    (outs A16:$dst), (ins A16:$imp),
                    [(set A16:$dst, F, (Z80add_flag A16:$imp, SPS))]>;
   let Uses = [SPL] in
-  def ADD24as : I24<Idx0Pre, 0x39, "add", "\t$dst, sp",   "$imp = $dst",
+  def ADD24as : I24<Idx01Pre, 0x39, "add", "\t$dst, sp",   "$imp = $dst",
                    (outs A24:$dst), (ins A24:$imp),
                    [(set A24:$dst, F, (Z80add_flag A24:$imp, SPL))]>;
 }
@@ -1094,9 +1094,10 @@ def LEA24ro : I24o<EDPre, 0x02, "lea", "\t$dst, $src", "",
                    (outs R24:$dst), (ins off24:$src),
                    [(set R24:$dst, offpat:$src)]>;
 
-def MLT16r : I<EDPre, 0x4C, "mlt", "\t$dst", "$imp = $dst",
-               (outs G16:$dst), (ins G16:$imp),
-               [(set G16:$dst, (Z80mlt G16:$imp))]>, Requires<[HaveZ180Ops]>;
+def MLT16r  : I   <EDPre, 0x4C, "mlt", "\t$dst", "$imp = $dst",
+                   (outs G16:$dst), (ins G16:$imp),
+                   [(set G16:$dst, (Z80mlt G16:$imp))]>,
+              Requires<[HaveZ180Ops]>;
 let Defs = [SPS], Uses = [SPS] in
 def MLT16s : I16<EDPre, 0x7C, "mlt", "\tsp", "", (outs), (ins)>,
              Requires<[HaveZ180Ops]>;
