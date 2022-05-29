@@ -7304,9 +7304,10 @@ LegalizerHelper::lowerBswap(MachineInstr &MI) {
   auto Res = MIRBuilder.buildOr(Ty, MSByteShiftedRight, LSByteShiftedLeft);
 
   // Set i-th high/low byte in Res to i-th low/high byte from Src.
+  APInt APMask(SizeInBytes * 8, 0xFF);
   for (unsigned i = 1; i < SizeInBytes / 2; ++i) {
     // AND with Mask leaves byte i unchanged and sets remaining bytes to 0.
-    APInt APMask(SizeInBytes * 8, 0xFF << (i * 8));
+    APMask <<= 8;
     auto Mask = MIRBuilder.buildConstant(Ty, APMask);
     auto ShiftAmt = MIRBuilder.buildConstant(Ty, BaseShiftAmt - 16 * i);
     // Low byte shifted left to place of high byte: (Src & Mask) << ShiftAmt.
