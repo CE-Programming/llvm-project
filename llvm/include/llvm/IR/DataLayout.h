@@ -138,7 +138,8 @@ private:
     MM_WinCOFFX86,
     MM_GOFF,
     MM_Mips,
-    MM_XCOFF
+    MM_XCOFF,
+    MM_Z80,
   };
   ManglingModeT ManglingMode;
 
@@ -326,6 +327,7 @@ public:
       return '\0';
     case MM_MachO:
     case MM_WinCOFFX86:
+    case MM_Z80:
       return '_';
     }
     llvm_unreachable("invalid mangling mode");
@@ -334,6 +336,7 @@ public:
   StringRef getPrivateGlobalPrefix() const {
     switch (ManglingMode) {
     case MM_None:
+    case MM_Z80:
       return "";
     case MM_ELF:
     case MM_WinCOFF:

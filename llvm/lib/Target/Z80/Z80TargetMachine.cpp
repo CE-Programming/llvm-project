@@ -50,8 +50,8 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeZ80Target() {
 static std::string computeDataLayout(const Triple &TT) {
   bool IsEZ80 = TT.getArch() == Triple::ez80;
   bool Is16Bit = TT.isArch16Bit() || TT.getEnvironment() == Triple::CODE16;
-  // Z80 is little endian and mangling is closest to MachO.
-  std::string Ret = "e-m:o";
+  // Z80 is little endian and mangling is Z80.
+  std::string Ret = "e-m:z";
   // Memory Address Width
   Ret += Is16Bit ? "-p:16:8" : "-p:24:8";
   // Port Address Width

@@ -339,7 +339,7 @@ define i8 @switch(i8) {
 ; Z80-NEXT:    ld a, -1
 ; Z80-NEXT:    ret
 ; Z80-NEXT:  BB11_2:
-; Z80-NEXT:    ld hl, LJTI11_0
+; Z80-NEXT:    ld hl, JTI11_0
 ; Z80-NEXT:    add hl, de
 ; Z80-NEXT:    add hl, de
 ; Z80-NEXT:    push de
@@ -375,7 +375,7 @@ define i8 @switch(i8) {
 ; EZ80-CODE16-NEXT:    ld a, -1
 ; EZ80-CODE16-NEXT:    ret
 ; EZ80-CODE16-NEXT:  BB11_2:
-; EZ80-CODE16-NEXT:    ld hl, LJTI11_0
+; EZ80-CODE16-NEXT:    ld hl, JTI11_0
 ; EZ80-CODE16-NEXT:    add hl, de
 ; EZ80-CODE16-NEXT:    add hl, de
 ; EZ80-CODE16-NEXT:    ld hl, (hl)
@@ -407,7 +407,7 @@ define i8 @switch(i8) {
 ; EZ80-NEXT:    ret
 ; EZ80-NEXT:  BB11_2:
 ; EZ80-NEXT:    ld e, a
-; EZ80-NEXT:    ld hl, LJTI11_0
+; EZ80-NEXT:    ld hl, JTI11_0
 ; EZ80-NEXT:    add hl, de
 ; EZ80-NEXT:    add hl, de
 ; EZ80-NEXT:    add hl, de
