@@ -81,11 +81,7 @@ void Z80AsmPrinter::emitGlobalVariable(const GlobalVariable *GV) {
     report_fatal_error("symbol '" + Twine(GVSym->getName()) +
                        "' is already defined");
 
-  SectionKind GVKind = TargetLoweringObjectFile::getKindForGlobal(GV, TM);
-
-  // Determine to which section this global should be emitted.
-  OutStreamer->SwitchSection(
-      getObjFileLowering().SectionForGlobal(GV, GVKind, TM));
+  SectionKind GVKind = SwitchSectionForGlobal(GV);
 
   // If the alignment is specified, we *must* obey it.  Overaligning a global
   // with a specified alignment is a prompt way to break globals emitted to
@@ -104,6 +100,24 @@ void Z80AsmPrinter::emitGlobalVariable(const GlobalVariable *GV) {
   else
     emitGlobalConstant(DL, GV->getInitializer());
   OutStreamer->AddBlankLine();
+}
+
+void Z80AsmPrinter::emitGlobalAlias(Module &M, const GlobalAlias &GA) {
+  SwitchSectionForGlobal(GA.getAliaseeObject());
+  AsmPrinter::emitGlobalAlias(M, GA);
+  OutStreamer->AddBlankLine();
+}
+
+SectionKind Z80AsmPrinter::SwitchSectionForGlobal(const GlobalObject *GO) {
+  SectionKind GOKind = SectionKind::getText();
+  MCSection *Section = getObjFileLowering().getTextSection();
+  if (GO) {
+    GOKind = TargetLoweringObjectFile::getKindForGlobal(GO, TM);
+    // Determine to which section this global should be emitted.
+    Section = getObjFileLowering().SectionForGlobal(GO, GOKind, TM);
+  }
+  OutStreamer->SwitchSection(Section);
+  return GOKind;
 }
 
 void Z80AsmPrinter::PrintOperand(const MachineInstr *MI, unsigned OpNum,
