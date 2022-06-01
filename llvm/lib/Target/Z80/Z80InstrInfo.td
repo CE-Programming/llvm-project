@@ -1256,7 +1256,7 @@ def : Pat<(Z80tcret (texternalsym:$dst)), (TCRETURN24 texternalsym:$dst)>,
       Requires<[In24BitMode]>;
 
 //===----------------------------------------------------------------------===//
-// Subsystems.
+// Subreg Twiddling
 //===----------------------------------------------------------------------===//
 
 // anyext
@@ -1279,3 +1279,16 @@ def : Pat<(i24 (zext R16:$src)),
 def : Pat<(i8  (trunc R16:$src)), (EXTRACT_SUBREG R16:$src, sub_low)>;
 def : Pat<(i8  (trunc R24:$src)), (EXTRACT_SUBREG R24:$src, sub_low)>;
 def : Pat<(i16 (trunc R24:$src)), (EXTRACT_SUBREG R24:$src, sub_short)>;
+
+// shift
+def : Pat<(shl R16:$src, (i8 8)),
+          (REG_SEQUENCE R16, (i8 (EXTRACT_SUBREG R16:$src, sub_low)), sub_high,
+                             (LD8r0), sub_low)>;
+def : Pat<(srl R16:$src, (i8 8)),
+          (REG_SEQUENCE R16, (LD8r0), sub_high,
+                             (i8 (EXTRACT_SUBREG R16:$src, sub_high)), sub_low)>;
+
+// bswap
+def : Pat<(bswap R16:$src),
+          (REG_SEQUENCE R16, (i8 (EXTRACT_SUBREG R16:$src, sub_low)), sub_high,
+                             (i8 (EXTRACT_SUBREG R16:$src, sub_high)), sub_low)>;

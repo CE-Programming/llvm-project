@@ -148,6 +148,8 @@ Z80TargetLowering::Z80TargetLowering(const Z80TargetMachine &TM,
   setLibcall(RTLIB::BITREV_I24,       "_ibitrev",  CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::BITREV_I32,       "_lbitrev",  CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::BITREV_I64,       "_llbitrev", CallingConv::Z80_LibCall   );
+  setLibcall(RTLIB::BSWAP_I32,        "_lbswap",   CallingConv::Z80_LibCall   );
+  setLibcall(RTLIB::BSWAP_I64,        "_llbswap",  CallingConv::Z80_LibCall   );
 
   setLibcall(RTLIB::ADD_F32,          "_fadd",     CallingConv::Z80_LibCall_L );
   setLibcall(RTLIB::SUB_F32,          "_fsub",     CallingConv::Z80_LibCall_L );
