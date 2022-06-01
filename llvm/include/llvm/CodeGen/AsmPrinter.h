@@ -848,6 +848,8 @@ public:
   static Align getGVAlignment(const GlobalObject *GV, const DataLayout &DL,
                               Align InAlign = Align(1));
 
+  virtual void emitGlobalAlias(Module &M, const GlobalAlias &GA);
+
 private:
   /// Private state for PrintSpecial()
   // Assign a unique ID to this machine instruction.

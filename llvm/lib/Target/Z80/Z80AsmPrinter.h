@@ -11,6 +11,7 @@
 #define LLVM_LIB_TARGET_Z80_Z80ASMPRINTER_H
 
 #include "llvm/CodeGen/AsmPrinter.h"
+#include "llvm/MC/SectionKind.h"
 
 namespace llvm {
 
@@ -37,9 +38,12 @@ public:
                         const MCSubtargetInfo *EndInfo) const override;
   void emitEndOfAsmFile(Module &M) override;
   void emitGlobalVariable(const GlobalVariable *GV) override;
+  void emitGlobalAlias(Module &M, const GlobalAlias &GA) override;
   void emitInstruction(const MachineInstr *MI) override;
 
 private:
+  SectionKind SwitchSectionForGlobal(const GlobalObject *GO);
+
   void PrintOperand(const MachineInstr *MI, unsigned OpNum, unsigned SubRegIdx,
                     raw_ostream &O);
   bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNum,
