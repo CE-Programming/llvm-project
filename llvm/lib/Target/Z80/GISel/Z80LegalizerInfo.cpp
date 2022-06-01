@@ -224,10 +224,9 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .clampScalar(0, s8, sMax);
 
   getActionDefinitionsBuilder(
-      {G_SDIVREM, G_UDIVREM, G_ABS,     G_DYN_STACKALLOC, G_SEXT_INREG,
-       G_BSWAP,   G_SMULO,   G_SMULH,   G_UMULH,          G_SMIN,
-       G_SMAX,    G_UMIN,    G_UMAX,    G_UADDSAT,        G_SADDSAT,
-       G_USUBSAT, G_SSUBSAT, G_USHLSAT, G_SSHLSAT,        G_FPOWI})
+      {G_SDIVREM, G_UDIVREM, G_ABS, G_DYN_STACKALLOC, G_SEXT_INREG, G_SMULO,
+       G_SMULH, G_UMULH, G_SMIN, G_SMAX, G_UMIN, G_UMAX, G_UADDSAT, G_SADDSAT,
+       G_USUBSAT, G_SSUBSAT, G_USHLSAT, G_SSHLSAT, G_FPOWI})
       .lower();
 
   getActionDefinitionsBuilder({G_CTTZ, G_CTTZ_ZERO_UNDEF, G_CTLZ_ZERO_UNDEF})
@@ -241,6 +240,11 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
   getActionDefinitionsBuilder(G_CTPOP)
       .libcallForCartesianProduct({s8}, LegalLibcallScalars)
       .clampScalar(0, s8, s8);
+
+  getActionDefinitionsBuilder(G_BSWAP)
+      .legalFor({s16})
+      .libcallFor({s32, s64})
+      .clampScalar(0, s16, s64);
 
   getActionDefinitionsBuilder(G_BITREVERSE)
       .libcallFor(LegalLibcallScalars)
@@ -448,8 +452,8 @@ Z80LegalizerInfo::legalizeVAStart(LegalizerHelper &Helper,
 LegalizerHelper::LegalizeResult
 Z80LegalizerInfo::legalizeShift(LegalizerHelper &Helper, MachineInstr &MI,
                                 LostDebugLocObserver &LocObserver) const {
-  assert((MI.getOpcode() == G_SHL || MI.getOpcode() == G_LSHR ||
-          MI.getOpcode() == G_ASHR) &&
+  unsigned Opc = MI.getOpcode();
+  assert((Opc == G_SHL || Opc == G_LSHR || Opc == G_ASHR) &&
          "Unexpected opcode");
   MachineRegisterInfo &MRI = *Helper.MIRBuilder.getMRI();
   Register DstReg = MI.getOperand(0).getReg();
@@ -458,17 +462,13 @@ Z80LegalizerInfo::legalizeShift(LegalizerHelper &Helper, MachineInstr &MI,
           getIConstantVRegValWithLookThrough(MI.getOperand(2).getReg(), MRI)) {
     if (Ty == LLT::scalar(8) && Amt->Value == 1)
       return LegalizerHelper::AlreadyLegal;
-    if (MI.getOpcode() == G_SHL && Amt->Value == 1) {
-      Helper.Observer.changingInstr(MI);
-      MI.setDesc(Helper.MIRBuilder.getTII().get(G_ADD));
-      MI.getOperand(2).setReg(MI.getOperand(1).getReg());
-      Helper.Observer.changedInstr(MI);
-      return LegalizerHelper::Legalized;
-    }
+    if ((Opc == G_SHL || Opc == G_LSHR) && Ty == LLT::scalar(16) &&
+        Amt->Value == 8)
+      return LegalizerHelper::AlreadyLegal;
     if (MI.getOpcode() == G_ASHR && Amt->Value == Ty.getSizeInBits() - 1 &&
         (Ty == LLT::scalar(8) || Ty == LLT::scalar(16) ||
          (Subtarget.is24Bit() && Ty == LLT::scalar(24))))
-      return LegalizerHelper::Legalized;
+      return LegalizerHelper::AlreadyLegal;
   }
   return Helper.libcall(MI, LocObserver);
 }

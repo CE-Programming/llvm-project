@@ -559,6 +559,8 @@ static RTLIB::Libcall getRTLibDesc(unsigned Opcode, unsigned Size) {
     RTLIBCASE_ALL(UREM_I);
   case TargetOpcode::G_CTPOP:
     RTLIBCASE_ALL(POPCNT_I);
+  case TargetOpcode::G_BSWAP:
+    RTLIBCASE_INT(BSWAP_I);
   case TargetOpcode::G_BITREVERSE:
     RTLIBCASE_ALL(BITREV_I);
   case TargetOpcode::G_CTLZ_ZERO_UNDEF:
@@ -879,6 +881,7 @@ LegalizerHelper::libcall(MachineInstr &MI, LostDebugLocObserver &LocObserver) {
   case TargetOpcode::G_UDIV:
   case TargetOpcode::G_SREM:
   case TargetOpcode::G_UREM:
+  case TargetOpcode::G_BSWAP:
   case TargetOpcode::G_BITREVERSE: {
     Type *HLTy = IntegerType::get(Ctx, Size);
     auto Status = simpleLibcall(MI, MIRBuilder, Size, HLTy);
