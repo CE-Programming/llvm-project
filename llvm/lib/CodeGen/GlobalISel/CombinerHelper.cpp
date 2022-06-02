@@ -6508,33 +6508,28 @@ void CombinerHelper::applyCombineFunnelShift(MachineInstr &MI,
 }
 
 bool CombinerHelper::matchCombineIdentity(MachineInstr &MI) {
-  int64_t IdentityElement;
-  switch (MI.getOpcode()) {
-  case TargetOpcode::G_ADD:
-  case TargetOpcode::G_SUB:
-  case TargetOpcode::G_OR:
-  case TargetOpcode::G_XOR:
-  case TargetOpcode::G_SHL:
-  case TargetOpcode::G_LSHR:
-  case TargetOpcode::G_ASHR:
-  case TargetOpcode::G_PTR_ADD:
-    IdentityElement = 0;
-    break;
-  case TargetOpcode::G_MUL:
-  case TargetOpcode::G_SDIV:
-  case TargetOpcode::G_UDIV:
-    IdentityElement = 1;
-    break;
-  case TargetOpcode::G_AND:
-  case TargetOpcode::G_PTRMASK:
-    IdentityElement = -1;
-    break;
-  default:
-    return false;
-  }
-  auto MaybeImmVal =
-      getIConstantVRegValWithLookThrough(MI.getOperand(2).getReg(), MRI);
-  return MaybeImmVal && MaybeImmVal->Value == IdentityElement;
+  if (MI.getNumOperands() == 3 && MI.getOperand(2).isReg())
+    if (auto MaybeImmVal =
+            getIConstantVRegValWithLookThrough(MI.getOperand(2).getReg(), MRI))
+      switch (MI.getOpcode()) {
+      case TargetOpcode::G_ADD:
+      case TargetOpcode::G_SUB:
+      case TargetOpcode::G_OR:
+      case TargetOpcode::G_XOR:
+      case TargetOpcode::G_SHL:
+      case TargetOpcode::G_LSHR:
+      case TargetOpcode::G_ASHR:
+      case TargetOpcode::G_PTR_ADD:
+        return MaybeImmVal->Value.isZero();
+      case TargetOpcode::G_MUL:
+      case TargetOpcode::G_SDIV:
+      case TargetOpcode::G_UDIV:
+        return MaybeImmVal->Value.isOne();
+      case TargetOpcode::G_AND:
+      case TargetOpcode::G_PTRMASK:
+        return MaybeImmVal->Value.isAllOnes();
+      }
+  return false;
 }
 
 bool CombinerHelper::applyCombineIdentity(MachineInstr &MI) {
