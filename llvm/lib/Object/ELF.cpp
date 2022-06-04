@@ -181,6 +181,13 @@ StringRef llvm::object::getELFRelocationTypeName(uint32_t Machine,
       break;
     }
     break;
+  case ELF::EM_Z80:
+    switch (Type) {
+#include "llvm/BinaryFormat/ELFRelocs/z80.def"
+    default:
+      break;
+    }
+    break;
   default:
     break;
   }
@@ -233,6 +240,8 @@ uint32_t llvm::object::getELFRelativeRelocationType(uint32_t Machine) {
     break;
   case ELF::EM_LOONGARCH:
     return ELF::R_LARCH_RELATIVE;
+  case ELF::EM_Z80:
+    break;
   default:
     break;
   }
