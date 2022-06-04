@@ -7692,10 +7692,35 @@ static void handleZ80InterruptAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     return;
   }
 
-  if (!AL.checkExactlyNumArgs(S, 0))
+  if (hasFunctionProto(D) && getFunctionOrMethodNumParams(D) != 0) {
+    S.Diag(D->getLocation(), diag::warn_interrupt_attribute_invalid)
+        << /*Z80*/ 3 << 0;
+    return;
+  }
+
+  if (!getFunctionOrMethodResultType(D)->isVoidType()) {
+    S.Diag(D->getLocation(), diag::warn_interrupt_attribute_invalid)
+        << /*Z80*/ 3 << 1;
+    return;
+  }
+
+  // The attribute takes an optional string argument.
+  if (!AL.checkAtMostNumArgs(S, 1))
     return;
 
-  handleSimpleAttribute<AnyZ80InterruptAttr>(S, D, AL);
+  StringRef Str;
+  SourceLocation ArgLoc;
+  if (AL.getNumArgs() && !S.checkStringLiteralArgumentAttr(AL, 0, Str, &ArgLoc))
+    return;
+
+  AnyZ80InterruptAttr::InterruptType Kind;
+  if (!AnyZ80InterruptAttr::ConvertStrToInterruptType(Str, Kind)) {
+    S.Diag(AL.getLoc(), diag::warn_attribute_type_not_supported)
+        << AL << ("\"" + Str + "\"").str() << ArgLoc;
+    Kind = AnyZ80InterruptAttr::InterruptType::Generic;
+  }
+
+  D->addAttr(::new (S.Context) AnyZ80InterruptAttr(S.Context, AL, Kind));
 }
 
 static void handleInterruptAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
