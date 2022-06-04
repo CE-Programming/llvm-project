@@ -252,16 +252,18 @@ namespace CallingConv {
     /// M68k_INTR - Calling convention used for M68k interrupt routines.
     M68k_INTR = 101,
 
+    /// Calling convention for passing an OS-defined constant in the IY register.
+    Z80_TIFlags = 102,
+
     /// Calling conventions used for special Z80 rtlib functions
     /// which pass in registers and save all registers.
-    Z80_LibCall = 102,
-    Z80_LibCall_AB = 103,
-    Z80_LibCall_AC = 104,
-    Z80_LibCall_BC = 105,
-    Z80_LibCall_L = 106,
-    Z80_LibCall_F = 107,
-    Z80_LibCall_16 = 108,
-    Z80_TIFlags = 109,
+    Z80_LibCall = 103,
+    Z80_LibCall_AB = 104,
+    Z80_LibCall_AC = 105,
+    Z80_LibCall_BC = 106,
+    Z80_LibCall_L = 107,
+    Z80_LibCall_F = 108,
+    Z80_LibCall_16 = 189,
 
     /// The highest possible calling convention ID. Must be some 2^k - 1.
     MaxID = 1023

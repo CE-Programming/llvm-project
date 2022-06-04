@@ -102,11 +102,11 @@ unsigned Z80RegisterInfo::getRegPressureLimit(const TargetRegisterClass *RC,
 const MCPhysReg *
 Z80RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
   switch (MF->getFunction().getCallingConv()) {
-  default: llvm_unreachable("Unsupported calling convention");
+  default:
+    llvm_unreachable("Unsupported calling convention");
   case CallingConv::C:
   case CallingConv::Fast:
     return Is24Bit ? CSR_EZ80_C_SaveList : CSR_Z80_C_SaveList;
-  case CallingConv::PreserveAll:
   case CallingConv::Z80_LibCall:
   case CallingConv::Z80_LibCall_AB:
   case CallingConv::Z80_LibCall_AC:
@@ -116,6 +116,9 @@ Z80RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
     return Is24Bit ? CSR_EZ80_AllRegs_SaveList : CSR_Z80_AllRegs_SaveList;
   case CallingConv::Z80_LibCall_16:
     return Is24Bit ? CSR_EZ80_AllRegs16_SaveList : CSR_Z80_AllRegs_SaveList;
+  case CallingConv::PreserveAll:
+    return Is24Bit ? CSR_EZ80_AllRegsAndFlags_SaveList
+                   : CSR_Z80_AllRegsAndFlags_SaveList;
   case CallingConv::Z80_TIFlags:
     return Is24Bit ? CSR_EZ80_TIFlags_SaveList : CSR_Z80_TIFlags_SaveList;
   }
@@ -208,12 +211,9 @@ void Z80RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   assert(TFI->hasFP(MF) && "Stack slot use without fp unimplemented");
   auto Offset = MF.getFrameInfo().getObjectOffset(FrameIndex) -
                 TFI->getOffsetOfLocalArea();
-  if (FrameIndex >= 0)
-    // For non-fixed indices, skip over callee save slots.
-    Offset -= MF.getInfo<Z80MachineFunctionInfo>()->getCalleeSavedFrameSize();
-  else if (TFI->isFPSaved(MF))
-    // For fixed indices, skip over FP save slot if it exists.
-    Offset += TFI->getSlotSize();
+  if (FrameIndex < 0)
+    // For fixed indices, skip over callee save slots.
+    Offset += MF.getInfo<Z80MachineFunctionInfo>()->getCalleeSavedFrameSize();
   TII.rewriteFrameIndex(MI, FIOperandNum, BaseReg, Offset, RS, SPAdj);
 }
 
