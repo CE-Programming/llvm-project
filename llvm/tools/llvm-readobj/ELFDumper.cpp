@@ -1659,7 +1659,13 @@ const EnumEntry<unsigned> ElfHeaderLoongArchFlags[] = {
 };
 
 static const EnumEntry<unsigned> ElfHeaderZ80Flags[] = {
-  ENUM_ENT(EF_Z80_EZ80, "eZ80")
+  ENUM_ENT(EF_Z80_MACH_Z80, "Z80"),
+  ENUM_ENT(EF_Z80_MACH_Z180, "Z180"),
+  ENUM_ENT(EF_Z80_MACH_R800, "R800"),
+  ENUM_ENT(EF_Z80_MACH_EZ80_Z80, "eZ80-Z80"),
+  ENUM_ENT(EF_Z80_MACH_EZ80_ADL, "eZ80-ADL"),
+  ENUM_ENT(EF_Z80_MACH_GBZ80, "gbZ80"),
+  ENUM_ENT(EF_Z80_MACH_Z80N, "Z80N"),
 };
 
 
