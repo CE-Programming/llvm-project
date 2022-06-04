@@ -19,6 +19,7 @@
 #include "Z80MachineFunctionInfo.h"
 #include "Z80RegisterInfo.h"
 #include "Z80Subtarget.h"
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/CodeGen/Analysis.h"
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
 #include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
@@ -425,11 +426,17 @@ bool Z80CallLowering::isEligibleForTailCallOptimization(
   if (!Info.IsTailCall)
     return false;
 
+  const Function *CalleeF = Info.CB ? Info.CB->getCalledFunction() : nullptr;
   CallingConv::ID CalleeCC = Info.CallConv;
-  MachineFunction &MF = MIRBuilder.getMF();
-  const Function &CallerF = MF.getFunction();
+  MachineFunction &CallerMF = MIRBuilder.getMF();
+  const Function &CallerF = CallerMF.getFunction();
 
   LLVM_DEBUG(dbgs() << "Attempting to lower call as tail call\n");
+
+  if (CalleeF && CalleeF->hasFnAttribute("interrupt")) {
+    LLVM_DEBUG(dbgs() << "... Cannot tail call interrupt handlers.\n");
+    return false;
+  }
 
   if (Info.SwiftErrorVReg) {
     // TODO: We should handle this.
@@ -465,7 +472,7 @@ bool Z80CallLowering::isEligibleForTailCallOptimization(
   }
 
   // If we have -tailcallopt, then we're done.
-  if (MF.getTarget().Options.GuaranteedTailCallOpt)
+  if (CallerMF.getTarget().Options.GuaranteedTailCallOpt)
     return canGuaranteeTCO(CalleeCC) && CalleeCC == CallerF.getCallingConv();
 
   // We don't have -tailcallopt, so we're allowed to change the ABI (sibcall).
@@ -478,14 +485,14 @@ bool Z80CallLowering::isEligibleForTailCallOptimization(
 
   // Verify that the incoming and outgoing arguments from the callee are
   // safe to tail call.
-  if (!doCallerAndCalleePassArgsTheSameWay(Info, MF, InArgs)) {
+  if (!doCallerAndCalleePassArgsTheSameWay(Info, CallerMF, InArgs)) {
     LLVM_DEBUG(
         dbgs()
         << "... Caller and callee have incompatible calling conventions.\n");
     return false;
   }
 
-  if (!areCalleeOutgoingArgsTailCallable(Info, MF, OutArgs))
+  if (!areCalleeOutgoingArgsTailCallable(Info, CallerMF, OutArgs))
     return false;
 
   LLVM_DEBUG(dbgs() << "... Call is eligible for tail call optimization.\n");
@@ -505,14 +512,6 @@ bool Z80CallLowering::lowerTailCall(MachineIRBuilder &MIRBuilder,
 
   // True when we're tail calling, but without -tailcallopt.
   bool IsSibCall = !MF.getTarget().Options.GuaranteedTailCallOpt;
-
-  // TODO: Right now, regbankselect doesn't know how to handle the rtcGPR64
-  // register class. Until we can do that, we should fall back here.
-  if (F.hasFnAttribute("branch-target-enforcement")) {
-    LLVM_DEBUG(
-        dbgs() << "Cannot lower indirect tail calls with BTI enabled yet.\n");
-    return false;
-  }
 
   MachineInstrBuilder CallSeqStart;
   if (!IsSibCall)
@@ -779,11 +778,17 @@ bool Z80CallLowering::lowerReturn(MachineIRBuilder &MIRBuilder,
                                   FunctionLoweringInfo &FLI) const {
   assert(!Val == VRegs.empty() && "Return value without a vreg");
   MachineFunction &MF = MIRBuilder.getMF();
+  const Function &F = MF.getFunction();
   LLVMContext &Ctx = MF.getFunction().getContext();
   auto &FuncInfo = *MF.getInfo<Z80MachineFunctionInfo>();
   const auto &STI = MF.getSubtarget<Z80Subtarget>();
-  auto MIB =
-      MIRBuilder.buildInstrNoInsert(STI.is24Bit() ? Z80::RET24 : Z80::RET16);
+
+  bool Is24Bit = STI.is24Bit();
+  auto MIB = MIRBuilder.buildInstrNoInsert(
+      StringSwitch<unsigned>(F.getFnAttribute("interrupt").getValueAsString())
+          .Cases("Generic", "Nested", Is24Bit ? Z80::RETI24 : Z80::RETI16)
+          .Case("NMI", Is24Bit ? Z80::RETN24 : Z80::RETN16)
+          .Default(Is24Bit ? Z80::RET24 : Z80::RET16));
 
   Register SRetReturnReg = FuncInfo.getSRetReturnReg();
   assert((!SRetReturnReg || VRegs.empty()) &&

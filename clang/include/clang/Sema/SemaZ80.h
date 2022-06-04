@@ -26,7 +26,7 @@ class SemaZ80 : public SemaBase {
 public:
   SemaZ80(Sema &S);
 
-  void handleAnyInterruptAttr(Decl *D, const ParsedAttr &AL);
+  void handleZ80InterruptAttr(Sema &S, Decl *D, const ParsedAttr &AL)
 };
 } // namespace clang
 

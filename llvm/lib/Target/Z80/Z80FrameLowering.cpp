@@ -357,6 +357,13 @@ static bool shouldUseShadow(const MachineFunction &MF) {
   return F.getFnAttribute("interrupt").getValueAsString() == "Generic";
 }
 
+static MachineInstr& setImplicitUsesUndef(MachineInstr &MI) {
+  for (MachineOperand &MO : MI.implicit_operands())
+    if (MO.isReg() && MO.isUse())
+      MO.setIsUndef();
+  return MI;
+}
+
 void Z80FrameLowering::shadowCalleeSavedRegisters(
     MachineBasicBlock &MBB, MachineBasicBlock::iterator MI, const DebugLoc &DL,
     MachineInstr::MIFlag Flag, const std::vector<CalleeSavedInfo> &CSI) const {
@@ -370,11 +377,13 @@ void Z80FrameLowering::shadowCalleeSavedRegisters(
     else if (Z80::G24RegClass.contains(Reg) || Z80::G16RegClass.contains(Reg))
       SaveG = true;
   }
-  if (SaveAF)
-    BuildMI(MBB, MI, DL, TII.get(Z80::EXAF)).setMIFlag(Flag);
   if (SaveG)
-    BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::EXX24 : Z80::EXX16))
-        .setMIFlag(Flag);
+    setImplicitUsesUndef(
+        *BuildMI(MBB, MI, DL, TII.get(Is24Bit ? Z80::EXX24 : Z80::EXX16))
+             .setMIFlag(Flag));
+  if (SaveAF)
+    setImplicitUsesUndef(
+        *BuildMI(MBB, MI, DL, TII.get(Z80::EXAF)).setMIFlag(Flag));
 }
 
 static Z80MachineFunctionInfo::AltFPMode
@@ -407,7 +416,21 @@ bool Z80FrameLowering::assignCalleeSavedSpillSlots(
   auto &FuncInfo = *MF.getInfo<Z80MachineFunctionInfo>();
   FuncInfo.setUsesAltFP(shouldUseAltFP(MF, Is24Bit ? Z80::UIY : Z80::IY, TRI));
   MF.getRegInfo().freezeReservedRegs(MF);
-  FuncInfo.setCalleeSavedFrameSize(CSI.size() * SlotSize);
+
+  bool UseShadow = shouldUseShadow(MF);
+  unsigned CalleeSavedFrameSize = isFPSaved(MF) ? SlotSize : 0;
+  for (unsigned i = CSI.size(); i != 0; --i) {
+    unsigned Reg = CSI[i - 1].getReg();
+
+    // Non-index registers can be spilled to shadow registers.
+    if (UseShadow && !Z80::I24RegClass.contains(Reg) &&
+        !Z80::I16RegClass.contains(Reg))
+      continue;
+
+    CalleeSavedFrameSize += SlotSize;
+  }
+  FuncInfo.setCalleeSavedFrameSize(CalleeSavedFrameSize);
+
   return true;
 }
 
