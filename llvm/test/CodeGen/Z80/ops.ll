@@ -277,9 +277,8 @@ define i8 @br.i1(i1) {
 ; Z80:       ; %bb.0:
 ; Z80-NEXT:    ld iy, 0
 ; Z80-NEXT:    add iy, sp
-; Z80-NEXT:    ld l, (iy + 2)
 ; Z80-NEXT:    xor a, a
-; Z80-NEXT:    bit 0, l
+; Z80-NEXT:    bit 0, (iy + 2)
 ; Z80-NEXT:    jr z, BB10_2
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld a, 1
@@ -290,9 +289,8 @@ define i8 @br.i1(i1) {
 ; EZ80-CODE16:       ; %bb.0:
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    add iy, sp
-; EZ80-CODE16-NEXT:    ld l, (iy + 2)
 ; EZ80-CODE16-NEXT:    xor a, a
-; EZ80-CODE16-NEXT:    bit 0, l
+; EZ80-CODE16-NEXT:    bit 0, (iy + 2)
 ; EZ80-CODE16-NEXT:    jr z, BB10_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld a, 1
@@ -303,9 +301,8 @@ define i8 @br.i1(i1) {
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
-; EZ80-NEXT:    ld l, (iy + 3)
 ; EZ80-NEXT:    xor a, a
-; EZ80-NEXT:    bit 0, l
+; EZ80-NEXT:    bit 0, (iy + 3)
 ; EZ80-NEXT:    jr z, BB10_2
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld a, 1
@@ -1038,27 +1035,24 @@ define i8 @and.i8(i8, i8) {
 ; Z80:       ; %bb.0:
 ; Z80-NEXT:    ld iy, 0
 ; Z80-NEXT:    add iy, sp
-; Z80-NEXT:    ld l, (iy + 4)
 ; Z80-NEXT:    ld a, (iy + 2)
-; Z80-NEXT:    and a, l
+; Z80-NEXT:    and a, (iy + 4)
 ; Z80-NEXT:    ret
 ;
 ; EZ80-CODE16-LABEL: and.i8:
 ; EZ80-CODE16:       ; %bb.0:
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    add iy, sp
-; EZ80-CODE16-NEXT:    ld l, (iy + 4)
 ; EZ80-CODE16-NEXT:    ld a, (iy + 2)
-; EZ80-CODE16-NEXT:    and a, l
+; EZ80-CODE16-NEXT:    and a, (iy + 4)
 ; EZ80-CODE16-NEXT:    ret
 ;
 ; EZ80-LABEL: and.i8:
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
-; EZ80-NEXT:    ld l, (iy + 6)
 ; EZ80-NEXT:    ld a, (iy + 3)
-; EZ80-NEXT:    and a, l
+; EZ80-NEXT:    and a, (iy + 6)
 ; EZ80-NEXT:    ret
   and i8 %0, %1
   ret i8 %3
@@ -1253,27 +1247,24 @@ define i8 @or.i8(i8, i8) {
 ; Z80:       ; %bb.0:
 ; Z80-NEXT:    ld iy, 0
 ; Z80-NEXT:    add iy, sp
-; Z80-NEXT:    ld l, (iy + 4)
 ; Z80-NEXT:    ld a, (iy + 2)
-; Z80-NEXT:    or a, l
+; Z80-NEXT:    or a, (iy + 4)
 ; Z80-NEXT:    ret
 ;
 ; EZ80-CODE16-LABEL: or.i8:
 ; EZ80-CODE16:       ; %bb.0:
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    add iy, sp
-; EZ80-CODE16-NEXT:    ld l, (iy + 4)
 ; EZ80-CODE16-NEXT:    ld a, (iy + 2)
-; EZ80-CODE16-NEXT:    or a, l
+; EZ80-CODE16-NEXT:    or a, (iy + 4)
 ; EZ80-CODE16-NEXT:    ret
 ;
 ; EZ80-LABEL: or.i8:
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
-; EZ80-NEXT:    ld l, (iy + 6)
 ; EZ80-NEXT:    ld a, (iy + 3)
-; EZ80-NEXT:    or a, l
+; EZ80-NEXT:    or a, (iy + 6)
 ; EZ80-NEXT:    ret
   or i8 %0, %1
   ret i8 %3
@@ -1468,27 +1459,24 @@ define i8 @xor.i8(i8, i8) {
 ; Z80:       ; %bb.0:
 ; Z80-NEXT:    ld iy, 0
 ; Z80-NEXT:    add iy, sp
-; Z80-NEXT:    ld l, (iy + 4)
 ; Z80-NEXT:    ld a, (iy + 2)
-; Z80-NEXT:    xor a, l
+; Z80-NEXT:    xor a, (iy + 4)
 ; Z80-NEXT:    ret
 ;
 ; EZ80-CODE16-LABEL: xor.i8:
 ; EZ80-CODE16:       ; %bb.0:
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    add iy, sp
-; EZ80-CODE16-NEXT:    ld l, (iy + 4)
 ; EZ80-CODE16-NEXT:    ld a, (iy + 2)
-; EZ80-CODE16-NEXT:    xor a, l
+; EZ80-CODE16-NEXT:    xor a, (iy + 4)
 ; EZ80-CODE16-NEXT:    ret
 ;
 ; EZ80-LABEL: xor.i8:
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
-; EZ80-NEXT:    ld l, (iy + 6)
 ; EZ80-NEXT:    ld a, (iy + 3)
-; EZ80-NEXT:    xor a, l
+; EZ80-NEXT:    xor a, (iy + 6)
 ; EZ80-NEXT:    ret
   xor i8 %0, %1
   ret i8 %3
@@ -1683,27 +1671,24 @@ define i8 @add.i8(i8, i8) {
 ; Z80:       ; %bb.0:
 ; Z80-NEXT:    ld iy, 0
 ; Z80-NEXT:    add iy, sp
-; Z80-NEXT:    ld l, (iy + 4)
 ; Z80-NEXT:    ld a, (iy + 2)
-; Z80-NEXT:    add a, l
+; Z80-NEXT:    add a, (iy + 4)
 ; Z80-NEXT:    ret
 ;
 ; EZ80-CODE16-LABEL: add.i8:
 ; EZ80-CODE16:       ; %bb.0:
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    add iy, sp
-; EZ80-CODE16-NEXT:    ld l, (iy + 4)
 ; EZ80-CODE16-NEXT:    ld a, (iy + 2)
-; EZ80-CODE16-NEXT:    add a, l
+; EZ80-CODE16-NEXT:    add a, (iy + 4)
 ; EZ80-CODE16-NEXT:    ret
 ;
 ; EZ80-LABEL: add.i8:
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
-; EZ80-NEXT:    ld l, (iy + 6)
 ; EZ80-NEXT:    ld a, (iy + 3)
-; EZ80-NEXT:    add a, l
+; EZ80-NEXT:    add a, (iy + 6)
 ; EZ80-NEXT:    ret
   add i8 %0, %1
   ret i8 %3
@@ -1960,27 +1945,24 @@ define i8 @sub.i8(i8, i8) {
 ; Z80:       ; %bb.0:
 ; Z80-NEXT:    ld iy, 0
 ; Z80-NEXT:    add iy, sp
-; Z80-NEXT:    ld l, (iy + 4)
 ; Z80-NEXT:    ld a, (iy + 2)
-; Z80-NEXT:    sub a, l
+; Z80-NEXT:    sub a, (iy + 4)
 ; Z80-NEXT:    ret
 ;
 ; EZ80-CODE16-LABEL: sub.i8:
 ; EZ80-CODE16:       ; %bb.0:
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    add iy, sp
-; EZ80-CODE16-NEXT:    ld l, (iy + 4)
 ; EZ80-CODE16-NEXT:    ld a, (iy + 2)
-; EZ80-CODE16-NEXT:    sub a, l
+; EZ80-CODE16-NEXT:    sub a, (iy + 4)
 ; EZ80-CODE16-NEXT:    ret
 ;
 ; EZ80-LABEL: sub.i8:
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
-; EZ80-NEXT:    ld l, (iy + 6)
 ; EZ80-NEXT:    ld a, (iy + 3)
-; EZ80-NEXT:    sub a, l
+; EZ80-NEXT:    sub a, (iy + 6)
 ; EZ80-NEXT:    ret
   sub i8 %0, %1
   ret i8 %3
