@@ -221,7 +221,7 @@ Z80::CondCode Z80::GetBranchConditionForPredicate(CmpInst::Predicate Pred,
 /// Return the inverse of the specified condition,
 /// e.g. turning COND_E to COND_NE.
 Z80::CondCode Z80::GetOppositeBranchCondition(Z80::CondCode CC) {
-  return Z80::CondCode(CC ^ 1);
+  return CC == Z80::COND_INVALID ? CC : Z80::CondCode(CC ^ 1);
 }
 
 Z80::CondCode Z80::parseConstraintCode(StringRef Constraint) {
