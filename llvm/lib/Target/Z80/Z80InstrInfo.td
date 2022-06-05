@@ -260,7 +260,7 @@ let hasPostISelHook = true in {
                            Requires<[In24BitMode]>;
   }
 }
-let hasSideEffects = false, usesCustomInserter = true in {
+let usesCustomInserter = true in {
   let Uses = [F] in {
     def SetCC : P<(outs R8:$dst), (ins i8imm:$cc)>;
     def Select8  : P<(outs  R8:$dst), (ins  R8:$true,  R8:$false, i8imm:$cc),
@@ -282,15 +282,16 @@ let hasSideEffects = false, usesCustomInserter = true in {
   }
 }
 
-let hasSideEffects = false in
 def NOP   : I<NoPre, 0x00, "nop">;
-def HALT  : I<NoPre, 0x76, "halt">;
-def DI    : I<NoPre, 0xF3, "di">;
-def EI    : I<NoPre, 0xFB, "ei">;
-def IM    : I<EDPre, 0x46, "im", "\t$mode", "", (outs), (ins intmode:$mode)>;
-def SLP   : I<EDPre, 0x76, "slp">, Requires<[HaveZ180Ops]>;
-def STMIX : I<EDPre, 0x7D, "stmix">, Requires<[HaveEZ80Ops]>;
-def RSMIX : I<EDPre, 0x7E, "rsmix">, Requires<[HaveEZ80Ops]>;
+let hasSideEffects = true in {
+  def HALT  : I<NoPre, 0x76, "halt">;
+  def DI    : I<NoPre, 0xF3, "di">;
+  def EI    : I<NoPre, 0xFB, "ei">;
+  def IM    : I<EDPre, 0x46, "im", "\t$mode", "", (outs), (ins intmode:$mode)>;
+  def SLP   : I<EDPre, 0x76, "slp">, Requires<[HaveZ180Ops]>;
+  def STMIX : I<EDPre, 0x7D, "stmix">, Requires<[HaveEZ80Ops]>;
+  def RSMIX : I<EDPre, 0x7E, "rsmix">, Requires<[HaveEZ80Ops]>;
+}
 
 let Defs = [F] in {
   let isReMaterializable = true in {
@@ -418,7 +419,7 @@ def LD8xx  : I<Idx01Pre, 0x40, "ld", "\t$dst, $src", "",
                (outs X8:$dst), (ins X8:$src)>, Requires<[HaveIdxHalf]>;
 def LD8yy  : I<Idx01Pre, 0x40, "ld", "\t$dst, $src", "",
                (outs Y8:$dst), (ins Y8:$src)>, Requires<[HaveIdxHalf]>;
-let Defs = [I], Uses = [A] in
+let Defs = [I], Uses = [A], hasSideEffects = true in
 def LD8ia  : I<EDPre, 0x47, "ld", "\ti, a">;
 let Defs = [R], Uses = [A] in
 def LD8ra  : I<EDPre, 0x4F, "ld", "\tr, a">;
@@ -426,11 +427,11 @@ let Defs = [A, F], Uses = [I] in
 def LD8ai  : I<EDPre, 0x57, "ld", "\ta, i">;
 let Defs = [A, F], Uses = [R] in
 def LD8ar  : I<EDPre, 0x5F, "ld", "\ta, r">;
-let Defs = [MB], Uses = [A] in
+let Defs = [MB], Uses = [A], hasSideEffects = true in
 def LD8mba : I<EDPre, 0x6D, "ld", "\tmb, a">, Requires<[In24BitMode]>;
 let Defs = [A], Uses = [MB] in
 def LD8amb : I<EDPre, 0x6E, "ld", "\ta, mb">, Requires<[HaveEZ80Ops]>;
-let Defs = [I], Uses = [HL] in
+let Defs = [I], Uses = [HL], hasSideEffects = true in
 def LD16ia : I<EDPre, 0xC7, "ld", "\ti, hl">, Requires<[HaveEZ80Ops]>;
 let Defs = [HL], Uses = [I] in
 def LD16ai : I16<EDPre, 0xD7, "ld", "\thl, i">, Requires<[HaveEZ80Ops]>;
@@ -699,14 +700,15 @@ let Defs = [A, F], Uses = [A, F] in {
   def DAA   : I  <NoPre, 0x27, "daa">;
 }
 
-let Defs = [A, F], Uses = [HL, A] in {
-  def RRD16 : I16<EDPre, 0x67, "rrd">;
-  def RLD16 : I16<EDPre, 0x6F, "rld">;
-}
-
-let Defs = [A, F], Uses = [UHL, A] in {
-  def RRD24 : I24<EDPre, 0x67, "rrd">;
-  def RLD24 : I24<EDPre, 0x6F, "rld">;
+let mayLoad = true, mayStore = true in {
+  let Defs = [A, F], Uses = [HL, A] in {
+    def RRD16 : I16<EDPre, 0x67, "rrd">;
+    def RLD16 : I16<EDPre, 0x6F, "rld">;
+  }
+  let Defs = [A, F], Uses = [UHL, A] in {
+    def RRD24 : I24<EDPre, 0x67, "rrd">;
+    def RLD24 : I24<EDPre, 0x6F, "rld">;
+  }
 }
 
 let Defs = [F] in
