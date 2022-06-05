@@ -105,8 +105,7 @@ bool Z80RegisterBankInfo::getInstrValueMapping(
 
 const RegisterBankInfo::InstructionMapping &
 Z80RegisterBankInfo::getSameOperandsMapping(const MachineInstr &MI) const {
-  const MachineFunction &MF = *MI.getParent()->getParent();
-  const MachineRegisterInfo &MRI = MF.getRegInfo();
+  const MachineRegisterInfo &MRI = MI.getMF()->getRegInfo();
 
   unsigned NumOperands = MI.getNumOperands();
   LLT Ty = MRI.getType(MI.getOperand(0).getReg());
@@ -121,8 +120,8 @@ Z80RegisterBankInfo::getSameOperandsMapping(const MachineInstr &MI) const {
 
 const RegisterBankInfo::InstructionMapping &
 Z80RegisterBankInfo::getInstrMapping(const MachineInstr &MI) const {
-  const MachineFunction &MF = *MI.getParent()->getParent();
-  const MachineRegisterInfo &MRI = MF.getRegInfo();
+  const MachineRegisterInfo &MRI = MI.getMF()->getRegInfo();
+
   unsigned Opc = MI.getOpcode();
   unsigned NumOperands = MI.getNumOperands();
 

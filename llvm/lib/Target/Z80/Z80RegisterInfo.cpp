@@ -251,8 +251,7 @@ int64_t Z80RegisterInfo::getFrameIndexInstrOffset(const MachineInstr *MI,
 }
 bool Z80RegisterInfo::needsFrameBaseReg(MachineInstr *MI,
                                         int64_t Offset) const {
-  const MachineFunction &MF = *MI->getParent()->getParent();
-  return !isFrameOffsetLegal(MI, getFrameRegister(MF), Offset);
+  return !isFrameOffsetLegal(MI, getFrameRegister(*MI->getMF()), Offset);
 }
 Register Z80RegisterInfo::materializeFrameBaseRegister(MachineBasicBlock *MBB,
                                                        int FrameIdx,
