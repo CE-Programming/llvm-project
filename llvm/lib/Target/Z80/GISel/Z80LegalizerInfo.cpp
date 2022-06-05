@@ -37,6 +37,9 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
   LLT sMax = Is24Bit ? s24 : s16;
   auto LegalTypes24 = {p0, s8, s16, s24}, LegalTypes16 = {p0, s8, s16};
   auto LegalTypes = Is24Bit ? LegalTypes24 : LegalTypes16;
+  auto LegalTypesWithOne24 = {p0, s1, s8, s16, s24},
+       LegalTypesWithOne16 = {p0, s1, s8, s16};
+  auto LegalTypesWithOne = Is24Bit ? LegalTypesWithOne24 : LegalTypesWithOne16;
   auto LegalScalars24 = {s8, s16, s24}, LegalScalars16 = {s8, s16};
   auto LegalScalars = Is24Bit ? LegalScalars24 : LegalScalars16;
   auto LegalLibcallScalars24 = {s8, s16, s24, s32, s64};
@@ -51,7 +54,7 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
   auto NotMaxWithOne = Is24Bit ? NotMaxWithOne24 : NotMaxWithOne16;
 
   getActionDefinitionsBuilder(G_IMPLICIT_DEF)
-      .legalFor(LegalTypes);
+      .legalFor(LegalTypesWithOne);
 
   getActionDefinitionsBuilder(G_MERGE_VALUES)
       .legalForCartesianProduct(NotMin, NotMax)
