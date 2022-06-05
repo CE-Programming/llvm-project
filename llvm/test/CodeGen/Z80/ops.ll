@@ -277,48 +277,39 @@ define i8 @br.i1(i1) {
 ; Z80:       ; %bb.0:
 ; Z80-NEXT:    ld iy, 0
 ; Z80-NEXT:    add iy, sp
-; Z80-NEXT:    ld l, 0
-; Z80-NEXT:    ld a, (iy + 2)
-; Z80-NEXT:    xor a, 1
-; Z80-NEXT:    bit 0, a
-; Z80-NEXT:    jr nz, BB10_2
+; Z80-NEXT:    ld l, (iy + 2)
+; Z80-NEXT:    xor a, a
+; Z80-NEXT:    bit 0, l
+; Z80-NEXT:    jr z, BB10_2
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld a, 1
-; Z80-NEXT:    ret
 ; Z80-NEXT:  BB10_2:
-; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    ret
 ;
 ; EZ80-CODE16-LABEL: br.i1:
 ; EZ80-CODE16:       ; %bb.0:
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    add iy, sp
-; EZ80-CODE16-NEXT:    ld l, 0
-; EZ80-CODE16-NEXT:    ld a, (iy + 2)
-; EZ80-CODE16-NEXT:    xor a, 1
-; EZ80-CODE16-NEXT:    bit 0, a
-; EZ80-CODE16-NEXT:    jr nz, BB10_2
+; EZ80-CODE16-NEXT:    ld l, (iy + 2)
+; EZ80-CODE16-NEXT:    xor a, a
+; EZ80-CODE16-NEXT:    bit 0, l
+; EZ80-CODE16-NEXT:    jr z, BB10_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld a, 1
-; EZ80-CODE16-NEXT:    ret
 ; EZ80-CODE16-NEXT:  BB10_2:
-; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    ret
 ;
 ; EZ80-LABEL: br.i1:
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
-; EZ80-NEXT:    ld l, 0
-; EZ80-NEXT:    ld a, (iy + 3)
-; EZ80-NEXT:    xor a, 1
-; EZ80-NEXT:    bit 0, a
-; EZ80-NEXT:    jr nz, BB10_2
+; EZ80-NEXT:    ld l, (iy + 3)
+; EZ80-NEXT:    xor a, a
+; EZ80-NEXT:    bit 0, l
+; EZ80-NEXT:    jr z, BB10_2
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld a, 1
-; EZ80-NEXT:    ret
 ; EZ80-NEXT:  BB10_2:
-; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    ret
   br i1 %0, label %2, label %3
   ret i8 1
