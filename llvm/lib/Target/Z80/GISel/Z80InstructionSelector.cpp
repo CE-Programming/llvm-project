@@ -1471,27 +1471,40 @@ Z80InstructionSelector::foldCond(Register CondReg, MachineIRBuilder &MIB,
     if (LookthroughDef != MIB.getInsertPt() && !MRI.hasOneUse(CondReg))
       break;
     CondDef = LookthroughDef;
-    Register LookthroughReg;
-    auto &&LookthroughRegPattern =
-        m_all_of(m_SpecificType(s1), m_Reg(LookthroughReg));
-    if (mi_match(*CondDef, MRI, m_Copy(LookthroughRegPattern)) &&
-        LookthroughReg.isVirtual()) {
+    switch (CondDef->getOpcode()) {
+    case TargetOpcode::COPY: {
+      Register LookthroughReg = CondDef->getOperand(1).getReg();
+      if (!LookthroughReg.isVirtual())
+        break;
       CondReg = LookthroughReg;
       continue;
     }
-    if (mi_match(*CondDef, MRI,
-                 m_GTrunc(m_GXor(m_GAnyExt(LookthroughRegPattern),
-                                 m_SpecificICst(1))))) {
-      CondReg = LookthroughReg;
-      PreferredCC = Z80::GetOppositeBranchCondition(PreferredCC);
-      OppositeCond = !OppositeCond;
+    case TargetOpcode::G_ANYEXT:
+    case TargetOpcode::G_TRUNC:
+    case TargetOpcode::G_SEXT:
+    case TargetOpcode::G_SEXT_INREG:
+    case TargetOpcode::G_ZEXT:
+      CondReg = CondDef->getOperand(1).getReg();
       continue;
+    case TargetOpcode::G_ADD:
+    case TargetOpcode::G_SUB:
+    case TargetOpcode::G_XOR:
+      if (auto Const = getIConstantVRegValWithLookThrough(
+              CondDef->getOperand(2).getReg(), MRI)) {
+        CondReg = CondDef->getOperand(1).getReg();
+        if (Const->Value[0]) {
+          PreferredCC = Z80::GetOppositeBranchCondition(PreferredCC);
+          OppositeCond = !OppositeCond;
+        }
+        continue;
+      }
+      break;
     }
     break;
   }
 
   Z80::CondCode CC = Z80::COND_INVALID;
-  if (CondDef) {
+  if (CondDef && MRI.getType(CondReg) == s1) {
     // TODO: prefer PreferredCC
     switch (CondDef->getOpcode()) {
     case TargetOpcode::G_ICMP:
@@ -1505,7 +1518,8 @@ Z80InstructionSelector::foldCond(Register CondReg, MachineIRBuilder &MIB,
     case TargetOpcode::G_SADDE:
     case TargetOpcode::G_SSUBO:
     case TargetOpcode::G_SSUBE:
-      CC = foldExtendedAddSub(*CondDef, MIB, MRI);
+      if (CondDef->getOperand(1).getReg() == CondReg)
+        CC = foldExtendedAddSub(*CondDef, MIB, MRI);
       break;
     case Z80::SetCC:
       CC = foldSetCC(*CondDef, MIB, MRI);
