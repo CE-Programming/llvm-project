@@ -253,7 +253,7 @@ public:
 
   void addBranch(MachineInstr &Branch) {
     assert(Phase == Phase::Build);
-    assert(Branch.getParent()->getParent() == DebugMF);
+    assert(Branch.getMF() == DebugMF);
     Branches.push_back(&Branch);
     BranchTree.add();
   }
