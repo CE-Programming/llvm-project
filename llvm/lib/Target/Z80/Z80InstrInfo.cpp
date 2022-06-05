@@ -1875,16 +1875,6 @@ MachineInstr *Z80InstrInfo::foldMemoryOperandImpl(
   case 0:
     switch (MI.getOpcode()) {
     default: return nullptr;
-    case TargetOpcode::COPY:
-      if (!Z80::R8RegClass.contains(MI.getOperand(1).getReg()))
-        return nullptr;
-      Opc = IsOff ? Z80::LD8or : Z80::LD8pr;
-      break;
-    }
-    break;
-  case 1:
-    switch (MI.getOpcode()) {
-    default: return nullptr;
     case Z80::BIT8gb: Opc = IsOff ? Z80::BIT8ob : Z80::BIT8pb; break;
     case Z80::ADD8ar: Opc = IsOff ? Z80::ADD8ao : Z80::ADD8ap; break;
     case Z80::ADC8ar: Opc = IsOff ? Z80::ADC8ao : Z80::ADC8ap; break;
@@ -1898,6 +1888,16 @@ MachineInstr *Z80InstrInfo::foldMemoryOperandImpl(
         return nullptr;
       Opc = Z80::TST8ap;
       break;
+    case TargetOpcode::COPY:
+      if (!Z80::R8RegClass.contains(MI.getOperand(1).getReg()))
+        return nullptr;
+      Opc = IsOff ? Z80::LD8or : Z80::LD8pr;
+      break;
+    }
+    break;
+  case 1:
+    switch (MI.getOpcode()) {
+    default: return nullptr;
     case TargetOpcode::COPY:
       if (!Z80::R8RegClass.contains(MI.getOperand(0).getReg()))
         return nullptr;
