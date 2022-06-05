@@ -1560,7 +1560,7 @@ Z80InstructionSelector::foldCond(Register CondReg, MachineIRBuilder &MIB,
       CondRC = selectGRegClass(CondReg, MRI);
       auto BitI = MIB.buildInstr(Z80::BIT8gb, {}, {CondReg, int64_t(0)});
       if (CondRC != &Z80::G8RegClass)
-        BitI->getOperand(1).setSubReg(Z80::sub_low);
+        BitI->getOperand(0).setSubReg(Z80::sub_low);
       if (!constrainSelectedInstRegOperands(*BitI, TII, TRI, RBI))
         return Z80::COND_INVALID;
       CC = PreferredCC != Z80::COND_PE ? Z80::COND_NZ : Z80::COND_PE;
