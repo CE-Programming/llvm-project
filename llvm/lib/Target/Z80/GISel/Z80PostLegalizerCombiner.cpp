@@ -56,9 +56,8 @@ public:
 bool Z80PostLegalizerCombinerInfo::combine(GISelChangeObserver &Observer,
                                            MachineInstr &MI,
                                            MachineIRBuilder &B) const {
-  const auto *LI =
-      MI.getParent()->getParent()->getSubtarget().getLegalizerInfo();
-  CombinerHelper Helper(Observer, B, KB, MDT, LI);
+  CombinerHelper Helper(Observer, B, KB, MDT,
+                        MI.getMF()->getSubtarget().getLegalizerInfo());
   Z80GenPostLegalizerCombinerHelper Generated(GeneratedRuleCfg, Helper);
   return Generated.tryCombineAll(Observer, MI, B, Helper);
 }

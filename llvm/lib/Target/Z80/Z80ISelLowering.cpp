@@ -344,11 +344,11 @@ void Z80TargetLowering::AdjustAdjCallStack(MachineInstr &MI) const {
   assert((Is24Bit || MI.getOpcode() == Z80::ADJCALLSTACKUP16 ||
                      MI.getOpcode() == Z80::ADJCALLSTACKDOWN16) &&
          "Unexpected opcode");
-  MachineRegisterInfo &MRI = MI.getParent()->getParent()->getRegInfo();
+  MachineRegisterInfo &MRI = MI.getMF()->getRegInfo();
   unsigned Reg = MRI.createVirtualRegister(Is24Bit ? &Z80::A24RegClass
                                                    : &Z80::A16RegClass);
-  MachineInstrBuilder(*MI.getParent()->getParent(), MI)
-    .addReg(Reg, RegState::ImplicitDefine | RegState::Dead);
+  MachineInstrBuilder(*MI.getMF(), MI)
+      .addReg(Reg, RegState::ImplicitDefine | RegState::Dead);
   LLVM_DEBUG(MI.dump());
 }
 

@@ -197,7 +197,7 @@ private:
                                       MachineBasicBlock::iterator InsertPt,
                                       unsigned Size = 0) const;
 
-  /// canExchange - This returns whether the two instructions can be directly
+  /// canExchange - This returns whether the two registers can be directly
   /// exchanged with one EX instruction. Since the only register exchange
   /// instruction is EX DE,HL, simply returns whether the two arguments are
   /// super-registers of E and L, in any order.

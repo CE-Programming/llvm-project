@@ -292,7 +292,7 @@ bool Z80InstructionSelector::selectCopy(MachineInstr &I,
 
 bool Z80InstructionSelector::select(MachineInstr &I) const {
   assert(I.getParent() && "Instruction should be in a basic block!");
-  assert(I.getParent()->getParent() && "Instruction should be in a function!");
+  assert(I.getMF() && "Instruction should be in a function!");
 
   MachineBasicBlock &MBB = *I.getParent();
   MachineFunction &MF = *MBB.getParent();
