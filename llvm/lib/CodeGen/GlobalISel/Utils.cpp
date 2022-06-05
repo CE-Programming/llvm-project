@@ -100,6 +100,22 @@ Register llvm::constrainOperandRegClass(
   return ConstrainedReg;
 }
 
+static const TargetRegisterClass *
+getMatchingSuperRegClass(unsigned MinWidth, const TargetRegisterClass *RC,
+                         unsigned Idx, const TargetRegisterInfo &TRI) {
+  for (SuperRegClassIterator RCI(RC, &TRI, true); RCI.isValid(); ++RCI) {
+    if (RCI.getSubReg() != Idx)
+      continue;
+    for (BitMaskClassIterator MCI(RCI.getMask(), TRI); MCI.isValid(); ++MCI) {
+      const TargetRegisterClass *SuperRC = TRI.getRegClass(MCI.getID());
+      if (TRI.getRegSizeInBits(*SuperRC) >= MinWidth)
+        return SuperRC;
+    }
+    break;
+  }
+  return nullptr;
+}
+
 Register llvm::constrainOperandRegClass(const MachineFunction &MF,
                                         const TargetRegisterInfo &TRI,
                                         MachineRegisterInfo &MRI,
@@ -145,6 +161,11 @@ Register llvm::constrainOperandRegClass(const MachineFunction &MF,
     // and they never reach this function.
     return Reg;
   }
+
+  unsigned MinSuperWidth = MRI.getType(Reg).getSizeInBits();
+  OpRC = getMatchingSuperRegClass(MinSuperWidth, OpRC, RegMO.getSubReg(), TRI);
+  assert(OpRC && "Failed to find a superclass of constraint for subreg operand");
+
   return constrainOperandRegClass(MF, TRI, MRI, TII, RBI, I, *OpRC, RegMO);
 }
 
