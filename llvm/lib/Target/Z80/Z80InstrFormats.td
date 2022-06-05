@@ -71,6 +71,7 @@ class Z80Inst<Mode mode, Prefix prefix, bits<8> opcode, ImmType immediate,
   let TSFlags{7-6} = immediate.Value;
   let TSFlags{15-8} = opcode;
 
+  let hasSideEffects = false;
   let isCodeGenOnly = true;
 }
 

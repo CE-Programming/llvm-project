@@ -4677,11 +4677,11 @@ define float @fmuladd.f32(float, float, float) {
 ; EZ80-NEXT:    ld ix, 0
 ; EZ80-NEXT:    add ix, sp
 ; EZ80-NEXT:    ld bc, (ix + 6)
-; EZ80-NEXT:    ld a, (ix + 9)
 ; EZ80-NEXT:    ld hl, (ix + 12)
-; EZ80-NEXT:    ld e, (ix + 15)
 ; EZ80-NEXT:    ld iy, (ix + 18)
 ; EZ80-NEXT:    ld d, (ix + 21)
+; EZ80-NEXT:    ld a, (ix + 9)
+; EZ80-NEXT:    ld e, (ix + 15)
 ; EZ80-NEXT:    call __fmul
 ; EZ80-NEXT:    lea hl, iy
 ; EZ80-NEXT:    ld e, d
