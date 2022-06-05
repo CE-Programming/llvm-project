@@ -42,10 +42,12 @@ Register llvm::constrainRegToClass(MachineRegisterInfo &MRI,
                                    const TargetInstrInfo &TII,
                                    const RegisterBankInfo &RBI, Register Reg,
                                    const TargetRegisterClass &RegClass) {
-  if (!RBI.constrainGenericRegister(Reg, RegClass, MRI))
-    return MRI.createVirtualRegister(&RegClass);
+  if (RBI.constrainGenericRegister(Reg, RegClass, MRI))
+    return Reg;
 
-  return Reg;
+  Register NewReg = MRI.createVirtualRegister(&RegClass);
+  MRI.setType(NewReg, MRI.getType(Reg));
+  return NewReg;
 }
 
 Register llvm::constrainOperandRegClass(
@@ -103,6 +105,8 @@ Register llvm::constrainOperandRegClass(
 static const TargetRegisterClass *
 getMatchingSuperRegClass(unsigned MinWidth, const TargetRegisterClass *RC,
                          unsigned Idx, const TargetRegisterInfo &TRI) {
+  assert(RC && "Missing register class");
+  assert(Idx && "Bad sub-register index");
   for (SuperRegClassIterator RCI(RC, &TRI, true); RCI.isValid(); ++RCI) {
     if (RCI.getSubReg() != Idx)
       continue;
@@ -162,9 +166,14 @@ Register llvm::constrainOperandRegClass(const MachineFunction &MF,
     return Reg;
   }
 
-  unsigned MinSuperWidth = MRI.getType(Reg).getSizeInBits();
-  OpRC = getMatchingSuperRegClass(MinSuperWidth, OpRC, RegMO.getSubReg(), TRI);
-  assert(OpRC && "Failed to find a superclass of constraint for subreg operand");
+  if (unsigned SubReg = RegMO.getSubReg()) {
+    if (auto *OldRegRC = MRI.getRegClassOrNull(Reg))
+      OpRC = TRI.getMatchingSuperRegClass(OldRegRC, OpRC, SubReg);
+    else
+      OpRC = getMatchingSuperRegClass(MRI.getType(Reg).getSizeInBits(), OpRC,
+                                      SubReg, TRI);
+    assert(OpRC && "Failed to find a superclass of subreg operand constraint");
+  }
 
   return constrainOperandRegClass(MF, TRI, MRI, TII, RBI, I, *OpRC, RegMO);
 }
