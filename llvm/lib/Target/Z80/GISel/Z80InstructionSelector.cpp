@@ -490,7 +490,7 @@ bool Z80InstructionSelector::selectSExt(MachineInstr &I,
   }
 
   MachineIRBuilder MIB(I);
-  auto Rotate = MIB.buildInstr(Z80::RRC8r, {LLT::scalar(8)}, {SrcReg});
+  auto Rotate = MIB.buildInstr(Z80::RRC8g, {LLT::scalar(8)}, {SrcReg});
   if (!constrainSelectedInstRegOperands(*Rotate, TII, TRI, RBI))
     return false;
   auto Fill = MIB.buildInstr(FillOpc);
@@ -1118,7 +1118,7 @@ bool Z80InstructionSelector::selectMergeValues(MachineInstr &I,
     RC = &Z80::R24RegClass;
     Register UpReg = I.getOperand(3).getReg(), TmpReg;
     if (mi_match(UpReg, MRI, m_GAShr(m_Reg(TmpReg), m_SpecificICst(7)))) {
-      auto AddI = MIB.buildInstr(Z80::RLC8r, {LLT::scalar(8)}, {TmpReg});
+      auto AddI = MIB.buildInstr(Z80::RLC8g, {LLT::scalar(8)}, {TmpReg});
       auto SbcI = MIB.buildInstr(Z80::SBC24aa);
       SbcI->findRegisterUseOperand(Z80::UHL)->setIsUndef();
       TmpReg = MIB.buildCopy(RC, Register(Z80::UHL)).getReg(0);
@@ -1398,7 +1398,7 @@ Z80::CondCode Z80InstructionSelector::foldExtendedAddSub(
       auto SetCC = MIB.buildInstr(Z80::SetCC, {LLT::scalar(1)}, {int64_t(CC)});
       if (!RBI.constrainGenericRegister(SetCC.getReg(0), Z80::R8RegClass, MRI))
         return Z80::COND_INVALID;
-      auto BitI = MIB.buildInstr(Z80::RRC8r, {LLT::scalar(8)}, {SetCC});
+      auto BitI = MIB.buildInstr(Z80::RRC8g, {LLT::scalar(8)}, {SetCC});
       if (!constrainSelectedInstRegOperands(*BitI, TII, TRI, RBI))
         return Z80::COND_INVALID;
       if (!select(*SetCC))
@@ -1570,7 +1570,7 @@ Z80InstructionSelector::foldCond(Register CondReg, MachineIRBuilder &MIB,
     case Z80::COND_C:
     case Z80::COND_M: {
       CondRC = selectRRegClass(CondReg, MRI);
-      auto RotateI = MIB.buildInstr(Z80::RRC8r, {s1}, {CondReg});
+      auto RotateI = MIB.buildInstr(Z80::RRC8g, {s1}, {CondReg});
       if (CondRC != &Z80::R8RegClass)
         RotateI->getOperand(1).setSubReg(Z80::sub_low);
       if (!constrainSelectedInstRegOperands(*RotateI, TII, TRI, RBI))
@@ -1611,7 +1611,7 @@ bool Z80InstructionSelector::selectShift(MachineInstr &I,
       llvm_unreachable("Illegal type");
     case 8:
       Reg = Z80::A;
-      AddOpc = Z80::RLC8r;
+      AddOpc = Z80::RLC8g;
       SbcOpc = Z80::SBC8ar;
       RC = &Z80::R8RegClass;
       break;
@@ -1677,11 +1677,11 @@ bool Z80InstructionSelector::selectFunnelShift(MachineInstr &I,
   MachineIRBuilder MIB(I);
   while (Count--) {
     auto ShiftI = MIB.buildInstr(
-        IsLeft ? Z80::RLC8r : Z80::RRC8r,
+        IsLeft ? Z80::RLC8g : Z80::RRC8g,
         {Count || HiReg != LoReg ? DstOp{Ty} : DstOp{DstReg}}, {HiReg});
     MachineInstrBuilder RotateI;
     if (HiReg != LoReg)
-      RotateI = MIB.buildInstr(IsLeft ? Z80::RL8r : Z80::RR8r,
+      RotateI = MIB.buildInstr(IsLeft ? Z80::RL8g : Z80::RR8g,
                                {Count ? DstOp{Ty} : DstOp{DstReg}}, {LoReg});
     if (!constrainSelectedInstRegOperands(*ShiftI, TII, TRI, RBI) ||
         (HiReg != LoReg &&
