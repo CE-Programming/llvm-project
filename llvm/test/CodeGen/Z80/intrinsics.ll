@@ -3254,7 +3254,7 @@ define i32 @cttz.i32(i32) {
 ; EZ80-NEXT:    pop hl
 ; EZ80-NEXT:    ld e, a
 ; EZ80-NEXT:    ld bc, -1
-; EZ80-NEXT:    ld a, -1
+; EZ80-NEXT:    ld a, b
 ; EZ80-NEXT:    call __ladd
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop bc
@@ -23846,7 +23846,7 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld hl, -32768
 ; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld de, -1
-; EZ80-NEXT:    ld b, -1
+; EZ80-NEXT:    ld b, d
 ; EZ80-NEXT:    ld (ix - 111), hl
 ; EZ80-NEXT:    ld l, (ix - 109)
 ; EZ80-NEXT:    ld iyl, e
