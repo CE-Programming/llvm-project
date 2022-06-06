@@ -714,59 +714,61 @@ let mayLoad = true, mayStore = true in {
 let Defs = [F] in
 multiclass UnOp8RF<OtherPrefix prefix, bits<8> opcode, string mnemonic,
                    list<Predicate> Preds = []> {
-  defvar rc8 = !if(!eq(prefix, CBPre), G8, R8);
-  def 8r   : I <Pre<Idx0Pre, prefix>, opcode, mnemonic, "\t$dst", "$imp = $dst",
-                (outs rc8:$dst), (ins rc8:$imp),
-                [(set rc8:$dst, F,
-                        (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
-                            rc8:$imp))]>,
-             Requires<Preds>;
+  defvar   s = !cond(!eq(prefix, NoPre): "r", !eq(prefix, CBPre): "g");
+  defvar rc8 = !cond(!eq(prefix, NoPre):  R8, !eq(prefix, CBPre):  G8);
+  def 8#s   : I <Pre<Idx0Pre, prefix>, opcode, mnemonic, "\t$dst", "$imp = $dst",
+                 (outs rc8:$dst), (ins rc8:$imp),
+                 [(set rc8:$dst, F,
+                         (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
+                             rc8:$imp))]>,
+              Requires<Preds>;
   let mayLoad = true, mayStore = true in {
-    def 8p   : I <Pre<Idx0Pre, prefix>, opcode, mnemonic, "\t$adr", "",
-                  (outs), (ins aptr:$adr),
-                  [(store (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
-                              (i8 (load iPTR:$adr))), iPTR:$adr),
-                   (implicit F)]>,
-               Requires<Preds>;
-    def 8o   : Io<Pre<Idx0Pre, prefix>, opcode, mnemonic, "\t$adr", "",
-                  (outs), (ins  off:$adr),
-                  [(store (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
-                              (i8 (load offpat:$adr))), offpat:$adr),
-                   (implicit F)]>,
-               Requires<Preds>;
+    def 8p    : I <Pre<Idx0Pre, prefix>, opcode, mnemonic, "\t$adr", "",
+                   (outs), (ins aptr:$adr),
+                   [(store (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
+                               (i8 (load iPTR:$adr))), iPTR:$adr),
+                    (implicit F)]>,
+                Requires<Preds>;
+    def 8o    : Io<Pre<Idx0Pre, prefix>, opcode, mnemonic, "\t$adr", "",
+                   (outs), (ins  off:$adr),
+                   [(store (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
+                               (i8 (load offpat:$adr))), offpat:$adr),
+                    (implicit F)]>,
+                Requires<Preds>;
     if !eq(prefix, CBPre) then
-    def 8go  : Io<Pre<Idx1Pre, prefix>, opcode, mnemonic, "\t$adr, $dst", "",
-                  (outs rc8:$dst), (ins off:$adr)>,
-               Requires<!listconcat(Preds, [HaveUndocOps])>;
+    def 8#s#o : Io<Pre<Idx1Pre, prefix>, opcode, mnemonic, "\t$adr, $dst", "",
+                   (outs rc8:$dst), (ins off:$adr)>,
+                Requires<!listconcat(Preds, [HaveUndocOps])>;
   }
 }
 let Defs = [F], Uses = [F] in
 multiclass UnOp8RFF<OtherPrefix prefix, bits<8> opcode, string mnemonic,
                     list<Predicate> Preds = []> {
-  defvar rc8 = !if(!eq(prefix, CBPre), G8, R8);
-  def 8r   : I <Pre<Idx0Pre, prefix>, opcode, mnemonic, "\t$dst", "$imp = $dst",
-                (outs rc8:$dst), (ins rc8:$imp),
-                [(set rc8:$dst, F,
-                        (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
-                            rc8:$imp, F))]>,
-             Requires<Preds>;
+  defvar   s = !cond(!eq(prefix, NoPre): "r", !eq(prefix, CBPre): "g");
+  defvar rc8 = !cond(!eq(prefix, NoPre):  R8, !eq(prefix, CBPre):  G8);
+  def 8#s   : I <Pre<Idx0Pre, prefix>, opcode, mnemonic, "\t$dst", "$imp = $dst",
+                 (outs rc8:$dst), (ins rc8:$imp),
+                 [(set rc8:$dst, F,
+                         (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
+                             rc8:$imp, F))]>,
+              Requires<Preds>;
   let mayLoad = true, mayStore = true in {
-    def 8p   : I <Pre<Idx0Pre, prefix>, opcode, mnemonic, "\t$adr", "",
-                  (outs), (ins aptr:$adr),
-                  [(store (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
-                              (i8 (load iPTR:$adr)), F), iPTR:$adr),
-                   (implicit F)]>,
-               Requires<Preds>;
-    def 8o   : Io<Pre<Idx0Pre, prefix>, opcode, mnemonic, "\t$adr", "",
-                  (outs), (ins  off:$adr),
-                  [(store (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
-                              (i8 (load offpat:$adr)), F), offpat:$adr),
-                   (implicit F)]>,
-               Requires<Preds>;
+    def 8p    : I <Pre<Idx0Pre, prefix>, opcode, mnemonic, "\t$adr", "",
+                   (outs), (ins aptr:$adr),
+                   [(store (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
+                               (i8 (load iPTR:$adr)), F), iPTR:$adr),
+                    (implicit F)]>,
+                Requires<Preds>;
+    def 8o    : Io<Pre<Idx0Pre, prefix>, opcode, mnemonic, "\t$adr", "",
+                   (outs), (ins  off:$adr),
+                   [(store (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
+                               (i8 (load offpat:$adr)), F), offpat:$adr),
+                    (implicit F)]>,
+                Requires<Preds>;
     if !eq(prefix, CBPre) then
-    def 8go  : Io<Pre<Idx1Pre, prefix>, opcode, mnemonic, "\t$adr, $dst", "",
-                  (outs rc8:$dst), (ins off:$adr)>,
-               Requires<!listconcat(Preds, [HaveUndocOps])>;
+    def 8#s#o : Io<Pre<Idx1Pre, prefix>, opcode, mnemonic, "\t$adr, $dst", "",
+                   (outs rc8:$dst), (ins off:$adr)>,
+                Requires<!listconcat(Preds, [HaveUndocOps])>;
   }
 }
 multiclass BinOp8RF<bits<3> opcode, string mnemonic, bit compare = false> {
@@ -839,12 +841,14 @@ multiclass BinOp8RFF<bits<3> opcode, string mnemonic, SDNode node, bit compare =
 }
 multiclass BinOp8F<Prefix prefix, bits<3> opcode, string mnemonic,
                    bit compare = false> {
+  defvar   s = !cond(!eq(prefix, Idx0Pre): "r", !eq(prefix, EDPre): "g");
+  defvar rc8 = !cond(!eq(prefix, Idx0Pre):  R8, !eq(prefix, EDPre):  G8);
   let isCompare = compare, Defs = [F], Uses = [A] in {
-    def 8ar  : I <prefix, {0b10, opcode, 0b000}, mnemonic, "\ta, $src", "",
-                  (outs), (ins    R8:$src),
+    def 8a#s : I <prefix, {0b10, opcode, 0b000}, mnemonic, "\ta, $src", "",
+                  (outs), (ins   rc8:$src),
                   [(set F,
                         (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
-                            A, R8:$src))]>;
+                            A, rc8:$src))]>;
     def 8ai  : Ii<prefix, {0b11, opcode, 0b110}, mnemonic, "\ta, $src", "",
                   (outs), (ins i8imm:$src),
                   [(set F,
@@ -940,13 +944,13 @@ defm TST : BinOp8F  <  EDPre, 4, "tst", true>, Requires<[HaveZ180Ops]>;
 def : MnemonicAlias<"sll", "sli">, Requires<[HaveSliOp]>;
 def : MnemonicAlias<"sl1", "sli">, Requires<[HaveSliOp]>;
 
-def : Pat<(fshl G8:$reg, G8:$reg, (i8  1)), (RLC8r G8:$reg)>;
-def : Pat<(fshl G8:$reg, G8:$reg, (i8  7)), (RRC8r G8:$reg)>;
-def : Pat<(shl G8:$reg, (i8  1)), (SLA8r G8:$reg)>;
-def : Pat<(sra G8:$reg, (i8  1)), (SRA8r G8:$reg)>;
-def : Pat<(or (shl G8:$reg, (i8  1)), (i8  1)), (SLI8r G8:$reg)>,
+def : Pat<(fshl G8:$reg, G8:$reg, (i8  1)), (RLC8g G8:$reg)>;
+def : Pat<(fshl G8:$reg, G8:$reg, (i8  7)), (RRC8g G8:$reg)>;
+def : Pat<(shl G8:$reg, (i8  1)), (SLA8g G8:$reg)>;
+def : Pat<(sra G8:$reg, (i8  1)), (SRA8g G8:$reg)>;
+def : Pat<(or (shl G8:$reg, (i8  1)), (i8  1)), (SLI8g G8:$reg)>,
       Requires<[HaveSliOp]>;
-def : Pat<(srl G8:$reg, (i8  1)), (SRL8r G8:$reg)>;
+def : Pat<(srl G8:$reg, (i8  1)), (SRL8g G8:$reg)>;
 def : Pat<(add R8:$reg, (i8  1)), (INC8r R8:$reg)>;
 def : Pat<(add R8:$reg, (i8 -1)), (DEC8r R8:$reg)>;
 

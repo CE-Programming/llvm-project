@@ -1514,7 +1514,7 @@ bool Z80InstrInfo::analyzeCompare(const MachineInstr &MI, Register &SrcReg,
   switch (MI.getOpcode()) {
   default: return false;
   case Z80::OR8ar:
-  case Z80::TST8ar:
+  case Z80::TST8ag:
     SrcReg = Z80::A;
     if (MI.getOperand(1).getReg() != SrcReg)
       return false;
@@ -1590,16 +1590,16 @@ inline static bool isSZSettingInstr(MachineInstr &MI) {
   case Z80::AND8ar: case Z80::AND8ai: case Z80::AND8ap: case Z80::AND8ao:
   case Z80::XOR8ar: case Z80::XOR8ai: case Z80::XOR8ap: case Z80::XOR8ao:
   case Z80:: OR8ar: case Z80:: OR8ai: case Z80:: OR8ap: case Z80:: OR8ao:
-  case Z80::TST8ar: case Z80::TST8ai: case Z80::TST8ap:
+  case Z80::TST8ag: case Z80::TST8ai: case Z80::TST8ap:
   case Z80::SBC16ao:case Z80::NEG:    case Z80::ADC16ao:
   case Z80::SUB16ao:case Z80::SUB24ao:
-  case Z80::RLC8r:  case Z80::RLC8p:  case Z80::RLC8o:
-  case Z80::RRC8r:  case Z80::RRC8p:  case Z80::RRC8o:
-  case Z80:: RL8r:  case Z80:: RL8p:  case Z80:: RL8o:
-  case Z80:: RR8r:  case Z80:: RR8p:  case Z80:: RR8o:
-  case Z80::SLA8r:  case Z80::SLA8p:  case Z80::SLA8o:
-  case Z80::SRA8r:  case Z80::SRA8p:  case Z80::SRA8o:
-  case Z80::SRL8r:  case Z80::SRL8p:  case Z80::SRL8o:
+  case Z80::RLC8g:  case Z80::RLC8p:  case Z80::RLC8o:
+  case Z80::RRC8g:  case Z80::RRC8p:  case Z80::RRC8o:
+  case Z80:: RL8g:  case Z80:: RL8p:  case Z80:: RL8o:
+  case Z80:: RR8g:  case Z80:: RR8p:  case Z80:: RR8o:
+  case Z80::SLA8g:  case Z80::SLA8p:  case Z80::SLA8o:
+  case Z80::SRA8g:  case Z80::SRA8p:  case Z80::SRA8o:
+  case Z80::SRL8g:  case Z80::SRL8p:  case Z80::SRL8o:
     return true;
   }
 }
@@ -1883,7 +1883,7 @@ MachineInstr *Z80InstrInfo::foldMemoryOperandImpl(
     case Z80::AND8ar: Opc = IsOff ? Z80::AND8ao : Z80::AND8ap; break;
     case Z80::XOR8ar: Opc = IsOff ? Z80::XOR8ao : Z80::XOR8ap; break;
     case Z80:: OR8ar: Opc = IsOff ? Z80:: OR8ao : Z80:: OR8ap; break;
-    case Z80::TST8ar:
+    case Z80::TST8ag:
       if (IsOff)
         return nullptr;
       Opc = Z80::TST8ap;

@@ -425,18 +425,18 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
           break;
         Val = {KnownFlagsVal, KnownFlagsMask, Reg, *TRI};
         break;
-      case Z80::RLC8r:
-      case Z80::RRC8r:
-      case Z80::RL8r:
-      case Z80::RR8r:
+      case Z80::RLC8g:
+      case Z80::RRC8g:
+      case Z80:: RL8g:
+      case Z80:: RR8g:
         Reg = MIB->getOperand(0).getReg();
         if (Reg != Z80::A || !LiveUnits.available(Z80::F))
           break;
         switch (Opc) {
-        case Z80::RLC8r: Opc = Z80::RLCA; break;
-        case Z80::RRC8r: Opc = Z80::RRCA; break;
-        case Z80::RL8r:  Opc = Z80::RLA;  break;
-        case Z80::RR8r:  Opc = Z80::RRA;  break;
+        case Z80::RLC8g: Opc = Z80::RLCA; break;
+        case Z80::RRC8g: Opc = Z80::RRCA; break;
+        case Z80:: RL8g: Opc = Z80:: RLA; break;
+        case Z80:: RR8g: Opc = Z80:: RRA; break;
         }
         LLVM_DEBUG(dbgs() << "Replacing: "; MIB->dump();
                    dbgs() << "     With: ");
