@@ -218,13 +218,13 @@ bool Z80PostSelectCombiner::runOnMachineFunction(MachineFunction &MF) {
       case Z80::OR8ai:
         SZFlagLoc.setReg(Z80::A);
         break;
-      case Z80::RLC8r:
-      case Z80::RRC8r:
-      case Z80::RL8r:
-      case Z80::RR8r:
-      case Z80::SLA8r:
-      case Z80::SRA8r:
-      case Z80::SRL8r:
+      case Z80::RLC8g:
+      case Z80::RRC8g:
+      case Z80:: RL8g:
+      case Z80:: RR8g:
+      case Z80::SLA8g:
+      case Z80::SRA8g:
+      case Z80::SRL8g:
       case Z80::INC8r:
       case Z80::DEC8r:
         SZFlagLoc.setReg(MI, 0);
@@ -235,16 +235,16 @@ bool Z80PostSelectCombiner::runOnMachineFunction(MachineFunction &MF) {
       case Z80::SBC8ap:
       case Z80::AND8ap:
       case Z80::XOR8ap:
-      case Z80::OR8ap:
-      case Z80::RLC8p:
-      case Z80::RRC8p:
-      case Z80::RL8p:
-      case Z80::RR8p:
-      case Z80::SLA8p:
-      case Z80::SRA8p:
-      case Z80::SRL8p:
-      case Z80::INC8p:
-      case Z80::DEC8p:
+      case Z80:: OR8ap:
+      case Z80:: RLC8p:
+      case Z80:: RRC8p:
+      case Z80::  RL8p:
+      case Z80::  RR8p:
+      case Z80:: SLA8p:
+      case Z80:: SRA8p:
+      case Z80:: SRL8p:
+      case Z80:: INC8p:
+      case Z80:: DEC8p:
         SZFlagLoc.setPtr(MI, 0);
         break;
       case Z80::ADD8ao:
@@ -253,16 +253,16 @@ bool Z80PostSelectCombiner::runOnMachineFunction(MachineFunction &MF) {
       case Z80::SBC8ao:
       case Z80::AND8ao:
       case Z80::XOR8ao:
-      case Z80::OR8ao:
-      case Z80::RLC8o:
-      case Z80::RRC8o:
-      case Z80::RL8o:
-      case Z80::RR8o:
-      case Z80::SLA8o:
-      case Z80::SRA8o:
-      case Z80::SRL8o:
-      case Z80::INC8o:
-      case Z80::DEC8o:
+      case Z80:: OR8ao:
+      case Z80:: RLC8o:
+      case Z80:: RRC8o:
+      case Z80::  RL8o:
+      case Z80::  RR8o:
+      case Z80:: SLA8o:
+      case Z80:: SRA8o:
+      case Z80:: SRL8o:
+      case Z80:: INC8o:
+      case Z80:: DEC8o:
         SZFlagLoc.setOff(MI, 0);
         break;
       default:
