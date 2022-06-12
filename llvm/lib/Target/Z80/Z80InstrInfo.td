@@ -1066,32 +1066,32 @@ def : Pat<(sube UHL, O24:$src), (SBC24ao O24:$src)>;
 def : Pat<(adde UHL, O24:$src), (ADC24ao O24:$src)>;
 
 let Defs = [HL, F], Uses = [HL] in {
-  def SUB16ao : P<(outs), (ins O16:$src),
+  def Sub16ao : P<(outs), (ins O16:$src),
                   [(set  HL, F, (Z80sub_flag  HL, O16:$src))]>;
 }
 let Defs = [UHL, F], Uses = [UHL] in {
-  def SUB24ao : P<(outs), (ins O24:$src),
+  def Sub24ao : P<(outs), (ins O24:$src),
                   [(set UHL, F, (Z80sub_flag UHL, O24:$src))]>,
                 Requires<[HaveEZ80Ops]>;
 }
 let Defs = [F] in {
   let Uses = [HL] in {
-    def CP16a0 : P<(outs), (ins), [(set F, (Z80cp_flag HL, 0))]>;
-    def CP16ao : P<(outs), (ins O16:$src),
-                   [(set F, (Z80cp_flag HL, O16:$src))]>;
+    def Cmp16a0 : P<(outs), (ins), [(set F, (Z80cp_flag HL, 0))]>;
+    def Cmp16ao : P<(outs), (ins O16:$src),
+                    [(set F, (Z80cp_flag HL, O16:$src))]>;
   }
   let Uses = [UHL] in {
-    def CP24a0 : P<(outs), (ins), [(set F, (Z80cp_flag UHL, 0))]>,
-                 Requires<[HaveEZ80Ops]>;
-    def CP24ao : P<(outs), (ins O24:$src),
-                   [(set F, (Z80cp_flag UHL, O24:$src))]>,
-                 Requires<[HaveEZ80Ops]>;
+    def Cmp24a0 : P<(outs), (ins), [(set F, (Z80cp_flag UHL, 0))]>,
+                  Requires<[HaveEZ80Ops]>;
+    def Cmp24ao : P<(outs), (ins O24:$src),
+                    [(set F, (Z80cp_flag UHL, O24:$src))]>,
+                  Requires<[HaveEZ80Ops]>;
   }
 }
-def : Pat<(sub   HL, O16:$src), (SUB16ao O16:$src)>;
-def : Pat<(sub  UHL, O24:$src), (SUB24ao O24:$src)>;
-def : Pat<(subc  HL, O16:$src), (SUB16ao O16:$src)>;
-def : Pat<(subc UHL, O24:$src), (SUB24ao O24:$src)>;
+def : Pat<(sub   HL, O16:$src), (Sub16ao O16:$src)>;
+def : Pat<(sub  UHL, O24:$src), (Sub24ao O24:$src)>;
+def : Pat<(subc  HL, O16:$src), (Sub16ao O16:$src)>;
+def : Pat<(subc UHL, O24:$src), (Sub24ao O24:$src)>;
 
 def LEA16ro : I16o<EDPre, 0x02, "lea", "\t$dst, $src", "",
                    (outs R16:$dst), (ins off16:$src),

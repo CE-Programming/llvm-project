@@ -1203,34 +1203,34 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
         ->ChangeToImmediate(Opc == Z80::LD24r0 ? 0 : -1);
     }
     break;
-  case Z80::CP16ao:
-  case Z80::CP24ao: {
-    MCRegister Reg = Opc == Z80::CP24ao ? Z80::UHL : Z80::HL;
+  case Z80::Cmp16ao:
+  case Z80::Cmp24ao: {
+    MCRegister Reg = Opc == Z80::Cmp24ao ? Z80::UHL : Z80::HL;
     if (MBB.computeRegisterLiveness(&TRI, Reg, Next) !=
         MachineBasicBlock::LQR_Dead) {
-      BuildMI(MBB, Next, DL, get(Opc == Z80::CP24ao ? Z80::ADD24ao
-                                 : Z80::ADD16ao), Reg)
-        .addReg(Reg).add(MI.getOperand(0));
+      BuildMI(MBB, Next, DL,
+              get(Opc == Z80::Cmp24ao ? Z80::ADD24ao : Z80::ADD16ao), Reg)
+          .addReg(Reg).add(MI.getOperand(0));
       MI.getOperand(0).setIsKill(false);
     }
     MIB.addReg(Reg, RegState::ImplicitDefine);
     LLVM_FALLTHROUGH;
   }
-  case Z80::SUB16ao:
-  case Z80::SUB24ao:
+  case Z80::Sub16ao:
+  case Z80::Sub24ao:
     expandPostRAPseudo(*BuildMI(MBB, MI, DL, get(Z80::RCF)));
-    MI.setDesc(get(Opc == Z80::CP24ao || Opc == Z80::SUB24ao ? Z80::SBC24ao
-                                                             : Z80::SBC16ao));
+    MI.setDesc(get(Opc == Z80::Cmp24ao || Opc == Z80::Sub24ao ? Z80::SBC24ao
+                                                              : Z80::SBC16ao));
     MIB.addReg(Z80::F, RegState::Implicit);
     break;
-  case Z80::CP16a0:
-  case Z80::CP24a0: {
-    MCRegister Reg = Opc == Z80::CP24a0 ? Z80::UHL : Z80::HL;
-    MCRegister UndefReg = Opc == Z80::CP24a0 ? Z80::UBC : Z80::BC;
-    BuildMI(MBB, MI, DL, get(Opc == Z80::CP24a0 ? Z80::ADD24ao : Z80::ADD16ao),
+  case Z80::Cmp16a0:
+  case Z80::Cmp24a0: {
+    MCRegister Reg = Opc == Z80::Cmp24a0 ? Z80::UHL : Z80::HL;
+    MCRegister UndefReg = Opc == Z80::Cmp24a0 ? Z80::UBC : Z80::BC;
+    BuildMI(MBB, MI, DL, get(Opc == Z80::Cmp24a0 ? Z80::ADD24ao : Z80::ADD16ao),
             Reg).addReg(Reg).addReg(UndefReg, RegState::Undef);
     expandPostRAPseudo(*BuildMI(MBB, MI, DL, get(Z80::RCF)));
-    MI.setDesc(get(Opc == Z80::CP24a0 ? Z80::SBC24ao : Z80::SBC16ao));
+    MI.setDesc(get(Opc == Z80::Cmp24a0 ? Z80::SBC24ao : Z80::SBC16ao));
     MIB.addReg(UndefReg, RegState::Undef).addReg(Reg, RegState::ImplicitDefine)
         .addReg(Z80::F, RegState::Implicit);
     break;
@@ -1581,25 +1581,30 @@ inline static bool isRedundantFlagInstr(MachineInstr &FI, Register SrcReg,
 inline static bool isSZSettingInstr(MachineInstr &MI) {
   switch (MI.getOpcode()) {
   default: return false;
-  case Z80::INC8r:  case Z80::INC8p:  case Z80::INC8o:
-  case Z80::DEC8r:  case Z80::DEC8p:  case Z80::DEC8o:
-  case Z80::ADD8ar: case Z80::ADD8ai: case Z80::ADD8ap: case Z80::ADD8ao:
-  case Z80::ADC8ar: case Z80::ADC8ai: case Z80::ADC8ap: case Z80::ADC8ao:
-  case Z80::SUB8ar: case Z80::SUB8ai: case Z80::SUB8ap: case Z80::SUB8ao:
-  case Z80::SBC8ar: case Z80::SBC8ai: case Z80::SBC8ap: case Z80::SBC8ao:
-  case Z80::AND8ar: case Z80::AND8ai: case Z80::AND8ap: case Z80::AND8ao:
-  case Z80::XOR8ar: case Z80::XOR8ai: case Z80::XOR8ap: case Z80::XOR8ao:
-  case Z80:: OR8ar: case Z80:: OR8ai: case Z80:: OR8ap: case Z80:: OR8ao:
-  case Z80::TST8ag: case Z80::TST8ai: case Z80::TST8ap:
-  case Z80::SBC16ao:case Z80::NEG:    case Z80::ADC16ao:
-  case Z80::SUB16ao:case Z80::SUB24ao:
-  case Z80::RLC8g:  case Z80::RLC8p:  case Z80::RLC8o:
-  case Z80::RRC8g:  case Z80::RRC8p:  case Z80::RRC8o:
-  case Z80:: RL8g:  case Z80:: RL8p:  case Z80:: RL8o:
-  case Z80:: RR8g:  case Z80:: RR8p:  case Z80:: RR8o:
-  case Z80::SLA8g:  case Z80::SLA8p:  case Z80::SLA8o:
-  case Z80::SRA8g:  case Z80::SRA8p:  case Z80::SRA8o:
-  case Z80::SRL8g:  case Z80::SRL8p:  case Z80::SRL8o:
+  case Z80::INC8r:   case Z80::INC8p:   case Z80::INC8o:
+  case Z80::DEC8r:   case Z80::DEC8p:   case Z80::DEC8o:
+  case Z80::ADD8ar:  case Z80::ADD8ai:  case Z80::ADD8ap:  case Z80::ADD8ao:
+  case Z80::ADC8ar:  case Z80::ADC8ai:  case Z80::ADC8ap:  case Z80::ADC8ao:
+  case Z80::SUB8ar:  case Z80::SUB8ai:  case Z80::SUB8ap:  case Z80::SUB8ao:
+  case Z80::SBC8ar:  case Z80::SBC8ai:  case Z80::SBC8ap:  case Z80::SBC8ao:
+  case Z80::AND8ar:  case Z80::AND8ai:  case Z80::AND8ap:  case Z80::AND8ao:
+  case Z80::XOR8ar:  case Z80::XOR8ai:  case Z80::XOR8ap:  case Z80::XOR8ao:
+  case Z80:: OR8ar:  case Z80:: OR8ai:  case Z80:: OR8ap:  case Z80:: OR8ao:
+  case Z80::TST8ag:  case Z80::TST8ai:  case Z80::TST8ap:
+  case Z80::NEG:     case Z80::Sub16ao: case Z80::Sub24ao:
+  case Z80::ADD16aa: case Z80::ADD16ao: case Z80::ADD16as:
+  case Z80::SBC16aa: case Z80::SBC16ao: case Z80::SBC16as:
+  case Z80::ADC16aa: case Z80::ADC16ao: case Z80::ADC16as:
+  case Z80::ADD24aa: case Z80::ADD24ao: case Z80::ADD24as:
+  case Z80::SBC24aa: case Z80::SBC24ao: case Z80::SBC24as:
+  case Z80::ADC24aa: case Z80::ADC24ao: case Z80::ADC24as:
+  case Z80::RLC8g:   case Z80::RLC8p:   case Z80::RLC8o:
+  case Z80::RRC8g:   case Z80::RRC8p:   case Z80::RRC8o:
+  case Z80:: RL8g:   case Z80:: RL8p:   case Z80:: RL8o:
+  case Z80:: RR8g:   case Z80:: RR8p:   case Z80:: RR8o:
+  case Z80::SLA8g:   case Z80::SLA8p:   case Z80::SLA8o:
+  case Z80::SRA8g:   case Z80::SRA8p:   case Z80::SRA8o:
+  case Z80::SRL8g:   case Z80::SRL8p:   case Z80::SRL8o:
     return true;
   }
 }
