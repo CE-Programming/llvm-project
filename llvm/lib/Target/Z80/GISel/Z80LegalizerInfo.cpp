@@ -932,7 +932,7 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeMemIntrinsic(
         }
         if (Opc == TargetOpcode::G_MEMMOVE && !ConstAddr) {
           MIRBuilder.buildCopy(HL, SrcReg);
-          MIRBuilder.buildInstr(Is24Bit ? Z80::CP24ao : Z80::CP16ao, {},
+          MIRBuilder.buildInstr(Is24Bit ? Z80::Cmp24ao : Z80::Cmp16ao, {},
                                 {DstReg});
           MIRBuilder
               .buildInstr(Is24Bit ? Z80::LDR24 : Z80::LDR16, {},

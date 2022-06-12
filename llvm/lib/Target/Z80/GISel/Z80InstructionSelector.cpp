@@ -1198,13 +1198,13 @@ Z80InstructionSelector::foldCompare(MachineInstr &I, MachineIRBuilder &MIB,
     Reg = Z80::A;
     break;
   case 16:
-    Opc = Z80::SUB16ao;
+    Opc = Z80::Sub16ao;
     LDIOpc = Z80::LD16ri;
     AddOpc = Z80::ADD16ao;
     Reg = Z80::HL;
     break;
   case 24:
-    Opc = Z80::SUB24ao;
+    Opc = Z80::Sub24ao;
     LDIOpc = Z80::LD24ri;
     AddOpc = Z80::ADD24ao;
     Reg = Z80::UHL;
@@ -1288,7 +1288,7 @@ Z80InstructionSelector::foldCompare(MachineInstr &I, MachineIRBuilder &MIB,
           Ops = {Reg};
         }
       } else {
-        Opc = OpSize == 24 ? Z80::CP24a0 : Z80::CP16a0;
+        Opc = OpSize == 24 ? Z80::Cmp24a0 : Z80::Cmp16a0;
         Ops.clear();
       }
     } else if (OpSize == 8) {

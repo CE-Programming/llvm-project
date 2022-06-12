@@ -108,14 +108,6 @@ private:
                                      SDNode *Node) const override;
 
   void AdjustAdjCallStack(MachineInstr &MI) const;
-  MachineBasicBlock *EmitLoweredSub0(MachineInstr &MI,
-                                     MachineBasicBlock *BB) const;
-  MachineBasicBlock *EmitLoweredSub(MachineInstr &MI,
-                                    MachineBasicBlock *BB) const;
-  MachineBasicBlock *EmitLoweredCmp0(MachineInstr &MI,
-                                     MachineBasicBlock *BB) const;
-  MachineBasicBlock *EmitLoweredCmp(MachineInstr &MI,
-                                    MachineBasicBlock *BB) const;
   MachineBasicBlock *EmitLoweredSelect(MachineInstr &MI,
                                        MachineBasicBlock *BB) const;
   MachineBasicBlock *EmitLoweredSExt(MachineInstr &MI,
