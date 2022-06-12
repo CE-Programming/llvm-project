@@ -4561,7 +4561,7 @@ define i32 @zext.i8.i32(i8) {
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ld l, (iy + 3)
-; EZ80-NEXT:    ld e, 0
+; EZ80-NEXT:    ld e, h
 ; EZ80-NEXT:    ret
   zext i8 %0 to i32
   ret i32 %2
@@ -7126,7 +7126,7 @@ define double @uitofp.i8.f64(i8) {
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ld l, (iy + 3)
-; EZ80-NEXT:    ld e, 0
+; EZ80-NEXT:    ld e, h
 ; EZ80-NEXT:    call __ultod
 ; EZ80-NEXT:    ret
   uitofp i8 %0 to double

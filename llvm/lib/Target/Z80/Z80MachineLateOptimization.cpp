@@ -21,6 +21,7 @@
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/MathExtras.h"
 
 #define DEBUG_TYPE "z80-machine-late-opt"
 
@@ -36,7 +37,6 @@ class RegVal {
 public:
   RegVal() {}
   RegVal(MCRegister Reg, const TargetRegisterInfo &TRI) {
-    assert(Register::isPhysicalRegister(Reg) && "Expected physical register");
     if (auto *RC = TRI.getMinimalPhysRegClass(Reg))
       Mask = maskTrailingOnes<unsigned>(TRI.getRegSizeInBits(*RC));
   }
@@ -104,12 +104,13 @@ public:
 
 #ifndef NDEBUG
   friend raw_ostream &operator<<(raw_ostream &OS, RegVal &Val) {
-    OS << " & " << format_hex(Val.Mask, 4, true) << " == ";
+    unsigned Width = 2 + divideCeil(1 + Log2_32(Val.Mask), 4);
+    OS << " & " << format_hex(Val.Mask, Width, true) << " == ";
     if (!Val.valid())
       return OS << "?";
     if (Val.GV)
       OS << Val.GV << '+';
-    return OS << format_hex(Val.Off, 4, true);
+    return OS << format_hex(Val.Off, Width, true);
   }
 #endif
 };
@@ -142,7 +143,7 @@ class Z80MachineLateOptimization : public MachineFunctionPass {
   void updateDeadOrKilledBy(MachineInstr *MI,
                             bool (MachineOperand::*Pred)() const) {
     for (const MachineOperand &MO : MI->operands())
-      if (MO.isReg() && (MO.*Pred)() && MO.getReg().isPhysical())
+      if (MO.isReg() && (MO.*Pred)())
         for (MCRegAliasIterator I(MO.getReg(), TRI, true); I.isValid(); ++I)
           RegVals[*I].setDeadOrKilledBy(MI);
   }
@@ -177,6 +178,7 @@ class Z80MachineLateOptimization : public MachineFunctionPass {
   getKnownVal(const MachineInstr &MI) const;
 
   struct KnownFlags {
+    static const KnownFlags PreserveDocumented;
     const uint8_t SetMask = 0, ResetMask = 0, PreserveMask = 0;
     operator bool() const { return SetMask | ResetMask; }
     uint8_t getKnownVal(uint8_t KnownFlagsVal) const {
@@ -202,6 +204,12 @@ public:
 };
 } // end anonymous namespace
 
+Z80MachineLateOptimization::KnownFlags const
+    Z80MachineLateOptimization::KnownFlags::PreserveDocumented{
+        0, 0,
+        SignFlag | ZeroFlag | HalfCarryFlag | ParityOverflowFlag |
+            SubtractFlag | CarryFlag};
+
 void Z80MachineLateOptimization::debug(const MachineInstr &MI) {
   for (unsigned Reg = 1; Reg != Z80::NUM_TARGET_REGS; ++Reg)
     if (RegVals[Reg].valid())
@@ -215,35 +223,81 @@ Z80MachineLateOptimization::getKnownVal(const MachineInstr &MI) const {
   std::tie(KnownFlagsVal, KnownFlagsMask) = RegVals[Z80::F].getKnownBits();
   MCRegister DstReg;
   RegVal DstVal;
+  if (MI.getNumExplicitDefs() == 1)
+    DstReg = MI.getOperand(0).getReg();
   switch (unsigned Opc = MI.getOpcode()) {
-  case Z80::LD8ri:
-  case Z80::LD16ri:
-  case Z80::LD24ri:
-    DstReg = MI.getOperand(0).getReg();
-    DstVal = {MI.getOperand(1), DstReg, *TRI};
-    break;
-  case Z80::LD24r0:
-    DstReg = MI.getOperand(0).getReg();
-    DstVal = {0, DstReg, *TRI};
-    break;
-  case Z80::LD24r_1:
-    DstReg = MI.getOperand(0).getReg();
-    DstVal = {-1, DstReg, *TRI};
-    break;
-  case Z80::RCF:
-  case Z80::SCF:
+  case Z80::RCF: case Z80::SCF:
+    DstReg = Z80::F;
     if (!(KnownFlagsMask & CarryFlag) ||
         (Opc == Z80::RCF) ^ !(KnownFlagsVal & CarryFlag))
       break;
-    DstReg = Z80::F;
     DstVal = {KnownFlagsVal, KnownFlagsMask, DstReg, *TRI};
     break;
-  case Z80::SUB8ar:
-  case Z80::XOR8ar:
-    DstReg = MI.getOperand(0).getReg();
-    if (DstReg != Z80::A)
+  case Z80:: LD8ai: case Z80::LD16ai: case Z80::LD24ai:
+  case Z80:: LD8ar: case Z80::LD8amb: case Z80:: LD8am: case Z80:: LD8ap:
+  case Z80::SExt8: case Z80::CPL: case Z80::NEG: case Z80::DAA:
+  case Z80::RLCA: case Z80::RRCA: case Z80::RLA: case Z80::RRA:
+  case Z80::RRD16: case Z80::RLD16: case Z80::RRD24: case Z80::RLD24:
+  case Z80::ADD8ar: case Z80::ADD8ai: case Z80::ADD8ap: case Z80::ADD8ao:
+  case Z80::ADC8ar: case Z80::ADC8ai: case Z80::ADC8ap: case Z80::ADC8ao:
+  case Z80::SUB8ar: case Z80::SUB8ai: case Z80::SUB8ap: case Z80::SUB8ao:
+  case Z80::SBC8ar: case Z80::SBC8ai: case Z80::SBC8ap: case Z80::SBC8ao:
+  case Z80::AND8ar: case Z80::AND8ai: case Z80::AND8ap: case Z80::AND8ao:
+  case Z80::XOR8ar: case Z80::XOR8ai: case Z80::XOR8ap: case Z80::XOR8ao:
+  case Z80:: OR8ar: case Z80:: OR8ai: case Z80:: OR8ap: case Z80:: OR8ao:
+  case Z80:: CP8ar: case Z80:: CP8ai: case Z80:: CP8ap: case Z80:: CP8ao:
+  case Z80::TST8ag: case Z80::TST8ai: case Z80::TST8ap:
+    DstReg = Z80::A;
+    switch (Opc) {
+    case Z80::SUB8ar:
+    case Z80::XOR8ar:
+      if (MI.getOperand(0).getReg() != DstReg)
+        break;
+      DstVal = {0, DstReg, *TRI};
       break;
+    }
+    break;
+  case Z80:: LD8ia: case Z80::LD16ia:
+    DstReg = Z80::I;
+    break;
+  case Z80::LD8ra:
+    DstReg = Z80::R;
+    break;
+  case Z80::LD8mba:
+    DstReg = Z80::MB;
+    break;
+  case Z80::POP16AF: case Z80::POP24AF:
+    DstReg = Z80::AF;
+    break;
+  case Z80::INC16s: case Z80::DEC16s:
+    DstReg = Z80::SPS;
+    break;
+  case Z80::INC24s: case Z80::DEC24s:
+    DstReg = Z80::SPL;
+    break;
+  case Z80::LD8ri:
+  case Z80::LD16ri:
+  case Z80::LD24ri:
+    DstVal = {MI.getOperand(1), DstReg, *TRI};
+    break;
+  case Z80::LD8r0:
     DstVal = {0, DstReg, *TRI};
+    break;
+  case Z80::LD24r0:
+    DstVal = {0, DstReg, *TRI};
+    break;
+  case Z80::LD24r_1:
+    DstVal = {-1, DstReg, *TRI};
+    break;
+  case Z80::SExt16: case Z80::Sub16ao:
+  case Z80::SBC16aa: case Z80::SBC16ao: case Z80::SBC16as:
+  case Z80::ADC16aa: case Z80::ADC16ao: case Z80::ADC16as:
+    DstReg = Z80::HL;
+    break;
+  case Z80::SExt24: case Z80::Sub24ao:
+  case Z80::SBC24aa: case Z80::SBC24ao: case Z80::SBC24as:
+  case Z80::ADC24aa: case Z80::ADC24ao: case Z80::ADC24as:
+    DstReg = Z80::UHL;
     break;
   }
   return {KnownFlagsVal, KnownFlagsMask, DstReg, DstVal};
@@ -254,14 +308,19 @@ Z80MachineLateOptimization::getKnownFlags(const MachineInstr &MI,
                                           uint8_t KnownFlagsVal,
                                           uint8_t KnownFlagsMask) const {
   switch (unsigned Opc = MI.getOpcode()) {
+  case Z80::LD8r0:
+    if (MI.getOperand(0).getReg() != Z80::A)
+      return KnownFlags::PreserveDocumented;
+    return {ZeroFlag, SignFlag | HalfCarryFlag | ParityOverflowFlag |
+                          SubtractFlag | CarryFlag};
   case Z80::LD24r0:
     if (MI.getOperand(0).getReg() != Z80::UHL)
-      break;
+      return KnownFlags::PreserveDocumented;
     return {ZeroFlag | SubtractFlag,
             SignFlag | HalfCarryFlag | ParityOverflowFlag | CarryFlag};
   case Z80::LD24r_1:
     if (MI.getOperand(0).getReg() != Z80::UHL)
-      break;
+      return KnownFlags::PreserveDocumented;
     return {SignFlag | HalfCarryFlag | SubtractFlag | CarryFlag,
             ZeroFlag | ParityOverflowFlag};
   case Z80::SCF:
@@ -390,6 +449,7 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
           getKnownVal(*MIB);
 
       switch (unsigned Opc = MIB->getOpcode()) {
+      case Z80::LD8r0:
       case Z80::LD8ri:
       case Z80::LD8pi:
       case Z80::LD8oi:
@@ -402,18 +462,27 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
       case Z80::OR8ai:
       case Z80::CP8ai:
       case Z80::TST8ai: {
-        MachineOperand &ImmMO =
-            MIB->getOperand(MIB->getNumExplicitOperands() - 1);
+        MachineOperand *ImmMO;
+        RegVal ImmVal;
+        if (Opc == Z80::LD8r0) {
+          if (DstReg == Z80::A)
+            break;
+          ImmMO = nullptr;
+          ImmVal = {0, DstReg, *TRI};
+        } else {
+          ImmMO = &MIB->getOperand(MIB->getNumExplicitOperands() - 1);
+          ImmVal = {*ImmMO, Z80::A, *TRI};
+        }
         for (MCRegister SrcReg = Z80::NoRegister + 1;
              SrcReg != Z80::NUM_TARGET_REGS; SrcReg = SrcReg + 1) {
-          if (!RegVals[SrcReg].matches({ImmMO, Z80::A, *TRI}))
+          if (!RegVals[SrcReg].matches(ImmVal))
             continue;
           unsigned NewOpc = Z80::INSTRUCTION_LIST_END;
           switch (Opc) {
           default:
             llvm_unreachable("Unexpected opcode");
+          case Z80::LD8r0:
           case Z80::LD8ri:
-            DstReg = MIB->getOperand(0).getReg();
             if (Z80::G8RegClass.contains(DstReg) &&
                 Z80::G8RegClass.contains(SrcReg))
               NewOpc = Z80::LD8gg;
@@ -465,18 +534,25 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
             NewOpc = Z80::TST8ag;
             break;
           }
-          if (NewOpc != Z80::INSTRUCTION_LIST_END) {
-            MIB->setDesc(TII.get(NewOpc));
-            ImmMO.ChangeToRegister(SrcReg, /*isDef=*/false, /*isImp=*/false,
-                                   /*isKill=*/reuse(SrcReg));
+          if (NewOpc == Z80::INSTRUCTION_LIST_END)
+            continue;
+          MIB->setDesc(TII.get(NewOpc));
+          if (ImmMO) {
+            ImmMO->ChangeToRegister(SrcReg, /*isDef=*/false, /*isImp=*/false,
+                                    /*isKill=*/reuse(SrcReg));
             break;
           }
+          assert(Opc == Z80::LD8r0);
+          MIB.addReg(SrcReg, getKillRegState(reuse(SrcReg)));
+          int ImpDefIdx = MIB->findRegisterDefOperandIdx(Z80::F, true);
+          if (ImpDefIdx >= 0)
+            MIB->removeOperand(ImpDefIdx);
+          break;
         }
         break;
       }
       case Z80::LD24r0:
       case Z80::LD24r_1:
-        DstReg = MIB->getOperand(0).getReg();
         if (DstReg != Z80::UHL || !(KnownFlagsMask & CarryFlag) ||
             ((Opc == Z80::LD24r0) ^ !(KnownFlagsVal & CarryFlag)))
           break;
@@ -492,7 +568,6 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
       case Z80::RRC8g:
       case Z80:: RL8g:
       case Z80:: RR8g:
-        DstReg = MIB->getOperand(0).getReg();
         if (DstReg != Z80::A || !LiveUnits.available(Z80::F))
           break;
         switch (Opc) {
@@ -513,18 +588,15 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
       case Z80::Cmp24ao: {
         if (!(~KnownFlagsVal & KnownFlagsMask & CarryFlag))
           break;
-        MCRegister DstReg;
         unsigned SubOpc, AddOpc;
         switch (Opc) {
         case Z80::Sub16ao:
         case Z80::Cmp16ao:
-          DstReg = Z80::HL;
           SubOpc = Z80::SBC16ao;
           AddOpc = Z80::ADD16ao;
           break;
         case Z80::Sub24ao:
         case Z80::Cmp24ao:
-          DstReg = Z80::UHL;
           SubOpc = Z80::SBC24ao;
           AddOpc = Z80::ADD24ao;
           break;
@@ -594,8 +666,9 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
 
       // Clobber defs.
       for (MachineOperand &MO : MIB->operands()) {
-        if (MO.isReg() && MO.isDef() && MO.getReg().isPhysical() &&
-            !(MIB->isCopy() && MO.isImplicit()))
+        if (MO.isReg() && MO.isDef() &&
+            !(DstReg.isValid() && MO.isImplicit() &&
+              TRI->isSuperRegister(DstReg, MO.getReg())))
           clobber<MCRegAliasIterator>(MO.getReg(), true);
         else if (MO.isRegMask())
           for (MCRegister Reg = Z80::NoRegister + 1;
