@@ -189,6 +189,8 @@ public:
       LiveIntervals *LIS = nullptr) const override;
 
 private:
+  bool isRegisterOperandSubClassEq(const MachineOperand &RegMO,
+                                   const TargetRegisterClass &RC) const;
   void updateOperandRegConstraints(MachineFunction &MF,
                                    MachineInstr &NewMI) const;
   MachineInstr *foldMemoryOperandImpl(MachineFunction &MF, MachineInstr &MI,

@@ -1830,6 +1830,26 @@ MachineInstr *Z80InstrInfo::optimizeLoadInstr(MachineInstr &MI,
   return nullptr;
 }
 
+bool Z80InstrInfo::isRegisterOperandSubClassEq(
+    const MachineOperand &RegMO, const TargetRegisterClass &RC) const {
+  assert(RegMO.isReg() && "Expected a register operand.");
+
+  const TargetRegisterInfo &TRI = getRegisterInfo();
+  const MachineInstr &MI = *RegMO.getParent();
+  const MachineFunction &MF = *MI.getMF();
+  const MachineRegisterInfo &MRI = MF.getRegInfo();
+
+  Register Reg = RegMO.getReg();
+  if (Reg.isPhysical())
+    return RC.contains(Reg);
+
+  assert(Reg.isVirtual() && "Expected a physical or virtual register.");
+  const TargetRegisterClass &RegRC = *MRI.getRegClass(Reg);
+  if (unsigned SubReg = RegMO.getSubReg())
+    return TRI.getMatchingSuperRegClass(&RegRC, &RC, SubReg) == &RegRC;
+  return RC.hasSubClassEq(&RegRC);
+}
+
 void Z80InstrInfo::updateOperandRegConstraints(MachineFunction &MF,
                                                MachineInstr &NewMI) const {
   MachineRegisterInfo &MRI = MF.getRegInfo();
@@ -1889,7 +1909,7 @@ MachineInstr *Z80InstrInfo::foldMemoryOperandImpl(
       Opc = Z80::TST8ap;
       break;
     case TargetOpcode::COPY:
-      if (!Z80::R8RegClass.contains(MI.getOperand(1).getReg()))
+      if (!isRegisterOperandSubClassEq(MI.getOperand(1), Z80::R8RegClass))
         return nullptr;
       Opc = IsOff ? Z80::LD8or : Z80::LD8pr;
       break;
@@ -1899,7 +1919,7 @@ MachineInstr *Z80InstrInfo::foldMemoryOperandImpl(
     switch (MI.getOpcode()) {
     default: return nullptr;
     case TargetOpcode::COPY:
-      if (!Z80::R8RegClass.contains(MI.getOperand(0).getReg()))
+      if (!isRegisterOperandSubClassEq(MI.getOperand(0), Z80::R8RegClass))
         return nullptr;
       Opc = IsOff ? Z80::LD8ro : Z80::LD8rp;
       break;
