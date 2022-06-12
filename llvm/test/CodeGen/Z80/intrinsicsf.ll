@@ -39,8 +39,7 @@ define float @sqrt.f32(float) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _sqrtf
@@ -459,8 +458,7 @@ define float @powi.f32.i16(float, i16) {
 ; EZ80-NEXT:    ld l, a
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    push bc
-; EZ80-NEXT:    ld a, (ix + 9)
-; EZ80-NEXT:    ld l, a
+; EZ80-NEXT:    ld l, (ix + 9)
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    push hl
@@ -1012,8 +1010,7 @@ define float @sin.f32(float) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _sinf
@@ -1138,8 +1135,7 @@ define float @cos.f32(float) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _cosf
@@ -1281,7 +1277,6 @@ define float @pow.f32(float, float) {
 ; EZ80-NEXT:    ld a, (iy + 6)
 ; EZ80-NEXT:    ld de, (iy + 9)
 ; EZ80-NEXT:    ld c, (iy + 12)
-; EZ80-NEXT:    ; kill: def $c killed $c def $ubc
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    ld e, a
@@ -1435,8 +1430,7 @@ define float @exp.f32(float) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _expf
@@ -1561,8 +1555,7 @@ define float @exp2.f32(float) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _exp2f
@@ -1687,8 +1680,7 @@ define float @log.f32(float) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _logf
@@ -1813,8 +1805,7 @@ define float @log10.f32(float) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _log10f
@@ -1939,8 +1930,7 @@ define float @log2.f32(float) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _log2f
@@ -2093,8 +2083,10 @@ define float @fma.f32(float, float, float) {
 ; EZ80-NEXT:    ld de, (ix + 12)
 ; EZ80-NEXT:    ld c, (ix + 15)
 ; EZ80-NEXT:    ld hl, (ix + 18)
-; EZ80-NEXT:    ld b, (ix + 21)
-; EZ80-NEXT:    ld iyl, b
+; EZ80-NEXT:    push af
+; EZ80-NEXT:    ld a, (ix + 21)
+; EZ80-NEXT:    ld iyl, a
+; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    push iy
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld l, c
@@ -2277,8 +2269,7 @@ define float @fabs.f32(float) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _fabsf
@@ -2420,7 +2411,6 @@ define float @minnum.f32(float, float) {
 ; EZ80-NEXT:    ld a, (iy + 6)
 ; EZ80-NEXT:    ld de, (iy + 9)
 ; EZ80-NEXT:    ld c, (iy + 12)
-; EZ80-NEXT:    ; kill: def $c killed $c def $ubc
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    ld e, a
@@ -2591,7 +2581,6 @@ define float @maxnum.f32(float, float) {
 ; EZ80-NEXT:    ld a, (iy + 6)
 ; EZ80-NEXT:    ld de, (iy + 9)
 ; EZ80-NEXT:    ld c, (iy + 12)
-; EZ80-NEXT:    ; kill: def $c killed $c def $ubc
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    ld e, a
@@ -2762,7 +2751,6 @@ define float @minimum.f32(float, float) {
 ; EZ80-NEXT:    ld a, (iy + 6)
 ; EZ80-NEXT:    ld de, (iy + 9)
 ; EZ80-NEXT:    ld c, (iy + 12)
-; EZ80-NEXT:    ; kill: def $c killed $c def $ubc
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    ld e, a
@@ -2933,7 +2921,6 @@ define float @maximum.f32(float, float) {
 ; EZ80-NEXT:    ld a, (iy + 6)
 ; EZ80-NEXT:    ld de, (iy + 9)
 ; EZ80-NEXT:    ld c, (iy + 12)
-; EZ80-NEXT:    ; kill: def $c killed $c def $ubc
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    ld e, a
@@ -3104,7 +3091,6 @@ define float @copysign.f32(float, float) {
 ; EZ80-NEXT:    ld a, (iy + 6)
 ; EZ80-NEXT:    ld de, (iy + 9)
 ; EZ80-NEXT:    ld c, (iy + 12)
-; EZ80-NEXT:    ; kill: def $c killed $c def $ubc
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    ld e, a
@@ -3258,8 +3244,7 @@ define float @floor.f32(float) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _floorf
@@ -3384,8 +3369,7 @@ define float @ceil.f32(float) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _ceilf
@@ -3510,8 +3494,7 @@ define float @trunc.f32(float) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _truncf
@@ -3636,8 +3619,7 @@ define float @rint.f32(float) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _rintf
@@ -3762,8 +3744,7 @@ define float @nearbyint.f32(float) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _nearbyintf
@@ -3888,8 +3869,7 @@ define float @round.f32(float) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _roundf
@@ -4014,8 +3994,7 @@ define float @roundeven.f32(float) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _roundevenf
@@ -4140,8 +4119,7 @@ define i32 @lround.i32.f32(float) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _lroundf
@@ -4188,8 +4166,7 @@ define i32 @lround.i32.f64(float) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _lroundf
@@ -4251,8 +4228,7 @@ define i64 @llround.i64.f32(float) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _llround
@@ -4313,8 +4289,7 @@ define i64 @llround.i64.f64(float) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _llround
@@ -4362,8 +4337,7 @@ define i32 @lrint.i32.f32(float) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _lrintf
@@ -4410,8 +4384,7 @@ define i32 @lrint.i32.f64(float) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _lrintf
@@ -4473,8 +4446,7 @@ define i64 @llrint.i64.f32(float) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _llrint
@@ -4535,8 +4507,7 @@ define i64 @llrint.i64.f64(float) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _llrint
