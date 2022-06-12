@@ -362,8 +362,8 @@ Z80MachineLateOptimization::getKnownFlags(const MachineInstr &MI,
          isKnownSpecificImm(Opc == Z80::SBC16as ? Z80::SPS : Z80::SPL, 0)))
       return {SubtractFlag, HalfCarryFlag | ParityOverflowFlag | CarryFlag};
     return {SubtractFlag};
-  case Z80::SUB16ao:
-  case Z80::SUB24ao:
+  case Z80::Sub16ao:
+  case Z80::Sub24ao:
     return {SubtractFlag};
   }
   return {};
@@ -507,23 +507,23 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
         MIB->getOperand(0).setImplicit();
         MIB->getOperand(1).setImplicit();
         break;
-      case Z80::SUB16ao:
-      case Z80::SUB24ao:
-      case Z80::CP16ao:
-      case Z80::CP24ao: {
+      case Z80::Sub16ao:
+      case Z80::Sub24ao:
+      case Z80::Cmp16ao:
+      case Z80::Cmp24ao: {
         if (!(~KnownFlagsVal & KnownFlagsMask & CarryFlag))
           break;
         MCRegister DstReg;
         unsigned SubOpc, AddOpc;
         switch (Opc) {
-        case Z80::SUB16ao:
-        case Z80::CP16ao:
+        case Z80::Sub16ao:
+        case Z80::Cmp16ao:
           DstReg = Z80::HL;
           SubOpc = Z80::SBC16ao;
           AddOpc = Z80::ADD16ao;
           break;
-        case Z80::SUB24ao:
-        case Z80::CP24ao:
+        case Z80::Sub24ao:
+        case Z80::Cmp24ao:
           DstReg = Z80::UHL;
           SubOpc = Z80::SBC24ao;
           AddOpc = Z80::ADD24ao;
@@ -534,8 +534,8 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
         MIB->setDesc(TII.get(SubOpc));
         MIB.addReg(Z80::F, RegState::Implicit | getKillRegState(reuse(Z80::F)));
         switch (Opc) {
-        case Z80::CP16ao:
-        case Z80::CP24ao:
+        case Z80::Cmp16ao:
+        case Z80::Cmp24ao:
           MIB.addReg(DstReg, RegState::ImplicitDefine);
           if (LiveUnits.available(DstReg))
             break;
