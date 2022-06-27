@@ -716,11 +716,11 @@ multiclass UnOp8RF<OtherPrefix prefix, bits<8> opcode, string mnemonic,
                    list<Predicate> Preds = []> {
   defvar   s = !cond(!eq(prefix, NoPre): "r", !eq(prefix, CBPre): "g");
   defvar rc8 = !cond(!eq(prefix, NoPre):  R8, !eq(prefix, CBPre):  G8);
-  def 8#s   : I <Pre<Idx0Pre, prefix>, opcode, mnemonic, "\t$dst", "$imp = $dst",
-                 (outs rc8:$dst), (ins rc8:$imp),
-                 [(set rc8:$dst, F,
-                         (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
-                             rc8:$imp))]>,
+  def 8#s   : I<Pre<Idx0Pre, prefix>, opcode, mnemonic, "\t$dst", "$imp = $dst",
+                (outs rc8:$dst), (ins rc8:$imp),
+                [(set rc8:$dst, F,
+                        (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
+                            rc8:$imp))]>,
               Requires<Preds>;
   let mayLoad = true, mayStore = true in {
     def 8p    : I <Pre<Idx0Pre, prefix>, opcode, mnemonic, "\t$adr", "",
@@ -746,11 +746,11 @@ multiclass UnOp8RFF<OtherPrefix prefix, bits<8> opcode, string mnemonic,
                     list<Predicate> Preds = []> {
   defvar   s = !cond(!eq(prefix, NoPre): "r", !eq(prefix, CBPre): "g");
   defvar rc8 = !cond(!eq(prefix, NoPre):  R8, !eq(prefix, CBPre):  G8);
-  def 8#s   : I <Pre<Idx0Pre, prefix>, opcode, mnemonic, "\t$dst", "$imp = $dst",
-                 (outs rc8:$dst), (ins rc8:$imp),
-                 [(set rc8:$dst, F,
-                         (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
-                             rc8:$imp, F))]>,
+  def 8#s   : I<Pre<Idx0Pre, prefix>, opcode, mnemonic, "\t$dst", "$imp = $dst",
+                (outs rc8:$dst), (ins rc8:$imp),
+                [(set rc8:$dst, F,
+                        (!cast<SDNode>(!strconcat("Z80", mnemonic, "_flag"))
+                            rc8:$imp, F))]>,
               Requires<Preds>;
   let mayLoad = true, mayStore = true in {
     def 8p    : I <Pre<Idx0Pre, prefix>, opcode, mnemonic, "\t$adr", "",

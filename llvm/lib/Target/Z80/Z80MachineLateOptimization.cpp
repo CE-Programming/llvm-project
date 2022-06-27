@@ -564,6 +564,17 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
         MIB.addReg(DstReg, RegState::Implicit | RegState::Undef);
         MIB.addReg(Z80::F, RegState::Implicit | getKillRegState(reuse(Z80::F)));
         break;
+      case Z80::SLA8g:
+        if (DstReg != Z80::A || !LiveUnits.available(Z80::F))
+          break;
+        LLVM_DEBUG(dbgs() << "Replacing: "; MIB->dump();
+                   dbgs() << "     With: ");
+        MIB->setDesc(TII.get(Z80::ADD8ar));
+        MIB->untieRegOperand(1);
+        MIB->getOperand(0).setImplicit();
+        MIB->getOperand(1).setImplicit();
+        MIB.addReg(DstReg, getKillRegState(MIB->getOperand(1).isKill()));
+        break;
       case Z80::RLC8g:
       case Z80::RRC8g:
       case Z80:: RL8g:
