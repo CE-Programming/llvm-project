@@ -149,3 +149,55 @@ define void @memset.p0i8.i16(i8*, i8, i16) {
   call void @llvm.memset.p0i8.i16(i8* %0, i8 %1, i16 %2, i1 false)
   ret void
 }
+
+declare i8* @llvm.ptrmask.p0i8.i16(i8*, i16)
+define i8* @ptrmask.p0i8.i16(i8*, i16) {
+; Z80-LABEL: ptrmask.p0i8.i16:
+; Z80:       ; %bb.0:
+; Z80-NEXT:    ld iy, 0
+; Z80-NEXT:    add iy, sp
+; Z80-NEXT:    ld l, (iy + 2)
+; Z80-NEXT:    ld h, (iy + 3)
+; Z80-NEXT:    ld c, (iy + 4)
+; Z80-NEXT:    ld b, (iy + 5)
+; Z80-NEXT:    call __sand
+; Z80-NEXT:    ret
+;
+; EZ80-CODE16-LABEL: ptrmask.p0i8.i16:
+; EZ80-CODE16:       ; %bb.0:
+; EZ80-CODE16-NEXT:    ld iy, 0
+; EZ80-CODE16-NEXT:    add iy, sp
+; EZ80-CODE16-NEXT:    ld hl, (iy + 2)
+; EZ80-CODE16-NEXT:    ld bc, (iy + 4)
+; EZ80-CODE16-NEXT:    call __sand
+; EZ80-CODE16-NEXT:    ret
+  call i8* @llvm.ptrmask.p0i8.i16(i8* %0, i16 %1)
+  ret i8* %3
+}
+
+declare i8 addrspace(1)* @llvm.ptrmask.p1i8.i24(i8 addrspace(1)*, i24)
+define i8 addrspace(1)* @ptrmask.p1i8.i24(i8 addrspace(1)*, i24) {
+; Z80-LABEL: ptrmask.p1i8.i24:
+; Z80:       ; %bb.0:
+; Z80-NEXT:    ld iy, 0
+; Z80-NEXT:    add iy, sp
+; Z80-NEXT:    ld l, (iy + 2)
+; Z80-NEXT:    ld h, (iy + 3)
+; Z80-NEXT:    ld c, (iy + 4)
+; Z80-NEXT:    ld b, (iy + 5)
+; Z80-NEXT:    call __sand
+; Z80-NEXT:    ret
+;
+; EZ80-CODE16-LABEL: ptrmask.p1i8.i24:
+; EZ80-CODE16:       ; %bb.0:
+; EZ80-CODE16-NEXT:    ld iy, 0
+; EZ80-CODE16-NEXT:    add iy, sp
+; EZ80-CODE16-NEXT:    ld hl, (iy + 2)
+; EZ80-CODE16-NEXT:    ld bc, (iy + 6)
+; EZ80-CODE16-NEXT:    ld e, (iy + 4)
+; EZ80-CODE16-NEXT:    ld a, (iy + 8)
+; EZ80-CODE16-NEXT:    call __iand
+; EZ80-CODE16-NEXT:    ret
+  call i8 addrspace(1)* @llvm.ptrmask.p1i8.i24(i8 addrspace(1)* %0, i24 %1)
+  ret i8 addrspace(1)* %3
+}
