@@ -1040,7 +1040,7 @@ def lower_is_power_of_two : GICombineRule<
 def simplify_const_matchdata : GIDefMatchData<"Optional<ValueAndVReg>">;
 def simplify_const : GICombineRule<
   (defs root:$mi, simplify_const_matchdata:$matchinfo),
-  (match (wip_match_opcode G_INTTOPTR, G_TRUNC, G_SEXT, G_ZEXT):$mi,
+  (match (wip_match_opcode G_TRUNC, G_SEXT, G_ZEXT):$mi,
          [{ ${matchinfo} = getIConstantVRegValWithLookThrough(
                 ${mi}->getOperand(0).getReg(), MRI);
             return ${matchinfo}.hasValue(); }]),

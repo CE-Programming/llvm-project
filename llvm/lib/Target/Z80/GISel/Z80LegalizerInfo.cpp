@@ -17,6 +17,8 @@
 #include "Z80TargetMachine.h"
 #include "llvm/CodeGen/GlobalISel/LegalizerHelper.h"
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
+#include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
+#include <functional>
 #include <initializer_list>
 using namespace llvm;
 using namespace TargetOpcode;
@@ -27,7 +29,10 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
                                    const Z80TargetMachine &TM)
     : Subtarget(STI), TM(TM) {
   bool Is24Bit = Subtarget.is24Bit();
-  LLT p0 = LLT::pointer(0, TM.getPointerSizeInBits(0));
+
+  std::array<LLT, 5> p;
+  for (int AddrSpace = 0; AddrSpace != p.size(); ++AddrSpace)
+    p[AddrSpace] = LLT::pointer(AddrSpace, TM.getPointerSizeInBits(AddrSpace));
   LLT s1 = LLT::scalar(1);
   LLT s8 = LLT::scalar(8);
   LLT s16 = LLT::scalar(16);
@@ -35,12 +40,17 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
   LLT s32 = LLT::scalar(32);
   LLT s64 = LLT::scalar(64);
   LLT sMax = Is24Bit ? s24 : s16;
-  auto LegalTypes24 = {p0, s8, s16, s24}, LegalTypes16 = {p0, s8, s16};
+  LLT sOther = Is24Bit ? s16 : s24;
+
+  auto LegalTypes24 = {p[0], p[1], p[2], p[3], p[4], s8, s16, s24};
+  auto LegalTypes16 = {p[0], p[1], p[2], p[3], p[4], s8, s16};
   auto LegalTypes = Is24Bit ? LegalTypes24 : LegalTypes16;
-  auto LegalTypesWithOne24 = {p0, s1, s8, s16, s24},
-       LegalTypesWithOne16 = {p0, s1, s8, s16};
+  auto LegalTypesOther = Is24Bit ? LegalTypes16 : LegalTypes24;
+  auto LegalTypesWithOne24 = {p[0], p[1], p[2], p[3], p[4], s1, s8, s16, s24};
+  auto LegalTypesWithOne16 = {p[0], p[1], p[2], p[3], p[4], s1, s8, s16};
   auto LegalTypesWithOne = Is24Bit ? LegalTypesWithOne24 : LegalTypesWithOne16;
-  auto LegalScalars24 = {s8, s16, s24}, LegalScalars16 = {s8, s16};
+  auto LegalScalars24 = {s8, s16, s24};
+  auto LegalScalars16 = {s8, s16};
   auto LegalScalars = Is24Bit ? LegalScalars24 : LegalScalars16;
   auto LegalLibcallScalars24 = {s8, s16, s24, s32, s64};
   auto LegalLibcallScalars16 = {s8, s16, s32, s64};
@@ -52,6 +62,29 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
   auto NotMin = Is24Bit ? NotMin24 : NotMin16;
   auto NotMaxWithOne24 = {s1, s8, s16}, NotMaxWithOne16 = {s1, s8};
   auto NotMaxWithOne = Is24Bit ? NotMaxWithOne24 : NotMaxWithOne16;
+
+  const auto IsSpecificType = [](unsigned TypeIdx, LLT Ty) {
+    return
+        [=](const LegalityQuery &Query) { return Query.Types[TypeIdx] == Ty; };
+  };
+
+  const auto IsScalarPointer = [](unsigned ScalarTypeIdx,
+                                  unsigned PointerTypeIdx, auto Predicate) {
+    return [=](const LegalityQuery &Query) {
+      return Query.Types[ScalarTypeIdx].isScalar() &&
+             Query.Types[PointerTypeIdx].isPointer() &&
+             Predicate(Query.Types[ScalarTypeIdx].getSizeInBits(),
+                       Query.Types[PointerTypeIdx].getSizeInBits());
+    };
+  };
+
+  const auto ChangeToSameSizeScalar = [](unsigned TypeIdx,
+                                         unsigned SizeTypeIdx) {
+    return [=](const LegalityQuery &Query) {
+      return std::make_pair(
+          TypeIdx, LLT::scalar(Query.Types[SizeTypeIdx].getSizeInBits()));
+    };
+  };
 
   getActionDefinitionsBuilder(G_IMPLICIT_DEF)
       .legalFor(LegalTypesWithOne);
@@ -93,17 +126,27 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
   getActionDefinitionsBuilder(G_FCONSTANT)
       .customFor({s32, s64});
 
-  getActionDefinitionsBuilder(G_INTTOPTR)
-      .legalFor({{p0, sMax}})
-      .clampScalar(1, sMax, sMax);
-
   getActionDefinitionsBuilder(G_PTRTOINT)
-      .legalFor({{sMax, p0}})
-      .clampScalar(0, sMax, sMax);
+      .legalIf(IsScalarPointer(0, 1, std::equal_to<>{}))
+      .widenScalarIf(IsScalarPointer(0, 1, std::less<>{}),
+                     ChangeToSameSizeScalar(0, 1))
+      .narrowScalarIf(IsScalarPointer(0, 1, std::greater<>{}),
+                      ChangeToSameSizeScalar(0, 1));
 
-  getActionDefinitionsBuilder(G_PTR_ADD)
-      .legalForCartesianProduct({p0}, LegalScalars)
-      .clampScalar(1, s8, sMax);
+  getActionDefinitionsBuilder({G_INTTOPTR, G_PTR_ADD})
+      .legalIf(IsScalarPointer(1, 0, std::equal_to<>{}))
+      .widenScalarIf(IsScalarPointer(1, 0, std::less<>{}),
+                     ChangeToSameSizeScalar(1, 0))
+      .narrowScalarIf(IsScalarPointer(1, 0, std::greater<>{}),
+                      ChangeToSameSizeScalar(1, 0));
+
+  getActionDefinitionsBuilder(G_PTRMASK)
+      .legalFor({p[2], s8})
+      .customIf(IsScalarPointer(1, 0, std::equal_to<>{}))
+      .widenScalarIf(IsScalarPointer(1, 0, std::less<>{}),
+                     ChangeToSameSizeScalar(1, 0))
+      .narrowScalarIf(IsScalarPointer(1, 0, std::greater<>{}),
+                      ChangeToSameSizeScalar(1, 0));
 
   getActionDefinitionsBuilder({G_ADD, G_SUB})
       .legalFor({s8})
@@ -194,18 +237,23 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
   getActionDefinitionsBuilder(G_FCOPYSIGN).libcallFor({{s32, s32}, {s64, s64}});
 
   getActionDefinitionsBuilder({G_LOAD, G_STORE})
-      .legalForCartesianProduct(LegalTypes, {p0})
-      .clampScalar(0, s8, sMax);
+      .legalForCartesianProduct(LegalTypes, {p[0]})
+      .legalForCartesianProduct(LegalTypesOther, {p[1]})
+      .legalForCartesianProduct({s8}, {p[2], p[3], p[4]})
+      .minScalar(0, s8)
+      .maxScalarIf(IsSpecificType(1, p[0]), 0, sMax)
+      .maxScalarIf(IsSpecificType(1, p[1]), 0, sOther)
+      .maxScalar(0, s8);
   for (unsigned MemOp : {G_LOAD, G_STORE})
     getLegacyLegalizerInfo().setLegalizeScalarToDifferentSizeStrategy(
         MemOp, 0, LegacyLegalizerInfo::narrowToSmallerAndWidenToSmallest);
 
   getActionDefinitionsBuilder(
       {G_FRAME_INDEX, G_GLOBAL_VALUE, G_BRINDIRECT, G_JUMP_TABLE})
-      .legalFor({p0});
+      .legalFor({p[0]});
 
   getActionDefinitionsBuilder(G_VASTART)
-      .customFor({p0});
+      .customFor({p[0]});
 
   getActionDefinitionsBuilder(G_ICMP)
       .legalForCartesianProduct({s1}, LegalTypes)
@@ -219,7 +267,7 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .legalFor({s1});
 
   getActionDefinitionsBuilder(G_BRJT)
-      .legalForCartesianProduct({p0}, LegalScalars)
+      .legalForCartesianProduct({p[0]}, LegalScalars)
       .clampScalar(1, s8, sMax);
 
   getActionDefinitionsBuilder(G_SELECT)
@@ -271,6 +319,7 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeCustomMaybeLegal(
   case G_AND:
   case G_OR:
   case G_XOR:
+  case G_PTRMASK:
     return legalizeBitwise(Helper, MI, LocObserver);
   case G_EXTRACT:
   case G_INSERT:
@@ -364,48 +413,55 @@ LegalizerHelper::LegalizeResult
 Z80LegalizerInfo::legalizeBitwise(LegalizerHelper &Helper, MachineInstr &MI,
                                   LostDebugLocObserver &LocObserver) const {
   assert((MI.getOpcode() == G_AND || MI.getOpcode() == G_OR ||
-          MI.getOpcode() == G_XOR) &&
+          MI.getOpcode() == G_XOR || MI.getOpcode() == G_PTRMASK) &&
          "Unexpected opcode");
   Function &F = Helper.MIRBuilder.getMF().getFunction();
   bool OptSize = F.hasOptSize();
   MachineRegisterInfo &MRI = *Helper.MIRBuilder.getMRI();
   Register DstReg = MI.getOperand(0).getReg();
-  LLT LLTy = MRI.getType(DstReg);
-  if (!OptSize && LLTy == LLT::scalar(16))
+  unsigned Size = MRI.getType(DstReg).getSizeInBits();
+  if (!OptSize && Size == 16)
     if (Helper.narrowScalar(MI, 0, LLT::scalar(8)) ==
         LegalizerHelper::Legalized)
       return LegalizerHelper::Legalized;
   Register LHSReg;
   if (mi_match(MI, MRI, m_Not(m_Reg(LHSReg)))) {
-    unsigned Size = LLTy.getSizeInBits();
     if (!OptSize && (Size == 16 || (Subtarget.is24Bit() && Size == 24))) {
-      Helper.MIRBuilder.buildSub(DstReg,
-                                 Helper.MIRBuilder.buildConstant(LLTy, -1),
-                                 MI.getOperand(1).getReg());
+      Helper.MIRBuilder.buildSub(
+          DstReg, Helper.MIRBuilder.buildConstant(LLT::scalar(Size), -1),
+          MI.getOperand(1).getReg());
       MI.eraseFromParent();
       return LegalizerHelper::Legalized;
     }
     auto &Ctx = F.getContext();
     RTLIB::Libcall Libcall;
     switch (Size) {
-    case 16:
-      Libcall = RTLIB::NOT_I16;
-      break;
-    case 24:
-      Libcall = RTLIB::NOT_I24;
-      break;
-    case 32:
-      Libcall = RTLIB::NOT_I32;
-      break;
-    case 64:
-      Libcall = RTLIB::NOT_I64;
-      break;
-    default:
-      llvm_unreachable("Unexpected type");
+    default: llvm_unreachable("Unexpected type");
+    case 16: Libcall = RTLIB::NOT_I16; break;
+    case 24: Libcall = RTLIB::NOT_I24; break;
+    case 32: Libcall = RTLIB::NOT_I32; break;
+    case 64: Libcall = RTLIB::NOT_I64; break;
     }
     Type *Ty = IntegerType::get(Ctx, Size);
     auto Result = createLibcall(Helper.MIRBuilder, Libcall, {DstReg, Ty, 0},
                                 {{LHSReg, Ty, 0}});
+    MI.eraseFromParent();
+    return Result;
+  }
+  if (MI.getOpcode() == G_PTRMASK) {
+    auto &Ctx = F.getContext();
+    RTLIB::Libcall Libcall;
+    switch (Size) {
+    default: llvm_unreachable("Unexpected type");
+    case 16: Libcall = RTLIB::AND_I16; break;
+    case 24: Libcall = RTLIB::AND_I24; break;
+    case 32: Libcall = RTLIB::AND_I32; break;
+    case 64: Libcall = RTLIB::AND_I64; break;
+    }
+    Type *Ty = IntegerType::get(Ctx, Size);
+    auto Result = createLibcall(Helper.MIRBuilder, Libcall, {DstReg, Ty, 0},
+                                {{MI.getOperand(1).getReg(), Ty, 0},
+                                 {MI.getOperand(2).getReg(), Ty, 1}});
     MI.eraseFromParent();
     return Result;
   }
