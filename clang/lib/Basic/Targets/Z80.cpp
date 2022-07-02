@@ -111,8 +111,14 @@ bool Z80TargetInfoBase::validateAsmConstraint(
   case 'I': // bit offset within byte [0,7]
     Info.setRequiresImmediate(0, 7);
     return true;
-  case 'J': // port address [0,255]
-    Info.setRequiresImmediate(0, 255);
+  case 'J': // immediate [0,0xFF]
+    Info.setRequiresImmediate(0, 0xFF);
+    return true;
+  case 'K': // immediate [0,0xFFFF]
+    Info.setRequiresImmediate(0, 0xFFFF);
+    return true;
+  case 'L': // immediate [0,0xFFFFFF]
+    Info.setRequiresImmediate(0, 0xFFFFFF);
     return true;
   case 'M': // im mode [0,2]
     Info.setRequiresImmediate(0, 2);

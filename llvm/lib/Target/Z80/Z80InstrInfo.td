@@ -1127,9 +1127,12 @@ let mayLoad = true in {
   let Defs = [F] in {
     def  IN8gm : Ii<EDPre, 0x00,  "in0", "\t$dst, $port", "",
                     (outs G8:$dst), (ins port:$port)>, Requires<[HaveZ180Ops]>;
-    let Uses = [BC] in
-    def  IN8gp : I <EDPre, 0x40,  "in",  "\t$dst, (bc)", "",
-                    (outs G8:$dst), (ins)>;
+    let Uses = [ BC] in
+    def IN16gp : I16<EDPre, 0x40,  "in",  "\t$dst, (c)", "",
+                     (outs G8:$dst), (ins)>;
+    let Uses = [UBC] in
+    def IN24gp : I24<EDPre, 0x40,  "in",  "\t$dst, (bc)", "",
+                     (outs G8:$dst), (ins)>;
   }
 
   let Defs = [F], Uses = [C] in
@@ -1137,20 +1140,25 @@ let mayLoad = true in {
                   Requires<[HaveZ180Ops]>;
 }
 
-def : InstAlias<"in\t$dst, (c)", (IN8gp G8:$dst)>;
+def : InstAlias<"in\t$dst, (bc)", (IN16gp G8:$dst)>, Requires<[In16BitMode]>;
+def : InstAlias<"in\t$dst, (c)",  (IN24gp G8:$dst)>, Requires<[In24BitMode]>;
 
 let mayStore = true in {
   let Uses = [A] in
-  def OUT8ma : Ii<NoPre, 0xD3, "out",  "\t$port, a", "",
-                  (outs), (ins port:$port)>;
-  def OUT8mg : Ii<EDPre, 0x01, "out0", "\t$port, $src", "",
-                  (outs), (ins port:$port, G8:$src)>, Requires<[HaveZ180Ops]>;
-  let Uses = [BC] in
-  def OUT8pg : I <EDPre, 0x41, "out",  "\t(bc), $src", "",
-                  (outs), (ins G8:$src)>;
+  def  OUT8ma : Ii<NoPre, 0xD3, "out",  "\t$port, a", "",
+                   (outs), (ins port:$port)>;
+  def  OUT8mg : Ii<EDPre, 0x01, "out0", "\t$port, $src", "",
+                   (outs), (ins port:$port, G8:$src)>, Requires<[HaveZ180Ops]>;
+  let Uses = [ BC] in
+  def OUT16pg : I16<EDPre, 0x41, "out",  "\t(c), $src", "",
+                    (outs), (ins G8:$src)>;
+  let Uses = [UBC] in
+  def OUT24pg : I24<EDPre, 0x41, "out",  "\t(bc), $src", "",
+                    (outs), (ins G8:$src)>;
 }
 
-def : InstAlias<"out\t(c), $src", (OUT8pg G8:$src)>;
+def : InstAlias<"out\t(bc), $src", (OUT16pg G8:$src)>, Requires<[In16BitMode]>;
+def : InstAlias<"out\t(c), $src",  (OUT24pg G8:$src)>, Requires<[In24BitMode]>;
 
 //===----------------------------------------------------------------------===//
 // Block Instructions.
