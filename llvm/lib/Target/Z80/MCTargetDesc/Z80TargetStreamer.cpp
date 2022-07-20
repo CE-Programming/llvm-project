@@ -31,8 +31,7 @@ void Z80TargetAsmStreamer::emitLabel(MCSymbol *Symbol) {
 
 void Z80TargetAsmStreamer::emitAlign(Align Alignment) {
   if (auto Mask = Alignment.value() - 1)
-    OS << "\trb\t" << Mask << " - ($ - $$ + " << Mask << ") and not " << Mask
-       << "\n";
+    OS << "\trb\t($$ - $) and " << Mask << '\n';
 }
 
 void Z80TargetAsmStreamer::emitBlock(uint64_t NumBytes) {
