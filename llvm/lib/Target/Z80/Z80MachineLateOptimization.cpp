@@ -514,9 +514,12 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
               NewOpc = Z80::SUB8ar;
             break;
           case Z80::SBC8ai:
-          case Z80::AND8ai:
             if (Z80::R8RegClass.contains(SrcReg))
               NewOpc = Z80::SBC8ar;
+            break;
+          case Z80::AND8ai:
+            if (Z80::R8RegClass.contains(SrcReg))
+              NewOpc = Z80::AND8ar;
             break;
           case Z80::XOR8ai:
             if (Z80::R8RegClass.contains(SrcReg))
