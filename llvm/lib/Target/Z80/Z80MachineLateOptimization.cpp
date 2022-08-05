@@ -534,7 +534,8 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
               NewOpc = Z80:: CP8ar;
             break;
           case Z80::TST8ai:
-            NewOpc = Z80::TST8ag;
+            if (Z80::G8RegClass.contains(SrcReg))
+              NewOpc = Z80::TST8ag;
             break;
           }
           if (NewOpc == Z80::INSTRUCTION_LIST_END)
