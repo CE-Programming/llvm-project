@@ -128,8 +128,14 @@ CodeGenModule::CodeGenModule(ASTContext &C,
   PointerAlignInBytes =
       C.toCharUnitsFromBits(C.getTargetInfo().getPointerAlign(LangAS::Default))
           .getQuantity();
+  PointerSizeInBytes =
+    C.toCharUnitsFromBits(C.getTargetInfo().getPointerWidth(0)).getQuantity();
   SizeSizeInBytes =
     C.toCharUnitsFromBits(C.getTargetInfo().getMaxPointerWidth()).getQuantity();
+  SizeAlignInBytes =
+    C.toCharUnitsFromBits(C.getTargetInfo().getMaxPointerAlign()).getQuantity();
+  IntSizeInBytes =
+    C.toCharUnitsFromBits(C.getTargetInfo().getIntWidth()).getQuantity();
   IntAlignInBytes =
     C.toCharUnitsFromBits(C.getTargetInfo().getIntAlign()).getQuantity();
   CharTy =
