@@ -1034,13 +1034,8 @@ public:
     using namespace LegalizeMutations;
     return actionIf(
         LegalizeAction::NarrowScalar,
-        [=](const LegalityQuery &Query) {
-          const LLT QueryTy = Query.Types[TypeIdx];
-          return QueryTy.isScalar() &&
-                 QueryTy.getSizeInBits() > Ty.getSizeInBits() &&
-                 Predicate(Query);
-        },
-        changeElementTo(typeIdx(TypeIdx), Ty));
+	all(scalarWiderThan(TypeIdx, Ty.getSizeInBits()), Predicate),
+	changeTo(typeIdx(TypeIdx), Ty));
   }
 
   /// Limit the range of scalar sizes to MinTy and MaxTy.
