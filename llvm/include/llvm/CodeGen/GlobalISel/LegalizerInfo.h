@@ -951,19 +951,14 @@ public:
                     changeTo(typeIdx(TypeIdx), Ty));
   }
 
-  /// Ensure the scalar is at least as wide as Ty if condition is met.
+  /// Conditionally limit the minimum size of the scalar.
   LegalizeRuleSet &minScalarIf(LegalityPredicate Predicate, unsigned TypeIdx,
                                const LLT Ty) {
     using namespace LegalityPredicates;
     using namespace LegalizeMutations;
     return actionIf(
         LegalizeAction::WidenScalar,
-        [=](const LegalityQuery &Query) {
-          const LLT QueryTy = Query.Types[TypeIdx];
-          return QueryTy.isScalar() &&
-                 QueryTy.getSizeInBits() < Ty.getSizeInBits() &&
-                 Predicate(Query);
-        },
+	all(scalarNarrowerThan(TypeIdx, Ty.getSizeInBits()), Predicate),
         changeTo(typeIdx(TypeIdx), Ty));
   }
 
@@ -994,13 +989,8 @@ public:
     using namespace LegalizeMutations;
     return actionIf(
         LegalizeAction::NarrowScalar,
-        [=](const LegalityQuery &Query) {
-          const LLT QueryTy = Query.Types[TypeIdx];
-          return QueryTy.isScalar() &&
-                 QueryTy.getSizeInBits() > Ty.getSizeInBits() &&
-                 Predicate(Query);
-        },
-        changeElementTo(typeIdx(TypeIdx), Ty));
+	all(scalarWiderThan(TypeIdx, Ty.getSizeInBits()), Predicate),
+	changeTo(typeIdx(TypeIdx), Ty));
   }
 
   /// Limit the range of scalar sizes to MinTy and MaxTy.
