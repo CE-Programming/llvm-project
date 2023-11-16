@@ -2593,7 +2593,7 @@ bool CombinerHelper::replaceSingleDefInstWithOperand(MachineInstr &MI,
   assert(MI.getNumExplicitDefs() == 1 && "Expected one explicit def?");
   Register OldReg = MI.getOperand(0).getReg();
   Register Replacement = MI.getOperand(OpIdx).getReg();
-  assert(canReplaceReg(OldReg, Replacement, MRI) && "Cannot replace register?");
+  assert(canReplaceReg(Replacement, OldReg, MRI) && "Cannot replace register?");
   MI.eraseFromParent();
   replaceRegWith(MRI, OldReg, Replacement);
   return true;
@@ -2603,7 +2603,7 @@ bool CombinerHelper::replaceSingleDefInstWithReg(MachineInstr &MI,
                                                  Register Replacement) {
   assert(MI.getNumExplicitDefs() == 1 && "Expected one explicit def?");
   Register OldReg = MI.getOperand(0).getReg();
-  assert(canReplaceReg(OldReg, Replacement, MRI) && "Cannot replace register?");
+  assert(canReplaceReg(Replacement, OldReg, MRI) && "Cannot replace register?");
   MI.eraseFromParent();
   replaceRegWith(MRI, OldReg, Replacement);
   return true;
