@@ -1,4 +1,4 @@
-name: CMake
+name: "CMake Linux/macOS"
 
 on:
   push:
@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [ubuntu-20.04, ubuntu-latest, macos-latest, windows-latest]
+        runs-on: [ubuntu-20.04, ubuntu-latest, macos-13, macos-14]
         build-type: [Release]
     runs-on: ${{matrix.runs-on}}
     steps:
@@ -18,27 +18,12 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get remove azure-cli libgl1-mesa-dri ^google-chrome.*$ ^dotnet-sdk-[0-9.]+$ firefox
 
-      - name: Bootstrap Build Environment
-        if: runner.os == 'Windows'
-        run: "cmake -E echo >> $env:GITHUB_ENV ENV=env:"
       - name: Prepare Build Environment
-        if: runner.os != 'Windows'
         run: |
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV CC=clang
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV CFLAGS=-std=c17
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV CXX=clang++
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV CXXFLAGS=-std=c++17
-      - name: Prepare Build Environment
-        if: runner.os == 'Windows'
-        run: |
-          git config --global core.autocrlf false
-          $path = vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-          cmake -E echo >> $${{env.ENV}}GITHUB_PATH "$(join-path $path 'VC\Tools\Llvm\bin')"
-          cmd /s /c >> $${{env.ENV}}GITHUB_ENV """$(join-path $path 'Common7\Tools\vsdevcmd.bat')"" > nul && set"
-          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CC=clang-cl
-          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CXX=clang-cl
-          cmake -E echo >> $${{env.ENV}}GITHUB_ENV EXE=.exe
-          cmake -E echo >> $${{env.ENV}}GITHUB_ENV PY=.py
       - name: Prepare Build Configuration
         if: matrix.build-type == 'Release'
         run: cmake -E echo >> $${{env.ENV}}GITHUB_ENV CMAKE_CONFIG=-DLLVM_TARGETS_TO_BUILD:STRING= -DLLVM_ENABLE_LTO:STRING=OFF -DLLVM_STATIC_LINK_CXX_STDLIB:BOOL=ON
@@ -60,12 +45,9 @@ jobs:
         run: |
           brew install ninja
           cmake -E echo >> $${{env.ENV}}GITHUB_PATH /usr/local/opt/llvm/bin
-      - name: Install Build Dependencies
-        if: runner.os == 'Windows'
-        run: pip install ninja
 
       - name: Checkout Project
-        uses: actions/checkout@v3.0.2
+        uses: actions/checkout@v4
         with:
           path: src
       - name: Sparse Checkout
@@ -93,7 +75,6 @@ jobs:
       - name: Install ez80-link
         run: cmake -E copy llvm/bin/llvm-link${{env.EXE}} ez80-link${{env.EXE}}
       - name: Strip ez80-link
-        if: runner.os != 'Windows'
         run: strip ez80-link${{env.EXE}}
       - name: Upload ez80-link
         uses: actions/upload-artifact@v3
@@ -104,7 +85,6 @@ jobs:
       - name: Install ez80-lto
         run: cmake -E copy llvm/bin/llvm-lto${{env.EXE}} ez80-lto${{env.EXE}}
       - name: Strip ez80-lto
-        if: runner.os != 'Windows'
         run: strip ez80-lto${{env.EXE}}
       - name: Upload ez80-lto
         uses: actions/upload-artifact@v3
@@ -115,7 +95,6 @@ jobs:
       - name: Install ez80-lto2
         run: cmake -E copy llvm/bin/llvm-lto2${{env.EXE}} ez80-lto2${{env.EXE}}
       - name: Strip ez80-lto2
-        if: runner.os != 'Windows'
         run: strip ez80-lto2${{env.EXE}}
       - name: Upload ez80-lto2
         uses: actions/upload-artifact@v3
@@ -144,18 +123,14 @@ jobs:
           path: test
 
       - name: Disk Usage
-        if: always() && runner.os != 'Windows'
         run: df -h
-      - name: Disk Usage
-        if: always() && runner.os == 'Windows'
-        run: wmic logicaldisk get size,freespace,caption
 
   build-clang:
     needs: [build-llvm]
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [ubuntu-20.04, ubuntu-latest, macos-latest, windows-latest]
+        runs-on: [ubuntu-20.04, ubuntu-latest, macos-13, macos-14]
         build-type: [Release]
     runs-on: ${{matrix.runs-on}}
     steps:
@@ -163,26 +138,12 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get remove azure-cli libgl1-mesa-dri ^google-chrome.*$ ^dotnet-sdk-[0-9.]+$ firefox
 
-      - name: Bootstrap Build Environment
-        if: runner.os == 'Windows'
-        run: "cmake -E echo >> $env:GITHUB_ENV ENV=env:"
       - name: Prepare Build Environment
-        if: runner.os != 'Windows'
         run: |
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV CC=clang
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV CFLAGS=-std=c17
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV CXX=clang++
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV CXXFLAGS=-std=c++17
-      - name: Prepare Build Environment
-        if: runner.os == 'Windows'
-        run: |
-          git config --global core.autocrlf false
-          $path = vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-          cmake -E echo >> $${{env.ENV}}GITHUB_PATH "$(join-path $path 'VC\Tools\Llvm\bin')"
-          cmd /s /c >> $${{env.ENV}}GITHUB_ENV """$(join-path $path 'Common7\Tools\vsdevcmd.bat')"" > nul && set"
-          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CC=clang-cl
-          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CXX=clang-cl
-          cmake -E echo >> $${{env.ENV}}GITHUB_ENV EXE=.exe
       - name: Prepare Build Configuration
         if: matrix.build-type == 'Release'
         run: cmake -E echo >> $${{env.ENV}}GITHUB_ENV CMAKE_CONFIG=-DLLVM_TARGETS_TO_BUILD:STRING= -DLLVM_ENABLE_LTO:STRING=OFF -DLLVM_STATIC_LINK_CXX_STDLIB:BOOL=ON
@@ -204,12 +165,9 @@ jobs:
         run: |
           brew install ninja
           cmake -E echo >> $${{env.ENV}}GITHUB_PATH /usr/local/opt/llvm/bin
-      - name: Install Build Dependencies
-        if: runner.os == 'Windows'
-        run: pip install ninja
 
       - name: Checkout Project
-        uses: actions/checkout@v3.0.2
+        uses: actions/checkout@v4
         with:
           path: src
       - name: Sparse Checkout
@@ -225,7 +183,6 @@ jobs:
           name: LLVM${{matrix.runs-on}}${{matrix.build-type}}
           path: llvm
       - name: Set Executable
-        if: runner.os != 'Windows'
         run: chmod +x llvm/bin/*
 
       - name: Configure Clang
@@ -245,7 +202,6 @@ jobs:
       - name: Install ez80-clang
         run: cmake -E copy clang/bin/clang${{env.EXE}} ez80-clang${{env.EXE}}
       - name: Strip ez80-clang
-        if: runner.os != 'Windows'
         run: strip ez80-clang${{env.EXE}}
       - name: Test ez80-clang
         run: cmake -E echo "void test(void){}" | ./ez80-clang${{env.EXE}} -S -xc - -o -
@@ -269,18 +225,14 @@ jobs:
           path: test
 
       - name: Disk Usage
-        if: always() && runner.os != 'Windows'
         run: df -h
-      - name: Disk Usage
-        if: always() && runner.os == 'Windows'
-        run: wmic logicaldisk get size,freespace,caption
 
   test-llvm-z80:
     needs: [build-llvm]
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [ubuntu-20.04, ubuntu-latest, macos-latest, windows-latest]
+        runs-on: [ubuntu-20.04, ubuntu-latest, macos-13, macos-14]
         build-type: [Release]
     runs-on: ${{matrix.runs-on}}
     steps:
@@ -288,17 +240,8 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get remove azure-cli libgl1-mesa-dri ^google-chrome.*$ ^dotnet-sdk-[0-9.]+$ firefox
 
-      - name: Bootstrap Build Environment
-        if: runner.os == 'Windows'
-        run: "cmake -E echo >> $env:GITHUB_ENV ENV=env:"
-      - name: Prepare Build Environment
-        if: runner.os == 'Windows'
-        run: |
-          cmake -E echo >> $${{env.ENV}}GITHUB_ENV EXE=.exe
-          cmake -E echo >> $${{env.ENV}}GITHUB_ENV PY=.py
-
       - name: Checkout Project
-        uses: actions/checkout@v3.0.2
+        uses: actions/checkout@v4
         with:
           path: src
       - name: Sparse Checkout
@@ -319,7 +262,6 @@ jobs:
           name: LLVM${{matrix.runs-on}}${{matrix.build-type}}
           path: build
       - name: Set Executable
-        if: runner.os != 'Windows'
         run: chmod +x build/bin/* build/unittests/Target/Z80/Z80Tests${{env.EXE}}
 
       - name: Unittest LLVM Z80
@@ -332,7 +274,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [ubuntu-20.04, ubuntu-latest, macos-latest, windows-latest]
+        runs-on: [ubuntu-20.04, ubuntu-latest, macos-13, macos-14]
         build-type: [Debug]
     continue-on-error: true
     if: false
@@ -342,15 +284,8 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get remove azure-cli libgl1-mesa-dri ^google-chrome.*$ ^dotnet-sdk-[0-9.]+$ firefox
 
-      - name: Bootstrap Build Environment
-        if: runner.os == 'Windows'
-        run: "cmake -E echo >> $env:GITHUB_ENV ENV=env:"
-      - name: Prepare Build Environment
-        if: runner.os == 'Windows'
-        run: cmake -E echo >> $${{env.ENV}}GITHUB_ENV PY=.py
-
       - name: Checkout Project
-        uses: actions/checkout@v3.0.2
+        uses: actions/checkout@v4
         with:
           path: src
       - name: Sparse Checkout
@@ -371,7 +306,6 @@ jobs:
           name: LLVM${{matrix.runs-on}}${{matrix.build-type}}
           path: build
       - name: Set Executable
-        if: runner.os != 'Windows'
         run: chmod +x build/bin/*
 
       - name: Test LLVM
@@ -382,7 +316,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [ubuntu-20.04, ubuntu-latest, macos-latest, windows-latest]
+        runs-on: [ubuntu-20.04, ubuntu-latest, macos-13, macos-14]
         build-type: [Debug]
     continue-on-error: true
     if: false
@@ -392,15 +326,8 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get remove azure-cli libgl1-mesa-dri ^google-chrome.*$ ^dotnet-sdk-[0-9.]+$ firefox
 
-      - name: Bootstrap Build Environment
-        if: runner.os == 'Windows'
-        run: "cmake -E echo >> $env:GITHUB_ENV ENV=env:"
-      - name: Prepare Build Environment
-        if: runner.os == 'Windows'
-        run: cmake -E echo >> $${{env.ENV}}GITHUB_ENV PY=.py
-
       - name: Checkout Project
-        uses: actions/checkout@v3.0.2
+        uses: actions/checkout@v4
         with:
           path: src
       - name: Sparse Checkout
@@ -426,8 +353,68 @@ jobs:
           name: Clang${{matrix.runs-on}}${{matrix.build-type}}
           path: build
       - name: Set Executable
-        if: runner.os != 'Windows'
         run: chmod +x build/bin/*
 
       - name: Test Clang
         run: build/bin/llvm-lit${{env.PY}} -v src/clang/test
+
+  nightly:
+    runs-on: ubuntu-latest
+    needs: [build-clang, test-llvm-z80]
+    if: github.ref == 'refs/heads/z80'
+
+    steps:
+      - name: Download Ubuntu 20.04 ez80-clang
+        uses: actions/download-artifact@v3
+        with:
+          name: ez80-clang-ubuntu-20.04Release
+          path: ${{github.workspace}}
+      - name: Download Ubuntu 20.04 ez80-link
+        uses: actions/download-artifact@v3
+        with:
+          name: ez80-link-ubuntu-20.04Release
+          path: ${{github.workspace}}
+      - name: chmod and zip Ubuntu Artifacts
+        run: |
+          chmod +x ez80-clang ez80-link
+          zip ez80-clang-link_ubuntu_nightly.zip ez80-clang ez80-link
+          rm ez80-clang ez80-link
+      - name: Download macOS 13 ez80-clang
+        uses: actions/download-artifact@v3
+        with:
+          name: ez80-clang-macos-13Release
+          path: ${{github.workspace}}
+      - name: Download macOS 13 ez80-link
+        uses: actions/download-artifact@v3
+        with:
+          name: ez80-link-macos-13Release
+          path: ${{github.workspace}}
+      - name: chmod and zip macOS 13 intel Artifacts
+        run: |
+          chmod +x ez80-clang ez80-link
+          zip ez80-clang-link_macOS_intel_nightly.zip ez80-clang ez80-link
+          rm ez80-clang ez80-link
+      - name: Download macOS 14 ez80-clang
+        uses: actions/download-artifact@v3
+        with:
+          name: ez80-clang-macos-14Release
+          path: ${{github.workspace}}
+      - name: Download macOS 14 ez80-link
+        uses: actions/download-artifact@v3
+        with:
+          name: ez80-link-macos-14Release
+          path: ${{github.workspace}}
+      - name: chmod and zip macOS 14 arm Artifacts
+        run: |
+          chmod +x ez80-clang ez80-link
+          zip ez80-clang-link_macOS_arm_nightly.zip ez80-clang ez80-link
+          rm ez80-clang ez80-link
+      - name: Update nightly release
+        uses: pyTooling/Actions/releaser@main
+        with:
+          tag: nightly
+          token: ${{secrets.GITHUB_TOKEN}}
+          files: |
+            ez80-clang-link_ubuntu_nightly.zip
+            ez80-clang-link_macOS_intel_nightly.zip
+            ez80-clang-link_macOS_arm_nightly.zip
