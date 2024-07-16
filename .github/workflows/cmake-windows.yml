@@ -1,0 +1,200 @@
+name: "CMake Windows"
+
+on:
+  push:
+    branches: [z80]
+
+jobs:
+  build-llvm:
+    needs: []
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on: [windows-latest]
+        build-type: [Release]
+    runs-on: ${{matrix.runs-on}}
+    steps:
+      - name: Bootstrap Build Environment
+        run: "cmake -E echo >> $env:GITHUB_ENV ENV=env:"
+      - name: Prepare Build Environment
+        run: |
+          git config --global core.autocrlf false
+          $path = vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          cmake -E echo >> $${{env.ENV}}GITHUB_PATH "$(join-path $path 'VC\Tools\Llvm\bin')"
+          cmd /s /c >> $${{env.ENV}}GITHUB_ENV """$(join-path $path 'Common7\Tools\vsdevcmd.bat')"" > nul && set"
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CC=clang-cl
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CXX=clang-cl
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV EXE=.exe
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV PY=.py
+      - name: Prepare Build Configuration
+        if: matrix.build-type == 'Release'
+        run: cmake -E echo >> $${{env.ENV}}GITHUB_ENV CMAKE_CONFIG=-DLLVM_TARGETS_TO_BUILD:STRING= -DLLVM_ENABLE_LTO:STRING=OFF -DLLVM_STATIC_LINK_CXX_STDLIB:BOOL=ON
+
+      - name: Prepare Build Environment
+        if: matrix.build-type == 'Debug'
+        run: cmake -E echo >> $${{env.ENV}}GITHUB_ENV DYLIB=ON
+      - name: Prepare Build Environment
+        if: matrix.build-type != 'Debug'
+        run: cmake -E echo >> $${{env.ENV}}GITHUB_ENV DYLIB=OFF
+
+      - name: Install Build Dependencies
+        run: pip install ninja
+
+      - name: Checkout Project
+        uses: actions/checkout@v4
+        with:
+          path: src
+      - name: Sparse Checkout
+        working-directory: src
+        run: |
+          git version
+          git sparse-checkout init --cone
+          git sparse-checkout set cmake third-party llvm clang
+
+      - name: Configure LLVM
+        run: cmake -Ssrc/llvm -Bbuild -GNinja -DCMAKE_BUILD_TYPE:STRING=${{matrix.build-type}} ${{env.CMAKE_CONFIG}} -DBUILD_SHARED_LIBS:BOOL=OFF -DCMAKE_INSTALL_PREFIX:PATH="${{github.workspace}}/llvm" -DCMAKE_C_COMPILER:FILEPATH="${{env.CC}}" -DCMAKE_C_FLAGS:STRING="${{env.CFLAGS}}" -DCMAKE_CXX_COMPILER:FILEPATH="${{env.CXX}}" -DCMAKE_CXX_FLAGS:STRING="${{env.CXXFLAGS}}" -DLLVM_PARALLEL_LINK_JOBS:STRING=1 -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD:STRING="Z80" -DLLVM_TARGET_ARCH="ez80" -DLLVM_LINK_LLVM_DYLIB:BOOL=${{env.DYLIB}} -DLLVM_INCLUDE_EXAMPLES:BOOL=OFF -DLLVM_INCLUDE_TESTS:BOOL=OFF -DLLVM_TOOL_DSYMUTIL_BUILD:BOOL=OFF -DLLVM_TOOL_GOLD_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_AS_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_CFI_VERIFY_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_CVTRES_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_DWP_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_EXEGESIS_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_GSYMUTIL_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_IFS_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_ISEL_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_ITANIUM_DEMANGLE_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_JITLINK_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_JITLISTENER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_LIPO_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_LTO2_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_LTO_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_MCA_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_MC_ASSEMBLE_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_MC_DISASSEMBLE_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_MICROSOFT_DEMANGLE_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_MT_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_OPT_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_PDBUTIL_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_PROFDATA_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_RC_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_SPECIAL_CASE_LIST_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_UNDNAME_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_XRAY_BUILD:BOOL=OFF -DLLVM_TOOL_LLVM_YAML_NUMERIC_PARSER_FUZZER_BUILD:BOOL=OFF -DLLVM_TOOL_SANCOV_BUILD:BOOL=OFF -DLLVM_TOOL_SANSTATS_BUILD:BOOL=OFF -DLLVM_TOOL_VFABI_DEMANGLE_FUZZER_BUILD:BOOL=OFF
+      - name: Build LLVM
+        run: cmake --build build --config ${{matrix.build-type}}
+
+      - name: Install LLVM
+        run: |
+          cmake --build build --config ${{matrix.build-type}} --target install
+          cmake -E copy build/include/llvm/Config/config.h llvm/include/llvm/Config
+      - name: Upload LLVM
+        uses: actions/upload-artifact@v3
+        with:
+          name: LLVM${{matrix.runs-on}}${{matrix.build-type}}
+          path: llvm
+
+      - name: Install ez80-link
+        run: cmake -E copy llvm/bin/llvm-link${{env.EXE}} ez80-link${{env.EXE}}
+      - name: Upload ez80-link
+        uses: actions/upload-artifact@v3
+        with:
+          name: ez80-link${{env.EXE}}-${{matrix.runs-on}}${{matrix.build-type}}
+          path: ez80-link${{env.EXE}}
+
+      - name: Install ez80-lto
+        run: cmake -E copy llvm/bin/llvm-lto${{env.EXE}} ez80-lto${{env.EXE}}
+      - name: Upload ez80-lto
+        uses: actions/upload-artifact@v3
+        with:
+          name: ez80-lto${{env.EXE}}-${{matrix.runs-on}}${{matrix.build-type}}
+          path: ez80-lto${{env.EXE}}
+
+      - name: Install ez80-lto2
+        run: cmake -E copy llvm/bin/llvm-lto2${{env.EXE}} ez80-lto2${{env.EXE}}
+      - name: Upload ez80-lto2
+        uses: actions/upload-artifact@v3
+        with:
+          name: ez80-lto2${{env.EXE}}-${{matrix.runs-on}}${{matrix.build-type}}
+          path: ez80-lto2${{env.EXE}}
+
+      - name: Disk Usage
+        run: wmic logicaldisk get size,freespace,caption
+
+  build-clang:
+    needs: [build-llvm]
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on: [windows-latest]
+        build-type: [Release]
+    runs-on: ${{matrix.runs-on}}
+    steps:
+      - name: Bootstrap Build Environment
+        run: "cmake -E echo >> $env:GITHUB_ENV ENV=env:"
+      - name: Prepare Build Environment
+        run: |
+          git config --global core.autocrlf false
+          $path = vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          cmake -E echo >> $${{env.ENV}}GITHUB_PATH "$(join-path $path 'VC\Tools\Llvm\bin')"
+          cmd /s /c >> $${{env.ENV}}GITHUB_ENV """$(join-path $path 'Common7\Tools\vsdevcmd.bat')"" > nul && set"
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CC=clang-cl
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CXX=clang-cl
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV EXE=.exe
+      - name: Prepare Build Configuration
+        if: matrix.build-type == 'Release'
+        run: cmake -E echo >> $${{env.ENV}}GITHUB_ENV CMAKE_CONFIG=-DLLVM_TARGETS_TO_BUILD:STRING= -DLLVM_ENABLE_LTO:STRING=OFF -DLLVM_STATIC_LINK_CXX_STDLIB:BOOL=ON
+
+      - name: Prepare Build Environment
+        if: matrix.build-type == 'Debug'
+        run: cmake -E echo >> $${{env.ENV}}GITHUB_ENV DYLIB=ON
+      - name: Prepare Build Environment
+        if: matrix.build-type != 'Debug'
+        run: cmake -E echo >> $${{env.ENV}}GITHUB_ENV DYLIB=OFF
+
+      - name: Install Build Dependencies
+        run: pip install ninja
+
+      - name: Checkout Project
+        uses: actions/checkout@v4
+        with:
+          path: src
+      - name: Sparse Checkout
+        working-directory: src
+        run: |
+          git version
+          git sparse-checkout init --cone
+          git sparse-checkout set cmake third-party clang
+
+      - name: Download LLVM
+        uses: actions/download-artifact@v3
+        with:
+          name: LLVM${{matrix.runs-on}}${{matrix.build-type}}
+          path: llvm
+
+      - name: Configure Clang
+        run: cmake -Ssrc/clang -Bbuild -GNinja -DCMAKE_BUILD_TYPE:STRING=${{matrix.build-type}} ${{env.CMAKE_CONFIG}} -DBUILD_SHARED_LIBS:BOOL=OFF -DCMAKE_INSTALL_PREFIX:PATH="${{github.workspace}}/clang" -DCMAKE_C_COMPILER:FILEPATH="${{env.CC}}" -DCMAKE_C_FLAGS:STRING="${{env.CFLAGS}}" -DCMAKE_CXX_COMPILER:FILEPATH="${{env.CXX}}" -DCMAKE_CXX_FLAGS:STRING="${{env.CXXFLAGS}}" -DLLVM_DIR:PATH="${{github.workspace}}/llvm/lib/cmake/llvm" -DCLANG_LINK_CLANG_DYLIB:BOOL=${{env.DYLIB}} -DLLVM_INCLUDE_EXAMPLES:BOOL=OFF -DLLVM_INCLUDE_TESTS:BOOL=OFF -DCLANG_TOOL_AMDGPU_ARCH_BUILD:BOOL=OFF -DCLANG_TOOL_APINOTES_TEST_BUILD:BOOL=OFF -DCLANG_TOOL_ARCMT_TEST_BUILD:BOOL=OFF -DCLANG_TOOL_CLANG_CHECK_BUILD:BOOL=OFF -DCLANG_TOOL_CLANG_DIFF_BUILD:BOOL=ON -DCLANG_TOOL_CLANG_EXTDEF_MAPPING_BUILD:BOOL=OFF -DCLANG_TOOL_CLANG_FORMAT_BUILD:BOOL=OFF -DCLANG_TOOL_CLANG_FORMAT_VS_BUILD:BOOL=OFF -DCLANG_TOOL_CLANG_FUZZER_BUILD:BOOL=OFF -DCLANG_TOOL_CLANG_IMPORT_TEST_BUILD:BOOL=OFF -DCLANG_TOOL_CLANG_LINKER_WRAPPER_BUILD:BOOL=OFF -DCLANG_TOOL_CLANG_NVLINK_WRAPPER_BUILD:BOOL=OFF -DCLANG_TOOL_CLANG_OFFLOAD_BUNDLER_BUILD:BOOL=OFF -DCLANG_TOOL_CLANG_OFFLOAD_PACKAGER_BUILD:BOOL=OFF -DCLANG_TOOL_CLANG_OFFLOAD_WRAPPER_BUILD:BOOL=OFF -DCLANG_TOOL_CLANG_REFACTOR_BUILD:BOOL=OFF -DCLANG_TOOL_CLANG_RENAME_BUILD:BOOL=OFF -DCLANG_TOOL_CLANG_REPL_BUILD:BOOL=OFF -DCLANG_TOOL_CLANG_SCAN_DEPS_BUILD:BOOL=OFF -DCLANG_TOOL_CLANG_SHLIB_BUILD:BOOL=OFF -DCLANG_TOOL_C_ARCMT_TEST_BUILD:BOOL=ON -DCLANG_TOOL_C_INDEX_TEST_BUILD:BOOL=OFF -DCLANG_TOOL_DIAGTOOL_BUILD:BOOL=OFF -DCLANG_TOOL_DRIVER_BUILD:BOOL=ON -DCLANG_TOOL_LIBCLANG_BUILD:BOOL=ON -DCLANG_TOOL_SCAN_BUILD_BUILD:BOOL=OFF -DCLANG_TOOL_SCAN_BUILD_PY_BUILD:BOOL=OFF -DCLANG_TOOL_SCAN_VIEW_BUILD:BOOL=OFF
+
+      - name: Build Clang
+        run: cmake --build build --config ${{matrix.build-type}}
+
+      - name: Install Clang
+        run: cmake --build build --config ${{matrix.build-type}} --target install
+      - name: Upload Clang
+        uses: actions/upload-artifact@v3
+        with:
+          name: Clang${{matrix.runs-on}}${{matrix.build-type}}
+          path: clang
+
+      - name: Install ez80-clang
+        run: cmake -E copy clang/bin/clang${{env.EXE}} ez80-clang${{env.EXE}}
+      - name: Test ez80-clang
+        run: cmake -E echo "void test(void){}" | ./ez80-clang${{env.EXE}} -S -xc - -o -
+      - name: Upload ez80-clang
+        uses: actions/upload-artifact@v3
+        with:
+          name: ez80-clang${{env.EXE}}-${{matrix.runs-on}}${{matrix.build-type}}
+          path: ez80-clang${{env.EXE}}
+
+      - name: Disk Usage
+        run: wmic logicaldisk get size,freespace,caption
+
+  nightly:
+    runs-on: ubuntu-latest
+    needs: [build-clang]
+    if: github.ref == 'refs/heads/z80'
+
+    steps:
+      - name: Download Windows ez80-clang
+        uses: actions/download-artifact@v3
+        with:
+          name: ez80-clang.exe-windows-latestRelease
+          path: ${{github.workspace}}
+      - name: Download Windows ez80-link
+        uses: actions/download-artifact@v3
+        with:
+          name: ez80-link.exe-windows-latestRelease
+          path: ${{github.workspace}}
+      - name: zip Windows Artifacts
+        run: |
+          zip ez80-clang-link_windows_nightly.zip ez80-clang.exe ez80-link.exe
+          rm ez80-clang.exe ez80-link.exe
+      - name: Update nightly release
+        uses: pyTooling/Actions/releaser@main
+        with:
+          tag: nightly
+          token: ${{secrets.GITHUB_TOKEN}}
+          files: |
+            ez80-clang-link_windows_nightly.zip
