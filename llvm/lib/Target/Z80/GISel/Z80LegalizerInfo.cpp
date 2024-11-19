@@ -60,6 +60,9 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
   auto LegalScalars24 = {s8, s16, s24};
   auto LegalScalars16 = {s8, s16};
   auto LegalScalars = Is24Bit ? LegalScalars24 : LegalScalars16;
+  auto LegalLargeScalars24 = {s32, s48, s64};
+  auto LegalLargeScalars16 = {s32, s64};
+  auto LegalLargeScalars = Is24Bit ? LegalLargeScalars24 : LegalLargeScalars16;
   auto LegalLibcallScalars24 = {s8, s16, s24, s32, s48, s64};
   auto LegalLibcallScalars16 = {s8, s16, s32, s64};
   auto LegalLibcallScalars =
@@ -158,7 +161,6 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
 
   getActionDefinitionsBuilder({G_ADD, G_SUB})
       .legalFor({s8})
-      .narrowScalarIf(all(pred24Bit, typeIs(0, s48)), changeTo(0, s24))
       .customFor(LegalLibcallScalars)
       .clampScalar(0, s8, sMax);
 
@@ -194,6 +196,7 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .minScalar(0, s16)
       .minScalarIf(pred24Bit, 0, s24)
       .minScalar(0, s32)
+      .minScalarIf(pred24Bit, 0, s48)
       .minScalar(0, s64)
       .maxScalar(0, s64);
 
@@ -273,7 +276,7 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
 
   getActionDefinitionsBuilder(G_ICMP)
       .legalForCartesianProduct({s1}, LegalTypes)
-      .customForCartesianProduct({s1}, {s32, s64})
+      .customForCartesianProduct({s1}, LegalLargeScalars)
       .clampScalar(1, s8, s64);
 
   getActionDefinitionsBuilder(G_FCMP)
@@ -310,7 +313,7 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
 
   getActionDefinitionsBuilder(G_BSWAP)
       .legalFor({s16})
-      .libcallFor({s32, s64})
+      .libcallFor(LegalLargeScalars)
       .clampScalar(0, s16, s64);
 
   getActionDefinitionsBuilder(G_BITREVERSE)
@@ -408,6 +411,9 @@ Z80LegalizerInfo::legalizeAddSub(LegalizerHelper &Helper, MachineInstr &MI,
     case 32:
       Libcall = RTLIB::NEG_I32;
       break;
+    case 48:
+      Libcall = RTLIB::NEG_I48;
+      break;
     case 64:
       Libcall = RTLIB::NEG_I64;
       break;
@@ -422,6 +428,9 @@ Z80LegalizerInfo::legalizeAddSub(LegalizerHelper &Helper, MachineInstr &MI,
   }
   if (LegalSize)
     return LegalizerHelper::Legalized;
+  if ((!F.hasOptSize() || MI.getOpcode() == G_ADD) &&
+      Size == (Subtarget.is24Bit() ? 48 : 32))
+    return Helper.narrowScalar(MI, 0, LLT::scalar(Size / 2));
   return Helper.libcall(MI, LocObserver);
 }
 
@@ -456,6 +465,7 @@ Z80LegalizerInfo::legalizeBitwise(LegalizerHelper &Helper, MachineInstr &MI,
     case 16: Libcall = RTLIB::NOT_I16; break;
     case 24: Libcall = RTLIB::NOT_I24; break;
     case 32: Libcall = RTLIB::NOT_I32; break;
+    case 48: Libcall = RTLIB::NOT_I48; break;
     case 64: Libcall = RTLIB::NOT_I64; break;
     }
     Type *Ty = IntegerType::get(Ctx, Size);
@@ -472,6 +482,7 @@ Z80LegalizerInfo::legalizeBitwise(LegalizerHelper &Helper, MachineInstr &MI,
     case 16: Libcall = RTLIB::AND_I16; break;
     case 24: Libcall = RTLIB::AND_I24; break;
     case 32: Libcall = RTLIB::AND_I32; break;
+    case 48: Libcall = RTLIB::AND_I48; break;
     case 64: Libcall = RTLIB::AND_I64; break;
     }
     Type *Ty = IntegerType::get(Ctx, Size);
@@ -619,6 +630,11 @@ Z80LegalizerInfo::legalizeCompare(LegalizerHelper &Helper,
       Libcall = ZeroRHS    ? RTLIB::CMP_I32_0
                 : IsSigned ? RTLIB::SCMP_I32
                            : RTLIB::CMP_I32;
+      break;
+    case 48:
+      Libcall = ZeroRHS    ? RTLIB::CMP_I48_0
+                : IsSigned ? RTLIB::SCMP_I48
+                           : RTLIB::CMP_I48;
       break;
     case 64:
       Libcall = ZeroRHS    ? RTLIB::CMP_I64_0
@@ -901,6 +917,7 @@ Z80LegalizerInfo::legalizeCtlz(LegalizerHelper &Helper,
   case 16: Libcall = RTLIB::CTLZ_I16; break;
   case 24: Libcall = RTLIB::CTLZ_I24; break;
   case 32: Libcall = RTLIB::CTLZ_I32; break;
+  case 48: Libcall = RTLIB::CTLZ_I48; break;
   case 64: Libcall = RTLIB::CTLZ_I64; break;
   }
   auto Result = createLibcall(MIRBuilder, Libcall,
