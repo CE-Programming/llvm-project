@@ -428,9 +428,8 @@ Z80LegalizerInfo::legalizeAddSub(LegalizerHelper &Helper, MachineInstr &MI,
   }
   if (LegalSize)
     return LegalizerHelper::Legalized;
-  if ((!F.hasOptSize() || MI.getOpcode() == G_ADD) &&
-      Size == (Subtarget.is24Bit() ? 48 : 32))
-    return Helper.narrowScalar(MI, 0, LLT::scalar(Size / 2));
+  if (Subtarget.is24Bit() && Size == 48)
+    return Helper.narrowScalar(MI, 0, LLT::scalar(24));
   return Helper.libcall(MI, LocObserver);
 }
 
