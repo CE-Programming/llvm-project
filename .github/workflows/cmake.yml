@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [ubuntu-20.04, ubuntu-latest, macos-13, macos-14]
+        runs-on: [ubuntu-22.04, ubuntu-latest, macos-13, macos-14]
         build-type: [Release]
     runs-on: ${{matrix.runs-on}}
     steps:
@@ -67,7 +67,7 @@ jobs:
           cmake --build build --config ${{matrix.build-type}} --target install
           cmake -E copy build/include/llvm/Config/config.h llvm/include/llvm/Config
       - name: Upload LLVM
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: LLVM${{matrix.runs-on}}${{matrix.build-type}}
           path: llvm
@@ -77,7 +77,7 @@ jobs:
       - name: Strip ez80-link
         run: strip ez80-link${{env.EXE}}
       - name: Upload ez80-link
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ez80-link${{env.EXE}}-${{matrix.runs-on}}${{matrix.build-type}}
           path: ez80-link${{env.EXE}}
@@ -87,7 +87,7 @@ jobs:
       - name: Strip ez80-lto
         run: strip ez80-lto${{env.EXE}}
       - name: Upload ez80-lto
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ez80-lto${{env.EXE}}-${{matrix.runs-on}}${{matrix.build-type}}
           path: ez80-lto${{env.EXE}}
@@ -97,7 +97,7 @@ jobs:
       - name: Strip ez80-lto2
         run: strip ez80-lto2${{env.EXE}}
       - name: Upload ez80-lto2
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ez80-lto2${{env.EXE}}-${{matrix.runs-on}}${{matrix.build-type}}
           path: ez80-lto2${{env.EXE}}
@@ -117,7 +117,7 @@ jobs:
           cmake -E copy build/tools/clang/test/Unit/lit.site.cfg.py test/tools/clang/test/Unit
           cmake -E copy build/unittests/Target/Z80/Z80Tests${{env.EXE}} test/unittests/Target/Z80
       - name: Upload Test
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Test${{matrix.runs-on}}${{matrix.build-type}}
           path: test
@@ -130,7 +130,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [ubuntu-20.04, ubuntu-latest, macos-13, macos-14]
+        runs-on: [ubuntu-22.04, ubuntu-latest, macos-13, macos-14]
         build-type: [Release]
     runs-on: ${{matrix.runs-on}}
     steps:
@@ -178,7 +178,7 @@ jobs:
           git sparse-checkout set cmake third-party clang
 
       - name: Download LLVM
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: LLVM${{matrix.runs-on}}${{matrix.build-type}}
           path: llvm
@@ -194,7 +194,7 @@ jobs:
       - name: Install Clang
         run: cmake --build build --config ${{matrix.build-type}} --target install
       - name: Upload Clang
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Clang${{matrix.runs-on}}${{matrix.build-type}}
           path: clang
@@ -206,23 +206,24 @@ jobs:
       - name: Test ez80-clang
         run: cmake -E echo "void test(void){}" | ./ez80-clang${{env.EXE}} -S -xc - -o -
       - name: Upload ez80-clang
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ez80-clang${{env.EXE}}-${{matrix.runs-on}}${{matrix.build-type}}
           path: ez80-clang${{env.EXE}}
 
       - name: Download Test
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: Test${{matrix.runs-on}}${{matrix.build-type}}
           path: test
       - name: Install Test
         run: cmake -E copy build/bin/arcmt-test${{env.EXE}} build/bin/c-arcmt-test${{env.EXE}} build/bin/clang-diff${{env.EXE}} build/bin/clang-tblgen${{env.EXE}} test/bin
       - name: Upload Test
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Test${{matrix.runs-on}}${{matrix.build-type}}
           path: test
+          overwrite: true
 
       - name: Disk Usage
         run: df -h
@@ -232,7 +233,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [ubuntu-20.04, ubuntu-latest, macos-13, macos-14]
+        runs-on: [ubuntu-22.04, ubuntu-latest, macos-13, macos-14]
         build-type: [Release]
     runs-on: ${{matrix.runs-on}}
     steps:
@@ -252,12 +253,12 @@ jobs:
           git sparse-checkout set cmake llvm/test llvm/utils/lit/lit llvm/unittest third-party
 
       - name: Download Test
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: Test${{matrix.runs-on}}${{matrix.build-type}}
           path: build
       - name: Download LLVM
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: LLVM${{matrix.runs-on}}${{matrix.build-type}}
           path: build
@@ -274,7 +275,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [ubuntu-20.04, ubuntu-latest, macos-13, macos-14]
+        runs-on: [ubuntu-22.04, ubuntu-latest, macos-13, macos-14]
         build-type: [Debug]
     continue-on-error: true
     if: false
@@ -296,12 +297,12 @@ jobs:
           git sparse-checkout set cmake third-party llvm/test llvm/utils/lit/lit
 
       - name: Download Test
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: Test${{matrix.runs-on}}${{matrix.build-type}}
           path: build
       - name: Download LLVM
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: LLVM${{matrix.runs-on}}${{matrix.build-type}}
           path: build
@@ -316,7 +317,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [ubuntu-20.04, ubuntu-latest, macos-13, macos-14]
+        runs-on: [ubuntu-22.04, ubuntu-latest, macos-13, macos-14]
         build-type: [Debug]
     continue-on-error: true
     if: false
@@ -338,17 +339,17 @@ jobs:
           git sparse-checkout set cmake third-party clang/test llvm/utils/lit/lit
 
       - name: Download Test
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: Test${{matrix.runs-on}}${{matrix.build-type}}
           path: build
       - name: Download LLVM
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: LLVM${{matrix.runs-on}}${{matrix.build-type}}
           path: build
       - name: Download Clang
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: Clang${{matrix.runs-on}}${{matrix.build-type}}
           path: build
@@ -364,15 +365,15 @@ jobs:
     if: github.ref == 'refs/heads/z80'
 
     steps:
-      - name: Download Ubuntu 20.04 ez80-clang
-        uses: actions/download-artifact@v3
+      - name: Download Ubuntu 22.04 ez80-clang
+        uses: actions/download-artifact@v4
         with:
-          name: ez80-clang-ubuntu-20.04Release
+          name: ez80-clang-ubuntu-22.04Release
           path: ${{github.workspace}}
-      - name: Download Ubuntu 20.04 ez80-link
-        uses: actions/download-artifact@v3
+      - name: Download Ubuntu 22.04 ez80-link
+        uses: actions/download-artifact@v4
         with:
-          name: ez80-link-ubuntu-20.04Release
+          name: ez80-link-ubuntu-22.04Release
           path: ${{github.workspace}}
       - name: chmod and zip Ubuntu Artifacts
         run: |
@@ -380,12 +381,12 @@ jobs:
           zip ez80-clang-link_ubuntu_nightly.zip ez80-clang ez80-link
           rm ez80-clang ez80-link
       - name: Download macOS 13 ez80-clang
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ez80-clang-macos-13Release
           path: ${{github.workspace}}
       - name: Download macOS 13 ez80-link
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ez80-link-macos-13Release
           path: ${{github.workspace}}
@@ -395,12 +396,12 @@ jobs:
           zip ez80-clang-link_macOS_intel_nightly.zip ez80-clang ez80-link
           rm ez80-clang ez80-link
       - name: Download macOS 14 ez80-clang
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ez80-clang-macos-14Release
           path: ${{github.workspace}}
       - name: Download macOS 14 ez80-link
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ez80-link-macos-14Release
           path: ${{github.workspace}}
