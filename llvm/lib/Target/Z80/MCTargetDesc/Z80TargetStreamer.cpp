@@ -14,9 +14,12 @@
 #include "Z80TargetStreamer.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCSymbol.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FormattedStream.h"
 
 using namespace llvm;
+
+extern cl::opt<bool> GasStyle;
 
 Z80TargetStreamer::Z80TargetStreamer(MCStreamer &S)
     : MCTargetStreamer(S) {}
@@ -32,34 +35,36 @@ void Z80TargetAsmStreamer::emitLabel(MCSymbol *Symbol) {
 
 void Z80TargetAsmStreamer::emitAlign(Align Alignment) {
   if (auto Mask = Alignment.value() - 1)
-    OS << "\trb\t($$ - $) and " << Mask << '\n';
+    GasStyle ? OS << "\t.skip\t($$ - $) and " << Mask << '\n' : OS << "\trb\t($$ - $) and " << Mask << '\n';
 }
 
 void Z80TargetAsmStreamer::emitBlock(uint64_t NumBytes) {
   if (NumBytes)
-    OS << "\trb\t" << NumBytes << '\n';
+    GasStyle ? OS << "\t.skip\t" << NumBytes << '\n' : OS << "\trb\t" << NumBytes << '\n';
 }
 
 void Z80TargetAsmStreamer::emitLocal(MCSymbol *Symbol) {
-  OS << "\tprivate\t";
-  Symbol->print(OS, MAI);
-  OS << '\n';
+  if (!GasStyle) {
+    OS << "\tprivate\t";
+    Symbol->print(OS, MAI);
+    OS << '\n';
+  }
 }
 
 void Z80TargetAsmStreamer::emitWeakGlobal(MCSymbol *Symbol) {
-  OS << "\tweak\t";
+  GasStyle ? OS << "\t.weak\t" : OS << "\tweak\t";
   Symbol->print(OS, MAI);
   OS << '\n';
 }
 
 void Z80TargetAsmStreamer::emitGlobal(MCSymbol *Symbol) {
-  OS << "\tpublic\t";
+  GasStyle ? OS << "\t.globl\t" : OS << "\tpublic\t";
   Symbol->print(OS, MAI);
   OS << '\n';
 }
 
 void Z80TargetAsmStreamer::emitExtern(MCSymbol *Symbol) {
-  OS << "\textern\t";
+  GasStyle ? OS << "\t.extern\t" : OS << "\textern\t";
   Symbol->print(OS, MAI);
   OS << '\n';
 }
