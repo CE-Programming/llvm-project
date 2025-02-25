@@ -319,7 +319,19 @@ inline MatchTable &operator<<(MatchTable &Table,
 //===- Matchers -----------------------------------------------------------===//
 class Matcher {
 public:
+  enum MatcherKind {
+    MK_Group,
+    MK_Switch,
+    MK_Rule,
+  };
+private:
+  MatcherKind TheKind;
+public:
+  Matcher(MatcherKind Kind) : TheKind(Kind) {}
   virtual ~Matcher();
+
+  MatcherKind getKind() const { return TheKind; }
+
   virtual void optimize();
   virtual void emit(MatchTable &Table) = 0;
 
@@ -340,6 +352,9 @@ class GroupMatcher final : public Matcher {
   std::vector<std::unique_ptr<Matcher>> MatcherStorage;
 
 public:
+  GroupMatcher() : Matcher(MK_Group) {}
+  static bool classof(const Matcher *M) { return M->getKind() == MK_Group; }
+
   /// Add a matcher to the collection of nested matchers if it meets the
   /// requirements, and return true. If it doesn't, do nothing and return false.
   ///
@@ -399,7 +414,7 @@ private:
   bool candidateConditionMatches(const PredicateMatcher &Predicate) const;
 };
 
-class SwitchMatcher : public Matcher {
+class SwitchMatcher final : public Matcher {
   /// All the nested matchers, representing distinct switch-cases. The first
   /// conditions (as Matcher::getFirstCondition() reports) of all the nested
   /// matchers must share the same type and path to a value they check, in other
@@ -420,6 +435,9 @@ class SwitchMatcher : public Matcher {
   std::vector<std::unique_ptr<Matcher>> MatcherStorage;
 
 public:
+  SwitchMatcher() : Matcher(MK_Switch) {}
+  static bool classof(const Matcher *M) { return M->getKind() == MK_Switch; }
+
   bool addMatcher(Matcher &Candidate);
 
   void finalize();
@@ -543,8 +561,11 @@ protected:
 
 public:
   RuleMatcher(ArrayRef<SMLoc> SrcLoc)
-      : NextInsnVarID(0), NextOutputInsnID(0), NextTempRegID(0), SrcLoc(SrcLoc),
-        RuleID(NextRuleID++) {}
+      : Matcher(MK_Rule), NextInsnVarID(0), NextOutputInsnID(0),
+        NextTempRegID(0), SrcLoc(SrcLoc), RuleID(NextRuleID++) {}
+
+  static bool classof(const Matcher *M) { return M->getKind() == MK_Rule; }
+
   RuleMatcher(RuleMatcher &&Other) = default;
   RuleMatcher &operator=(RuleMatcher &&Other) = default;
 
