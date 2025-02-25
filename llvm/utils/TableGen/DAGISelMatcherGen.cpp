@@ -1038,11 +1038,11 @@ void MatcherGen::EmitResultCode() {
   //
   unsigned NumSrcResults = Pattern.getSrcPattern().getNumTypes();
 
-  // If the pattern also has (implicit) results, count them as well.
+  // If the pattern also has implicit results, count them as well.
   if (!Pattern.getDstRegs().empty()) {
     // If the root came from an implicit def in the instruction handling stuff,
     // don't re-add it.
-    Record *HandledReg = nullptr;
+    const Record *HandledReg = nullptr;
     const TreePatternNode &DstPat = Pattern.getDstPattern();
     if (!DstPat.isLeaf() && DstPat.getOperator()->isSubClassOf("Instruction")) {
       const CodeGenTarget &CGT = CGP.getTargetInfo();
@@ -1052,7 +1052,7 @@ void MatcherGen::EmitResultCode() {
         HandledReg = II.ImplicitDefs[0];
     }
 
-    for (Record *Reg : Pattern.getDstRegs()) {
+    for (const Record *Reg : Pattern.getDstRegs()) {
       if (!Reg->isSubClassOf("Register") || Reg == HandledReg)
         continue;
       ++NumSrcResults;

@@ -375,6 +375,8 @@ private:
   unsigned WaitingForNamedOperands = 0;
   StringMap<unsigned> StoreIdxForName;
 
+  Expected<LLTCodeGen> getInstResultType(const TreePatternNode *Dst) const;
+
   void gatherOpcodeValues();
   void gatherTypeIDValues();
   void gatherNodeEquivs();
@@ -420,9 +422,8 @@ private:
   Error importDefaultOperandRenderers(action_iterator InsertPt, RuleMatcher &M,
                                       BuildMIAction &DstMIBuilder,
                                       const DAGDefaultOperand &DefaultOp) const;
-  Error
-  importImplicitDefRenderers(BuildMIAction &DstMIBuilder,
-                             const std::vector<Record *> &ImplicitDefs) const;
+  Error importImplicitDefRenderers(RuleMatcher &M, BuildMIAction &DstMIBuilder,
+                                   const TreePatternNode *Src) const;
 
   /// Analyze pattern \p P, returning a matcher for it if possible.
   /// Otherwise, return an Error explaining why we don't support it.
@@ -473,6 +474,24 @@ private:
 };
 
 StringRef getPatFragPredicateEnumName(Record *R) { return R->getName(); }
+
+Expected<LLTCodeGen>
+GlobalISelEmitter::getInstResultType(const TreePatternNode *Dst) const {
+  ArrayRef<TypeSetByHwMode> ChildTypes = Dst->getExtTypes();
+  CodeGenInstruction *DstI = &Target.getInstruction(Dst->getOperator());
+  if (ChildTypes.size() - DstI->ImplicitDefs.size() != 1)
+    return failedImport("Dst pattern child has multiple results");
+
+  std::optional<LLTCodeGen> MaybeOpTy;
+  if (ChildTypes.front().isMachineValueType()) {
+    MaybeOpTy =
+      MVTToLLT(ChildTypes.front().getMachineValueType().SimpleTy);
+  }
+
+  if (!MaybeOpTy)
+    return failedImport("Dst operand has an unsupported type");
+  return *MaybeOpTy;
+}
 
 void GlobalISelEmitter::gatherOpcodeValues() {
   InstructionOpcodeMatcher::initOpcodeValuesMap(Target);
@@ -995,6 +1014,7 @@ Error GlobalISelEmitter::importChildMatcher(
         return Error::success();
       }
       if (SrcChild.getOperator()->getName() == "timm") {
+        return failedImport("I don't think this works");
         OM.addPredicate<ImmOperandMatcher>();
 
         // Add predicates, if any
@@ -1182,6 +1202,9 @@ Error GlobalISelEmitter::importChildMatcher(
 Expected<action_iterator> GlobalISelEmitter::importExplicitUseRenderer(
     action_iterator InsertPt, RuleMatcher &Rule, BuildMIAction &DstMIBuilder,
     const TreePatternNode &DstChild, const TreePatternNode &Src) {
+  if (DstChild->hasName() && !Rule.hasOperand(DstChild->getName()))
+    return failedImport("Could not find any uses of operand " +
+                        DstChild->getName() + " in the pattern");
 
   const auto &SubOperand = Rule.getComplexSubOperand(DstChild.getName());
   if (SubOperand) {
@@ -1372,6 +1395,13 @@ Expected<BuildMIAction &> GlobalISelEmitter::createAndImportInstructionRenderer(
           importExplicitUseRenderers(InsertPt, M, DstMIBuilder, Dst, Src)
               .takeError())
     return std::move(Error);
+  InsertPt = InsertPtOrError.get();
+
+  // Render the implicit defs.
+  // These are only added to the root of the result.
+  if (auto Error = importImplicitDefRenderers(M, DstMIBuilder, Src))
+    return std::move(Error);
+  InsertPt = InsertPtOrError.get();
 
   return DstMIBuilder;
 }
@@ -1782,10 +1812,23 @@ Error GlobalISelEmitter::importDefaultOperandRenderers(
 }
 
 Error GlobalISelEmitter::importImplicitDefRenderers(
-    BuildMIAction &DstMIBuilder,
-    const std::vector<Record *> &ImplicitDefs) const {
-  if (!ImplicitDefs.empty())
-    return failedImport("Pattern defines a physical register");
+    RuleMatcher &M, BuildMIAction &DstMIBuilder,
+    const TreePatternNode *Src) const {
+  const CodeGenInstruction &DstI = *DstMIBuilder.getCGI();
+  int DstINumImplicitDefs = Src->getNumResults() - DstI.Operands.NumDefs;
+
+  for (int I = 0; I < DstINumImplicitDefs; ++I) {
+    auto PhysOutput = DstI.ImplicitDefs[I];
+    assert(PhysOutput->isSubClassOf("Register"));
+    BuildMIAction &CopyFromPhysRegMIBuilder = M.addAction<BuildMIAction>(
+        M.allocateOutputInsnID(), &Target.getInstruction(RK.getDef("COPY")));
+    CopyFromPhysRegMIBuilder.addRenderer<CopyPhysRegRenderer>(PhysOutput, true);
+    CopyFromPhysRegMIBuilder.addRenderer<AddRegisterRenderer>(Target,
+                                                              PhysOutput);
+    M.addAction<ConstrainOperandToRegClassAction>(
+        CopyFromPhysRegMIBuilder.getInsnID(), 0,
+        *CGRegs.getRegClassForRegister(PhysOutput));
+  }
   return Error::success();
 }
 
@@ -2018,12 +2061,12 @@ Expected<RuleMatcher> GlobalISelEmitter::runOnPattern(const PatternToMatch &P) {
   auto &DstI = Target.getInstruction(DstOp);
   StringRef DstIName = DstI.TheDef->getName();
 
-  unsigned DstNumDefs = DstI.Operands.NumDefs,
-           SrcNumDefs = Src.getExtTypes().size();
-  if (DstNumDefs < SrcNumDefs) {
+  unsigned DstNumDefs = DstI.Operands.NumDefs + DstI.ImplicitDefs.size();
+  unsigned SrcNumResults = Src->getNumResults();
+  if (DstNumDefs < SrcNumResults) {
     if (DstNumDefs != 0)
       return failedImport("Src pattern result has more defs than dst MI (" +
-                          to_string(SrcNumDefs) + " def(s) vs " +
+                          to_string(SrcNumResults) + " def(s) vs " +
                           to_string(DstNumDefs) + " def(s))");
 
     bool FoundNoUsePred = false;
@@ -2032,7 +2075,7 @@ Expected<RuleMatcher> GlobalISelEmitter::runOnPattern(const PatternToMatch &P) {
         break;
     }
     if (!FoundNoUsePred)
-      return failedImport("Src pattern result has " + to_string(SrcNumDefs) +
+      return failedImport("Src pattern result has " + to_string(SrcNumResults) +
                           " def(s) without the HasNoUse predicate set to true "
                           "but Dst MI has no def");
   }
@@ -2040,7 +2083,7 @@ Expected<RuleMatcher> GlobalISelEmitter::runOnPattern(const PatternToMatch &P) {
   // The root of the match also has constraints on the register bank so that it
   // matches the result instruction.
   unsigned OpIdx = 0;
-  unsigned N = std::min(DstNumDefs, SrcNumDefs);
+  unsigned N = std::min(DstNumDefs, SrcNumResults);
   for (unsigned I = 0; I < N; ++I) {
     const TypeSetByHwMode &VTy = Src.getExtType(I);
 
@@ -2109,7 +2152,8 @@ Expected<RuleMatcher> GlobalISelEmitter::runOnPattern(const PatternToMatch &P) {
 
   // Render the implicit defs.
   // These are only added to the root of the result.
-  if (auto Error = importImplicitDefRenderers(DstMIBuilder, P.getDstRegs()))
+  // TODO ADRIWEB: Dst or Src or something else? (it was `P.getDstRegs()` before)
+  if (auto Error = importImplicitDefRenderers(M, DstMIBuilder, Dst))
     return std::move(Error);
 
   DstMIBuilder.chooseInsnToMutate(M);

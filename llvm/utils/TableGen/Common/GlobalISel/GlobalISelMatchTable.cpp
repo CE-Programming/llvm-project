@@ -886,8 +886,12 @@ unsigned RuleMatcher::getInsnVarID(InstructionMatcher &InsnMatcher) const {
   llvm_unreachable("Matched Insn was not captured in a local variable");
 }
 
+bool RuleMatcher::hasOperand(StringRef SymbolicName) {
+  return DefinedOperands.find(SymbolicName) != DefinedOperands.end();
+}
+
 void RuleMatcher::defineOperand(StringRef SymbolicName, OperandMatcher &OM) {
-  if (!DefinedOperands.contains(SymbolicName)) {
+  if (!hasOperand(SymbolicName)) {
     DefinedOperands[SymbolicName] = &OM;
     return;
   }
@@ -900,8 +904,10 @@ void RuleMatcher::defineOperand(StringRef SymbolicName, OperandMatcher &OM) {
       RM.getGISelFlags());
 }
 
-void RuleMatcher::definePhysRegOperand(Record *Reg, OperandMatcher &OM) {
-  if (!PhysRegOperands.contains(Reg)) {
+void RuleMatcher::definePhysRegOperand(Record *Reg, OperandMatcher &OM,
+                                       bool IsDef) {
+  auto &PhysRegOperands = IsDef ? PhysRegDefs : PhysRegUses;
+  if (PhysRegOperands.find(Reg) == PhysRegOperands.end()) {
     PhysRegOperands[Reg] = &OM;
     return;
   }
@@ -916,7 +922,9 @@ RuleMatcher::getInstructionMatcher(StringRef SymbolicName) const {
       ("Failed to lookup instruction " + SymbolicName).str().c_str());
 }
 
-const OperandMatcher &RuleMatcher::getPhysRegOperandMatcher(Record *Reg) const {
+const OperandMatcher &
+RuleMatcher::getPhysRegOperandMatcher(Record *Reg, bool IsDef) const {
+  auto &PhysRegOperands = IsDef ? PhysRegDefs : PhysRegUses;
   const auto &I = PhysRegOperands.find(Reg);
 
   if (I == PhysRegOperands.end()) {
@@ -1888,7 +1896,8 @@ void CopyRenderer::emitRenderOpcodes(MatchTable &Table,
 
 void CopyPhysRegRenderer::emitRenderOpcodes(MatchTable &Table,
                                             RuleMatcher &Rule) const {
-  const OperandMatcher &Operand = Rule.getPhysRegOperandMatcher(PhysReg);
+  const OperandMatcher &Operand =
+      Rule.getPhysRegOperandMatcher(PhysReg, IsDef);
   unsigned OldInsnVarID = Rule.getInsnVarID(Operand.getInstructionMatcher());
   CopyRenderer::emitRenderOpcodes(Table, Rule, NewInsnID, OldInsnVarID,
                                   Operand.getOpIdx(), PhysReg->getName());
@@ -2156,6 +2165,10 @@ void BuildMIAction::chooseInsnToMutate(RuleMatcher &Rule) {
       return;
     }
   }
+  // FIXME: This is a hack but it's sufficient for ISel. We'll need to do
+  //        better for combines. Particularly when there are multiple match
+  //        roots.
+  Rule.addAction<EraseFromParentAction>(InsnID);
 }
 
 void BuildMIAction::emitActionOpcodes(MatchTable &Table,
