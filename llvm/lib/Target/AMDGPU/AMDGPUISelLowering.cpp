@@ -185,7 +185,7 @@ AMDGPUTargetLowering::AMDGPUTargetLowering(const TargetMachine &TM,
                      Expand);
 
   for (MVT VT : MVT::integer_valuetypes()) {
-    if (VT == MVT::i64)
+    if (!VT.isPow2Size() || VT.bitsGE(MVT::i64))
       continue;
 
     for (auto Op : {ISD::SEXTLOAD, ISD::ZEXTLOAD, ISD::EXTLOAD}) {
