@@ -1202,9 +1202,9 @@ Error GlobalISelEmitter::importChildMatcher(
 Expected<action_iterator> GlobalISelEmitter::importExplicitUseRenderer(
     action_iterator InsertPt, RuleMatcher &Rule, BuildMIAction &DstMIBuilder,
     const TreePatternNode &DstChild, const TreePatternNode &Src) {
-  if (DstChild->hasName() && !Rule.hasOperand(DstChild->getName()))
+  if (DstChild.hasName() && !Rule.hasOperand(DstChild.getName()))
     return failedImport("Could not find any uses of operand " +
-                        DstChild->getName() + " in the pattern");
+                        DstChild.getName() + " in the pattern");
 
   const auto &SubOperand = Rule.getComplexSubOperand(DstChild.getName());
   if (SubOperand) {
