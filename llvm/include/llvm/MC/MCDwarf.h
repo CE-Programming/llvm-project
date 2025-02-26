@@ -603,11 +603,11 @@ public:
     return MCCFIInstruction(OpOffset, L, Register, Offset, Loc);
   }
 
-  /// .cfi_val_offset Previous value of Register is equal to offset Offset from
-  /// CFA.
+  /// .cfi_val_offset Previous value of Register is offset Offset from the
+  /// current CFA register.
   static MCCFIInstruction createValOffset(MCSymbol *L, unsigned Register,
-                                          int Offset) {
-    return MCCFIInstruction(OpValOffset, L, Register, Offset, {});
+                                          int64_t Offset, SMLoc Loc = {}) {
+    return MCCFIInstruction(OpValOffset, L, Register, Offset, Loc);
   }
 
   /// .cfi_rel_offset Previous value of Register is saved at offset
