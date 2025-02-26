@@ -6406,7 +6406,7 @@ bool CombinerHelper::matchTruncLshrBuildVectorFold(MachineInstr &MI,
   std::optional<ValueAndVReg> ShiftAmt;
   if (!mi_match(MI.getOperand(1).getReg(), MRI,
                 m_GLShr(m_GBitcast(m_GBuildVector(m_Reg(), m_Reg(MatchInfo))),
-                        m_GCst(ShiftAmt))))
+                        m_ICst(ShiftAmt))))
     return false;
 
   LLT MatchTy = MRI.getType(MatchInfo);
