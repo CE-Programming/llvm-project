@@ -78,11 +78,10 @@ matchConstant<ValueAndVReg>(Register Reg, const MachineRegisterInfo &MRI) {
 }
 
 template <>
-inline std::optional<APInt> matchConstant<APInt>(Register Reg,
-                                            const MachineRegisterInfo &MRI) {
-  const auto& Val = matchConstant<ValueAndVReg>(Reg, MRI);
-  if (Val.has_value())
-    return Val.value().Value;
+inline std::optional<APInt> matchConstant(Register Reg,
+                                          const MachineRegisterInfo &MRI) {
+  if (auto ValAndVReg = getIConstantVRegValWithLookThrough(Reg, MRI))
+    return ValAndVReg->Value;
   return std::nullopt;
 }
 
@@ -93,14 +92,14 @@ matchConstant<const IgnoreMatch>(Register Reg, const MachineRegisterInfo &MRI) {
   return std::optional<const IgnoreMatch>{ IgnoreMatch{} };
 }
 
-template <typename ConstT>
-inline std::optional<ConstT> matchConstant(Register Reg,
-                                      const MachineRegisterInfo &MRI) {
-  auto Val = matchConstant<APInt>(Reg, MRI);
-  if (Val && Val->getBitWidth() <= 64)
-    return { Val->getSExtValue() };
-  return std::nullopt;
-}
+// template <typename ConstT>
+// inline std::optional<ConstT> matchConstant(Register Reg,
+//                                       const MachineRegisterInfo &MRI) {
+//   auto Val = matchConstant<APInt>(Reg, MRI);
+//   if (Val && Val->getBitWidth() <= 64)
+//     return Val->getSExtValue();
+//   return std::nullopt;
+// }
 
 template <typename ConstT> struct ConstantMatch {
   ConstT &CR;
