@@ -171,7 +171,8 @@ struct GCstAndRegMatch {
   bool match(const MachineRegisterInfo &MRI, Register Reg) {
     ValReg = getIConstantVRegValWithLookThrough(Reg, MRI);
     return ValReg ? true : false;
-}
+  }
+};
 
 struct GFCstAndRegMatch {
   std::optional<FPValueAndVReg> &FPValReg;
