@@ -51,9 +51,9 @@ public:
                              TargetInfo::ConstraintInfo &Info) const override;
   std::string convertConstraint(const char *&Constraint) const override;
 
-  const char *getClobbers() const override { return ""; }
+  std::string_view getClobbers() const override { return ""; }
   ArrayRef<TargetInfo::GCCRegAlias> getGCCRegAliases() const override {
-    return None;
+    return {};
   }
   ArrayRef<TargetInfo::AddlRegName> getGCCAddlRegNames() const override;
 

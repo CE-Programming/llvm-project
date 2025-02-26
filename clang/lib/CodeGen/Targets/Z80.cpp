@@ -53,7 +53,7 @@ Address Z80ABIInfo::EmitVAArg(CodeGenFunction &CGF,
       CharUnits::fromQuantity(getDataLayout().getPointerSize()),
       CharUnits::One(), /*AllowHigherAlign*/ false);
   // Remove SlotSize over-alignment, since stack is never aligned.
-  return Address(Addr.getPointer(), CharUnits::fromQuantity(1));
+  return Address(Addr.getPointer(), Addr.getType(), CharUnits::fromQuantity(1));
 }
 
 void Z80TargetCodeGenInfo::setTargetAttributes(
