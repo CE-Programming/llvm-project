@@ -6374,7 +6374,7 @@ bool CombinerHelper::matchBuildVectorIdentityFold(MachineInstr &MI,
 
   std::optional<ValueAndVReg> ShiftAmount;
   const auto LoPattern = m_GBitcast(m_Reg(Lo));
-  const auto HiPattern = m_GLShr(m_GBitcast(m_Reg(Hi)), m_GCst(ShiftAmount));
+  const auto HiPattern = m_GLShr(m_GBitcast(m_Reg(Hi)), m_ICst(ShiftAmount));
   if (mi_match(
           MI, MRI,
           m_any_of(m_GBuildVectorTrunc(LoPattern, HiPattern),
