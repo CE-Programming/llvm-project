@@ -147,8 +147,7 @@ public:
                          Register BaseReg, int64_t Offset,
                          RegScavenger *RS = nullptr, int SPAdj = 0) const;
 
-  bool isReallyTriviallyReMaterializable(const MachineInstr &MI,
-                                         AAResults *AA) const override;
+  bool isReallyTriviallyReMaterializable(const MachineInstr &MI) const override;
   void reMaterialize(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
                      Register DstReg, unsigned SubIdx, const MachineInstr &Orig,
                      const TargetRegisterInfo &TRI) const override;

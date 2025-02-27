@@ -169,7 +169,7 @@ bool Z80MachineEarlyOptimization::runOnMachineFunction(MachineFunction &MF) {
             CallMI->setDesc(TII.get(CallMI->getOpcode() == Z80::CALL24
                                     ? Z80::CALL24CC : Z80::CALL16CC));
             auto RegMask = CallMI->getOperand(1).getRegMask();
-            CallMI->RemoveOperand(1);
+            CallMI->removeOperand(1);
             MachineInstrBuilder(MF, CallMI)
                 .add(Cond[0]).addRegMask(RegMask)
                 .addReg(Z80::F, RegState::Implicit);

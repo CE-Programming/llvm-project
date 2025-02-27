@@ -13,7 +13,7 @@
 #ifndef LLVM_LIB_TARGET_Z80_Z80REGISTERBANKINFO_H
 #define LLVM_LIB_TARGET_Z80_Z80REGISTERBANKINFO_H
 
-#include "llvm/CodeGen/GlobalISel/RegisterBankInfo.h"
+#include "llvm/CodeGen/RegisterBankInfo.h"
 
 #define GET_REGBANK_DECLARATIONS
 #include "Z80GenRegisterBank.inc"

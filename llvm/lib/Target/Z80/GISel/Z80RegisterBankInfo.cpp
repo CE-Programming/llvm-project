@@ -13,8 +13,7 @@
 #include "Z80RegisterBankInfo.h"
 #include "Z80RegisterInfo.h"
 #include "MCTargetDesc/Z80MCTargetDesc.h"
-#include "llvm/CodeGen/GlobalISel/RegisterBank.h"
-#include "llvm/CodeGen/GlobalISel/RegisterBankInfo.h"
+#include "llvm/CodeGen/RegisterBankInfo.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 
