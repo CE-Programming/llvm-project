@@ -197,7 +197,7 @@ bool Z80RegisterInfo::saveScavengerRegister(MachineBasicBlock &MBB,
   return true;
 }
 
-void Z80RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+bool Z80RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
                                           int SPAdj, unsigned FIOperandNum,
                                           RegScavenger *RS) const {
   MachineInstr &MI = *II;
@@ -214,7 +214,7 @@ void Z80RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   if (FrameIndex < 0)
     // For fixed indices, skip over callee save slots.
     Offset += MF.getInfo<Z80MachineFunctionInfo>()->getCalleeSavedFrameSize();
-  TII.rewriteFrameIndex(MI, FIOperandNum, BaseReg, Offset, RS, SPAdj);
+  return TII.rewriteFrameIndex(MI, FIOperandNum, BaseReg, Offset, RS, SPAdj);
 }
 
 Register Z80RegisterInfo::getFrameRegister(const MachineFunction &MF) const {

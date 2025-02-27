@@ -32,7 +32,7 @@ class Z80MCInstLower {
 public:
   Z80MCInstLower(const MachineFunction &MF, Z80AsmPrinter &AP);
 
-  Optional<MCOperand> LowerMachineOperand(const MachineInstr *MI,
+  std::optional<MCOperand> LowerMachineOperand(const MachineInstr *MI,
                                           const MachineOperand &MO) const;
 
   MCSymbol *GetGlobalAddressSymbol(const MachineOperand &MO) const;
@@ -70,7 +70,7 @@ MCOperand Z80MCInstLower::LowerSymbolOperand(const MachineOperand &MO,
   return MCOperand::createExpr(Expr);
 }
 
-Optional<MCOperand>
+std::optional<MCOperand>
 Z80MCInstLower::LowerMachineOperand(const MachineInstr *MI,
                                     const MachineOperand &MO) const {
   switch (MO.getType()) {
@@ -93,7 +93,7 @@ Z80MCInstLower::LowerMachineOperand(const MachineInstr *MI,
   case MachineOperand::MO_JumpTableIndex:
     return LowerSymbolOperand(MO, AsmPrinter.GetJTISymbol(MO.getIndex()));
   case MachineOperand::MO_RegisterMask:
-    return None; // Ignore call clobbers.
+    return std::nullopt; // Ignore call clobbers.
   }
 }
 

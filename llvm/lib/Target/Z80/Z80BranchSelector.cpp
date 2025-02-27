@@ -123,7 +123,7 @@ public:
     )
       return Tree[Idx];
     T Result{};
-    Optional<size_type> CurrentIdx = Idx;
+    std::optional<size_type> CurrentIdx = Idx;
     do
       Result += Tree[*CurrentIdx];
     while ((CurrentIdx = toParentIndex(*CurrentIdx)));
@@ -145,7 +145,7 @@ public:
 
   void adjust(size_type Idx, T Amt) {
     assert(IsFrozen);
-    Optional<size_type> ParentIdx = Idx, ChildIdx = toFirstChildIndex(Idx);
+    std::optional<size_type> ParentIdx = Idx, ChildIdx = toFirstChildIndex(Idx);
     do {
       if (ChildIdx)
         Tree[*ChildIdx] -= Amt;
@@ -164,42 +164,42 @@ private:
   // This returns a mask with a single bit set in the same location as the least
   // significant unset bit of X.
   static size_type lowestZeroMask(size_type X) { return ~X & (X + 1); }
-  Optional<size_type> toParentIndex(size_type Idx) const {
+  std::optional<size_type> toParentIndex(size_type Idx) const {
     assert(Idx <= size());
     size_type Mask = lowestZeroMask(Idx);
     do {
       if (Mask > size())
-        return None;
+        return std::nullopt;
       Idx |= Mask;
       Mask <<= 1;
       Idx &= ~Mask;
     } while (Idx > size());
     return Idx;
   }
-  Optional<size_type> toFirstChildIndex(size_type Idx) {
+  std::optional<size_type> toFirstChildIndex(size_type Idx) {
     assert(Idx <= size());
     size_type Mask = lowestZeroMask(Idx) >> 1;
     if (!Mask)
-      return None;
+      return std::nullopt;
     return Idx & ~Mask;
   }
-  Optional<size_type> toSecondChildIndex(size_type Idx) {
+  std::optional<size_type> toSecondChildIndex(size_type Idx) {
     assert(Idx <= size());
     size_type Mask = lowestZeroMask(Idx);
     Idx |= Mask;
     do {
       Mask >>= 1;
       if (!Mask)
-        return None;
+        return std::nullopt;
       Idx &= ~Mask;
     } while (Idx > size());
     return Idx;
   }
-  Optional<size_type> toSiblingIndex(size_type Idx) {
+  std::optional<size_type> toSiblingIndex(size_type Idx) {
     assert(Idx <= size());
     Idx ^= lowestZeroMask(Idx) << 1;
     if (Idx > size())
-      return None;
+      return std::nullopt;
     return Idx;
   }
 
@@ -266,12 +266,12 @@ public:
     TargetTree.add();
   }
 
-  Optional<Range<Offset>>
+  std::optional<Range<Offset>>
   getBranchDisplacementIfAdded(const MachineInstr &Branch) const {
     assert(Phase == Phase::Build);
     size_type TargetIdx = getBranchTargetIndex(Branch);
     if (TargetIdx >= TargetTree.size())
-      return None;
+      return std::nullopt;
     return TargetTree.get<Tree::Unfrozen>(TargetIdx) -
            TargetTree.current<Tree::Unfrozen>();
   }

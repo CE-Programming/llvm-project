@@ -16,9 +16,11 @@
 #include "Z80InstPrinter.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
+#include "llvm/MC/MCRegister.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormattedStream.h"
+
 using namespace llvm;
 
 #define DEBUG_TYPE "asm-printer"
@@ -60,8 +62,8 @@ bool Z80InstPrinterCommon::applyTargetSpecificCLOption(StringRef Opt) {
   return false;
 }
 
-void Z80InstPrinterCommon::printRegName(raw_ostream &OS, unsigned RegNo) const {
-  OS << markup("<reg:") << getRegName(RegNo) << markup(">");
+void Z80InstPrinterCommon::printRegName(raw_ostream &OS, MCRegister Reg) const {
+  OS << markup("<reg:") << getRegName(Reg) << markup(">");
 }
 
 void Z80InstPrinterCommon::printInst(const MCInst *MI, uint64_t Address,

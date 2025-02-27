@@ -29,7 +29,7 @@ def Z80PreLegalizerCombinerHelper
     : GICombinerHelper<"Z80GenPreLegalizerCombinerHelper", [
         and_ext, and_or_disjoint_mask, combine_ext_or_trunc, combine_identity,
         combine_trunc_shift, constant_fold, const_combines, div_rem_to_divrem,
-        ext_ext_fold, fabs_fabs_fold, fabs_fneg_fold, flip_cmp_cond,
+        ext_ext_fold, /*fabs_fabs_fold,*/ fabs_fneg_fold, flip_cmp_cond,
         flip_setcc_cond, form_bitfield_extract, funnel_shift,
         funnel_shift_combines, hoist_logic_op_with_same_opcode_hands,
         identity_combines, intdiv_combines, known_bits_simplifications,
@@ -42,7 +42,7 @@ def Z80PreLegalizerCombinerHelper
         shift_immed_chain, shift_of_shifted_logic_chain, shl_ashr_to_sext_inreg,
         simplify_add_to_sub, simplify_const, simplify_icmp_bool,
         simplify_known_const, split_brcond, sub_const_to_add_neg,
-        trivial_combines, truncstore_merge, trunc_ext_fold, trunc_shl,
+        trivial_combines, truncstore_merge, trunc_ext_fold, /*trunc_shl,*/
         undef_combines, unmerge_cst, unmerge_dead_to_trunc, unmerge_merge,
         unmerge_zext_to_zext, width_reduction_combines,
         xor_of_and_with_same_reg,

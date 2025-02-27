@@ -16,6 +16,8 @@
 
 #include "Z80InstPrinterCommon.h"
 
+#include <llvm/MC/MCRegister.h>
+
 namespace llvm {
   class Z80EInstPrinter final : public Z80InstPrinterCommon {
   public:
@@ -27,10 +29,10 @@ namespace llvm {
     std::pair<const char *, uint64_t> getMnemonic(const MCInst *MI) override;
     void printInstruction(const MCInst *MI, uint64_t Address,
                           raw_ostream &OS) override;
-    static const char *getRegisterName(unsigned RegNo);
+    static const char *getRegisterName(MCRegister Reg);
 
-    StringRef getRegName(unsigned RegNo) const override {
-      return getRegisterName(RegNo);
+    StringRef getRegName(MCRegister Reg) const override {
+      return getRegisterName(Reg);
     }
   };
 }

@@ -15,6 +15,8 @@
 #include "llvm/MC/MCContext.h"
 #include "llvm/Support/FormattedStream.h"
 
+#include <llvm/MC/MCSymbol.h>
+
 using namespace llvm;
 
 Z80TargetStreamer::Z80TargetStreamer(MCStreamer &S)
