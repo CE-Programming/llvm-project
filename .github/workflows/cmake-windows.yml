@@ -2,7 +2,7 @@ name: "CMake Windows"
 
 on:
   push:
-    branches: [z80]
+    branches: [z80,rebase-v15,rebase-v16]
 
 jobs:
   build-llvm:
