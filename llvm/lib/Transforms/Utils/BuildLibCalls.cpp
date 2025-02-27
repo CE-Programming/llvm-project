@@ -1760,7 +1760,7 @@ Value *llvm::emitPutChar(Value *Char, IRBuilderBase &B,
   StringRef PutCharName = TLI->getName(LibFunc_putchar);
   Type *IntTy = B.getIntNTy(TLI->getIntSize());
   FunctionCallee PutChar = M->getOrInsertFunction(PutCharName, IntTy, IntTy);
-  inferLibFuncAttributes(M, PutCharName, *TLI);
+  inferNonMandatoryLibFuncAttrs(M, PutCharName, *TLI);
   CallInst *CI = B.CreateCall(
       PutChar, B.CreateIntCast(Char, IntTy, /*isSigned=*/true, "chari"),
       PutCharName);
