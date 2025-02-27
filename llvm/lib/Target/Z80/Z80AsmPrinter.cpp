@@ -99,13 +99,13 @@ void Z80AsmPrinter::emitGlobalVariable(const GlobalVariable *GV) {
     TS->emitBlock(DL.getTypeAllocSize(GV->getValueType()));
   else
     emitGlobalConstant(DL, GV->getInitializer());
-  OutStreamer->AddBlankLine();
+  OutStreamer->addBlankLine();
 }
 
 void Z80AsmPrinter::emitGlobalAlias(Module &M, const GlobalAlias &GA) {
   SwitchSectionForGlobal(GA.getAliaseeObject());
   AsmPrinter::emitGlobalAlias(M, GA);
-  OutStreamer->AddBlankLine();
+  OutStreamer->addBlankLine();
 }
 
 SectionKind Z80AsmPrinter::SwitchSectionForGlobal(const GlobalObject *GO) {
@@ -116,7 +116,7 @@ SectionKind Z80AsmPrinter::SwitchSectionForGlobal(const GlobalObject *GO) {
     // Determine to which section this global should be emitted.
     Section = getObjFileLowering().SectionForGlobal(GO, GOKind, TM);
   }
-  OutStreamer->SwitchSection(Section);
+  OutStreamer->switchSection(Section);
   return GOKind;
 }
 

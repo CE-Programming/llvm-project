@@ -23,6 +23,7 @@
 #include "llvm/CodeGen/Analysis.h"
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
 #include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
+#include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Target/TargetMachine.h"
 using namespace llvm;

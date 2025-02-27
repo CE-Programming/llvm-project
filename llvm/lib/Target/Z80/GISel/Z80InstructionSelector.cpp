@@ -22,6 +22,8 @@
 #include "llvm/CodeGen/GlobalISel/InstructionSelector.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelectorImpl.h"
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
+#include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
+#include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineJumpTableInfo.h"
 #include "llvm/Support/Debug.h"
 
@@ -810,8 +812,8 @@ bool Z80InstructionSelector::selectLoadStore(MachineInstr &I,
     }
   }
 
-  I.RemoveOperand(1);
-  I.RemoveOperand(0);
+  I.removeOperand(1);
+  I.removeOperand(0);
   MachineInstrBuilder MIB(MF, I);
   SmallVector<MachineOperand, 2> MOs;
   int32_t Off = 0;
@@ -976,7 +978,7 @@ bool Z80InstructionSelector::selectLoadStore(MachineInstr &I,
       MachineInstr &LoadMI = *MemMOs[1];
       LoadMI.setDesc(TII.get(TargetOpcode::IMPLICIT_DEF));
       while (LoadMI.getNumOperands() > 1)
-        LoadMI.RemoveOperand(1);
+        LoadMI.removeOperand(1);
       LoadMI.dropMemRefs(MF);
     }
   }
@@ -1012,7 +1014,7 @@ bool Z80InstructionSelector::selectFrameIndexOrGep(MachineInstr &I,
   if (I.getOpcode() == TargetOpcode::G_PTR_ADD) {
     auto OffConst = getIConstantVRegVal(I.getOperand(2).getReg(), MRI);
     if (OffConst && OffConst->sge(-1) && OffConst->sle(1)) {
-      I.RemoveOperand(2);
+      I.removeOperand(2);
       if (OffConst->isNullValue()) {
         I.setDesc(TII.get(TargetOpcode::COPY));
         return selectCopy(I, MRI);

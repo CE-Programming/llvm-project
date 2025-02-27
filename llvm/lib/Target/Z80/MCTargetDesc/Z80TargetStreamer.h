@@ -20,6 +20,7 @@
 #include "llvm/Support/Alignment.h"
 
 namespace llvm {
+class MCAsmInfo;
 class formatted_raw_ostream;
 
 class Z80TargetStreamer : public MCTargetStreamer {
