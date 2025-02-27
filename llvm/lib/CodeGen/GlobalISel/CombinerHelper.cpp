@@ -5757,7 +5757,7 @@ bool CombinerHelper::applyPtrAddGlobalImmed(
   Observer.changingInstr(MI);
   MI.setDesc(Builder.getTII().get(TargetOpcode::G_GLOBAL_VALUE));
   MI.getOperand(1).ChangeToGA(MatchInfo.first, MatchInfo.second);
-  MI.RemoveOperand(2);
+  MI.removeOperand(2);
   Observer.changedInstr(MI);
   return true;
 }
@@ -5801,7 +5801,7 @@ bool CombinerHelper::applyPtrAddConstImmed(MachineInstr &MI,
   Observer.changingInstr(MI);
   MI.setDesc(Builder.getTII().get(TargetOpcode::G_INTTOPTR));
   MI.getOperand(1).setReg(NewConst.getReg(0));
-  MI.RemoveOperand(2);
+  MI.removeOperand(2);
   Observer.changedInstr(MI);
   return true;
 }
@@ -6021,7 +6021,7 @@ bool CombinerHelper::applyCombineIdentity(MachineInstr &MI) {
   Builder.setInstrAndDebugLoc(MI);
   Observer.changingInstr(MI);
   MI.setDesc(Builder.getTII().get(TargetOpcode::COPY));
-  MI.RemoveOperand(2);
+  MI.removeOperand(2);
   Observer.changedInstr(MI);
   return true;
 }
