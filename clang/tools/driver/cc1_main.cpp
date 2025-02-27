@@ -254,8 +254,6 @@ int cc1_main(ArrayRef<const char *> Argv, const char *Argv0, void *MainAddr) {
     llvm::initializeCodeGen(Registry);
     llvm::initializeLoopStrengthReducePass(Registry);
     llvm::initializeLowerIntrinsicsPass(Registry);
-    llvm::initializeEntryExitInstrumenterPass(Registry);
-    llvm::initializePostInlineEntryExitInstrumenterPass(Registry);
     llvm::initializeUnreachableBlockElimLegacyPassPass(Registry);
     llvm::initializeConstantHoistingLegacyPassPass(Registry);
     llvm::initializeScalarOpts(Registry);
