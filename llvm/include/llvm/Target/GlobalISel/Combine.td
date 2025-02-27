@@ -1167,13 +1167,13 @@ def lower_is_power_of_two : GICombineRule<
          [{ return Helper.matchLowerIsPowerOfTwo(*${mi}); }]),
   (apply [{ Helper.applyLowerIsPowerOfTwo(*${mi}); }])>;
 
-def simplify_const_matchdata : GIDefMatchData<"Optional<ValueAndVReg>">;
+def simplify_const_matchdata : GIDefMatchData<"std::optional<ValueAndVReg>">;
 def simplify_const : GICombineRule<
   (defs root:$mi, simplify_const_matchdata:$matchinfo),
   (match (wip_match_opcode G_TRUNC, G_SEXT, G_ZEXT):$mi,
          [{ ${matchinfo} = getIConstantVRegValWithLookThrough(
                 ${mi}->getOperand(0).getReg(), MRI);
-            return ${matchinfo}.hasValue(); }]),
+            return ${matchinfo}.has_value(); }]),
   (apply [{ Helper.replaceInstWithConstant(*${mi}, ${matchinfo}->Value); }])>;
 
 def simplify_known_const_matchdata : GIDefMatchData<"APInt">;

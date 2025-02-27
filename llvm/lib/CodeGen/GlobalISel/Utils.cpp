@@ -473,7 +473,7 @@ std::optional<DefinitionAndSourceRegister>
 llvm::getDefSrcRegIgnoringCopies(Register Reg, const MachineRegisterInfo &MRI,
                                  bool HasOneNonDBGUse) {
   if (HasOneNonDBGUse && !MRI.hasOneNonDBGUse(Reg))
-    return None;
+    return std::nullopt;
   Register DefSrcReg = Reg;
   auto *DefMI = MRI.getVRegDef(Reg);
   auto DstTy = MRI.getType(DefMI->getOperand(0).getReg());

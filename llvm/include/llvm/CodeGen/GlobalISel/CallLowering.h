@@ -19,6 +19,7 @@
 #include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/TargetCallingConv.h"
+#include "llvm/IR/Attributes.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
@@ -30,7 +31,6 @@
 
 namespace llvm {
 
-class AttributeList;
 class CallBase;
 class DataLayout;
 class Function;

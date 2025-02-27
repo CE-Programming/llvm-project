@@ -667,7 +667,7 @@ Z80LegalizerInfo::legalizeCompare(LegalizerHelper &Helper,
                                    CallLowering::ArgInfo::NoArgIndex);
     CallLowering::ArgInfo Args[2] = {{LHSReg, Ty, 0}, {RHSReg, Ty, 1}};
     auto Result = createLibcall(MIRBuilder, Libcall, FlagsArg,
-                                makeArrayRef(Args, 2 - ZeroRHS));
+                                ArrayRef(Args, 2 - ZeroRHS));
     if (Result != LegalizerHelper::Legalized)
       return Result;
     MIRBuilder.buildCopy(Register(Z80::F), FlagsReg);
@@ -1086,7 +1086,7 @@ bool Z80LegalizerInfo::legalizeIntrinsic(LegalizerHelper &Helper,
     CallLowering::CallLoweringInfo Info;
     Info.CallConv = CallingConv::C;
     Info.Callee = MachineOperand::CreateES("abort");
-    Info.OrigRet = CallLowering::ArgInfo{None, Type::getVoidTy(Ctx), 0};
+    Info.OrigRet = CallLowering::ArgInfo{{}, Type::getVoidTy(Ctx), 0};
     if (!CLI.lowerCall(MIRBuilder, Info))
       return false;
     break;

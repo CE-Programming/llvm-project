@@ -903,7 +903,7 @@ bool Z80InstructionSelector::selectLoadStore(MachineInstr &I,
   }
   bool IsOff = MOs.size() == 2;
   if (RMWOps.empty()) {
-    Optional<APInt> ValConst;
+    std::optional<APInt> ValConst;
     switch (Ty.getSizeInBits()) {
     case 8:
       if (!IsLoad)
@@ -1526,7 +1526,7 @@ Z80::CondCode Z80InstructionSelector::foldExtendedAddSub(
   Register DstReg = DstMO.getReg();
   Register LHSReg = I.getOperand(2).getReg();
   Register RHSReg = I.getOperand(3).getReg();
-  Optional<ValueAndVReg> RHSConst = None;
+  std::optional<ValueAndVReg> RHSConst = std::nullopt;
   LLT OpTy = MRI.getType(DstReg);
 
   unsigned AddSubOpc;

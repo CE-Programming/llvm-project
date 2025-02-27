@@ -1540,7 +1540,7 @@ public:
         SubRegs.reserve(NumSubSrcs);
         for (unsigned Idx = MergeSrcIdx; Idx <= EndMergeSrcIdx; ++Idx)
           SubRegs.push_back(SrcDef->getOperand(Idx + 1).getReg());
-        UpdatedDefs.push_back(Builder.buildMerge(DstReg, SubRegs).getReg(0));
+        UpdatedDefs.push_back(Builder.buildMergeValues(DstReg, SubRegs).getReg(0));
         markInstAndDefDead(MI, *SrcDef, DeadInsts);
         return true;
       }
