@@ -203,7 +203,7 @@ Z80TargetInfoBase::convertConstraint(const char *&Constraint) const {
 }
 
 ArrayRef<TargetInfo::AddlRegName> Z80TargetInfoBase::getGCCAddlRegNames() const {
-  return llvm::makeArrayRef(AddlRegNames);
+  return ArrayRef(AddlRegNames);
 }
 
 bool Z80TargetInfo::setCPU(const std::string &Name) {
@@ -240,12 +240,11 @@ void Z80TargetInfo::getTargetDefines(const LangOptions &Opts,
 }
 
 ArrayRef<Builtin::Info> Z80TargetInfo::getTargetBuiltins() const {
-  return llvm::makeArrayRef(BuiltinInfoZ80, Z80::LastZ80CommonBuiltin -
-                                                Builtin::FirstTSBuiltin + 1);
+  return {}; // ArrayRef(BuiltinInfoZ80, Z80::LastZ80CommonBuiltin - Builtin::FirstTSBuiltin + 1);
 }
 
 ArrayRef<const char *> Z80TargetInfo::getGCCRegNames() const {
-  return llvm::makeArrayRef(Z80GCCRegNames);
+  return ArrayRef(Z80GCCRegNames);
 }
 
 bool EZ80TargetInfo::setCPU(const std::string &Name) {
@@ -263,10 +262,10 @@ void EZ80TargetInfo::getTargetDefines(const LangOptions &Opts,
 }
 
 ArrayRef<Builtin::Info> EZ80TargetInfo::getTargetBuiltins() const {
-  return llvm::makeArrayRef(BuiltinInfoZ80,
+  return ArrayRef(BuiltinInfoZ80,
                             Z80::LastTSBuiltin - Builtin::FirstTSBuiltin);
 }
 
 ArrayRef<const char *> EZ80TargetInfo::getGCCRegNames() const {
-  return llvm::makeArrayRef(EZ80GCCRegNames);
+  return ArrayRef(EZ80GCCRegNames);
 }

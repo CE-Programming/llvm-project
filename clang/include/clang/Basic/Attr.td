@@ -1942,7 +1942,7 @@ def AnyZ80Interrupt : InheritableAttr, TargetSpecificAttr<TargetAnyZ80> {
   // MipsInterrupt's and AnyX86Interrupt's spellings must match.
   let Spellings = [GNU<"interrupt">];
   let Subjects = SubjectList<[Function]>;
-  let Args = [EnumArgument<"Interrupt", "InterruptType",
+  let Args = [EnumArgument<"Interrupt", "InterruptType", /*is_string=*/true,
                            ["", "nested", "nmi"],
                            ["Generic", "Nested", "NMI"],
                            1>];

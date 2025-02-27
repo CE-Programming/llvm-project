@@ -111,8 +111,6 @@ static bool isArtifact(const MachineInstr &MI) {
   case TargetOpcode::G_EXTRACT:
   case TargetOpcode::G_INSERT:
     return true;
-  case TargetOpcode::G_INSERT:
-    return AllowGInsertAsArtifact;
   }
 }
 using InstListTy = GISelWorkList<256>;

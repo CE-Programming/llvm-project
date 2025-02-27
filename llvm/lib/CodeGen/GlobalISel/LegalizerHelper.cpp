@@ -45,41 +45,6 @@ using namespace llvm;
 using namespace LegalizeActions;
 using namespace MIPatternMatch;
 
-/// Try to break down \p OrigTy into \p NarrowTy sized pieces.
-///
-/// Returns the number of \p NarrowTy elements needed to reconstruct \p OrigTy,
-/// with any leftover piece as type \p LeftoverTy
-///
-/// Returns -1 in the first element of the pair if the breakdown is not
-/// satisfiable.
-static std::pair<int, int>
-getNarrowTypeBreakDown(LLT OrigTy, LLT NarrowTy, LLT &LeftoverTy) {
-  unsigned Size = OrigTy.getSizeInBits();
-  unsigned NarrowSize = NarrowTy.getSizeInBits();
-  unsigned NumParts = Size / NarrowSize;
-  unsigned LeftoverSize = Size - NumParts * NarrowSize;
-  assert(Size > NarrowSize);
-
-  if (LeftoverSize == 0)
-    return {NumParts, 0};
-
-  LLT CorrectLeftoverTy;
-  if (NarrowTy.isVector()) {
-    unsigned EltSize = OrigTy.getScalarSizeInBits();
-    if (LeftoverSize % EltSize != 0)
-      return {-1, -1};
-    CorrectLeftoverTy = LLT::scalarOrVector(
-        ElementCount::getFixed(LeftoverSize / EltSize), EltSize);
-  } else {
-    CorrectLeftoverTy = LLT::scalar(LeftoverSize);
-  }
-  assert((!LeftoverTy.isValid() || LeftoverTy == CorrectLeftoverTy) &&
-         "LeftoverTy already set to wrong value");
-  LeftoverTy = CorrectLeftoverTy;
-
-  return {NumParts, LeftoverSize / LeftoverTy.getSizeInBits()};
-}
-
 static Type *getFloatTypeForLLT(LLVMContext &Ctx, LLT Ty) {
 
   if (!Ty.isScalar())

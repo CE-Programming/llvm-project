@@ -598,7 +598,7 @@ static void buildCopyToRegs(MachineIRBuilder &B, ArrayRef<Register> DstRegs,
   }
 
   if (!SrcTy.isVector() && !PartTy.isVector()) {
-    if (SrcSize == PartSize * DstRegs.size()) {
+    if (SrcSize == PartSize.getFixedValue() * DstRegs.size()) {
       B.buildUnmerge(DstRegs, SrcReg);
       return;
     }

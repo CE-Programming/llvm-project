@@ -238,13 +238,14 @@ RValue CodeGen::emitVoidPtrVAArg(CodeGenFunction &CGF, Address VAListAddr,
   return CGF.EmitLoadOfAnyValue(CGF.MakeAddrLValue(Addr, ValueTy), Slot);
 }
 
-Address CodeGen::emitVoidPtrVAArg(CodeGenFunction &CGF, Address VAListAddr,
+RValue CodeGen::emitVoidPtrVAArg(CodeGenFunction &CGF, Address VAListAddr,
                          QualType ValueTy, bool IsIndirect,
                          TypeInfoChars ValueInfo, CharUnits SlotSizeAndAlign,
-                         bool AllowHigherAlign, bool ForceRightAdjust) {
+                         bool AllowHigherAlign, AggValueSlot Slot,
+                         bool ForceRightAdjust) {
   return emitVoidPtrVAArg(CGF, VAListAddr, ValueTy, IsIndirect, ValueInfo,
                           SlotSizeAndAlign, SlotSizeAndAlign, AllowHigherAlign,
-                          ForceRightAdjust);
+                          Slot, ForceRightAdjust);
 }
 
 Address CodeGen::emitMergePHI(CodeGenFunction &CGF, Address Addr1,

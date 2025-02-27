@@ -32,8 +32,8 @@ private:
       removeExtend(Arg.info = classifyArgumentType(Arg.type));
   }
 
-  Address EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
-                    QualType Ty) const override;
+  RValue EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
+                   QualType Ty, AggValueSlot Slot) const override;
 };
 
 class Z80TargetCodeGenInfo : public TargetCodeGenInfo {
@@ -45,15 +45,18 @@ public:
 };
 } // namespace
 
-Address Z80ABIInfo::EmitVAArg(CodeGenFunction &CGF,
-                              Address VAListAddr, QualType Ty) const {
-  Address Addr = emitVoidPtrVAArg(
+RValue Z80ABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
+                             QualType Ty, AggValueSlot Slot) const {
+  return emitVoidPtrVAArg(
       CGF, VAListAddr, Ty, /*Indirect*/ false,
       getContext().getTypeInfoInChars(Ty),
-      CharUnits::fromQuantity(getDataLayout().getPointerSize()),
-      CharUnits::One(), /*AllowHigherAlign*/ false);
+      /*SlotSize*/ CharUnits::fromQuantity(getDataLayout().getPointerSize()),
+      /*SlotAlign*/ CharUnits::One(),
+      /*AllowHigherAlign*/ false,
+      Slot);
+  // TODO adriweb: comment by jacobly:
   // Remove SlotSize over-alignment, since stack is never aligned.
-  return Address(Addr.getPointer(), Addr.getType(), CharUnits::fromQuantity(1));
+  // return Address(Addr.getPointer(), CharUnits::fromQuantity(1));
 }
 
 void Z80TargetCodeGenInfo::setTargetAttributes(

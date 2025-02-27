@@ -24,7 +24,7 @@ namespace clang {
 
 SemaZ80::SemaZ80(Sema &S) : SemaBase(S) {}
 
-void SemaZ80::handleZ80InterruptAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+void SemaZ80::handleZ80InterruptAttr(Decl *D, const ParsedAttr &AL) {
   if (!D->getDeclContext()->isFunctionOrMethod()) {
     Diag(D->getLocation(), diag::warn_attribute_wrong_decl_type)
         << "'interrupt'" << ExpectedFunction;
@@ -44,12 +44,12 @@ void SemaZ80::handleZ80InterruptAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   }
 
   // The attribute takes an optional string argument.
-  if (!AL.checkAtMostNumArgs(S, 1))
+  if (!AL.checkAtMostNumArgs(SemaRef, 1))
     return;
 
   StringRef Str;
   SourceLocation ArgLoc;
-  if (AL.getNumArgs() && !S.checkStringLiteralArgumentAttr(AL, 0, Str, &ArgLoc))
+  if (AL.getNumArgs() && !SemaRef.checkStringLiteralArgumentAttr(AL, 0, Str, &ArgLoc))
     return;
 
   AnyZ80InterruptAttr::InterruptType Kind;
@@ -59,7 +59,7 @@ void SemaZ80::handleZ80InterruptAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     Kind = AnyZ80InterruptAttr::InterruptType::Generic;
   }
 
-  D->addAttr(::new (S.Context) AnyZ80InterruptAttr(S.Context, AL, Kind));
+  D->addAttr(::new (SemaRef.Context) AnyZ80InterruptAttr(SemaRef.Context, AL, Kind));
 }
 
 } // namespace clang

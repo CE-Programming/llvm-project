@@ -1269,7 +1269,7 @@ Expected<action_iterator> GlobalISelEmitter::importExplicitUseRenderer(
     }
 
     if (DstChild.getOperator()->isSubClassOf("Instruction")) {
-      auto OpTy = getInstResultType(DstChild, Target);
+      auto OpTy = ::getInstResultType(DstChild, Target);
       if (!OpTy)
         return OpTy.takeError();
 
@@ -1399,7 +1399,7 @@ Expected<BuildMIAction &> GlobalISelEmitter::createAndImportInstructionRenderer(
 
   // Render the implicit defs.
   // These are only added to the root of the result.
-  if (auto Error = importImplicitDefRenderers(M, DstMIBuilder, Src))
+  if (auto Error = importImplicitDefRenderers(M, DstMIBuilder, &Src))
     return std::move(Error);
   InsertPt = InsertPtOrError.get();
 
@@ -1619,7 +1619,7 @@ Expected<action_iterator> GlobalISelEmitter::importExplicitUseRenderers(
     if (!ValChild.isLeaf()) {
       // We really have to handle the source instruction, and then insert a
       // copy from the subregister.
-      auto ExtractSrcTy = getInstResultType(ValChild, Target);
+      auto ExtractSrcTy = ::getInstResultType(ValChild, Target);
       if (!ExtractSrcTy)
         return ExtractSrcTy.takeError();
 
@@ -2062,7 +2062,7 @@ Expected<RuleMatcher> GlobalISelEmitter::runOnPattern(const PatternToMatch &P) {
   StringRef DstIName = DstI.TheDef->getName();
 
   unsigned DstNumDefs = DstI.Operands.NumDefs + DstI.ImplicitDefs.size();
-  unsigned SrcNumResults = Src->getNumResults();
+  unsigned SrcNumResults = Src.getNumResults();
   if (DstNumDefs < SrcNumResults) {
     if (DstNumDefs != 0)
       return failedImport("Src pattern result has more defs than dst MI (" +
@@ -2153,7 +2153,7 @@ Expected<RuleMatcher> GlobalISelEmitter::runOnPattern(const PatternToMatch &P) {
   // Render the implicit defs.
   // These are only added to the root of the result.
   // TODO ADRIWEB: Dst or Src or something else? (it was `P.getDstRegs()` before)
-  if (auto Error = importImplicitDefRenderers(M, DstMIBuilder, Dst))
+  if (auto Error = importImplicitDefRenderers(M, DstMIBuilder, &Dst))
     return std::move(Error);
 
   DstMIBuilder.chooseInsnToMutate(M);

@@ -249,6 +249,9 @@ MachineInstr *getDefIgnoringCopies(Register Reg, const MachineRegisterInfo &MRI,
 Register getSrcRegIgnoringCopies(Register Reg, const MachineRegisterInfo &MRI,
                                  bool HasOneNonDBGUse = false);
 
+std::pair<int, int>
+getNarrowTypeBreakDown(LLT OrigTy, LLT NarrowTy, LLT &LeftoverTy);
+
 /// Helper function to split a wide generic register into bitwise blocks with
 /// the given Type (which implies the number of blocks needed). The generic
 /// registers created are appended to Ops, starting at bit 0 of Reg.

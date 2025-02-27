@@ -119,14 +119,14 @@ Address emitVoidPtrDirectVAArg(CodeGenFunction &CGF, Address VAListAddr,
 RValue emitVoidPtrVAArg(CodeGenFunction &CGF, Address VAListAddr,
                          QualType ValueTy, bool IsIndirect,
                          TypeInfoChars ValueInfo, CharUnits SlotSize,
-                         CharUnits SlotAlign,
-                         bool AllowHigherAlign, bool ForceRightAdjust = false);
+                         CharUnits SlotAlign, bool AllowHigherAlign,
+                         AggValueSlot Slot, bool ForceRightAdjust = false);
 
-Address emitVoidPtrVAArg(CodeGenFunction &CGF, Address VAListAddr,
-                        QualType ValueTy, bool IsIndirect,
-                        TypeInfoChars ValueInfo, CharUnits SlotSizeAndAlign,
-                        bool AllowHigherAlign, AggValueSlot Slot,
-                        bool ForceRightAdjust = false);
+RValue emitVoidPtrVAArg(CodeGenFunction &CGF, Address VAListAddr,
+                         QualType ValueTy, bool IsIndirect,
+                         TypeInfoChars ValueInfo, CharUnits SlotSizeAndAlign,
+                         bool AllowHigherAlign, AggValueSlot Slot,
+                         bool ForceRightAdjust = false);
 
 Address emitMergePHI(CodeGenFunction &CGF, Address Addr1,
                      llvm::BasicBlock *Block1, Address Addr2,

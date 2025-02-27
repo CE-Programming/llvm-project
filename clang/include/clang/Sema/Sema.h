@@ -195,6 +195,7 @@ class SemaSwift;
 class SemaSystemZ;
 class SemaWasm;
 class SemaX86;
+class SemaZ80;
 class StandardConversionSequence;
 class Stmt;
 class StringLiteral;
@@ -1261,6 +1262,11 @@ public:
     return *X86Ptr;
   }
 
+  SemaZ80 &Z80() {
+    assert(Z80Ptr);
+    return *Z80Ptr;
+  }
+
   /// Source of additional semantic information.
   IntrusiveRefCntPtr<ExternalSemaSource> ExternalSource;
 
@@ -1316,6 +1322,7 @@ private:
   std::unique_ptr<SemaSystemZ> SystemZPtr;
   std::unique_ptr<SemaWasm> WasmPtr;
   std::unique_ptr<SemaX86> X86Ptr;
+  std::unique_ptr<SemaZ80> Z80Ptr;
 
   ///@}
 

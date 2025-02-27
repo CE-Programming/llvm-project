@@ -1133,13 +1133,6 @@ bool CombinerHelper::canMove(MachineInstr &MI, MachineBasicBlock &MBB,
   return true;
 }
 
-static Type *getTypeForLLT(LLT Ty, LLVMContext &C) {
-  if (Ty.isVector())
-    return FixedVectorType::get(IntegerType::get(C, Ty.getScalarSizeInBits()),
-                                Ty.getNumElements());
-  return IntegerType::get(C, Ty.getSizeInBits());
-}
-
 /// Return true if 'MI' is a load or a store that may be fold it's address
 /// operand into the load / store addressing mode.
 static bool canFoldInAddressingMode(GLoadStore *MI, const TargetLowering &TLI,
@@ -7092,8 +7085,8 @@ bool CombinerHelper::matchNarrowLoad(MachineInstr &MI,
   const auto *MMO = MatchInfo.MI->memoperands().front();
   LLT AddrTy = MRI.getType(MatchInfo.MI->getOperand(1).getReg());
   return !MMO->isVolatile() && !MMO->isAtomic() &&
-         MMO->getSizeInBits() >= DstSize &&
-         MatchInfo.Imm <= int64_t(MMO->getSizeInBits() - DstSize) &&
+         MMO->getSizeInBits().getValue() >= DstSize &&
+         MatchInfo.Imm <= int64_t(MMO->getSizeInBits().getValue() - DstSize) &&
          isLegalOrBeforeLegalizer({TargetOpcode::G_LOAD, {DstTy, AddrTy}});
 }
 
@@ -7264,9 +7257,9 @@ bool CombinerHelper::matchSimplifyICmpBool(MachineInstr &MI,
   MatchInfo.Imm = 0;
   ConstantInt *BoolCI[2] = {ConstantInt::getFalse(C), ConstantInt::getTrue(C)};
   for (ConstantInt *InCI : BoolCI)
-    if (Constant *ResC =
-            ConstantExpr::getCompare(Pred, InCI, BoolCI[CmpVal], true))
-      MatchInfo.Imm = MatchInfo.Imm << 1 | (ResC == BoolCI[true]);
+    if (const auto& ResC =
+            ICmpInst::compare(InCI->getValue(), BoolCI[CmpVal]->getValue(), Pred))
+      MatchInfo.Imm = MatchInfo.Imm << 1 | (ResC == BoolCI[true]->getValue());
     else
       return false;
   return true;

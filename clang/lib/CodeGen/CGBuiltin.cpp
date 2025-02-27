@@ -22084,7 +22084,7 @@ Value *CodeGenFunction::EmitZ80BuiltinExpr(unsigned BuiltinID,
                                            const CallExpr *E) {
   switch (BuiltinID) {
   case Z80::BI__builtin_bitreverse24:
-    return emitUnaryBuiltin(*this, E, Intrinsic::bitreverse);
+    return emitBuiltinWithOneOverloadedType<1>(*this, E, Intrinsic::bitreverse);
   default:
     return nullptr;
   }
