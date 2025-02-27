@@ -2258,7 +2258,7 @@ public:
   }
 
   void emitPredicateOpcodes(MatchTable &Table,
-                            RuleMatcher &Rule) const override {
+                            Matcher &Rule) const override {
     Table << MatchTable::Opcode("GIM_CheckHasNoUse")
           << MatchTable::Comment("MI") << MatchTable::IntValue(InsnVarID)
           << MatchTable::LineBreak;

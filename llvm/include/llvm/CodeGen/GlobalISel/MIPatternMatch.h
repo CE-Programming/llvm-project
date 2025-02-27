@@ -163,6 +163,9 @@ struct GCstAndRegMatch {
   bool match(const MachineRegisterInfo &MRI, Register Reg) {
     ValReg = getIConstantVRegValWithLookThrough(Reg, MRI);
     return ValReg ? true : false;
+  }
+};
+
 template <typename ConstT> inline ConstantMatch<ConstT> m_ICst(ConstT &Cst) {
   return {Cst};
 }
