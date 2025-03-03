@@ -1481,7 +1481,7 @@ Value *llvm::emitStrNCmp(Value *Ptr1, Value *Ptr2, Value *Len, IRBuilderBase &B,
   Type *SizeTTy = getSizeTTy(B, TLI);
   return emitLibCall(
       LibFunc_strncmp, B.getIntNTy(TLI->getIntSize()),
-      {B.getInt8PtrTy(), B.getInt8PtrTy(), DL.getIntPtrType(Context)},
+      {B.getInt8PtrTy(), B.getInt8PtrTy(), SizeTTy},
       {castToCStr(Ptr1, B), castToCStr(Ptr2, B), Len}, B, TLI);
 }
 
@@ -1828,7 +1828,6 @@ Value *llvm::emitFPutC(Value *Char, Value *File, IRBuilderBase &B,
   if (!isLibFuncEmittable(M, TLI, LibFunc_fputc))
     return nullptr;
 
-  Type *IntTy = getIntTy(B, TLI);
   StringRef FPutcName = TLI->getName(LibFunc_fputc);
   Type *IntTy = B.getIntNTy(TLI->getIntSize());
   FunctionCallee F =
