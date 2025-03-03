@@ -5480,7 +5480,7 @@ Address PPC64_SVR4_ABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
   // types this way, and so right-alignment only applies to fundamental types.
   // So on PPC64, we must force the use of right-alignment even for aggregates.
   return emitVoidPtrVAArg(CGF, VAListAddr, Ty, /*Indirect*/ false, TypeInfo,
-                          SlotSize, /*AllowHigher*/ true,
+                          SlotSize, SlotSize, /*AllowHigher*/ true,
                           /*ForceRightAdjust*/ true);
 }
 

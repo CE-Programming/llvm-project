@@ -53,7 +53,7 @@ public:
 
   const char *getClobbers() const override { return ""; }
   ArrayRef<TargetInfo::GCCRegAlias> getGCCRegAliases() const override {
-    return None;
+    return std::nullopt;
   }
   ArrayRef<TargetInfo::AddlRegName> getGCCAddlRegNames() const override;
 

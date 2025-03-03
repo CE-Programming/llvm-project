@@ -20,19 +20,23 @@ namespace targets {
 
 const Builtin::Info BuiltinInfoZ80[] = {
 #define BUILTIN(ID, TYPE, ATTRS)                                               \
-  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr},
+  {#ID, TYPE, ATTRS, nullptr, HeaderDesc::NO_HEADER, ALL_LANGUAGES},
+#define LANGBUILTIN(ID, TYPE, ATTRS, LANG)                                     \
+  {#ID, TYPE, ATTRS, nullptr, HeaderDesc::NO_HEADER, LANG},
 #define TARGET_BUILTIN(ID, TYPE, ATTRS, FEATURE)                               \
-  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, FEATURE},
+  {#ID, TYPE, ATTRS, FEATURE, HeaderDesc::NO_HEADER, ALL_LANGUAGES},
 #define TARGET_HEADER_BUILTIN(ID, TYPE, ATTRS, HEADER, LANGS, FEATURE)         \
-  {#ID, TYPE, ATTRS, HEADER, LANGS, FEATURE},
+  {#ID, TYPE, ATTRS, FEATURE, HeaderDesc::HEADER, LANGS},
 #include "clang/Basic/BuiltinsZ80.def"
 
 #define BUILTIN(ID, TYPE, ATTRS)                                               \
-  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr},
+  {#ID, TYPE, ATTRS, nullptr, HeaderDesc::NO_HEADER, ALL_LANGUAGES},
+#define LANGBUILTIN(ID, TYPE, ATTRS, LANG)                                     \
+  {#ID, TYPE, ATTRS, nullptr, HeaderDesc::NO_HEADER, LANG},
 #define TARGET_BUILTIN(ID, TYPE, ATTRS, FEATURE)                               \
-  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, FEATURE},
+  {#ID, TYPE, ATTRS, FEATURE, HeaderDesc::NO_HEADER, ALL_LANGUAGES},
 #define TARGET_HEADER_BUILTIN(ID, TYPE, ATTRS, HEADER, LANGS, FEATURE)         \
-  {#ID, TYPE, ATTRS, HEADER, LANGS, FEATURE},
+  {#ID, TYPE, ATTRS, FEATURE, HeaderDesc::HEADER, LANGS},
 #include "clang/Basic/BuiltinsEZ80.def"
 };
 
@@ -203,7 +207,7 @@ Z80TargetInfoBase::convertConstraint(const char *&Constraint) const {
 }
 
 ArrayRef<TargetInfo::AddlRegName> Z80TargetInfoBase::getGCCAddlRegNames() const {
-  return llvm::makeArrayRef(AddlRegNames);
+  return ArrayRef(AddlRegNames);
 }
 
 bool Z80TargetInfo::setCPU(const std::string &Name) {
@@ -245,7 +249,7 @@ ArrayRef<Builtin::Info> Z80TargetInfo::getTargetBuiltins() const {
 }
 
 ArrayRef<const char *> Z80TargetInfo::getGCCRegNames() const {
-  return llvm::makeArrayRef(Z80GCCRegNames);
+  return ArrayRef(Z80GCCRegNames);
 }
 
 bool EZ80TargetInfo::setCPU(const std::string &Name) {
@@ -268,5 +272,5 @@ ArrayRef<Builtin::Info> EZ80TargetInfo::getTargetBuiltins() const {
 }
 
 ArrayRef<const char *> EZ80TargetInfo::getGCCRegNames() const {
-  return llvm::makeArrayRef(EZ80GCCRegNames);
+  return ArrayRef(EZ80GCCRegNames);
 }
