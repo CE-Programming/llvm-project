@@ -207,6 +207,34 @@ Z80TargetLowering::Z80TargetLowering(const Z80TargetMachine &TM,
   setLibcall(RTLIB::SINTTOFP_I64_F64, "_lltod",      CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::UINTTOFP_I32_F64, "_ultod",      CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::UINTTOFP_I64_F64, "_ulltod",     CallingConv::Z80_LibCall   );
+
+  // Override standard C libcalls to use long double for 64-bit
+  setLibcall(RTLIB::FMA_F64,          "fmal",        CallingConv::C             );
+  setLibcall(RTLIB::SQRT_F64,         "sqrtl",       CallingConv::C             );
+  setLibcall(RTLIB::CBRT_F64,         "cbrtl",       CallingConv::C             );
+  setLibcall(RTLIB::LOG_F64,          "logl",        CallingConv::C             );
+  setLibcall(RTLIB::LOG2_F64,         "log2l",       CallingConv::C             );
+  setLibcall(RTLIB::LOG10_F64,        "log10l",      CallingConv::C             );
+  setLibcall(RTLIB::EXP_F64,          "expl",        CallingConv::C             );
+  setLibcall(RTLIB::EXP2_F64,         "exp2l",       CallingConv::C             );
+  setLibcall(RTLIB::SIN_F64,          "sinl",        CallingConv::C             );
+  setLibcall(RTLIB::COS_F64,          "cosl",        CallingConv::C             );
+  setLibcall(RTLIB::POW_F64,          "powl",        CallingConv::C             );
+  setLibcall(RTLIB::CEIL_F64,         "ceill",       CallingConv::C             );
+  setLibcall(RTLIB::TRUNC_F64,        "truncl",      CallingConv::C             );
+  setLibcall(RTLIB::RINT_F64,         "rintl",       CallingConv::C             );
+  setLibcall(RTLIB::NEARBYINT_F64,    "nearbyintl",  CallingConv::C             );
+  setLibcall(RTLIB::ROUND_F64,        "roundl",      CallingConv::C             );
+  setLibcall(RTLIB::ROUNDEVEN_F64,    "roundevenl",  CallingConv::C             );
+  setLibcall(RTLIB::FLOOR_F64,        "floorl",      CallingConv::C             );
+  setLibcall(RTLIB::COPYSIGN_F64,     "copysignl",   CallingConv::C             );
+  setLibcall(RTLIB::FMIN_F64,         "fminl",       CallingConv::C             );
+  setLibcall(RTLIB::FMAX_F64,         "fmaxl",       CallingConv::C             );
+  setLibcall(RTLIB::LROUND_F64,       "lroundl",     CallingConv::C             );
+  setLibcall(RTLIB::LLROUND_F64,      "llroundl",    CallingConv::C             );
+  setLibcall(RTLIB::LRINT_F64,        "lrintl",      CallingConv::C             );
+  setLibcall(RTLIB::LLRINT_F64,       "llrintl",     CallingConv::C             );
+  setLibcall(RTLIB::ABS_F64,          "fabsl",       CallingConv::C             );
 }
 
 unsigned Z80TargetLowering::getJumpTableEncoding() const {
