@@ -85,6 +85,14 @@ class Z80TargetLowering final : public TargetLowering {
 public:
   Z80TargetLowering(const Z80TargetMachine &TM, const Z80Subtarget &STI);
 
+  bool isCheapToSpeculateCttz() const override {
+    return true;
+  }
+
+  bool isCheapToSpeculateCtlz() const override {
+    return true;
+  }
+
 private:
   unsigned getJumpTableEncoding() const override;
 
