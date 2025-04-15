@@ -24,8 +24,7 @@ static cl::opt<bool> EscapeNonPrint(
         "Avoid outputting non-printable ascii characters to assembly files."),
     cl::Hidden);
 
-// TODO: Put this somewhere more appropriate for a global
-cl::opt<bool> GasStyle(
+cl::opt<bool> Z80GasStyle(
     "z80-gas-style",
     cl::desc("Use GAS style assembly syntax instead of FASMG style."),
     cl::NotHidden);
@@ -36,8 +35,8 @@ Z80MCAsmInfoELF::Z80MCAsmInfoELF(const Triple &T) {
   bool Is16Bit = T.isArch16Bit() || T.getEnvironment() == Triple::CODE16;
   CodePointerSize = CalleeSaveStackSlotSize = Is16Bit ? 2 : 3;
   MaxInstLength = 6;
-  
-  if (!GasStyle) {
+
+  if (!Z80GasStyle) {
     DollarIsPC = true;
     SeparatorString = nullptr;
     CommentString = ";";
@@ -92,7 +91,7 @@ MCSection *Z80MCAsmInfoELF::getNonexecutableStackSection(MCContext &Ctx) const {
 }
 
 bool Z80MCAsmInfoELF::isAcceptableChar(char C) const {
-  return MCAsmInfo::isAcceptableChar(C) || C == '%' || C == '^';
+  return Z80GasStyle ? MCAsmInfo::isAcceptableChar(C) : (MCAsmInfo::isAcceptableChar(C) || C == '%' || C == '^');
 }
 
 bool Z80MCAsmInfoELF::shouldOmitSectionDirective(StringRef SectionName) const {
@@ -102,10 +101,10 @@ bool Z80MCAsmInfoELF::shouldOmitSectionDirective(StringRef SectionName) const {
 const char *Z80MCAsmInfoELF::getBlockDirective(int64_t Size) const {
   switch (Size) {
   default: return nullptr;
-  case 1: return GasStyle ? "\t.byte" : "\tdb\t";
-  case 2: return GasStyle ? "\t.short" : "\tdw\t";
-  case 3: return GasStyle ? "\t.long" : "\tdl\t";
-  case 4: return GasStyle ? "\t.quad" : "\tdd\t";
+  case 1: return Z80GasStyle ? "\t.byte" : "\tdb\t";
+  case 2: return Z80GasStyle ? "\t.short" : "\tdw\t";
+  case 3: return Z80GasStyle ? "\t.long" : "\tdl\t";
+  case 4: return Z80GasStyle ? "\t.quad" : "\tdd\t";
   }
 }
 
