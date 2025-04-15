@@ -29,8 +29,8 @@
 using namespace llvm;
 using namespace MIPatternMatch;
 
-cl::opt<bool> ReturnSRet("z80-return-sret", cl::desc("Return sret pointers"),
-                         cl::init(true), cl::Hidden);
+static cl::opt<bool> ReturnSRet("z80-return-sret", cl::desc("Return sret pointers"),
+                                cl::init(true), cl::Hidden);
 
 #define DEBUG_TYPE "z80-call-lowering"
 
