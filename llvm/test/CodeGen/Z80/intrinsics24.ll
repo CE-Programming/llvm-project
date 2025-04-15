@@ -240,14 +240,6 @@ define i24 @ctlz.i24(i24) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    add hl, bc
-; EZ80-NEXT:    or a, a
-; EZ80-NEXT:    sbc hl, bc
-; EZ80-NEXT:    jr nz, BB11_2
-; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    ld hl, 24
-; EZ80-NEXT:    ret
-; EZ80-NEXT:  BB11_2: ; %cond.false
 ; EZ80-NEXT:    call __ictlz
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, hl
@@ -264,16 +256,6 @@ define i24 @cttz.i24(i24) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld bc, (iy + 3)
-; EZ80-NEXT:    push bc
-; EZ80-NEXT:    pop hl
-; EZ80-NEXT:    add hl, bc
-; EZ80-NEXT:    or a, a
-; EZ80-NEXT:    sbc hl, bc
-; EZ80-NEXT:    jr nz, BB12_2
-; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    ld hl, 24
-; EZ80-NEXT:    ret
-; EZ80-NEXT:  BB12_2: ; %cond.false
 ; EZ80-NEXT:    scf
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    or a, a

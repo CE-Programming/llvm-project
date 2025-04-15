@@ -73,7 +73,7 @@ define double @sqrt.f64(double) {
 ; Z80-NEXT:    push bc
 ; Z80-NEXT:    push de
 ; Z80-NEXT:    push iy
-; Z80-NEXT:    call _sqrt
+; Z80-NEXT:    call _sqrtl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 8
@@ -99,7 +99,7 @@ define double @sqrt.f64(double) {
 ; EZ80-CODE16-NEXT:    push bc
 ; EZ80-CODE16-NEXT:    push de
 ; EZ80-CODE16-NEXT:    push iy
-; EZ80-CODE16-NEXT:    call _sqrt
+; EZ80-CODE16-NEXT:    call _sqrtl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 8
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -119,7 +119,7 @@ define double @sqrt.f64(double) {
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _sqrt
+; EZ80-NEXT:    call _sqrtl
 ; EZ80-NEXT:    ld iy, 9
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld sp, iy
@@ -274,7 +274,7 @@ define double @powi.f64.i8(double, i8) {
 ; Z80-NEXT:    ld l, (ix + 4)
 ; Z80-NEXT:    ld h, (ix + 5)
 ; Z80-NEXT:    push hl
-; Z80-NEXT:    call _pow
+; Z80-NEXT:    call _powl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 16
@@ -321,7 +321,7 @@ define double @powi.f64.i8(double, i8) {
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld hl, (ix + 4)
 ; EZ80-CODE16-NEXT:    push hl
-; EZ80-CODE16-NEXT:    call _pow
+; EZ80-CODE16-NEXT:    call _powl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 16
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -365,7 +365,7 @@ define double @powi.f64.i8(double, i8) {
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _pow
+; EZ80-NEXT:    call _powl
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
@@ -506,7 +506,7 @@ define double @powi.f64.i16(double, i16) {
 ; Z80-NEXT:    ld l, (ix + 4)
 ; Z80-NEXT:    ld h, (ix + 5)
 ; Z80-NEXT:    push hl
-; Z80-NEXT:    call _pow
+; Z80-NEXT:    call _powl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 16
@@ -548,7 +548,7 @@ define double @powi.f64.i16(double, i16) {
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld hl, (ix + 4)
 ; EZ80-CODE16-NEXT:    push hl
-; EZ80-CODE16-NEXT:    call _pow
+; EZ80-CODE16-NEXT:    call _powl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 16
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -594,7 +594,7 @@ define double @powi.f64.i16(double, i16) {
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _pow
+; EZ80-NEXT:    call _powl
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
@@ -700,7 +700,7 @@ define double @powi.f64.i32(double, i32) {
 ; Z80-NEXT:    ld l, (ix + 4)
 ; Z80-NEXT:    ld h, (ix + 5)
 ; Z80-NEXT:    push hl
-; Z80-NEXT:    call _pow
+; Z80-NEXT:    call _powl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 16
@@ -733,7 +733,7 @@ define double @powi.f64.i32(double, i32) {
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld hl, (ix + 4)
 ; EZ80-CODE16-NEXT:    push hl
-; EZ80-CODE16-NEXT:    call _pow
+; EZ80-CODE16-NEXT:    call _powl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 16
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -761,7 +761,7 @@ define double @powi.f64.i32(double, i32) {
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _pow
+; EZ80-NEXT:    call _powl
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
@@ -897,7 +897,7 @@ define double @powi.f64.i64(double, i64) {
 ; Z80-NEXT:    ld l, (ix + 4)
 ; Z80-NEXT:    ld h, (ix + 5)
 ; Z80-NEXT:    push hl
-; Z80-NEXT:    call _pow
+; Z80-NEXT:    call _powl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 16
@@ -936,7 +936,7 @@ define double @powi.f64.i64(double, i64) {
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld hl, (ix + 4)
 ; EZ80-CODE16-NEXT:    push hl
-; EZ80-CODE16-NEXT:    call _pow
+; EZ80-CODE16-NEXT:    call _powl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 16
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -966,7 +966,7 @@ define double @powi.f64.i64(double, i64) {
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _pow
+; EZ80-NEXT:    call _powl
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
@@ -1044,7 +1044,7 @@ define double @sin.f64(double) {
 ; Z80-NEXT:    push bc
 ; Z80-NEXT:    push de
 ; Z80-NEXT:    push iy
-; Z80-NEXT:    call _sin
+; Z80-NEXT:    call _sinl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 8
@@ -1070,7 +1070,7 @@ define double @sin.f64(double) {
 ; EZ80-CODE16-NEXT:    push bc
 ; EZ80-CODE16-NEXT:    push de
 ; EZ80-CODE16-NEXT:    push iy
-; EZ80-CODE16-NEXT:    call _sin
+; EZ80-CODE16-NEXT:    call _sinl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 8
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -1090,7 +1090,7 @@ define double @sin.f64(double) {
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _sin
+; EZ80-NEXT:    call _sinl
 ; EZ80-NEXT:    ld iy, 9
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld sp, iy
@@ -1169,7 +1169,7 @@ define double @cos.f64(double) {
 ; Z80-NEXT:    push bc
 ; Z80-NEXT:    push de
 ; Z80-NEXT:    push iy
-; Z80-NEXT:    call _cos
+; Z80-NEXT:    call _cosl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 8
@@ -1195,7 +1195,7 @@ define double @cos.f64(double) {
 ; EZ80-CODE16-NEXT:    push bc
 ; EZ80-CODE16-NEXT:    push de
 ; EZ80-CODE16-NEXT:    push iy
-; EZ80-CODE16-NEXT:    call _cos
+; EZ80-CODE16-NEXT:    call _cosl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 8
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -1215,7 +1215,7 @@ define double @cos.f64(double) {
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _cos
+; EZ80-NEXT:    call _cosl
 ; EZ80-NEXT:    ld iy, 9
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld sp, iy
@@ -1325,7 +1325,7 @@ define double @pow.f64(double, double) {
 ; Z80-NEXT:    ld l, (ix + 4)
 ; Z80-NEXT:    ld h, (ix + 5)
 ; Z80-NEXT:    push hl
-; Z80-NEXT:    call _pow
+; Z80-NEXT:    call _powl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 16
@@ -1359,7 +1359,7 @@ define double @pow.f64(double, double) {
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld hl, (ix + 4)
 ; EZ80-CODE16-NEXT:    push hl
-; EZ80-CODE16-NEXT:    call _pow
+; EZ80-CODE16-NEXT:    call _powl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 16
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -1386,7 +1386,7 @@ define double @pow.f64(double, double) {
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _pow
+; EZ80-NEXT:    call _powl
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
@@ -1464,7 +1464,7 @@ define double @exp.f64(double) {
 ; Z80-NEXT:    push bc
 ; Z80-NEXT:    push de
 ; Z80-NEXT:    push iy
-; Z80-NEXT:    call _exp
+; Z80-NEXT:    call _expl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 8
@@ -1490,7 +1490,7 @@ define double @exp.f64(double) {
 ; EZ80-CODE16-NEXT:    push bc
 ; EZ80-CODE16-NEXT:    push de
 ; EZ80-CODE16-NEXT:    push iy
-; EZ80-CODE16-NEXT:    call _exp
+; EZ80-CODE16-NEXT:    call _expl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 8
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -1510,7 +1510,7 @@ define double @exp.f64(double) {
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _exp
+; EZ80-NEXT:    call _expl
 ; EZ80-NEXT:    ld iy, 9
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld sp, iy
@@ -1589,7 +1589,7 @@ define double @exp2.f64(double) {
 ; Z80-NEXT:    push bc
 ; Z80-NEXT:    push de
 ; Z80-NEXT:    push iy
-; Z80-NEXT:    call _exp2
+; Z80-NEXT:    call _exp2l
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 8
@@ -1615,7 +1615,7 @@ define double @exp2.f64(double) {
 ; EZ80-CODE16-NEXT:    push bc
 ; EZ80-CODE16-NEXT:    push de
 ; EZ80-CODE16-NEXT:    push iy
-; EZ80-CODE16-NEXT:    call _exp2
+; EZ80-CODE16-NEXT:    call _exp2l
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 8
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -1635,7 +1635,7 @@ define double @exp2.f64(double) {
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _exp2
+; EZ80-NEXT:    call _exp2l
 ; EZ80-NEXT:    ld iy, 9
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld sp, iy
@@ -1714,7 +1714,7 @@ define double @log.f64(double) {
 ; Z80-NEXT:    push bc
 ; Z80-NEXT:    push de
 ; Z80-NEXT:    push iy
-; Z80-NEXT:    call _log
+; Z80-NEXT:    call _logl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 8
@@ -1740,7 +1740,7 @@ define double @log.f64(double) {
 ; EZ80-CODE16-NEXT:    push bc
 ; EZ80-CODE16-NEXT:    push de
 ; EZ80-CODE16-NEXT:    push iy
-; EZ80-CODE16-NEXT:    call _log
+; EZ80-CODE16-NEXT:    call _logl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 8
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -1760,7 +1760,7 @@ define double @log.f64(double) {
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _log
+; EZ80-NEXT:    call _logl
 ; EZ80-NEXT:    ld iy, 9
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld sp, iy
@@ -1839,7 +1839,7 @@ define double @log10.f64(double) {
 ; Z80-NEXT:    push bc
 ; Z80-NEXT:    push de
 ; Z80-NEXT:    push iy
-; Z80-NEXT:    call _log10
+; Z80-NEXT:    call _log10l
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 8
@@ -1865,7 +1865,7 @@ define double @log10.f64(double) {
 ; EZ80-CODE16-NEXT:    push bc
 ; EZ80-CODE16-NEXT:    push de
 ; EZ80-CODE16-NEXT:    push iy
-; EZ80-CODE16-NEXT:    call _log10
+; EZ80-CODE16-NEXT:    call _log10l
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 8
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -1885,7 +1885,7 @@ define double @log10.f64(double) {
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _log10
+; EZ80-NEXT:    call _log10l
 ; EZ80-NEXT:    ld iy, 9
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld sp, iy
@@ -1964,7 +1964,7 @@ define double @log2.f64(double) {
 ; Z80-NEXT:    push bc
 ; Z80-NEXT:    push de
 ; Z80-NEXT:    push iy
-; Z80-NEXT:    call _log2
+; Z80-NEXT:    call _log2l
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 8
@@ -1990,7 +1990,7 @@ define double @log2.f64(double) {
 ; EZ80-CODE16-NEXT:    push bc
 ; EZ80-CODE16-NEXT:    push de
 ; EZ80-CODE16-NEXT:    push iy
-; EZ80-CODE16-NEXT:    call _log2
+; EZ80-CODE16-NEXT:    call _log2l
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 8
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -2010,7 +2010,7 @@ define double @log2.f64(double) {
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _log2
+; EZ80-NEXT:    call _log2l
 ; EZ80-NEXT:    ld iy, 9
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld sp, iy
@@ -2150,7 +2150,7 @@ define double @fma.f64(double, double, double) {
 ; Z80-NEXT:    ld l, (ix + 4)
 ; Z80-NEXT:    ld h, (ix + 5)
 ; Z80-NEXT:    push hl
-; Z80-NEXT:    call _fma
+; Z80-NEXT:    call _fmal
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 24
@@ -2192,7 +2192,7 @@ define double @fma.f64(double, double, double) {
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld hl, (ix + 4)
 ; EZ80-CODE16-NEXT:    push hl
-; EZ80-CODE16-NEXT:    call _fma
+; EZ80-CODE16-NEXT:    call _fmal
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 24
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -2225,7 +2225,7 @@ define double @fma.f64(double, double, double) {
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _fma
+; EZ80-NEXT:    call _fmal
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
@@ -2303,7 +2303,7 @@ define double @fabs.f64(double) {
 ; Z80-NEXT:    push bc
 ; Z80-NEXT:    push de
 ; Z80-NEXT:    push iy
-; Z80-NEXT:    call _fabs
+; Z80-NEXT:    call _fabsl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 8
@@ -2329,7 +2329,7 @@ define double @fabs.f64(double) {
 ; EZ80-CODE16-NEXT:    push bc
 ; EZ80-CODE16-NEXT:    push de
 ; EZ80-CODE16-NEXT:    push iy
-; EZ80-CODE16-NEXT:    call _fabs
+; EZ80-CODE16-NEXT:    call _fabsl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 8
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -2349,7 +2349,7 @@ define double @fabs.f64(double) {
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _fabs
+; EZ80-NEXT:    call _fabsl
 ; EZ80-NEXT:    ld iy, 9
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld sp, iy
@@ -2459,7 +2459,7 @@ define double @minnum.f64(double, double) {
 ; Z80-NEXT:    ld l, (ix + 4)
 ; Z80-NEXT:    ld h, (ix + 5)
 ; Z80-NEXT:    push hl
-; Z80-NEXT:    call _fmin
+; Z80-NEXT:    call _fminl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 16
@@ -2493,7 +2493,7 @@ define double @minnum.f64(double, double) {
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld hl, (ix + 4)
 ; EZ80-CODE16-NEXT:    push hl
-; EZ80-CODE16-NEXT:    call _fmin
+; EZ80-CODE16-NEXT:    call _fminl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 16
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -2520,7 +2520,7 @@ define double @minnum.f64(double, double) {
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _fmin
+; EZ80-NEXT:    call _fminl
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
@@ -2629,7 +2629,7 @@ define double @maxnum.f64(double, double) {
 ; Z80-NEXT:    ld l, (ix + 4)
 ; Z80-NEXT:    ld h, (ix + 5)
 ; Z80-NEXT:    push hl
-; Z80-NEXT:    call _fmax
+; Z80-NEXT:    call _fmaxl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 16
@@ -2663,7 +2663,7 @@ define double @maxnum.f64(double, double) {
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld hl, (ix + 4)
 ; EZ80-CODE16-NEXT:    push hl
-; EZ80-CODE16-NEXT:    call _fmax
+; EZ80-CODE16-NEXT:    call _fmaxl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 16
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -2690,7 +2690,7 @@ define double @maxnum.f64(double, double) {
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _fmax
+; EZ80-NEXT:    call _fmaxl
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
@@ -2799,7 +2799,7 @@ define double @minimum.f64(double, double) {
 ; Z80-NEXT:    ld l, (ix + 4)
 ; Z80-NEXT:    ld h, (ix + 5)
 ; Z80-NEXT:    push hl
-; Z80-NEXT:    call _fmin
+; Z80-NEXT:    call _fminl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 16
@@ -2833,7 +2833,7 @@ define double @minimum.f64(double, double) {
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld hl, (ix + 4)
 ; EZ80-CODE16-NEXT:    push hl
-; EZ80-CODE16-NEXT:    call _fmin
+; EZ80-CODE16-NEXT:    call _fminl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 16
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -2860,7 +2860,7 @@ define double @minimum.f64(double, double) {
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _fmin
+; EZ80-NEXT:    call _fminl
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
@@ -2969,7 +2969,7 @@ define double @maximum.f64(double, double) {
 ; Z80-NEXT:    ld l, (ix + 4)
 ; Z80-NEXT:    ld h, (ix + 5)
 ; Z80-NEXT:    push hl
-; Z80-NEXT:    call _fmax
+; Z80-NEXT:    call _fmaxl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 16
@@ -3003,7 +3003,7 @@ define double @maximum.f64(double, double) {
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld hl, (ix + 4)
 ; EZ80-CODE16-NEXT:    push hl
-; EZ80-CODE16-NEXT:    call _fmax
+; EZ80-CODE16-NEXT:    call _fmaxl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 16
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -3030,7 +3030,7 @@ define double @maximum.f64(double, double) {
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _fmax
+; EZ80-NEXT:    call _fmaxl
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
@@ -3139,7 +3139,7 @@ define double @copysign.f64(double, double) {
 ; Z80-NEXT:    ld l, (ix + 4)
 ; Z80-NEXT:    ld h, (ix + 5)
 ; Z80-NEXT:    push hl
-; Z80-NEXT:    call _copysign
+; Z80-NEXT:    call _copysignl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 16
@@ -3173,7 +3173,7 @@ define double @copysign.f64(double, double) {
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld hl, (ix + 4)
 ; EZ80-CODE16-NEXT:    push hl
-; EZ80-CODE16-NEXT:    call _copysign
+; EZ80-CODE16-NEXT:    call _copysignl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 16
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -3200,7 +3200,7 @@ define double @copysign.f64(double, double) {
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _copysign
+; EZ80-NEXT:    call _copysignl
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
@@ -3278,7 +3278,7 @@ define double @floor.f64(double) {
 ; Z80-NEXT:    push bc
 ; Z80-NEXT:    push de
 ; Z80-NEXT:    push iy
-; Z80-NEXT:    call _floor
+; Z80-NEXT:    call _floorl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 8
@@ -3304,7 +3304,7 @@ define double @floor.f64(double) {
 ; EZ80-CODE16-NEXT:    push bc
 ; EZ80-CODE16-NEXT:    push de
 ; EZ80-CODE16-NEXT:    push iy
-; EZ80-CODE16-NEXT:    call _floor
+; EZ80-CODE16-NEXT:    call _floorl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 8
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -3324,7 +3324,7 @@ define double @floor.f64(double) {
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _floor
+; EZ80-NEXT:    call _floorl
 ; EZ80-NEXT:    ld iy, 9
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld sp, iy
@@ -3403,7 +3403,7 @@ define double @ceil.f64(double) {
 ; Z80-NEXT:    push bc
 ; Z80-NEXT:    push de
 ; Z80-NEXT:    push iy
-; Z80-NEXT:    call _ceil
+; Z80-NEXT:    call _ceill
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 8
@@ -3429,7 +3429,7 @@ define double @ceil.f64(double) {
 ; EZ80-CODE16-NEXT:    push bc
 ; EZ80-CODE16-NEXT:    push de
 ; EZ80-CODE16-NEXT:    push iy
-; EZ80-CODE16-NEXT:    call _ceil
+; EZ80-CODE16-NEXT:    call _ceill
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 8
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -3449,7 +3449,7 @@ define double @ceil.f64(double) {
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _ceil
+; EZ80-NEXT:    call _ceill
 ; EZ80-NEXT:    ld iy, 9
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld sp, iy
@@ -3528,7 +3528,7 @@ define double @trunc.f64(double) {
 ; Z80-NEXT:    push bc
 ; Z80-NEXT:    push de
 ; Z80-NEXT:    push iy
-; Z80-NEXT:    call _trunc
+; Z80-NEXT:    call _truncl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 8
@@ -3554,7 +3554,7 @@ define double @trunc.f64(double) {
 ; EZ80-CODE16-NEXT:    push bc
 ; EZ80-CODE16-NEXT:    push de
 ; EZ80-CODE16-NEXT:    push iy
-; EZ80-CODE16-NEXT:    call _trunc
+; EZ80-CODE16-NEXT:    call _truncl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 8
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -3574,7 +3574,7 @@ define double @trunc.f64(double) {
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _trunc
+; EZ80-NEXT:    call _truncl
 ; EZ80-NEXT:    ld iy, 9
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld sp, iy
@@ -3653,7 +3653,7 @@ define double @rint.f64(double) {
 ; Z80-NEXT:    push bc
 ; Z80-NEXT:    push de
 ; Z80-NEXT:    push iy
-; Z80-NEXT:    call _rint
+; Z80-NEXT:    call _rintl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 8
@@ -3679,7 +3679,7 @@ define double @rint.f64(double) {
 ; EZ80-CODE16-NEXT:    push bc
 ; EZ80-CODE16-NEXT:    push de
 ; EZ80-CODE16-NEXT:    push iy
-; EZ80-CODE16-NEXT:    call _rint
+; EZ80-CODE16-NEXT:    call _rintl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 8
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -3699,7 +3699,7 @@ define double @rint.f64(double) {
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _rint
+; EZ80-NEXT:    call _rintl
 ; EZ80-NEXT:    ld iy, 9
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld sp, iy
@@ -3778,7 +3778,7 @@ define double @nearbyint.f64(double) {
 ; Z80-NEXT:    push bc
 ; Z80-NEXT:    push de
 ; Z80-NEXT:    push iy
-; Z80-NEXT:    call _nearbyint
+; Z80-NEXT:    call _nearbyintl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 8
@@ -3804,7 +3804,7 @@ define double @nearbyint.f64(double) {
 ; EZ80-CODE16-NEXT:    push bc
 ; EZ80-CODE16-NEXT:    push de
 ; EZ80-CODE16-NEXT:    push iy
-; EZ80-CODE16-NEXT:    call _nearbyint
+; EZ80-CODE16-NEXT:    call _nearbyintl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 8
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -3824,7 +3824,7 @@ define double @nearbyint.f64(double) {
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _nearbyint
+; EZ80-NEXT:    call _nearbyintl
 ; EZ80-NEXT:    ld iy, 9
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld sp, iy
@@ -3903,7 +3903,7 @@ define double @round.f64(double) {
 ; Z80-NEXT:    push bc
 ; Z80-NEXT:    push de
 ; Z80-NEXT:    push iy
-; Z80-NEXT:    call _round
+; Z80-NEXT:    call _roundl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 8
@@ -3929,7 +3929,7 @@ define double @round.f64(double) {
 ; EZ80-CODE16-NEXT:    push bc
 ; EZ80-CODE16-NEXT:    push de
 ; EZ80-CODE16-NEXT:    push iy
-; EZ80-CODE16-NEXT:    call _round
+; EZ80-CODE16-NEXT:    call _roundl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 8
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -3949,7 +3949,7 @@ define double @round.f64(double) {
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _round
+; EZ80-NEXT:    call _roundl
 ; EZ80-NEXT:    ld iy, 9
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld sp, iy
@@ -4028,7 +4028,7 @@ define double @roundeven.f64(double) {
 ; Z80-NEXT:    push bc
 ; Z80-NEXT:    push de
 ; Z80-NEXT:    push iy
-; Z80-NEXT:    call _roundeven
+; Z80-NEXT:    call _roundevenl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ld hl, 8
@@ -4054,7 +4054,7 @@ define double @roundeven.f64(double) {
 ; EZ80-CODE16-NEXT:    push bc
 ; EZ80-CODE16-NEXT:    push de
 ; EZ80-CODE16-NEXT:    push iy
-; EZ80-CODE16-NEXT:    call _roundeven
+; EZ80-CODE16-NEXT:    call _roundevenl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 8
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -4074,7 +4074,7 @@ define double @roundeven.f64(double) {
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _roundeven
+; EZ80-NEXT:    call _roundevenl
 ; EZ80-NEXT:    ld iy, 9
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld sp, iy
@@ -4192,7 +4192,7 @@ define i64 @llround.i64.f32(float) {
 ; Z80-NEXT:    ld d, (ix + 7)
 ; Z80-NEXT:    push de
 ; Z80-NEXT:    push hl
-; Z80-NEXT:    call _llround
+; Z80-NEXT:    call _llroundl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    pop hl
@@ -4213,7 +4213,7 @@ define i64 @llround.i64.f32(float) {
 ; EZ80-CODE16-NEXT:    ld de, (ix + 6)
 ; EZ80-CODE16-NEXT:    push de
 ; EZ80-CODE16-NEXT:    push hl
-; EZ80-CODE16-NEXT:    call _llround
+; EZ80-CODE16-NEXT:    call _llroundl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 4
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -4231,7 +4231,7 @@ define i64 @llround.i64.f32(float) {
 ; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _llround
+; EZ80-NEXT:    call _llroundl
 ; EZ80-NEXT:    ld iy, 6
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld sp, iy
@@ -4253,7 +4253,7 @@ define i64 @llround.i64.f64(float) {
 ; Z80-NEXT:    ld d, (ix + 7)
 ; Z80-NEXT:    push de
 ; Z80-NEXT:    push hl
-; Z80-NEXT:    call _llround
+; Z80-NEXT:    call _llroundl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    pop hl
@@ -4274,7 +4274,7 @@ define i64 @llround.i64.f64(float) {
 ; EZ80-CODE16-NEXT:    ld de, (ix + 6)
 ; EZ80-CODE16-NEXT:    push de
 ; EZ80-CODE16-NEXT:    push hl
-; EZ80-CODE16-NEXT:    call _llround
+; EZ80-CODE16-NEXT:    call _llroundl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 4
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -4292,7 +4292,7 @@ define i64 @llround.i64.f64(float) {
 ; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _llround
+; EZ80-NEXT:    call _llroundl
 ; EZ80-NEXT:    ld iy, 6
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld sp, iy
@@ -4410,7 +4410,7 @@ define i64 @llrint.i64.f32(float) {
 ; Z80-NEXT:    ld d, (ix + 7)
 ; Z80-NEXT:    push de
 ; Z80-NEXT:    push hl
-; Z80-NEXT:    call _llrint
+; Z80-NEXT:    call _llrintl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    pop hl
@@ -4431,7 +4431,7 @@ define i64 @llrint.i64.f32(float) {
 ; EZ80-CODE16-NEXT:    ld de, (ix + 6)
 ; EZ80-CODE16-NEXT:    push de
 ; EZ80-CODE16-NEXT:    push hl
-; EZ80-CODE16-NEXT:    call _llrint
+; EZ80-CODE16-NEXT:    call _llrintl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 4
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -4449,7 +4449,7 @@ define i64 @llrint.i64.f32(float) {
 ; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _llrint
+; EZ80-NEXT:    call _llrintl
 ; EZ80-NEXT:    ld iy, 6
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld sp, iy
@@ -4471,7 +4471,7 @@ define i64 @llrint.i64.f64(float) {
 ; Z80-NEXT:    ld d, (ix + 7)
 ; Z80-NEXT:    push de
 ; Z80-NEXT:    push hl
-; Z80-NEXT:    call _llrint
+; Z80-NEXT:    call _llrintl
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    pop hl
@@ -4492,7 +4492,7 @@ define i64 @llrint.i64.f64(float) {
 ; EZ80-CODE16-NEXT:    ld de, (ix + 6)
 ; EZ80-CODE16-NEXT:    push de
 ; EZ80-CODE16-NEXT:    push hl
-; EZ80-CODE16-NEXT:    call _llrint
+; EZ80-CODE16-NEXT:    call _llrintl
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ld hl, 4
 ; EZ80-CODE16-NEXT:    add hl, sp
@@ -4510,7 +4510,7 @@ define i64 @llrint.i64.f64(float) {
 ; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _llrint
+; EZ80-NEXT:    call _llrintl
 ; EZ80-NEXT:    ld iy, 6
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld sp, iy
