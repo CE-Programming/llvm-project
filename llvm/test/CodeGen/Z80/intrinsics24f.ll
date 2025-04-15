@@ -62,7 +62,7 @@ define double @powi.f64.i24(double, i24) {
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    call _pow
+; EZ80-NEXT:    call _powl
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
