@@ -36,15 +36,17 @@ Z80MCAsmInfoELF::Z80MCAsmInfoELF(const Triple &T) {
   CodePointerSize = CalleeSaveStackSlotSize = Is16Bit ? 2 : 3;
   MaxInstLength = 6;
 
+  CommentString = ";";
+  Code16Directive = ".assume\tadl = 0";
+  Code24Directive = ".assume\tadl = 1";
+  Code32Directive = Code64Directive = nullptr;
+  UseIntegratedAssembler = false;
+  AssemblerDialect = !Is16Bit;
+
   if (!Z80GasStyle) {
     DollarIsPC = true;
     SeparatorString = nullptr;
-    CommentString = ";";
     PrivateGlobalPrefix = PrivateLabelPrefix = "";
-    Code16Directive = "assume\tadl = 0";
-    Code24Directive = "assume\tadl = 1";
-    Code32Directive = Code64Directive = nullptr;
-    AssemblerDialect = !Is16Bit;
     SupportsQuotedNames = false;
     ZeroDirective = AscizDirective = nullptr;
     BlockSeparator = " dup ";
@@ -79,10 +81,6 @@ Z80MCAsmInfoELF::Z80MCAsmInfoELF(const Triple &T) {
     DwarfFileDirective = "\tfile\t";
     DwarfLocDirective = "\tloc\t";
     DwarfCFIDirectivePrefix = "\tcfi_";
-  } else {
-    CommentString = ";";
-    Code16Directive = Code24Directive = Code32Directive = Code64Directive = nullptr;
-    UseIntegratedAssembler = false;
   }
 }
 
@@ -99,16 +97,22 @@ bool Z80MCAsmInfoELF::shouldOmitSectionDirective(StringRef SectionName) const {
 }
 
 const char *Z80MCAsmInfoELF::getBlockDirective(int64_t Size) const {
+  if (Z80GasStyle) {
+    return MCAsmInfoELF::getBlockDirective(Size);
+  }
   switch (Size) {
   default: return nullptr;
-  case 1: return Z80GasStyle ? "\t.byte" : "\tdb\t";
-  case 2: return Z80GasStyle ? "\t.short" : "\tdw\t";
-  case 3: return Z80GasStyle ? "\t.long" : "\tdl\t";
-  case 4: return Z80GasStyle ? "\t.quad" : "\tdd\t";
+  case 1: return "\tdb\t";
+  case 2: return "\tdw\t";
+  case 3: return "\tdl\t";
+  case 4: return "\tdd\t";
   }
 }
 
 const char *Z80MCAsmInfoELF::getUnaryOperator(unsigned Opc) const {
+  if (Z80GasStyle) {
+    return MCAsmInfoELF::getUnaryOperator(Opc);
+  }
   switch (Opc) {
   default: llvm_unreachable("unknown opcode");
   case MCUnaryExpr::LNot:  return "~";
@@ -119,6 +123,9 @@ const char *Z80MCAsmInfoELF::getUnaryOperator(unsigned Opc) const {
 }
 
 const char *Z80MCAsmInfoELF::getBinaryOperator(unsigned Opc) const {
+  if (Z80GasStyle) {
+    return MCAsmInfoELF::getBinaryOperator(Opc);
+  }
   switch (Opc) {
   default: llvm_unreachable("unknown opcode");
   case MCBinaryExpr::Add:   return     "+";
