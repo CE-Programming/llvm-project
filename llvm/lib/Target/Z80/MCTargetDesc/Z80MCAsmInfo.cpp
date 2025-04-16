@@ -36,14 +36,17 @@ Z80MCAsmInfoELF::Z80MCAsmInfoELF(const Triple &T) {
   CodePointerSize = CalleeSaveStackSlotSize = Is16Bit ? 2 : 3;
   MaxInstLength = 6;
 
+  // Common to both GAS and fasmg
   CommentString = ";";
-  Code16Directive = ".assume\tadl = 0";
-  Code24Directive = ".assume\tadl = 1";
   Code32Directive = Code64Directive = nullptr;
   UseIntegratedAssembler = false;
   AssemblerDialect = !Is16Bit;
+  HasFunctionAlignment = false;
+  ExceptionsType = ExceptionHandling::SjLj;
 
   if (!Z80GasStyle) {
+    Code16Directive = "assume\tadl = 0";
+    Code24Directive = "assume\tadl = 1";
     DollarIsPC = true;
     SeparatorString = nullptr;
     PrivateGlobalPrefix = PrivateLabelPrefix = "";
@@ -69,15 +72,12 @@ Z80MCAsmInfoELF::Z80MCAsmInfoELF(const Triple &T) {
     LGloblDirective = "\tprivate\t";
     SetDirective = "\tlabel\t";
     SetSeparator = " at ";
-    HasFunctionAlignment = false;
     HasDotTypeDotSizeDirective = false;
     IdentDirective = "\tident\t";
     WeakDirective = "\tweak\t";
-    UseIntegratedAssembler = false;
     UseLogicalShr = false;
     HasSingleParameterDotFile = false;
     SupportsDebugInformation = SupportsCFI = true;
-    ExceptionsType = ExceptionHandling::SjLj;
     DwarfFileDirective = "\tfile\t";
     DwarfLocDirective = "\tloc\t";
     DwarfCFIDirectivePrefix = "\tcfi_";
