@@ -46,8 +46,8 @@ Z80MCAsmInfoELF::Z80MCAsmInfoELF(const Triple &T) {
   ExceptionsType = ExceptionHandling::SjLj;
 
   if (Z80GasStyle) {
-    Code16Directive = ".assume ADL = 0";
-    Code24Directive = ".assume ADL = 1";
+    Code16Directive = ".assume\tADL = 0";
+    Code24Directive = ".assume\tADL = 1";
     AsciiDirective = ByteListDirective = Data8bitsDirective = "\t.byte\t";
   } else {
     Code16Directive = "assume\tadl = 0";
