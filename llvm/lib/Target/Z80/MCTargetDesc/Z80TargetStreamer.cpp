@@ -36,8 +36,13 @@ void Z80TargetAsmStreamer::emitLabel(MCSymbol *Symbol) {
 }
 
 void Z80TargetAsmStreamer::emitAlign(Align Alignment) {
-  if (auto Mask = Alignment.value() - 1)
-    Z80GasStyle ? OS << "\t.skip\t($$ - $) and " << Mask << '\n' : OS << "\trb\t($$ - $) and " << Mask << '\n';
+  if (auto Mask = Alignment.value() - 1) {
+    if (Z80GasStyle) {
+      OS << "\t.balign\t" << Alignment.value() << '\n';
+    } else {
+      OS << "\trb\t($$ - $) and " << Mask << '\n';
+    }
+  }
 }
 
 void Z80TargetAsmStreamer::emitBlock(uint64_t NumBytes) {
