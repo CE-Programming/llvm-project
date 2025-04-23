@@ -47,6 +47,8 @@ void Z80AsmPrinter::emitStartOfAsmFile(Module &M) {
 
 void Z80AsmPrinter::emitInlineAsmEnd(const MCSubtargetInfo &StartInfo,
                                      const MCSubtargetInfo *EndInfo) const {
+  if (StartInfo.getTargetTriple().getArch() != Triple::ez80)
+    return;
   bool Was16 = isCode16(StartInfo.getTargetTriple());
   if (!EndInfo || Was16 != isCode16(EndInfo->getTargetTriple()))
     OutStreamer->emitAssemblerFlag(Was16 ? MCAF_Code16 : MCAF_Code24);
