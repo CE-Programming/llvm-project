@@ -158,6 +158,12 @@ Z80TargetLowering::Z80TargetLowering(const Z80TargetMachine &TM,
   setLibcall(RTLIB::CTLZ_I32,         "_lctlz",      CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::CTLZ_I48,         "_i48ctlz",    CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::CTLZ_I64,         "_llctlz",     CallingConv::Z80_LibCall   );
+  setLibcall(RTLIB::CTTZ_I8,          "_bcttz",      CallingConv::Z80_LibCall_AC);
+  setLibcall(RTLIB::CTTZ_I16,         "_scttz",      CallingConv::Z80_LibCall   );
+  setLibcall(RTLIB::CTTZ_I24,         "_icttz",      CallingConv::Z80_LibCall   );
+  setLibcall(RTLIB::CTTZ_I32,         "_lcttz",      CallingConv::Z80_LibCall   );
+  setLibcall(RTLIB::CTTZ_I48,         "_i48cttz",    CallingConv::Z80_LibCall   );
+  setLibcall(RTLIB::CTTZ_I64,         "_llcttz",     CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::POPCNT_I8,        "_bpopcnt",    CallingConv::Z80_LibCall_AC);
   setLibcall(RTLIB::POPCNT_I16,       "_spopcnt",    CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::POPCNT_I24,       "_ipopcnt",    CallingConv::Z80_LibCall   );

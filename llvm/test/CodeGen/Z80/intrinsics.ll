@@ -2943,36 +2943,24 @@ define i8 @cttz.i8(i8) {
 ; Z80:       ; %bb.0:
 ; Z80-NEXT:    ld iy, 0
 ; Z80-NEXT:    add iy, sp
-; Z80-NEXT:    ld l, (iy + 2)
-; Z80-NEXT:    ld a, l
-; Z80-NEXT:    cpl
-; Z80-NEXT:    dec l
-; Z80-NEXT:    and a, l
-; Z80-NEXT:    call __bpopcnt
+; Z80-NEXT:    ld a, (iy + 2)
+; Z80-NEXT:    call __bcttz
 ; Z80-NEXT:    ret
 ;
 ; EZ80-CODE16-LABEL: cttz.i8:
 ; EZ80-CODE16:       ; %bb.0:
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    add iy, sp
-; EZ80-CODE16-NEXT:    ld l, (iy + 2)
-; EZ80-CODE16-NEXT:    ld a, l
-; EZ80-CODE16-NEXT:    cpl
-; EZ80-CODE16-NEXT:    dec l
-; EZ80-CODE16-NEXT:    and a, l
-; EZ80-CODE16-NEXT:    call __bpopcnt
+; EZ80-CODE16-NEXT:    ld a, (iy + 2)
+; EZ80-CODE16-NEXT:    call __bcttz
 ; EZ80-CODE16-NEXT:    ret
 ;
 ; EZ80-LABEL: cttz.i8:
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
-; EZ80-NEXT:    ld l, (iy + 3)
-; EZ80-NEXT:    ld a, l
-; EZ80-NEXT:    cpl
-; EZ80-NEXT:    dec l
-; EZ80-NEXT:    and a, l
-; EZ80-NEXT:    call __bpopcnt
+; EZ80-NEXT:    ld a, (iy + 3)
+; EZ80-NEXT:    call __bcttz
 ; EZ80-NEXT:    ret
   call i8 @llvm.cttz.i8(i8 %0)
   ret i8 %2
@@ -2983,22 +2971,9 @@ define i16 @cttz.i16(i16) {
 ; Z80:       ; %bb.0:
 ; Z80-NEXT:    ld iy, 0
 ; Z80-NEXT:    add iy, sp
-; Z80-NEXT:    ld c, (iy + 2)
-; Z80-NEXT:    ld b, (iy + 3)
-; Z80-NEXT:    ld a, c
-; Z80-NEXT:    cpl
-; Z80-NEXT:    ld l, a
-; Z80-NEXT:    ld a, b
-; Z80-NEXT:    cpl
-; Z80-NEXT:    ld e, a
-; Z80-NEXT:    dec bc
-; Z80-NEXT:    ld a, l
-; Z80-NEXT:    and a, c
-; Z80-NEXT:    ld l, a
-; Z80-NEXT:    ld a, e
-; Z80-NEXT:    and a, b
-; Z80-NEXT:    ld h, a
-; Z80-NEXT:    call __spopcnt
+; Z80-NEXT:    ld l, (iy + 2)
+; Z80-NEXT:    ld h, (iy + 3)
+; Z80-NEXT:    call __scttz
 ; Z80-NEXT:    ld l, a
 ; Z80-NEXT:    ld h, 0
 ; Z80-NEXT:    ret
@@ -3007,21 +2982,8 @@ define i16 @cttz.i16(i16) {
 ; EZ80-CODE16:       ; %bb.0:
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    add iy, sp
-; EZ80-CODE16-NEXT:    ld bc, (iy + 2)
-; EZ80-CODE16-NEXT:    ld a, c
-; EZ80-CODE16-NEXT:    cpl
-; EZ80-CODE16-NEXT:    ld l, a
-; EZ80-CODE16-NEXT:    ld a, b
-; EZ80-CODE16-NEXT:    cpl
-; EZ80-CODE16-NEXT:    ld e, a
-; EZ80-CODE16-NEXT:    dec bc
-; EZ80-CODE16-NEXT:    ld a, l
-; EZ80-CODE16-NEXT:    and a, c
-; EZ80-CODE16-NEXT:    ld l, a
-; EZ80-CODE16-NEXT:    ld a, e
-; EZ80-CODE16-NEXT:    and a, b
-; EZ80-CODE16-NEXT:    ld h, a
-; EZ80-CODE16-NEXT:    call __spopcnt
+; EZ80-CODE16-NEXT:    ld hl, (iy + 2)
+; EZ80-CODE16-NEXT:    call __scttz
 ; EZ80-CODE16-NEXT:    ld l, a
 ; EZ80-CODE16-NEXT:    ld h, 0
 ; EZ80-CODE16-NEXT:    ret
@@ -3030,21 +2992,9 @@ define i16 @cttz.i16(i16) {
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
-; EZ80-NEXT:    ld bc, (iy + 3)
-; EZ80-NEXT:    ld a, c
-; EZ80-NEXT:    cpl
-; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    ld a, b
-; EZ80-NEXT:    cpl
-; EZ80-NEXT:    ld e, a
-; EZ80-NEXT:    dec.sis bc
-; EZ80-NEXT:    ld a, l
-; EZ80-NEXT:    and a, c
-; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    ld a, e
-; EZ80-NEXT:    and a, b
-; EZ80-NEXT:    ld h, a
-; EZ80-NEXT:    call __spopcnt
+; EZ80-NEXT:    ld hl, (iy + 3)
+; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
+; EZ80-NEXT:    call __scttz
 ; EZ80-NEXT:    ld l, a
 ; EZ80-NEXT:    ld h, 0
 ; EZ80-NEXT:    ret
@@ -3055,117 +3005,37 @@ declare i32 @llvm.cttz.i32(i32)
 define i32 @cttz.i32(i32) {
 ; Z80-LABEL: cttz.i32:
 ; Z80:       ; %bb.0:
-; Z80-NEXT:    push ix
-; Z80-NEXT:    ld ix, 0
-; Z80-NEXT:    add ix, sp
-; Z80-NEXT:    push hl
-; Z80-NEXT:    push hl
-; Z80-NEXT:    push hl
-; Z80-NEXT:    ld l, (ix + 4)
-; Z80-NEXT:    ld h, (ix + 5)
-; Z80-NEXT:    ex (sp), hl
-; Z80-NEXT:    pop iy
-; Z80-NEXT:    ld c, (ix + 6)
-; Z80-NEXT:    ld b, (ix + 7)
-; Z80-NEXT:    ex de, hl
-; Z80-NEXT:    ld e, iyl
-; Z80-NEXT:    ld d, iyh
-; Z80-NEXT:    ex de, hl
-; Z80-NEXT:    ld e, c
-; Z80-NEXT:    ld d, b
-; Z80-NEXT:    call __lnot
-; Z80-NEXT:    ld (ix - 2), l
-; Z80-NEXT:    ld (ix - 1), h
-; Z80-NEXT:    ld (ix - 4), e
-; Z80-NEXT:    ld (ix - 3), d
-; Z80-NEXT:    ex de, hl
-; Z80-NEXT:    ld e, iyl
-; Z80-NEXT:    ld d, iyh
-; Z80-NEXT:    ex de, hl
-; Z80-NEXT:    ld e, c
-; Z80-NEXT:    ld d, b
-; Z80-NEXT:    ld bc, -1
-; Z80-NEXT:    ld iy, -1
-; Z80-NEXT:    call __ladd
-; Z80-NEXT:    ld c, l
-; Z80-NEXT:    ld b, h
-; Z80-NEXT:    ld iyl, e
-; Z80-NEXT:    ld iyh, d
-; Z80-NEXT:    ld l, (ix - 2)
-; Z80-NEXT:    ld h, (ix - 1)
-; Z80-NEXT:    ld e, (ix - 4)
-; Z80-NEXT:    ld d, (ix - 3)
-; Z80-NEXT:    call __land
-; Z80-NEXT:    call __lpopcnt
+; Z80-NEXT:    ld iy, 0
+; Z80-NEXT:    add iy, sp
+; Z80-NEXT:    ld l, (iy + 2)
+; Z80-NEXT:    ld h, (iy + 3)
+; Z80-NEXT:    ld e, (iy + 4)
+; Z80-NEXT:    ld d, (iy + 5)
+; Z80-NEXT:    call __lcttz
 ; Z80-NEXT:    ld l, a
 ; Z80-NEXT:    ld h, 0
 ; Z80-NEXT:    ld de, 0
-; Z80-NEXT:    ld sp, ix
-; Z80-NEXT:    pop ix
 ; Z80-NEXT:    ret
 ;
 ; EZ80-CODE16-LABEL: cttz.i32:
 ; EZ80-CODE16:       ; %bb.0:
-; EZ80-CODE16-NEXT:    push ix
-; EZ80-CODE16-NEXT:    ld ix, 0
-; EZ80-CODE16-NEXT:    add ix, sp
-; EZ80-CODE16-NEXT:    lea hl, ix - 4
-; EZ80-CODE16-NEXT:    ld sp, hl
-; EZ80-CODE16-NEXT:    ld iy, (ix + 4)
-; EZ80-CODE16-NEXT:    ld bc, (ix + 6)
-; EZ80-CODE16-NEXT:    lea hl, iy
-; EZ80-CODE16-NEXT:    ld e, c
-; EZ80-CODE16-NEXT:    ld d, b
-; EZ80-CODE16-NEXT:    call __lnot
-; EZ80-CODE16-NEXT:    ld (ix - 2), hl
-; EZ80-CODE16-NEXT:    ld (ix - 4), de
-; EZ80-CODE16-NEXT:    lea hl, iy
-; EZ80-CODE16-NEXT:    ld e, c
-; EZ80-CODE16-NEXT:    ld d, b
-; EZ80-CODE16-NEXT:    ld bc, -1
-; EZ80-CODE16-NEXT:    ld iy, -1
-; EZ80-CODE16-NEXT:    call __ladd
-; EZ80-CODE16-NEXT:    ld c, l
-; EZ80-CODE16-NEXT:    ld b, h
-; EZ80-CODE16-NEXT:    ld iyl, e
-; EZ80-CODE16-NEXT:    ld iyh, d
-; EZ80-CODE16-NEXT:    ld hl, (ix - 2)
-; EZ80-CODE16-NEXT:    ld de, (ix - 4)
-; EZ80-CODE16-NEXT:    call __land
-; EZ80-CODE16-NEXT:    call __lpopcnt
+; EZ80-CODE16-NEXT:    ld iy, 0
+; EZ80-CODE16-NEXT:    add iy, sp
+; EZ80-CODE16-NEXT:    ld hl, (iy + 2)
+; EZ80-CODE16-NEXT:    ld de, (iy + 4)
+; EZ80-CODE16-NEXT:    call __lcttz
 ; EZ80-CODE16-NEXT:    ld l, a
 ; EZ80-CODE16-NEXT:    ld h, 0
 ; EZ80-CODE16-NEXT:    ld de, 0
-; EZ80-CODE16-NEXT:    ld sp, ix
-; EZ80-CODE16-NEXT:    pop ix
 ; EZ80-CODE16-NEXT:    ret
 ;
 ; EZ80-LABEL: cttz.i32:
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
-; EZ80-NEXT:    ld bc, (iy + 3)
-; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    push bc
-; EZ80-NEXT:    pop hl
-; EZ80-NEXT:    ld e, a
-; EZ80-NEXT:    call __lnot
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop iy
-; EZ80-NEXT:    ld d, e
-; EZ80-NEXT:    push bc
-; EZ80-NEXT:    pop hl
-; EZ80-NEXT:    ld e, a
-; EZ80-NEXT:    ld bc, -1
-; EZ80-NEXT:    ld a, b
-; EZ80-NEXT:    call __ladd
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop bc
-; EZ80-NEXT:    ld a, e
-; EZ80-NEXT:    lea hl, iy
-; EZ80-NEXT:    ld e, d
-; EZ80-NEXT:    call __land
-; EZ80-NEXT:    call __lpopcnt
+; EZ80-NEXT:    ld hl, (iy + 3)
+; EZ80-NEXT:    ld e, (iy + 6)
+; EZ80-NEXT:    call __lcttz
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ld l, a
@@ -3178,82 +3048,21 @@ declare i64 @llvm.cttz.i64(i64)
 define i64 @cttz.i64(i64) {
 ; Z80-LABEL: cttz.i64:
 ; Z80:       ; %bb.0:
-; Z80-NEXT:    push ix
-; Z80-NEXT:    ld ix, 0
-; Z80-NEXT:    add ix, sp
-; Z80-NEXT:    ld hl, -10
-; Z80-NEXT:    add hl, sp
-; Z80-NEXT:    ld sp, hl
-; Z80-NEXT:    ld l, (ix + 4)
-; Z80-NEXT:    ld h, (ix + 5)
-; Z80-NEXT:    ld e, (ix + 6)
-; Z80-NEXT:    ld d, (ix + 7)
-; Z80-NEXT:    ld c, (ix + 8)
-; Z80-NEXT:    ld b, (ix + 9)
+; Z80-NEXT:    ld iy, 0
+; Z80-NEXT:    add iy, sp
+; Z80-NEXT:    ld l, (iy + 2)
+; Z80-NEXT:    ld h, (iy + 3)
+; Z80-NEXT:    ld e, (iy + 4)
+; Z80-NEXT:    ld d, (iy + 5)
+; Z80-NEXT:    ld c, (iy + 6)
+; Z80-NEXT:    ld b, (iy + 7)
 ; Z80-NEXT:    push hl
-; Z80-NEXT:    ld l, (ix + 10)
-; Z80-NEXT:    ld h, (ix + 11)
+; Z80-NEXT:    ld l, (iy + 8)
+; Z80-NEXT:    ld h, (iy + 9)
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop iy
 ; Z80-NEXT:    push iy
-; Z80-NEXT:    call __llnot
-; Z80-NEXT:    ld (ix - 2), l
-; Z80-NEXT:    ld (ix - 1), h
-; Z80-NEXT:    ld (ix - 4), e
-; Z80-NEXT:    ld (ix - 3), d
-; Z80-NEXT:    ld (ix - 6), c
-; Z80-NEXT:    ld (ix - 5), b
-; Z80-NEXT:    push iy
-; Z80-NEXT:    ex (sp), hl
-; Z80-NEXT:    ld (ix - 8), l
-; Z80-NEXT:    ld (ix - 7), h
-; Z80-NEXT:    pop hl
-; Z80-NEXT:    pop hl
-; Z80-NEXT:    ld hl, -1
-; Z80-NEXT:    push hl
-; Z80-NEXT:    push hl
-; Z80-NEXT:    push hl
-; Z80-NEXT:    push hl
-; Z80-NEXT:    ld l, (ix + 10)
-; Z80-NEXT:    ld h, (ix + 11)
-; Z80-NEXT:    push hl
-; Z80-NEXT:    ld l, (ix + 4)
-; Z80-NEXT:    ld h, (ix + 5)
-; Z80-NEXT:    ld e, (ix + 6)
-; Z80-NEXT:    ld d, (ix + 7)
-; Z80-NEXT:    ld c, (ix + 8)
-; Z80-NEXT:    ld b, (ix + 9)
-; Z80-NEXT:    call __lladd
-; Z80-NEXT:    ld (ix - 10), l
-; Z80-NEXT:    ld (ix - 9), h
-; Z80-NEXT:    ld hl, 10
-; Z80-NEXT:    add hl, sp
-; Z80-NEXT:    ld sp, hl
-; Z80-NEXT:    push iy
-; Z80-NEXT:    push bc
-; Z80-NEXT:    push de
-; Z80-NEXT:    ld l, (ix - 10)
-; Z80-NEXT:    ld h, (ix - 9)
-; Z80-NEXT:    push hl
-; Z80-NEXT:    ld l, (ix - 8)
-; Z80-NEXT:    ld h, (ix - 7)
-; Z80-NEXT:    push hl
-; Z80-NEXT:    ld l, (ix - 2)
-; Z80-NEXT:    ld h, (ix - 1)
-; Z80-NEXT:    ld e, (ix - 4)
-; Z80-NEXT:    ld d, (ix - 3)
-; Z80-NEXT:    ld c, (ix - 6)
-; Z80-NEXT:    ld b, (ix - 5)
-; Z80-NEXT:    call __lland
-; Z80-NEXT:    ld (ix - 2), l
-; Z80-NEXT:    ld (ix - 1), h
-; Z80-NEXT:    ld hl, 10
-; Z80-NEXT:    add hl, sp
-; Z80-NEXT:    ld sp, hl
-; Z80-NEXT:    push iy
-; Z80-NEXT:    ld l, (ix - 2)
-; Z80-NEXT:    ld h, (ix - 1)
-; Z80-NEXT:    call __llpopcnt
+; Z80-NEXT:    call __llcttz
 ; Z80-NEXT:    ld l, a
 ; Z80-NEXT:    pop de
 ; Z80-NEXT:    ld h, 0
@@ -3262,61 +3071,18 @@ define i64 @cttz.i64(i64) {
 ; Z80-NEXT:    ld d, b
 ; Z80-NEXT:    ld iyl, c
 ; Z80-NEXT:    ld iyh, b
-; Z80-NEXT:    ld sp, ix
-; Z80-NEXT:    pop ix
 ; Z80-NEXT:    ret
 ;
 ; EZ80-CODE16-LABEL: cttz.i64:
 ; EZ80-CODE16:       ; %bb.0:
-; EZ80-CODE16-NEXT:    push ix
-; EZ80-CODE16-NEXT:    ld ix, 0
-; EZ80-CODE16-NEXT:    add ix, sp
-; EZ80-CODE16-NEXT:    lea hl, ix - 10
-; EZ80-CODE16-NEXT:    ld sp, hl
-; EZ80-CODE16-NEXT:    ld hl, (ix + 4)
-; EZ80-CODE16-NEXT:    ld de, (ix + 6)
-; EZ80-CODE16-NEXT:    ld bc, (ix + 8)
-; EZ80-CODE16-NEXT:    ld iy, (ix + 10)
+; EZ80-CODE16-NEXT:    ld iy, 0
+; EZ80-CODE16-NEXT:    add iy, sp
+; EZ80-CODE16-NEXT:    ld hl, (iy + 2)
+; EZ80-CODE16-NEXT:    ld de, (iy + 4)
+; EZ80-CODE16-NEXT:    ld bc, (iy + 6)
+; EZ80-CODE16-NEXT:    ld iy, (iy + 8)
 ; EZ80-CODE16-NEXT:    push iy
-; EZ80-CODE16-NEXT:    call __llnot
-; EZ80-CODE16-NEXT:    ld (ix - 2), hl
-; EZ80-CODE16-NEXT:    ld (ix - 4), de
-; EZ80-CODE16-NEXT:    ld (ix - 6), bc
-; EZ80-CODE16-NEXT:    ld (ix - 8), iy
-; EZ80-CODE16-NEXT:    pop hl
-; EZ80-CODE16-NEXT:    ld hl, -1
-; EZ80-CODE16-NEXT:    push hl
-; EZ80-CODE16-NEXT:    push hl
-; EZ80-CODE16-NEXT:    push hl
-; EZ80-CODE16-NEXT:    push hl
-; EZ80-CODE16-NEXT:    ld hl, (ix + 10)
-; EZ80-CODE16-NEXT:    push hl
-; EZ80-CODE16-NEXT:    ld hl, (ix + 4)
-; EZ80-CODE16-NEXT:    ld de, (ix + 6)
-; EZ80-CODE16-NEXT:    ld bc, (ix + 8)
-; EZ80-CODE16-NEXT:    call __lladd
-; EZ80-CODE16-NEXT:    ld (ix - 10), hl
-; EZ80-CODE16-NEXT:    ld hl, 10
-; EZ80-CODE16-NEXT:    add hl, sp
-; EZ80-CODE16-NEXT:    ld sp, hl
-; EZ80-CODE16-NEXT:    push iy
-; EZ80-CODE16-NEXT:    push bc
-; EZ80-CODE16-NEXT:    push de
-; EZ80-CODE16-NEXT:    ld hl, (ix - 10)
-; EZ80-CODE16-NEXT:    push hl
-; EZ80-CODE16-NEXT:    ld hl, (ix - 8)
-; EZ80-CODE16-NEXT:    push hl
-; EZ80-CODE16-NEXT:    ld hl, (ix - 2)
-; EZ80-CODE16-NEXT:    ld de, (ix - 4)
-; EZ80-CODE16-NEXT:    ld bc, (ix - 6)
-; EZ80-CODE16-NEXT:    call __lland
-; EZ80-CODE16-NEXT:    ld (ix - 2), hl
-; EZ80-CODE16-NEXT:    ld hl, 10
-; EZ80-CODE16-NEXT:    add hl, sp
-; EZ80-CODE16-NEXT:    ld sp, hl
-; EZ80-CODE16-NEXT:    push iy
-; EZ80-CODE16-NEXT:    ld hl, (ix - 2)
-; EZ80-CODE16-NEXT:    call __llpopcnt
+; EZ80-CODE16-NEXT:    call __llcttz
 ; EZ80-CODE16-NEXT:    ld l, a
 ; EZ80-CODE16-NEXT:    pop de
 ; EZ80-CODE16-NEXT:    ld h, 0
@@ -3325,58 +3091,22 @@ define i64 @cttz.i64(i64) {
 ; EZ80-CODE16-NEXT:    ld d, b
 ; EZ80-CODE16-NEXT:    ld iyl, c
 ; EZ80-CODE16-NEXT:    ld iyh, b
-; EZ80-CODE16-NEXT:    ld sp, ix
-; EZ80-CODE16-NEXT:    pop ix
 ; EZ80-CODE16-NEXT:    ret
 ;
 ; EZ80-LABEL: cttz.i64:
 ; EZ80:       ; %bb.0:
-; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld ix, 0
-; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    lea hl, ix - 9
-; EZ80-NEXT:    ld sp, hl
-; EZ80-NEXT:    ld iy, (ix + 6)
-; EZ80-NEXT:    ld de, (ix + 9)
-; EZ80-NEXT:    ld bc, (ix + 12)
-; EZ80-NEXT:    lea hl, iy
-; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
-; EZ80-NEXT:    call __llnot
-; EZ80-NEXT:    ld (ix - 3), hl
-; EZ80-NEXT:    ld (ix - 6), de
-; EZ80-NEXT:    ld (ix - 9), bc
-; EZ80-NEXT:    scf
-; EZ80-NEXT:    sbc hl, hl
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    lea hl, iy
-; EZ80-NEXT:    ld de, (ix + 9)
-; EZ80-NEXT:    ld bc, (ix + 12)
-; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
-; EZ80-NEXT:    call __lladd
-; EZ80-NEXT:    ; kill: def $bc killed $bc def $ubc
-; EZ80-NEXT:    ld iy, 9
+; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
-; EZ80-NEXT:    ld sp, iy
-; EZ80-NEXT:    push bc
-; EZ80-NEXT:    push de
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    ld hl, (ix - 3)
-; EZ80-NEXT:    ld de, (ix - 6)
-; EZ80-NEXT:    ld bc, (ix - 9)
-; EZ80-NEXT:    call __lland
-; EZ80-NEXT:    ld iy, 9
-; EZ80-NEXT:    add iy, sp
-; EZ80-NEXT:    ld sp, iy
-; EZ80-NEXT:    call __llpopcnt
+; EZ80-NEXT:    ld hl, (iy + 3)
+; EZ80-NEXT:    ld de, (iy + 6)
+; EZ80-NEXT:    ld bc, (iy + 9)
+; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
+; EZ80-NEXT:    call __llcttz
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ld l, a
 ; EZ80-NEXT:    ld de, 0
 ; EZ80-NEXT:    ld.sis bc, 0
-; EZ80-NEXT:    ld sp, ix
-; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   call i64 @llvm.cttz.i64(i64 %0)
   ret i64 %2

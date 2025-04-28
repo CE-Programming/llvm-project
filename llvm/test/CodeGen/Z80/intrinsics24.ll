@@ -255,14 +255,8 @@ define i24 @cttz.i24(i24) {
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
-; EZ80-NEXT:    ld bc, (iy + 3)
-; EZ80-NEXT:    scf
-; EZ80-NEXT:    sbc hl, hl
-; EZ80-NEXT:    or a, a
-; EZ80-NEXT:    sbc hl, bc
-; EZ80-NEXT:    dec bc
-; EZ80-NEXT:    call __iand
-; EZ80-NEXT:    call __ipopcnt
+; EZ80-NEXT:    ld hl, (iy + 3)
+; EZ80-NEXT:    call __icttz
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ld l, a
