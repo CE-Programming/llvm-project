@@ -299,11 +299,11 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
        G_USUBSAT, G_SSUBSAT, G_USHLSAT, G_SSHLSAT, G_FPOWI})
       .lower();
 
-  getActionDefinitionsBuilder({G_CTTZ, G_CTTZ_ZERO_UNDEF, G_CTLZ_ZERO_UNDEF})
+  getActionDefinitionsBuilder({G_CTTZ_ZERO_UNDEF, G_CTLZ_ZERO_UNDEF})
       .lowerForCartesianProduct({s8}, LegalLibcallScalars)
       .clampScalar(0, s8, s8);
 
-  getActionDefinitionsBuilder(G_CTLZ)
+  getActionDefinitionsBuilder({G_CTLZ, G_CTTZ})
       .customForCartesianProduct({s8}, LegalLibcallScalars)
       .clampScalar(0, s8, s8);
 
@@ -374,7 +374,8 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeCustomMaybeLegal(
   case G_FCANONICALIZE:
     return legalizeFCanonicalize(Helper, MI);
   case G_CTLZ:
-    return legalizeCtlz(Helper, MI);
+  case G_CTTZ:
+    return legalizeCtz(Helper, MI);
   case G_MEMCPY:
   case G_MEMCPY_INLINE:
   case G_MEMMOVE:
@@ -892,9 +893,9 @@ Z80LegalizerInfo::legalizeFCanonicalize(LegalizerHelper &Helper,
 }
 
 LegalizerHelper::LegalizeResult
-Z80LegalizerInfo::legalizeCtlz(LegalizerHelper &Helper,
-                               MachineInstr &MI) const {
-  assert(MI.getOpcode() == G_CTLZ);
+Z80LegalizerInfo::legalizeCtz(LegalizerHelper &Helper,
+                              MachineInstr &MI) const {
+  assert(MI.getOpcode() == G_CTLZ || MI.getOpcode() == G_CTTZ);
   MachineIRBuilder &MIRBuilder = Helper.MIRBuilder;
   MachineRegisterInfo &MRI = *MIRBuilder.getMRI();
   auto &Ctx = MIRBuilder.getMF().getFunction().getContext();
@@ -910,14 +911,15 @@ Z80LegalizerInfo::legalizeCtlz(LegalizerHelper &Helper,
     return LegalizerHelper::UnableToLegalize;
 
   RTLIB::Libcall Libcall;
+  bool Leading = MI.getOpcode() == G_CTLZ;
   switch (SrcSize) {
   default: return LegalizerHelper::UnableToLegalize;
-  case  8: Libcall = RTLIB::CTLZ_I8 ; break;
-  case 16: Libcall = RTLIB::CTLZ_I16; break;
-  case 24: Libcall = RTLIB::CTLZ_I24; break;
-  case 32: Libcall = RTLIB::CTLZ_I32; break;
-  case 48: Libcall = RTLIB::CTLZ_I48; break;
-  case 64: Libcall = RTLIB::CTLZ_I64; break;
+  case  8: Libcall = Leading ? RTLIB::CTLZ_I8  : RTLIB::CTTZ_I8;  break;
+  case 16: Libcall = Leading ? RTLIB::CTLZ_I16 : RTLIB::CTTZ_I16; break;
+  case 24: Libcall = Leading ? RTLIB::CTLZ_I24 : RTLIB::CTTZ_I24; break;
+  case 32: Libcall = Leading ? RTLIB::CTLZ_I32 : RTLIB::CTTZ_I32; break;
+  case 48: Libcall = Leading ? RTLIB::CTLZ_I48 : RTLIB::CTTZ_I48; break;
+  case 64: Libcall = Leading ? RTLIB::CTLZ_I64 : RTLIB::CTTZ_I64; break;
   }
   auto Result = createLibcall(MIRBuilder, Libcall,
                               {DstReg, IntegerType::get(Ctx, DstSize), 0},
