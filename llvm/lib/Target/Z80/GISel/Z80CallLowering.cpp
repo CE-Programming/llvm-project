@@ -787,7 +787,7 @@ bool Z80CallLowering::lowerReturn(MachineIRBuilder &MIRBuilder,
   bool Is24Bit = STI.is24Bit();
   auto MIB = MIRBuilder.buildInstrNoInsert(
       StringSwitch<unsigned>(F.getFnAttribute("interrupt").getValueAsString())
-          .Cases("Generic", "Nested", Is24Bit ? Z80::RETI24 : Z80::RETI16)
+          .Cases("Generic", "Nested", Z80::EI_RETI)
           .Case("NMI", Is24Bit ? Z80::RETN24 : Z80::RETN16)
           .Default(Is24Bit ? Z80::RET24 : Z80::RET16));
 
