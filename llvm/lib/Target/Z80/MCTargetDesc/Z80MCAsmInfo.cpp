@@ -38,20 +38,28 @@ Z80MCAsmInfoELF::Z80MCAsmInfoELF(const Triple &T) {
 
   // Common to both GAS and fasmg
   CommentString = ";";
+  AscizDirective = nullptr;
   Code32Directive = Code64Directive = nullptr;
   UseIntegratedAssembler = false;
   AssemblerDialect = !Is16Bit;
   HasFunctionAlignment = false;
   ExceptionsType = ExceptionHandling::SjLj;
 
-  if (!Z80GasStyle) {
+  if (Z80GasStyle) {
+    Code16Directive = ".assume\tADL = 0";
+    Code24Directive = ".assume\tADL = 1";
+    AsciiDirective = ByteListDirective = Data8bitsDirective = "\tdb\t";
+    Data16bitsDirective = "\tdw\t";
+    Data24bitsDirective = "\td24\t";
+    Data32bitsDirective = "\td32\t";
+  } else {
     Code16Directive = "assume\tadl = 0";
     Code24Directive = "assume\tadl = 1";
     DollarIsPC = true;
     SeparatorString = nullptr;
     PrivateGlobalPrefix = PrivateLabelPrefix = "";
     SupportsQuotedNames = false;
-    ZeroDirective = AscizDirective = nullptr;
+    ZeroDirective = nullptr;
     BlockSeparator = " dup ";
     AsciiDirective = ByteListDirective = Data8bitsDirective = "\tdb\t";
     NumberLiteralSyntax = ANLS_PlainDecimal;
