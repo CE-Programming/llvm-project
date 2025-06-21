@@ -2,7 +2,7 @@ name: "CMake Linux/macOS"
 
 on:
   push:
-    branches: [z80,rebase-v15]
+    branches: [z80]
 
 jobs:
   build-llvm:
