@@ -4,6 +4,7 @@
 #include "clang/Driver/Driver.h"
 #include "clang/Driver/Options.h"
 #include "llvm/Option/ArgList.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/VirtualFileSystem.h"
 
 using namespace clang::driver;
@@ -20,9 +21,9 @@ Z80ToolChain::Z80ToolChain(const Driver &D, const llvm::Triple &Triple,
 void Z80ToolChain::addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
                                         llvm::opt::ArgStringList &CC1Args,
                                         Action::OffloadKind) const {
-  // Add -mllvm --z80-gas-style by default
-  CC1Args.push_back("-mllvm");
-  CC1Args.push_back("--z80-gas-style");
+  // TODO: Uncomment once GNU binutils is the default
+  // CC1Args.push_back("-mllvm");
+  // CC1Args.push_back("--z80-gas-style");
 }
 
 Tool *Z80ToolChain::buildAssembler() const {
