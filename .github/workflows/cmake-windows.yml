@@ -90,8 +90,8 @@ jobs:
           name: ez80-lto2${{env.EXE}}-${{matrix.runs-on}}${{matrix.build-type}}
           path: ez80-lto2${{env.EXE}}
 
-      - name: Disk Usage
-        run: wmic logicaldisk get size,freespace,caption
+#      - name: Disk Usage
+#        run: wmic logicaldisk get size,freespace,caption
 
   build-clang:
     needs: [build-llvm]
@@ -168,8 +168,8 @@ jobs:
           name: ez80-clang${{env.EXE}}-${{matrix.runs-on}}${{matrix.build-type}}
           path: ez80-clang${{env.EXE}}
 
-      - name: Disk Usage
-        run: wmic logicaldisk get size,freespace,caption
+#      - name: Disk Usage
+#        run: wmic logicaldisk get size,freespace,caption
 
   nightly:
     runs-on: ubuntu-latest
