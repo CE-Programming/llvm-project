@@ -289,12 +289,12 @@ Z80MachineLateOptimization::getKnownVal(const MachineInstr &MI) const {
   case Z80::LD24r_1:
     DstVal = {-1, DstReg, *TRI};
     break;
-  case Z80::SExt16: case Z80::Sub16ao:
+  case Z80::SExt16: case Z80::Sub16ao: case Z80::Cmp16ao:
   case Z80::SBC16aa: case Z80::SBC16ao: case Z80::SBC16as:
   case Z80::ADC16aa: case Z80::ADC16ao: case Z80::ADC16as:
     DstReg = Z80::HL;
     break;
-  case Z80::SExt24: case Z80::Sub24ao:
+  case Z80::SExt24: case Z80::Sub24ao: case Z80::Cmp24ao:
   case Z80::SBC24aa: case Z80::SBC24ao: case Z80::SBC24as:
   case Z80::ADC24aa: case Z80::ADC24ao: case Z80::ADC24as:
     DstReg = Z80::UHL;
