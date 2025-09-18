@@ -506,8 +506,10 @@ Z80TargetLowering::EmitLoweredMemMove(MachineInstr &MI,
   Register HL = Is24Bit ? Z80::UHL : Z80::HL;
   Register BC = Is24Bit ? Z80::UBC : Z80::BC;
   Register PhysRegs[] = { DE, HL, BC };
+  Register VirtRegs[3] = {};
   assert((Is24Bit || MI.getOpcode() == Z80::LDR16) && "Unexpected opcode");
 
+  const TargetRegisterInfo *TRI = Subtarget.getRegisterInfo();
   const TargetInstrInfo *TII = Subtarget.getInstrInfo();
   DebugLoc DL = MI.getDebugLoc();
 
@@ -516,12 +518,13 @@ Z80TargetLowering::EmitLoweredMemMove(MachineInstr &MI,
   MachineFunction::iterator I = ++BB->getIterator();
 
   MachineFunction *F = BB->getParent();
+  MachineRegisterInfo &MRI = F->getRegInfo();
   MachineBasicBlock *LDIR_BB = F->CreateMachineBasicBlock(LLVM_BB);
   MachineBasicBlock *LDDR_BB = F->CreateMachineBasicBlock(LLVM_BB);
   MachineBasicBlock *NextBB = F->CreateMachineBasicBlock(LLVM_BB);
   for (auto *MBB : {LDIR_BB, LDDR_BB}) {
     F->insert(I, MBB);
-    for (auto LiveIn : {BC, DE, HL})
+    for (auto LiveIn : PhysRegs)
       MBB->addLiveIn(LiveIn);
   }
   F->insert(I, NextBB);
@@ -533,8 +536,19 @@ Z80TargetLowering::EmitLoweredMemMove(MachineInstr &MI,
   NextBB->transferSuccessorsAndUpdatePHIs(BB);
 
   // BB:
+  //   SUB HL,DE
   //   JP C,LDDR_BB
   //   fallthrough --> LDIR_BB
+  for (int I = 0; I != 3; ++I)
+    BuildMI(BB, DL, TII->get(Z80::COPY), PhysRegs[I])
+        .add(MI.getOperand(I));
+  BuildMI(BB, DL, TII->get(Is24Bit ? Z80::Sub24ao : Z80::Sub16ao))
+      .addReg(DE);
+  // Preserve physical registers for the successors.
+  for (int I = 0; I != 3; ++I) {
+    VirtRegs[I] = MRI.createVirtualRegister(TRI->getRegClass(PhysRegs[I]));
+    BuildMI(BB, DL, TII->get(Z80::COPY), VirtRegs[I]).addReg(PhysRegs[I]);
+  }
   BuildMI(BB, DL, TII->get(Z80::JQCC)).addMBB(LDDR_BB)
       .addImm(Z80::COND_C);
   // Next, add the LDIR and LDDR blocks as its successors.
@@ -542,37 +556,45 @@ Z80TargetLowering::EmitLoweredMemMove(MachineInstr &MI,
   BB->addSuccessor(LDDR_BB);
 
   // LDIR_BB:
+  //   ADD HL,DE
   //   LDIR
   //   JP NextBB
   for (int I = 0; I != 3; ++I)
     BuildMI(LDIR_BB, DL, TII->get(Z80::COPY), PhysRegs[I])
-        .add(MI.getOperand(I));
+        .addReg(VirtRegs[I]);
+  BuildMI(LDIR_BB, DL, TII->get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao), HL)
+      .addReg(HL).addReg(DE);
   BuildMI(LDIR_BB, DL, TII->get(Is24Bit ? Z80::LDIR24 : Z80::LDIR16));
   BuildMI(LDIR_BB, DL, TII->get(Z80::JQ)).addMBB(NextBB);
   // Update machine-CFG edges
   LDIR_BB->addSuccessor(NextBB);
 
   // LDDR_BB:
-  //   ADD HL,BC
-  //   DEC HL
   //   EX DE,HL
   //   ADD HL,BC
   //   DEC HL
   //   EX DE,HL
+  //   ADD HL,DE
   //   LDDR
   // # Fallthrough to Next MBB
   for (int I = 0; I != 3; ++I)
     BuildMI(LDDR_BB, DL, TII->get(Z80::COPY), PhysRegs[I])
-        .add(MI.getOperand(I));
-  for (int I = 0; I != 2; ++I) {
-    BuildMI(LDDR_BB, DL, TII->get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao), HL)
-        .addReg(HL).addReg(BC);
-    BuildMI(LDDR_BB, DL, TII->get(Is24Bit ? Z80::DEC24r : Z80::DEC16r), HL)
-        .addReg(HL);
-    BuildMI(LDDR_BB, DL, TII->get(Is24Bit ? Z80::EX24DE : Z80::EX16DE));
-  }
+        .addReg(VirtRegs[I]);
+  BuildMI(LDDR_BB, DL, TII->get(Is24Bit ? Z80::EX24DE : Z80::EX16DE));
+  BuildMI(LDDR_BB, DL, TII->get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao), HL)
+      .addReg(HL).addReg(BC);
+  BuildMI(LDDR_BB, DL, TII->get(Is24Bit ? Z80::DEC24r : Z80::DEC16r), HL)
+      .addReg(HL);
+  BuildMI(LDDR_BB, DL, TII->get(Is24Bit ? Z80::EX24DE : Z80::EX16DE));
+  BuildMI(LDDR_BB, DL, TII->get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao), HL)
+      .addReg(HL).addReg(DE);
   BuildMI(LDDR_BB, DL, TII->get(Is24Bit ? Z80::LDDR24 : Z80::LDDR16));
   LDDR_BB->addSuccessor(NextBB);
+
+  // Replace virtual register usages with the corresponding physical
+  // registers to ensure no-op copies.
+  for (int I = 0; I != 3; ++I)
+    MRI.replaceRegWith(VirtRegs[I], PhysRegs[I]);
 
   MI.eraseFromParent();   // The pseudo instruction is gone now.
   LLVM_DEBUG(F->dump());
