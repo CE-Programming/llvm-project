@@ -89,12 +89,14 @@ private:
                           MachineRegisterInfo &MRI) const;
   Z80::CondCode foldCond(Register CondReg, MachineIRBuilder &MIB,
                          MachineRegisterInfo &MRI,
-                         Z80::CondCode PreferredCC = Z80::COND_INVALID) const;
+                         Z80::CondCode PreferredCC = Z80::COND_INVALID,
+                         bool EmitFallback = true) const;
   bool selectShift(MachineInstr &I, MachineRegisterInfo &MRI) const;
   bool selectAddSub(MachineInstr &I, MachineRegisterInfo &MRI) const;
   bool selectFunnelShift(MachineInstr &I, MachineRegisterInfo &MRI) const;
   bool selectSetCond(unsigned ExtOpc, Register DstReg, Register CondReg,
-                     MachineInstr &I, MachineRegisterInfo &MRI) const;
+                     MachineInstr &I, MachineRegisterInfo &MRI,
+                     bool EmitFallback = true) const;
   bool selectSetCond(unsigned ExtOpc, MachineInstr &I,
                      MachineRegisterInfo &MRI) const {
     Register CondReg = I.getOperand(I.getNumExplicitDefs() - 1).getReg();
@@ -521,7 +523,7 @@ bool Z80InstructionSelector::selectSExt(MachineInstr &I,
   // handle s1 -> sN sign extension (boolean to integer), result is 0 or -1
   if (SrcTy == LLT::scalar(1)) {
     if (DstTy.getSizeInBits() <= 24 && MRI.hasOneUse(SrcReg) &&
-        selectSetCond(I.getOpcode(), DstReg, SrcReg, I, MRI))
+        selectSetCond(I.getOpcode(), DstReg, SrcReg, I, MRI, false))
       return true;
 
     unsigned FillOpc;
@@ -1113,7 +1115,7 @@ bool Z80InstructionSelector::selectZExt(MachineInstr &I,
   // Handle s1 -> sN zero extension (boolean to integer)
   if (SrcTy == LLT::scalar(1)) {
     if (MRI.hasOneUse(SrcReg) &&
-        selectSetCond(I.getOpcode(), DstReg, SrcReg, I, MRI))
+        selectSetCond(I.getOpcode(), DstReg, SrcReg, I, MRI, false))
       return true;
 
     MachineIRBuilder MIB(I);
@@ -1258,7 +1260,7 @@ bool Z80InstructionSelector::selectAnyExt(MachineInstr &I,
   const Register DstReg = I.getOperand(0).getReg();
 
   if (MRI.getType(SrcReg) == LLT::scalar(1) && MRI.hasOneUse(SrcReg) &&
-      selectSetCond(I.getOpcode(), DstReg, SrcReg, I, MRI))
+      selectSetCond(I.getOpcode(), DstReg, SrcReg, I, MRI, false))
     return true;
 
   const TargetRegisterClass *DstRC = getRegClass(DstReg, MRI);
@@ -2347,10 +2349,10 @@ static bool canMoveDefForwards(MachineOperand &Def, MachineInstr &TargetMI) {
   if (!Reg.isVirtual() || !MBB || MBB != TargetMI.getParent())
     return false;
   for (MachineBasicBlock::iterator I(MI), E(MBB->end()); ++I != E;) {
-    if (I->readsVirtualRegister(Reg))
-        return false;
     if (I == TargetMI)
       return true;
+    if (I->readsVirtualRegister(Reg))
+        return false;
   }
   return false;
 }
@@ -2380,6 +2382,11 @@ Z80::CondCode Z80InstructionSelector::foldExtendedAddSub(
   std::optional<ValueAndVReg> RHSConst = std::nullopt;
   LLT OpTy = MRI.getType(DstReg);
 
+  bool IsThisInstr = (I == MIB.getInsertPt());
+  bool MoveDef = !IsThisInstr && canMoveDefForwards(DstMO, *MIB.getInsertPt());
+  if (!IsThisInstr && !MoveDef)
+    return Z80::COND_INVALID;
+
   unsigned AddSubOpc;
   bool NeedCarry;
   Register AddSubReg;
@@ -2396,14 +2403,14 @@ Z80::CondCode Z80InstructionSelector::foldExtendedAddSub(
     AddSubRC = &Z80::R8RegClass;
     break;
   case 16:
-    AddSubOpc = IsAdd ? IsExtend ? Z80::ADC16ao : Z80::ADD16ao : Z80::SBC16ao;
-    if ((NeedCarry = !IsAdd || IsExtend))
+    AddSubOpc = IsAdd ? (IsExtend || IsSigned) ? Z80::ADC16ao : Z80::ADD16ao : Z80::SBC16ao;
+    if ((NeedCarry = (AddSubOpc != Z80::ADD16ao)))
       AddSubReg = Z80::HL;
     AddSubRC = &Z80::R16RegClass;
     break;
   case 24:
-    AddSubOpc = IsAdd ? IsExtend ? Z80::ADC24ao : Z80::ADD24ao : Z80::SBC24ao;
-    if ((NeedCarry = !IsAdd || IsExtend))
+    AddSubOpc = IsAdd ? (IsExtend || IsSigned) ? Z80::ADC24ao : Z80::ADD24ao : Z80::SBC24ao;
+    if ((NeedCarry = (AddSubOpc != Z80::ADD24ao)))
       AddSubReg = Z80::UHL;
     AddSubRC = &Z80::R24RegClass;
     break;
@@ -2413,7 +2420,7 @@ Z80::CondCode Z80InstructionSelector::foldExtendedAddSub(
 
   if (IsExtend) {
     Register CarryInReg = I.getOperand(4).getReg();
-    Z80::CondCode CC = foldCond(CarryInReg, MIB, MRI);
+    Z80::CondCode CC = foldCond(CarryInReg, MIB, MRI, Z80::COND_C);
     if (CC == Z80::COND_INVALID)
       return CC;
     if (CC != Z80::COND_C) {
@@ -2428,8 +2435,7 @@ Z80::CondCode Z80InstructionSelector::foldExtendedAddSub(
     }
   } else if (NeedCarry)
     MIB.buildInstr(Z80::RCF);
-  bool MoveDef =
-      I == MIB.getInsertPt() || canMoveDefForwards(DstMO, *MIB.getInsertPt());
+
   SmallVector<DstOp, 1> DstOps;
   SmallVector<SrcOp, 2> SrcOps;
   if (AddSubReg.isValid()) {
@@ -2437,8 +2443,7 @@ Z80::CondCode Z80InstructionSelector::foldExtendedAddSub(
     if (!RBI.constrainGenericRegister(LHSReg, *AddSubRC, MRI))
       return Z80::COND_INVALID;
   } else {
-    DstOps.push_back(MoveDef ? DstReg
-                             : createGenericVirtualRegister(MRI, OpTy));
+    DstOps.push_back(DstReg);
     SrcOps.push_back(LHSReg);
   }
   if (RHSConst)
@@ -2448,13 +2453,15 @@ Z80::CondCode Z80InstructionSelector::foldExtendedAddSub(
   MachineInstrBuilder AddSubI = MIB.buildInstr(AddSubOpc, DstOps, SrcOps);
   if (!constrainSelectedInstRegOperands(*AddSubI, TII, TRI, RBI))
     return Z80::COND_INVALID;
+  if (AddSubReg.isValid()) {
+    MIB.buildCopy(DstReg, AddSubReg);
+    if (!RBI.constrainGenericRegister(DstReg, *AddSubRC, MRI))
+      return Z80::COND_INVALID;
+  }
   if (MoveDef) {
+    assert(MRI.hasOneUse(I.getOperand(1).getReg()) &&
+           "should not be folding condition with multiple uses");
     DstMO.setReg(createGenericVirtualRegister(MRI, OpTy));
-    if (AddSubReg.isValid()) {
-      MIB.buildCopy(DstReg, AddSubReg);
-      if (!RBI.constrainGenericRegister(DstReg, *AddSubRC, MRI))
-        return Z80::COND_INVALID;
-    }
   }
   return IsSigned ? Z80::COND_PE : Z80::COND_C;
 }
@@ -2484,7 +2491,8 @@ Z80InstructionSelector::foldSetCC(MachineInstr &I, MachineIRBuilder &MIB,
 Z80::CondCode
 Z80InstructionSelector::foldCond(Register CondReg, MachineIRBuilder &MIB,
                                  MachineRegisterInfo &MRI,
-                                 Z80::CondCode PreferredCC) const {
+                                 Z80::CondCode PreferredCC,
+                                 bool EmitFallback) const {
   const LLT s1 = LLT::scalar(1), s8 = LLT::scalar(8);
   assert(MRI.getType(CondReg) == s1 && "Expected s1 condition");
 
@@ -2552,7 +2560,7 @@ Z80InstructionSelector::foldCond(Register CondReg, MachineIRBuilder &MIB,
     }
   }
 
-  if (CC == Z80::COND_INVALID) {
+  if (CC == Z80::COND_INVALID && EmitFallback) {
     // Fallback to rotate/bit test
     const TargetRegisterClass *CondRC;
     switch (PreferredCC) {
@@ -3026,7 +3034,8 @@ bool Z80InstructionSelector::selectFunnelShift(MachineInstr &I,
 
 bool Z80InstructionSelector::selectSetCond(unsigned ExtOpc, Register DstReg,
                                            Register CondReg, MachineInstr &I,
-                                           MachineRegisterInfo &MRI) const {
+                                           MachineRegisterInfo &MRI,
+                                           bool EmitFallback) const {
   LLT DstTy = MRI.getType(DstReg);
 
   unsigned SetOpc, SelectOpc, IncOpc, FillOpc;
@@ -3067,7 +3076,7 @@ bool Z80InstructionSelector::selectSetCond(unsigned ExtOpc, Register DstReg,
   MachineIRBuilder MIB(I);
   Z80::CondCode DirectCC =
       ExtOpc == TargetOpcode::G_ZEXT ? Z80::COND_NC : Z80::COND_C;
-  Z80::CondCode CC = foldCond(CondReg, MIB, MRI, DirectCC);
+  Z80::CondCode CC = foldCond(CondReg, MIB, MRI, DirectCC, EmitFallback);
   if (CC == Z80::COND_INVALID)
     return false;
 
