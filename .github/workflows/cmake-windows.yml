@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [windows-latest]
+        runs-on: [windows-2022]
         build-type: [Release]
     runs-on: ${{matrix.runs-on}}
     steps:
@@ -100,7 +100,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [windows-latest]
+        runs-on: [windows-2022]
         build-type: [Release]
     runs-on: ${{matrix.runs-on}}
     steps:
@@ -182,12 +182,12 @@ jobs:
       - name: Download Windows ez80-clang
         uses: actions/download-artifact@v4
         with:
-          name: ez80-clang.exe-windows-latestRelease
+          name: ez80-clang.exe-windows-2022Release
           path: ${{github.workspace}}
       - name: Download Windows ez80-link
         uses: actions/download-artifact@v4
         with:
-          name: ez80-link.exe-windows-latestRelease
+          name: ez80-link.exe-windows-2022Release
           path: ${{github.workspace}}
       - name: zip Windows Artifacts
         run: |
