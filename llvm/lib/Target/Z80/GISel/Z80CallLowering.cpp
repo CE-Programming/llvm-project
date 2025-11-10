@@ -607,8 +607,13 @@ bool Z80CallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
       case TargetOpcode::G_GLOBAL_VALUE:
       case TargetOpcode::G_INTTOPTR:
       case TargetOpcode::G_CONSTANT:
-        Info.Callee = MI->getOperand(1);
-        continue;
+        const MachineOperand CalleeMO = MI->getOperand(1);
+        // Don't look through to physical registers.
+        if (!CalleeMO.isReg() ||
+            Register::isVirtualRegister(CalleeMO.getReg())) {
+          Info.Callee = CalleeMO;
+          continue;
+        }
       }
     }
     break;
