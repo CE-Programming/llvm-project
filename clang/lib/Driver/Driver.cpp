@@ -51,6 +51,7 @@
 #include "ToolChains/VEToolchain.h"
 #include "ToolChains/WebAssembly.h"
 #include "ToolChains/XCore.h"
+#include "ToolChains/Z80.h"
 #include "ToolChains/ZOS.h"
 #include "clang/Basic/TargetID.h"
 #include "clang/Basic/Version.h"
@@ -6096,6 +6097,10 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
       case llvm::Triple::msp430:
         TC =
             std::make_unique<toolchains::MSP430ToolChain>(*this, Target, Args);
+        break;
+      case llvm::Triple::z80:
+      case llvm::Triple::ez80:
+        TC = std::make_unique<toolchains::Z80ToolChain>(*this, Target, Args);
         break;
       case llvm::Triple::riscv32:
       case llvm::Triple::riscv64:
