@@ -92,6 +92,54 @@ matchConstant<const IgnoreMatch>(Register Reg, const MachineRegisterInfo &MRI) {
   return std::optional<const IgnoreMatch>{ IgnoreMatch{} };
 }
 
+template <>
+inline std::optional<uint64_t>
+matchConstant<uint64_t>(Register Reg, const MachineRegisterInfo &MRI) {
+  if (auto Val = matchConstant<APInt>(Reg, MRI)) {
+    if (Val->getBitWidth() <= 64)
+      return Val->getZExtValue();
+  }
+  return std::nullopt;
+}
+
+template <>
+inline std::optional<int64_t>
+matchConstant<int64_t>(Register Reg, const MachineRegisterInfo &MRI) {
+  if (auto Val = matchConstant<APInt>(Reg, MRI)) {
+    if (Val->getBitWidth() <= 64)
+      return Val->getSExtValue();
+  }
+  return std::nullopt;
+}
+
+template <>
+inline std::optional<bool>
+matchConstant<bool>(Register Reg, const MachineRegisterInfo &MRI) {
+  if (auto Val = matchConstant<APInt>(Reg, MRI))
+    return Val->getBoolValue();
+  return std::nullopt;
+}
+
+template <>
+inline std::optional<unsigned>
+matchConstant<unsigned>(Register Reg, const MachineRegisterInfo &MRI) {
+  if (auto Val = matchConstant<APInt>(Reg, MRI)) {
+    if (Val->getBitWidth() <= 32)
+      return static_cast<unsigned>(Val->getZExtValue());
+  }
+  return std::nullopt;
+}
+
+template <>
+inline std::optional<unsigned char>
+matchConstant<unsigned char>(Register Reg, const MachineRegisterInfo &MRI) {
+  if (auto Val = matchConstant<APInt>(Reg, MRI)) {
+    if (Val->getBitWidth() <= 8)
+      return static_cast<unsigned char>(Val->getZExtValue());
+  }
+  return std::nullopt;
+}
+
 // template <typename ConstT>
 // inline std::optional<ConstT> matchConstant(Register Reg,
 //                                       const MachineRegisterInfo &MRI) {

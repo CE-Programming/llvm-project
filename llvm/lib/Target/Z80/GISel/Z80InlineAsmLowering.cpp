@@ -33,7 +33,7 @@ bool Z80InlineAsmLowering::lowerInputAsmOperandForConstraint(
     case 'I':
       if (ConstantInt *CI = dyn_cast<ConstantInt>(OpInfo.CallOperandVal)) {
         if (CI->getValue().isIntN(3)) {
-          Inst.addImm(InlineAsm::getFlagWord(InlineAsm::Kind_Imm, 1));
+          Inst.addImm(InlineAsm::Flag(InlineAsm::Kind::Imm, 1));
           Inst.addImm(CI->getZExtValue());
           return true;
         }
@@ -42,7 +42,7 @@ bool Z80InlineAsmLowering::lowerInputAsmOperandForConstraint(
     case 'J':
       if (ConstantInt *CI = dyn_cast<ConstantInt>(OpInfo.CallOperandVal)) {
         if (CI->getValue().isIntN(8)) {
-          Inst.addImm(InlineAsm::getFlagWord(InlineAsm::Kind_Imm, 1));
+          Inst.addImm(InlineAsm::Flag(InlineAsm::Kind::Imm, 1));
           Inst.addImm(CI->getZExtValue());
           return true;
         }
@@ -51,7 +51,7 @@ bool Z80InlineAsmLowering::lowerInputAsmOperandForConstraint(
     case 'M':
       if (ConstantInt *CI = dyn_cast<ConstantInt>(OpInfo.CallOperandVal)) {
         if (CI->getValue().ule(2)) {
-          Inst.addImm(InlineAsm::getFlagWord(InlineAsm::Kind_Imm, 1));
+          Inst.addImm(InlineAsm::Flag(InlineAsm::Kind::Imm, 1));
           Inst.addImm(CI->getZExtValue());
           return true;
         }
@@ -60,7 +60,7 @@ bool Z80InlineAsmLowering::lowerInputAsmOperandForConstraint(
     case 'N':
       if (ConstantInt *CI = dyn_cast<ConstantInt>(OpInfo.CallOperandVal)) {
         if (CI->getValue().isIntN(6) && !(CI->getZExtValue() & 7)) {
-          Inst.addImm(InlineAsm::getFlagWord(InlineAsm::Kind_Imm, 1));
+          Inst.addImm(InlineAsm::Flag(InlineAsm::Kind::Imm, 1));
           Inst.addImm(CI->getZExtValue());
           return true;
         }
@@ -69,7 +69,7 @@ bool Z80InlineAsmLowering::lowerInputAsmOperandForConstraint(
     case 'O':
       if (ConstantInt *CI = dyn_cast<ConstantInt>(OpInfo.CallOperandVal)) {
         if (CI->getValue().isSignedIntN(8)) {
-          Inst.addImm(InlineAsm::getFlagWord(InlineAsm::Kind_Imm, 1));
+          Inst.addImm(InlineAsm::Flag(InlineAsm::Kind::Imm, 1));
           Inst.addImm(CI->getSExtValue());
           return true;
         }
@@ -87,9 +87,9 @@ bool Z80InlineAsmLowering::lowerOutputAsmOperandForConstraint(
   if (OpInfo.ConstraintType == TargetLowering::C_Other) {
     Z80::CondCode CC = Z80::parseConstraintCode(OpInfo.ConstraintCode);
     if (CC != Z80::COND_INVALID) {
-      Inst.addImm(InlineAsm::getFlagWord(
-          OpInfo.isEarlyClobber ? InlineAsm::Kind_RegDefEarlyClobber
-                                : InlineAsm::Kind_RegDef,
+      Inst.addImm(InlineAsm::Flag(
+          OpInfo.isEarlyClobber ? InlineAsm::Kind::RegDefEarlyClobber
+                                : InlineAsm::Kind::RegDef,
           1));
       Inst.addReg(Z80::F,
                   RegState::ImplicitDefine |

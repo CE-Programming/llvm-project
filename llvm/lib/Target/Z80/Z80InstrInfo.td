@@ -978,10 +978,14 @@ def INC24s : I24<  NoPre, 0x33, "inc", "\tsp", "",
 def DEC24s : I24<  NoPre, 0x3B, "dec", "\tsp", "",
                  (outs), (ins), [(set SPL, (Z80dec_flag SPL))]>;
 }
+// GISelShouldIgnore: These patterns have tied operands that cause TableGen
+// to generate incorrect GlobalISel code (double-erase bug). Handle in C++ instead.
+let GISelShouldIgnore = 1 in {
 def : Pat<(add R16:$imp,  1), (INC16r R16:$imp)>;
 def : Pat<(add R16:$imp, -1), (DEC16r R16:$imp)>;
 def : Pat<(add R24:$imp,  1), (INC24r R24:$imp)>;
 def : Pat<(add R24:$imp, -1), (DEC24r R24:$imp)>;
+}
 
 let Defs = [F] in {
   def ADD16ao : I16<Idx01Pre, 0x09, "add", "\t$dst, $src", "$imp = $dst",

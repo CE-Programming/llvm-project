@@ -13,7 +13,7 @@
 
 #include "Z80MCAsmInfo.h"
 #include "llvm/ADT/StringSwitch.h"
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/Support/CommandLine.h"
 using namespace llvm;

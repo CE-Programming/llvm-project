@@ -1817,6 +1817,9 @@ Error GlobalISelEmitter::importImplicitDefRenderers(
   const CodeGenInstruction &DstI = *DstMIBuilder.getCGI();
   int DstINumImplicitDefs = Src->getNumResults() - DstI.Operands.NumDefs;
 
+  if (DstINumImplicitDefs > 0)
+    return failedImport("Cannot import pattern with implicit def results but no explicit def operands");
+
   for (int I = 0; I < DstINumImplicitDefs; ++I) {
     auto PhysOutput = DstI.ImplicitDefs[I];
     assert(PhysOutput->isSubClassOf("Register"));
@@ -2084,6 +2087,9 @@ Expected<RuleMatcher> GlobalISelEmitter::runOnPattern(const PatternToMatch &P) {
   // matches the result instruction.
   unsigned OpIdx = 0;
   unsigned N = std::min(DstNumDefs, SrcNumResults);
+  if (N > 0 && DstI.Operands.NumDefs == 0)
+    return failedImport("Dst instruction has no explicit def operands");
+
   for (unsigned I = 0; I < N; ++I) {
     const TypeSetByHwMode &VTy = Src.getExtType(I);
 

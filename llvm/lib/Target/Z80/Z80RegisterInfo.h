@@ -15,6 +15,7 @@
 #define LLVM_LIB_TARGET_Z80_Z80REGISTERINFO_H
 
 #include "llvm/CodeGen/TargetRegisterInfo.h"
+#include "llvm/IR/InlineAsm.h"
 
 #define GET_REGINFO_HEADER
 #include "Z80GenRegisterInfo.inc"
@@ -50,7 +51,7 @@ public:
                      unsigned Kind = 0) const override;
   const TargetRegisterClass *getPointerRegClassForConstraint(
       const MachineFunction &MF,
-      unsigned Constraint = InlineAsm::Constraint_m) const override;
+      unsigned Constraint = static_cast<unsigned>(InlineAsm::ConstraintCode::m)) const override;
 
   const TargetRegisterClass *
   getLargestLegalSuperClass(const TargetRegisterClass *RC,
@@ -90,7 +91,7 @@ public:
                              const TargetRegisterClass *RC,
                              Register Reg) const override;
 
-  void eliminateFrameIndex(MachineBasicBlock::iterator MI,
+  bool eliminateFrameIndex(MachineBasicBlock::iterator MI,
                            int SPAdj, unsigned FIOperandNum,
                            RegScavenger *RS = nullptr) const override;
 

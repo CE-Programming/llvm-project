@@ -6365,14 +6365,14 @@ bool CombinerHelper::matchBuildVectorIdentityFold(MachineInstr &MI,
     return MRI.getType(MatchInfo) == DstVecTy;
   }
 
-  std::optional<ValueAndVReg> ShiftAmount;
+  ValueAndVReg ShiftAmount;
   const auto LoPattern = m_GBitcast(m_Reg(Lo));
   const auto HiPattern = m_GLShr(m_GBitcast(m_Reg(Hi)), m_ICst(ShiftAmount));
   if (mi_match(
           MI, MRI,
           m_any_of(m_GBuildVectorTrunc(LoPattern, HiPattern),
                    m_GBuildVector(m_GTrunc(LoPattern), m_GTrunc(HiPattern))))) {
-    if (Lo == Hi && ShiftAmount->Value == DstEltTy.getSizeInBits()) {
+    if (Lo == Hi && ShiftAmount.Value == DstEltTy.getSizeInBits()) {
       MatchInfo = Lo;
       return MRI.getType(MatchInfo) == DstVecTy;
     }
@@ -6396,14 +6396,14 @@ bool CombinerHelper::matchTruncLshrBuildVectorFold(MachineInstr &MI,
                                                    Register &MatchInfo) {
   // Replace (G_TRUNC (G_LSHR (G_BITCAST (G_BUILD_VECTOR x, y)), K)) with
   //    y if K == size of vector element type
-  std::optional<ValueAndVReg> ShiftAmt;
+  ValueAndVReg ShiftAmt;
   if (!mi_match(MI.getOperand(1).getReg(), MRI,
                 m_GLShr(m_GBitcast(m_GBuildVector(m_Reg(), m_Reg(MatchInfo))),
                         m_ICst(ShiftAmt))))
     return false;
 
   LLT MatchTy = MRI.getType(MatchInfo);
-  return ShiftAmt->Value.getZExtValue() == MatchTy.getSizeInBits() &&
+  return ShiftAmt.Value.getZExtValue() == MatchTy.getSizeInBits() &&
          MatchTy == MRI.getType(MI.getOperand(0).getReg());
 }
 

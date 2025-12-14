@@ -25,8 +25,8 @@ def flip_setcc_cond : GICombineRule<
          [{ return matchFlipSetCCCond(*${mi}, MRI, ${matchinfo}); }]),
   (apply [{ applyFlipSetCCCond(*${mi}, B, Observer, *${matchinfo}); }])>;
 
-def Z80PreLegalizerCombinerHelper
-    : GICombiner<"Z80GenPreLegalizerCombinerHelper", [
+def Z80PreLegalizerCombiner
+    : GICombiner<"Z80PreLegalizerCombinerImpl", [
         and_ext, and_or_disjoint_mask, combine_ext_or_trunc, combine_identity,
         combine_trunc_shift, /* constant_fold, */ const_combines, div_rem_to_divrem,
         ext_ext_fold, /*fabs_fabs_fold,*/ fabs_fneg_fold, flip_cmp_cond,
@@ -40,20 +40,19 @@ def Z80PreLegalizerCombinerHelper
         ptr_add_with_zero, reassocs, reassoc_fold_consts,
         redundant_neg_operands, select_combines, sext_to_zext,
         shift_immed_chain, shift_of_shifted_logic_chain, shl_ashr_to_sext_inreg,
-        simplify_add_to_sub, simplify_const, simplify_icmp_bool,
+        simplify_add_to_sub, simplify_icmp_bool,
         simplify_known_const, split_brcond, sub_const_to_add_neg,
         trivial_combines, /*truncstore_merge,*/ trunc_ext_fold, /*trunc_shl,*/
         undef_combines, unmerge_cst, unmerge_dead_to_trunc, unmerge_merge,
         unmerge_zext_to_zext, width_reduction_combines,
         xor_of_and_with_same_reg,
     ]> {
-  /*let DisableRuleOption = "z80prelegalizercombiner-disable-rule";*/
+  let CombineAllMethodName = "tryCombineAllImpl";
 }
 
-def Z80PostLegalizerCombinerHelper
-    : GICombiner<"Z80GenPostLegalizerCombinerHelper", [
+def Z80PostLegalizerCombiner
+    : GICombiner<"Z80PostLegalizerCombinerImpl", [
         combine_identity, narrow_op, simplify_known_const, trunc_ext_fold,
         unmerge_zext_to_zext,
     ]> {
-  /*let DisableRuleOption = "z80postlegalizercombiner-disable-rule";*/
 }

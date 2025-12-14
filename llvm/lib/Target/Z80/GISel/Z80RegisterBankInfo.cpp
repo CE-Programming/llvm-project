@@ -13,8 +13,8 @@
 #include "Z80RegisterBankInfo.h"
 #include "Z80RegisterInfo.h"
 #include "MCTargetDesc/Z80MCTargetDesc.h"
-#include "llvm/CodeGen/GlobalISel/RegisterBank.h"
-#include "llvm/CodeGen/GlobalISel/RegisterBankInfo.h"
+#include "llvm/CodeGen/RegisterBank.h"
+#include "llvm/CodeGen/RegisterBankInfo.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 
@@ -37,7 +37,6 @@ Z80RegisterBankInfo::Z80RegisterBankInfo(const TargetRegisterInfo &TRI) {
   // R24 + its subclasses.
   assert(RBGPR.covers(*TRI.getRegClass(Z80::R24RegClassID)) &&
          "Subclass not added?");
-  assert(RBGPR.getSize() == 24 && "GPRs should hold up to 24-bits");
 }
 
 const RegisterBank &
@@ -164,6 +163,6 @@ Z80RegisterBankInfo::getInstrMapping(const MachineInstr &MI) const {
 }
 
 void Z80RegisterBankInfo::applyMappingImpl(
-    const OperandsMapper &OpdMapper) const {
+    MachineIRBuilder &Builder, const OperandsMapper &OpdMapper) const {
   return applyDefaultMapping(OpdMapper);
 }

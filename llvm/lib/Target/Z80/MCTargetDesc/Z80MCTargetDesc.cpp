@@ -102,8 +102,7 @@ static MCInstPrinter *createZ80MCInstPrinter(const Triple &T,
 
 static MCTargetStreamer *
 createZ80AsmTargetStreamer(MCStreamer &S, formatted_raw_ostream &OS,
-                           MCInstPrinter */*InstPrint*/,
-                           bool /*isVerboseAsm*/) {
+                           MCInstPrinter */*InstPrint*/) {
   return new Z80TargetAsmStreamer(S, OS);
 }
 

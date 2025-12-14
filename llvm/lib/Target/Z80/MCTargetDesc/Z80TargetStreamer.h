@@ -16,6 +16,7 @@
 #ifndef LLVM_LIB_TARGET_Z80_MCTARGETDESC_Z80TARGETSTREAMER_H
 #define LLVM_LIB_TARGET_Z80_MCTARGETDESC_Z80TARGETSTREAMER_H
 
+#include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/Support/Alignment.h"
 

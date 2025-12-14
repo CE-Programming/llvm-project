@@ -13,6 +13,7 @@
 #ifndef LLVM_LIB_TARGET_Z80_Z80MACHINELEGALIZER_H
 #define LLVM_LIB_TARGET_Z80_Z80MACHINELEGALIZER_H
 
+#include "llvm/CodeGen/GlobalISel/LegalizerHelper.h"
 #include "llvm/CodeGen/GlobalISel/LegalizerInfo.h"
 
 namespace llvm {
@@ -32,9 +33,8 @@ private:
 public:
   Z80LegalizerInfo(const Z80Subtarget &STI, const Z80TargetMachine &TM);
 
-  LegalizerHelper::LegalizeResult
-  legalizeCustomMaybeLegal(LegalizerHelper &Helper, MachineInstr &MI,
-                           LostDebugLocObserver &LocObserver) const override;
+  bool legalizeCustomMaybeLegal(LegalizerHelper &Helper, MachineInstr &MI,
+                                LostDebugLocObserver &LocObserver) const override;
 
   bool legalizeIntrinsic(LegalizerHelper &Helper,
                          MachineInstr &MI) const override;
@@ -58,7 +58,8 @@ private:
   LegalizerHelper::LegalizeResult legalizeFunnelShift(LegalizerHelper &Helper,
                                                       MachineInstr &MI) const;
   LegalizerHelper::LegalizeResult legalizeCompare(LegalizerHelper &Helper,
-                                                  MachineInstr &MI) const;
+                                                  MachineInstr &MI,
+                                                  LostDebugLocObserver &LocObserver) const;
   LegalizerHelper::LegalizeResult legalizeFixedMultiply(LegalizerHelper &Helper,
                                                         MachineInstr &MI) const;
   LegalizerHelper::LegalizeResult legalizeFixedDivide(LegalizerHelper &Helper,
@@ -68,7 +69,8 @@ private:
   LegalizerHelper::LegalizeResult legalizeFCanonicalize(LegalizerHelper &Helper,
                                                         MachineInstr &MI) const;
   LegalizerHelper::LegalizeResult legalizeCtlz(LegalizerHelper &Helper,
-                                               MachineInstr &MI) const;
+                                               MachineInstr &MI,
+                                               LostDebugLocObserver &LocObserver) const;
   LegalizerHelper::LegalizeResult
   legalizeMemIntrinsic(LegalizerHelper &Helper, MachineInstr &MI,
                        LostDebugLocObserver &LocObserver) const;

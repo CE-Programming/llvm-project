@@ -60,8 +60,9 @@ bool Z80InstPrinterCommon::applyTargetSpecificCLOption(StringRef Opt) {
   return false;
 }
 
-void Z80InstPrinterCommon::printRegName(raw_ostream &OS, unsigned RegNo) const {
-  OS << markup("<reg:") << getRegName(RegNo) << markup(">");
+void Z80InstPrinterCommon::printRegName(raw_ostream &OS,
+                                         MCRegister Reg) const {
+  markup(OS, Markup::Register) << getRegName(Reg);
 }
 
 void Z80InstPrinterCommon::printInst(const MCInst *MI, uint64_t Address,
@@ -78,12 +79,11 @@ void Z80InstPrinterCommon::printOperand(const MCInst *MI, unsigned OpNo,
   if (Op.isReg())
     printRegName(OS, Op.getReg());
   else if (Op.isImm())
-    OS << markup("<imm:") << formatImm(Op.getImm()) << markup(">");
+    markup(OS, Markup::Immediate) << formatImm(Op.getImm());
   else {
     assert(Op.isExpr() && "unknown operand kind in printOperand");
-    OS << markup("<imm:");
+    WithMarkup M = markup(OS, Markup::Immediate);
     Op.getExpr()->print(OS, &MAI);
-    OS << markup(">");
   }
 }
 
@@ -94,7 +94,7 @@ void Z80InstPrinterCommon::printOperand(const MCInst *MI, uint64_t Address,
 
 void Z80InstPrinterCommon::printCondCode(const MCInst *MI, unsigned Op,
                                          raw_ostream &OS) {
-  OS << markup("<cc:");
+  WithMarkup M = markup(OS, Markup::Immediate);
   switch (unsigned CondCode = MI->getOperand(Op).getImm()) {
   default:
     llvm_unreachable("Invalid condition code operand!");
@@ -127,7 +127,6 @@ void Z80InstPrinterCommon::printCondCode(const MCInst *MI, unsigned Op,
     OS << 'm';
     break;
   }
-  OS << markup(">");
 }
 
 void Z80InstPrinterCommon::printOffset(const MCInst *MI, unsigned Op,
@@ -142,14 +141,16 @@ void Z80InstPrinterCommon::printOffset(const MCInst *MI, unsigned Op,
 
 void Z80InstPrinterCommon::printIndirect(const MCInst *MI, unsigned Op,
                                          raw_ostream &OS) {
-  OS << markup("<mem:") << '(';
+  WithMarkup M = markup(OS, Markup::Memory);
+  OS << '(';
   printOperand(MI, Op, OS);
-  OS << ')' << markup(">");
+  OS << ')';
 }
 
 void Z80InstPrinterCommon::printIndirectOffset(const MCInst *MI, unsigned Op,
                                                raw_ostream &OS) {
-  OS << markup("<mem:") << '(';
+  WithMarkup M = markup(OS, Markup::Memory);
+  OS << '(';
   printOffset(MI, Op, OS);
-  OS << ')' << markup(">");
+  OS << ')';
 }

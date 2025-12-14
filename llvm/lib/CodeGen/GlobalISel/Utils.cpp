@@ -536,7 +536,7 @@ Register llvm::getSrcRegIgnoringCopies(Register Reg,
 /// Returns -1 in the first element of the pair if the breakdown is not
 /// satisfiable.
 std::pair<int, int>
-getNarrowTypeBreakDown(LLT OrigTy, LLT NarrowTy, LLT &LeftoverTy) {
+llvm::getNarrowTypeBreakDown(LLT OrigTy, LLT NarrowTy, LLT &LeftoverTy) {
   unsigned Size = OrigTy.getSizeInBits();
   unsigned NarrowSize = NarrowTy.getSizeInBits();
   unsigned NumParts = Size / NarrowSize;
