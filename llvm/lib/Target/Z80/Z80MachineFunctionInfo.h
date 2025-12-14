@@ -52,6 +52,8 @@ private:
 public:
   Z80MachineFunctionInfo() = default;
 
+  Z80MachineFunctionInfo(const Function &F, const TargetSubtargetInfo *STI) {}
+
   explicit Z80MachineFunctionInfo(MachineFunction &MF) {}
 
   unsigned getArgFrameSize() const { return ArgFrameSize; }

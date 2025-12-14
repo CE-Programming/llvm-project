@@ -6,9 +6,9 @@ tablegen(LLVM EZ80GenAsmWriter.inc -gen-asm-writer -asmwriternum=1)
 tablegen(LLVM Z80GenAsmWriter.inc -gen-asm-writer)
 tablegen(LLVM Z80GenCallingConv.inc -gen-callingconv)
 tablegen(LLVM Z80GenPostLegalizeGICombiner.inc -gen-global-isel-combiner
-              -combiners="Z80PostLegalizerCombinerHelper")
+              -combiners="Z80PostLegalizerCombiner")
 tablegen(LLVM Z80GenPreLegalizeGICombiner.inc -gen-global-isel-combiner
-              -combiners="Z80PreLegalizerCombinerHelper")
+              -combiners="Z80PreLegalizerCombiner")
 tablegen(LLVM Z80GenGlobalISel.inc -gen-global-isel)
 tablegen(LLVM Z80GenInstrInfo.inc -gen-instr-info)
 tablegen(LLVM Z80GenRegisterBank.inc -gen-register-bank)

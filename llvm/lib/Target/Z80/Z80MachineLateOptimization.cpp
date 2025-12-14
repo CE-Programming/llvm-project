@@ -548,7 +548,7 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
           }
           assert(Opc == Z80::LD8r0);
           MIB.addReg(SrcReg, getKillRegState(reuse(SrcReg)));
-          int ImpDefIdx = MIB->findRegisterDefOperandIdx(Z80::F, true);
+          int ImpDefIdx = MIB->findRegisterDefOperandIdx(Z80::F, TRI, true, false);
           if (ImpDefIdx >= 0)
             MIB->removeOperand(ImpDefIdx);
           break;

@@ -457,7 +457,7 @@ MachineBasicBlock *Z80TargetLowering::EmitLoweredSExt(
     break;
   }
   MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
-  MIB->findRegisterUseOperand(Reg)->setIsUndef();
+  MIB->findRegisterUseOperand(Reg, Subtarget.getRegisterInfo())->setIsUndef();
   if (Reg == Z80::A)
     MIB.addReg(Reg, RegState::Undef);
   MI.eraseFromParent();
@@ -654,13 +654,13 @@ Z80TargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
   return std::make_pair(Z80::NoRegister, nullptr);
 }
 
-unsigned
+InlineAsm::ConstraintCode
 Z80TargetLowering::getInlineAsmMemConstraint(StringRef Constraint) const {
   if (Constraint.size() == 1)
     switch (Constraint[0]) {
-    case 'V': return InlineAsm::Constraint_V;
-    case 'o': return InlineAsm::Constraint_o;
-    case 'X': return InlineAsm::Constraint_X;
+    case 'V': return InlineAsm::ConstraintCode::V;
+    case 'o': return InlineAsm::ConstraintCode::o;
+    case 'X': return InlineAsm::ConstraintCode::X;
     }
   return TargetLowering::getInlineAsmMemConstraint(Constraint);
 }

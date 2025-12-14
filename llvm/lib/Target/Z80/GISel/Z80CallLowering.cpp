@@ -24,6 +24,7 @@
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
 #include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/Target/TargetMachine.h"
 using namespace llvm;
 using namespace MIPatternMatch;
@@ -59,13 +60,13 @@ struct Z80OutgoingValueHandler : public CallLowering::OutgoingValueHandler {
   }
 
   void assignValueToReg(Register ValVReg, Register PhysReg,
-                        CCValAssign VA) override {
+                        const CCValAssign &VA) override {
     MIB.addReg(PhysReg, RegState::Implicit);
     MIRBuilder.buildCopy(PhysReg, ValVReg);
   }
 
   void assignValueToAddress(Register ValVReg, Register Addr, LLT MemTy,
-                            MachinePointerInfo &MPO, CCValAssign &VA) override {
+                            const MachinePointerInfo &MPO, const CCValAssign &VA) override {
     auto MMO = MIRBuilder.getMF().getMachineMemOperand(
         MPO, MachineMemOperand::MOStore, VA.getLocVT().getStoreSize(),
         Align());
@@ -123,7 +124,7 @@ struct CallArgHandler : public Z80OutgoingValueHandler {
         StackPushes(MIRBuilder.getInsertPt()), RegCopies(StackPushes) {}
 
   void assignValueToReg(Register ValVReg, Register PhysReg,
-                        CCValAssign VA) override {
+                        const CCValAssign &VA) override {
     auto SaveInsertPt = std::prev(MIRBuilder.getInsertPt());
     --StackPushes;
     MIRBuilder.setInsertPt(MIRBuilder.getMBB(), RegCopies);
@@ -140,7 +141,7 @@ struct CallArgHandler : public Z80OutgoingValueHandler {
   }
 
   void assignValueToAddress(Register ValVReg, Register Addr, LLT MemTy,
-                            MachinePointerInfo &MPO, CCValAssign &VA) override {
+                            const MachinePointerInfo &MPO, const CCValAssign &VA) override {
     LLT SlotTy = LLT::scalar(DL.getIndexSizeInBits(0));
     if (VA.getLocVT().getStoreSize() != SlotTy.getSizeInBytes() ||
         !mi_match(Addr, MRI,
@@ -167,7 +168,7 @@ struct CallArgHandler : public Z80OutgoingValueHandler {
   }
 
   bool finalize(CCState &State) override {
-    FrameSize = State.getNextStackOffset();
+    FrameSize = State.getStackSize();
     bool Success = Z80OutgoingValueHandler::finalize(State);
     MIRBuilder.setInsertPt(MIRBuilder.getMBB(), RegCopies);
     return Success;
@@ -215,7 +216,7 @@ struct Z80IncomingValueHandler : public CallLowering::IncomingValueHandler {
   }
 
   void assignValueToAddress(Register ValVReg, Register Addr, LLT MemTy,
-                            MachinePointerInfo &MPO, CCValAssign &VA) override {
+                            const MachinePointerInfo &MPO, const CCValAssign &VA) override {
     auto MMO = MIRBuilder.getMF().getMachineMemOperand(
         MPO, MachineMemOperand::MOLoad | MachineMemOperand::MOInvariant, MemTy,
         Align());
@@ -223,7 +224,7 @@ struct Z80IncomingValueHandler : public CallLowering::IncomingValueHandler {
   }
 
   void assignValueToReg(Register ValVReg, Register PhysReg,
-                        CCValAssign VA) override {
+                        const CCValAssign &VA) override {
     markPhysRegUsed(PhysReg);
     MIRBuilder.buildCopy(ValVReg, PhysReg);
   }
@@ -249,10 +250,10 @@ struct FormalArgHandler : public Z80IncomingValueHandler {
   bool finalize(CCState &State) override {
     MachineFunction &MF = MIRBuilder.getMF();
     auto &FuncInfo = *MF.getInfo<Z80MachineFunctionInfo>();
-    FuncInfo.setArgFrameSize(State.getNextStackOffset());
+    FuncInfo.setArgFrameSize(State.getStackSize());
     if (State.isVarArg()) {
       int FrameIdx = MF.getFrameInfo().CreateFixedObject(
-          1, State.getNextStackOffset(), true);
+          1, State.getStackSize(), true);
       FuncInfo.setVarArgsFrameIndex(FrameIdx);
     }
     return true;
@@ -346,7 +347,7 @@ bool Z80CallLowering::areCalleeOutgoingArgsTailCallable(
 
   // Make sure that they can fit on the caller's stack.
   const auto &FuncInfo = *MF.getInfo<Z80MachineFunctionInfo>();
-  if (OutInfo.getNextStackOffset() > FuncInfo.getArgFrameSize()) {
+  if (OutInfo.getStackSize() > FuncInfo.getArgFrameSize()) {
     LLVM_DEBUG(dbgs() << "... Cannot fit call operands on caller's stack.\n");
     return false;
   }
@@ -761,7 +762,7 @@ bool Z80CallLowering::lowerFormalArguments(MachineIRBuilder &MIRBuilder,
   if (!MBB.empty())
     MIRBuilder.setInstr(*MBB.begin());
 
-  OutgoingValueAssigner Assigner(CC_Z80);
+  IncomingValueAssigner Assigner(CC_Z80);
   FormalArgHandler Handler(MIRBuilder, MRI);
   if (!determineAndHandleAssignments(Handler, Assigner, SplitArgs, MIRBuilder,
                                      F.getCallingConv(), F.isVarArg()))
@@ -796,7 +797,7 @@ bool Z80CallLowering::lowerReturn(MachineIRBuilder &MIRBuilder,
   Type *RetTy = nullptr;
   if (SRetReturnReg) {
     VRegs = SRetReturnReg;
-    RetTy = Type::getInt8PtrTy(Ctx);
+    RetTy = PointerType::getUnqual(Ctx);
   } else if (!VRegs.empty())
     RetTy = Val->getType();
 

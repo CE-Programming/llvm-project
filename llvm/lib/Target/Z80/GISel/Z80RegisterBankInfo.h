@@ -13,7 +13,7 @@
 #ifndef LLVM_LIB_TARGET_Z80_Z80REGISTERBANKINFO_H
 #define LLVM_LIB_TARGET_Z80_Z80REGISTERBANKINFO_H
 
-#include "llvm/CodeGen/GlobalISel/RegisterBankInfo.h"
+#include "llvm/CodeGen/RegisterBankInfo.h"
 
 #define GET_REGBANK_DECLARATIONS
 #include "Z80GenRegisterBank.inc"
@@ -21,6 +21,7 @@
 namespace llvm {
 
 class LLT;
+class MachineIRBuilder;
 
 class Z80GenRegisterBankInfo : public RegisterBankInfo {
 protected:
@@ -68,7 +69,8 @@ public:
                                              LLT Ty) const override;
 
   /// See RegisterBankInfo::applyMapping.
-  void applyMappingImpl(const OperandsMapper &OpdMapper) const override;
+  void applyMappingImpl(MachineIRBuilder &Builder,
+                        const OperandsMapper &OpdMapper) const override;
 
   const InstructionMapping &
   getInstrMapping(const MachineInstr &MI) const override;

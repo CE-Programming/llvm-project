@@ -133,22 +133,23 @@ public:
                            MachineBasicBlock::iterator MI, Register SrcReg,
                            bool isKill, int FrameIndex,
                            const TargetRegisterClass *RC,
-                           const TargetRegisterInfo *TRI) const override;
-  unsigned isStoreToStackSlot(const MachineInstr &MI,
+                           const TargetRegisterInfo *TRI,
+                           Register VReg) const override;
+  Register isStoreToStackSlot(const MachineInstr &MI,
                               int &FrameIndex) const override;
   void loadRegFromStackSlot(MachineBasicBlock &MBB,
                             MachineBasicBlock::iterator MI, Register DstReg,
                             int FrameIndex, const TargetRegisterClass *RC,
-                            const TargetRegisterInfo *TRI) const override;
-  unsigned isLoadFromStackSlot(const MachineInstr &MI,
+                            const TargetRegisterInfo *TRI,
+                            Register VReg) const override;
+  Register isLoadFromStackSlot(const MachineInstr &MI,
                                int &FrameIndex) const override;
 
   void rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
                          Register BaseReg, int64_t Offset,
                          RegScavenger *RS = nullptr, int SPAdj = 0) const;
 
-  bool isReallyTriviallyReMaterializable(const MachineInstr &MI,
-                                         AAResults *AA) const override;
+  bool isReallyTriviallyReMaterializable(const MachineInstr &MI) const override;
   void reMaterialize(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
                      Register DstReg, unsigned SubIdx, const MachineInstr &Orig,
                      const TargetRegisterInfo &TRI) const override;

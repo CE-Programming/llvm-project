@@ -20,9 +20,11 @@
 #include "Z80TargetMachine.h"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelector.h"
-#include "llvm/CodeGen/GlobalISel/InstructionSelectorImpl.h"
+#include "llvm/CodeGen/GlobalISel/GIMatchTableExecutorImpl.h"
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
+#include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineJumpTableInfo.h"
+#include "llvm/Support/CodeGenCoverage.h"
 #include "llvm/Support/Debug.h"
 
 using namespace llvm;
@@ -104,6 +106,7 @@ private:
   bool selectBrJT(MachineInstr &I, MachineRegisterInfo &MRI,
                   MachineFunction &MF) const;
   bool selectImplicitDefOrPHI(MachineInstr &I, MachineRegisterInfo &MRI) const;
+  bool selectAdd(MachineInstr &I, MachineRegisterInfo &MRI) const;
 
   bool selectInlineAsm(MachineInstr &I, MachineRegisterInfo &MRI) const;
 
@@ -320,7 +323,8 @@ bool Z80InstructionSelector::select(MachineInstr &I) const {
   assert(I.getNumOperands() == I.getNumExplicitOperands() &&
          "Generic instruction has unexpected implicit operands");
 
-  if (selectImpl(I, *CoverageInfo))
+  CodeGenCoverage DummyCoverage;
+  if (selectImpl(I, CoverageInfo ? *CoverageInfo : DummyCoverage))
     return true;
 
   LLVM_DEBUG(dbgs() << " C++ instruction selection: "; I.print(dbgs()));
@@ -390,6 +394,8 @@ bool Z80InstructionSelector::select(MachineInstr &I) const {
   case TargetOpcode::G_IMPLICIT_DEF:
   case TargetOpcode::G_PHI:
     return selectImplicitDefOrPHI(I, MRI);
+  case TargetOpcode::G_ADD:
+    return selectAdd(I, MRI);
   default:
     return false;
   }
@@ -509,7 +515,7 @@ bool Z80InstructionSelector::selectSExt(MachineInstr &I,
   if (!constrainSelectedInstRegOperands(*Rotate, TII, TRI, RBI))
     return false;
   auto Fill = MIB.buildInstr(FillOpc);
-  Fill->findRegisterUseOperand(FillReg)->setIsUndef();
+  Fill->findRegisterUseOperand(FillReg, /*TRI=*/nullptr)->setIsUndef();
   if (FillOpc == Z80::SBC8ar)
     Fill.addReg(FillReg, RegState::Undef);
   if (!constrainSelectedInstRegOperands(*Fill, TII, TRI, RBI))
@@ -760,7 +766,7 @@ bool Z80InstructionSelector::selectLoadStore(MachineInstr &I,
             case TargetOpcode::G_FSHL:
               if (ValMI->getOperand(2).getReg() != LoadReg)
                 break;
-              if (ImmConst->isOneValue())
+              if (ImmConst->isOne())
                 RMWOps = {Z80::RLC8p, Z80::RLC8o};
               else if (*ImmConst == 7)
                 RMWOps = {Z80::RRC8p, Z80::RRC8o};
@@ -768,21 +774,21 @@ bool Z80InstructionSelector::selectLoadStore(MachineInstr &I,
             case TargetOpcode::G_FSHR:
               if (ValMI->getOperand(2).getReg() != LoadReg)
                 break;
-              if (ImmConst->isOneValue())
+              if (ImmConst->isOne())
                 RMWOps = {Z80::RLC8p, Z80::RLC8o};
               else if (*ImmConst == 7)
                 RMWOps = {Z80::RRC8p, Z80::RRC8o};
               break;
             case TargetOpcode::G_SHL:
-              if (ImmConst->isOneValue())
+              if (ImmConst->isOne())
                 RMWOps = {Z80::SLA8p, Z80::SLA8o};
               break;
             case TargetOpcode::G_ASHR:
-              if (ImmConst->isOneValue())
+              if (ImmConst->isOne())
                 RMWOps = {Z80::SRA8p, Z80::SRA8o};
               break;
             case TargetOpcode::G_LSHR:
-              if (ImmConst->isOneValue())
+              if (ImmConst->isOne())
                 RMWOps = {Z80::SRL8p, Z80::SRL8o};
               break;
             case TargetOpcode::G_AND: {
@@ -798,9 +804,9 @@ bool Z80InstructionSelector::selectLoadStore(MachineInstr &I,
               break;
             }
             case TargetOpcode::G_ADD:
-              if (ImmConst->isOneValue())
+              if (ImmConst->isOne())
                 RMWOps = {Z80::INC8p, Z80::INC8o};
-              else if (ImmConst->isAllOnesValue())
+              else if (ImmConst->isAllOnes())
                 RMWOps = {Z80::DEC8p, Z80::DEC8o};
               break;
             }
@@ -810,8 +816,8 @@ bool Z80InstructionSelector::selectLoadStore(MachineInstr &I,
     }
   }
 
-  I.RemoveOperand(1);
-  I.RemoveOperand(0);
+  I.removeOperand(1);
+  I.removeOperand(0);
   MachineInstrBuilder MIB(MF, I);
   SmallVector<MachineOperand, 2> MOs;
   int32_t Off = 0;
@@ -901,7 +907,7 @@ bool Z80InstructionSelector::selectLoadStore(MachineInstr &I,
   }
   bool IsOff = MOs.size() == 2;
   if (RMWOps.empty()) {
-    Optional<APInt> ValConst;
+    std::optional<APInt> ValConst;
     switch (Ty.getSizeInBits()) {
     case 8:
       if (!IsLoad)
@@ -976,7 +982,7 @@ bool Z80InstructionSelector::selectLoadStore(MachineInstr &I,
       MachineInstr &LoadMI = *MemMOs[1];
       LoadMI.setDesc(TII.get(TargetOpcode::IMPLICIT_DEF));
       while (LoadMI.getNumOperands() > 1)
-        LoadMI.RemoveOperand(1);
+        LoadMI.removeOperand(1);
       LoadMI.dropMemRefs(MF);
     }
   }
@@ -1012,12 +1018,12 @@ bool Z80InstructionSelector::selectFrameIndexOrGep(MachineInstr &I,
   if (I.getOpcode() == TargetOpcode::G_PTR_ADD) {
     auto OffConst = getIConstantVRegVal(I.getOperand(2).getReg(), MRI);
     if (OffConst && OffConst->sge(-1) && OffConst->sle(1)) {
-      I.RemoveOperand(2);
-      if (OffConst->isNullValue()) {
+      I.removeOperand(2);
+      if (OffConst->isZero()) {
         I.setDesc(TII.get(TargetOpcode::COPY));
         return selectCopy(I, MRI);
       }
-      bool IsInc = OffConst->isOneValue();
+      bool IsInc = OffConst->isOne();
       switch (PtrSize) {
       default: llvm_unreachable("Unexpected pointer size");
       case  8: Opc = IsInc ? Z80::INC8r  : Z80::DEC8r;  break;
@@ -1289,7 +1295,7 @@ bool Z80InstructionSelector::selectMergeValues(MachineInstr &I,
     if (mi_match(UpReg, MRI, m_GAShr(m_Reg(TmpReg), m_SpecificICst(7)))) {
       auto AddI = MIB.buildInstr(Z80::RLC8g, {LLT::scalar(8)}, {TmpReg});
       auto SbcI = MIB.buildInstr(Z80::SBC24aa);
-      SbcI->findRegisterUseOperand(Z80::UHL)->setIsUndef();
+      SbcI->findRegisterUseOperand(Z80::UHL, /*TRI=*/nullptr)->setIsUndef();
       TmpReg = MIB.buildCopy(RC, Register(Z80::UHL)).getReg(0);
       if (!constrainSelectedInstRegOperands(*AddI, TII, TRI, RBI) ||
           !constrainSelectedInstRegOperands(*SbcI, TII, TRI, RBI))
@@ -1451,7 +1457,7 @@ Z80InstructionSelector::foldCompare(MachineInstr &I, MachineIRBuilder &MIB,
             isPowerOf2_32(Mask)) {
           Opc = Z80::BIT8gb;
           Reg = {};
-          Ops = {SrcReg, uint64_t(findFirstSet(Mask))};
+          Ops = {SrcReg, uint64_t(llvm::countr_zero(Mask))};
         } else {
           Opc = Z80::OR8ar;
           Ops = {Reg};
@@ -1524,7 +1530,7 @@ Z80::CondCode Z80InstructionSelector::foldExtendedAddSub(
   Register DstReg = DstMO.getReg();
   Register LHSReg = I.getOperand(2).getReg();
   Register RHSReg = I.getOperand(3).getReg();
-  Optional<ValueAndVReg> RHSConst = None;
+  std::optional<ValueAndVReg> RHSConst = std::nullopt;
   LLT OpTy = MRI.getType(DstReg);
 
   unsigned AddSubOpc;
@@ -1807,7 +1813,7 @@ bool Z80InstructionSelector::selectShift(MachineInstr &I,
     auto AddI = MIB.buildInstr(AddOpc, {Ty}, {SrcReg});
     auto SbcI = MIB.buildInstr(SbcOpc);
     if (Ty == LLT::scalar(8)) {
-      SbcI->findRegisterUseOperand(Reg)->setIsUndef();
+      SbcI->findRegisterUseOperand(Reg, /*TRI=*/nullptr)->setIsUndef();
       SbcI.addReg(Reg, RegState::Undef);
     }
     MIB.buildCopy(DstReg, Reg);
@@ -1930,13 +1936,13 @@ bool Z80InstructionSelector::selectSetCond(unsigned ExtOpc, Register DstReg,
     Register UndefReg = Z80::NoRegister;
     if (FillOpc == Z80::SBC8ar) {
       auto CopyUndefI = MIB.buildCopy(DstTy, FillReg);
-      CopyUndefI->findRegisterUseOperand(FillReg)->setIsUndef();
+      CopyUndefI->findRegisterUseOperand(FillReg, /*TRI=*/nullptr)->setIsUndef();
       UndefReg = CopyUndefI.getReg(0);
       if (!RBI.constrainGenericRegister(UndefReg, *DstRC, MRI))
         return false;
     }
     auto FillI = MIB.buildInstr(FillOpc);
-    FillI->findRegisterUseOperand(FillReg)->setIsUndef();
+    FillI->findRegisterUseOperand(FillReg, /*TRI=*/nullptr)->setIsUndef();
     if (UndefReg)
       FillI.addReg(UndefReg, RegState::Undef);
     if (!constrainSelectedInstRegOperands(*FillI, TII, TRI, RBI))
@@ -2056,6 +2062,46 @@ bool Z80InstructionSelector::selectImplicitDefOrPHI(
 
   Register DstReg = I.getOperand(0).getReg();
   return RBI.constrainGenericRegister(DstReg, *getRegClass(DstReg, MRI), MRI);
+}
+
+bool Z80InstructionSelector::selectAdd(MachineInstr &I,
+                                       MachineRegisterInfo &MRI) const {
+  assert(I.getOpcode() == TargetOpcode::G_ADD && "unexpected instruction");
+
+  Register DstReg = I.getOperand(0).getReg();
+  Register Src0Reg = I.getOperand(1).getReg();
+  Register Src1Reg = I.getOperand(2).getReg();
+
+  LLT Ty = MRI.getType(DstReg);
+  unsigned Size = Ty.getSizeInBits();
+
+  // Check if Src1Reg is a constant 1 or -1
+  MachineInstr *Src1Def = MRI.getVRegDef(Src1Reg);
+  if (Src1Def && Src1Def->getOpcode() == TargetOpcode::G_CONSTANT) {
+    auto Val = Src1Def->getOperand(1).getCImm()->getSExtValue();
+    unsigned IncOpc = 0, DecOpc = 0;
+
+    if (Size == 16) {
+      IncOpc = Z80::INC16r;
+      DecOpc = Z80::DEC16r;
+    } else if (Size == 24) {
+      IncOpc = Z80::INC24r;
+      DecOpc = Z80::DEC24r;
+    }
+
+    if (IncOpc && (Val == 1 || Val == -1)) {
+      unsigned Opc = (Val == 1) ? IncOpc : DecOpc;
+      MachineIRBuilder MIB(I);
+      auto NewI = MIB.buildInstr(Opc, {DstReg}, {Src0Reg});
+      if (!constrainSelectedInstRegOperands(*NewI, TII, TRI, RBI))
+        return false;
+      I.eraseFromParent();
+      return true;
+    }
+  }
+
+  // Fall back to generic selection failure - let other patterns handle it
+  return false;
 }
 
 bool Z80InstructionSelector::selectInlineAsm(MachineInstr &I,

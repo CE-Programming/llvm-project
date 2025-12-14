@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Z80TargetMachine.h"
+#include "Z80MachineFunctionInfo.h"
 #include "TargetInfo/Z80TargetInfo.h"
 #include "Z80.h"
 #include "Z80Subtarget.h"
@@ -23,6 +24,7 @@
 #include "llvm/CodeGen/GlobalISel/InstructionSelect.h"
 #include "llvm/CodeGen/GlobalISel/Legalizer.h"
 #include "llvm/CodeGen/GlobalISel/RegBankSelect.h"
+#include "llvm/CodeGen/GlobalISel/CSEInfo.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
@@ -68,7 +70,7 @@ static std::string computeDataLayout(const Triple &TT) {
   return Ret;
 }
 
-static Reloc::Model getEffectiveRelocModel(Optional<Reloc::Model> RM) {
+static Reloc::Model getEffectiveRelocModel(std::optional<Reloc::Model> RM) {
   if (RM)
     return *RM;
   return Reloc::Static;
@@ -79,9 +81,9 @@ static Reloc::Model getEffectiveRelocModel(Optional<Reloc::Model> RM) {
 Z80TargetMachine::Z80TargetMachine(const Target &T, const Triple &TT,
                                    StringRef CPU, StringRef FS,
                                    const TargetOptions &Options,
-                                   Optional<Reloc::Model> RM,
-                                   Optional<CodeModel::Model> CM,
-                                   CodeGenOpt::Level OL, bool JIT)
+                                   std::optional<Reloc::Model> RM,
+                                   std::optional<CodeModel::Model> CM,
+                                   CodeGenOptLevel OL, bool JIT)
     : LLVMTargetMachine(T, computeDataLayout(TT), TT, CPU, FS, Options,
                         getEffectiveRelocModel(RM),
                         getEffectiveCodeModel(CM, CodeModel::Small), OL),
@@ -128,6 +130,13 @@ Z80TargetMachine::getSubtargetImpl(const Function &F) const {
   return I.get();
 }
 
+MachineFunctionInfo *Z80TargetMachine::createMachineFunctionInfo(
+    BumpPtrAllocator &Allocator, const Function &F,
+    const TargetSubtargetInfo *STI) const {
+  return Z80MachineFunctionInfo::create<Z80MachineFunctionInfo>(Allocator, F,
+                                                                STI);
+}
+
 //===----------------------------------------------------------------------===//
 // Pass Pipeline Configuration
 //===----------------------------------------------------------------------===//
@@ -169,8 +178,7 @@ bool Z80PassConfig::addIRTranslator() {
 }
 
 void Z80PassConfig::addPreLegalizeMachineIR() {
-  bool IsOptNone = getOptLevel() == CodeGenOpt::None;
-  addPass(createZ80PreLegalizeCombiner(IsOptNone));
+  addPass(createZ80PreLegalizeCombiner());
 }
 
 bool Z80PassConfig::addLegalizeMachineIR() {
@@ -181,9 +189,8 @@ bool Z80PassConfig::addLegalizeMachineIR() {
 void Z80PassConfig::addPreRegBankSelect() {
   // For now we don't add this to the pipeline for -O0. We could do in future
   // if we split the combines into separate O0/opt groupings.
-  bool IsOptNone = getOptLevel() == CodeGenOpt::None;
-  if (!IsOptNone)
-    addPass(createZ80PostLegalizeCombiner(IsOptNone));
+  if (getOptLevel() != CodeGenOptLevel::None)
+    addPass(createZ80PostLegalizeCombiner());
 }
 
 bool Z80PassConfig::addRegBankSelect() {

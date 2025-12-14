@@ -130,7 +130,7 @@ private:
   getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
                                StringRef Constraint, MVT VT) const override;
 
-  unsigned getInlineAsmMemConstraint(StringRef Constraint) const override;
+  InlineAsm::ConstraintCode getInlineAsmMemConstraint(StringRef Constraint) const override;
 };
 } // End llvm namespace
 

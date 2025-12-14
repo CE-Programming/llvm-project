@@ -18,7 +18,9 @@
 #include "MCTargetDesc/Z80TargetStreamer.h"
 #include "Z80.h"
 #include "Z80Subtarget.h"
+#include "llvm/IR/GlobalAlias.h"
 #include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Module.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/TargetRegistry.h"
@@ -56,8 +58,8 @@ void Z80AsmPrinter::emitEndOfAsmFile(Module &M) {
   Z80TargetStreamer *TS =
       static_cast<Z80TargetStreamer *>(OutStreamer->getTargetStreamer());
   for (const auto &Symbol : OutContext.getSymbols())
-    if (!Symbol.second->isDefined())
-      TS->emitExtern(Symbol.second);
+    if (Symbol.second.Symbol && !Symbol.second.Symbol->isDefined())
+      TS->emitExtern(Symbol.second.Symbol);
 }
 
 void Z80AsmPrinter::emitGlobalVariable(const GlobalVariable *GV) {
@@ -99,13 +101,13 @@ void Z80AsmPrinter::emitGlobalVariable(const GlobalVariable *GV) {
     TS->emitBlock(DL.getTypeAllocSize(GV->getValueType()));
   else
     emitGlobalConstant(DL, GV->getInitializer());
-  OutStreamer->AddBlankLine();
+  OutStreamer->addBlankLine();
 }
 
-void Z80AsmPrinter::emitGlobalAlias(Module &M, const GlobalAlias &GA) {
+void Z80AsmPrinter::emitGlobalAlias(const Module &M, const GlobalAlias &GA) {
   SwitchSectionForGlobal(GA.getAliaseeObject());
   AsmPrinter::emitGlobalAlias(M, GA);
-  OutStreamer->AddBlankLine();
+  OutStreamer->addBlankLine();
 }
 
 SectionKind Z80AsmPrinter::SwitchSectionForGlobal(const GlobalObject *GO) {
@@ -116,7 +118,7 @@ SectionKind Z80AsmPrinter::SwitchSectionForGlobal(const GlobalObject *GO) {
     // Determine to which section this global should be emitted.
     Section = getObjFileLowering().SectionForGlobal(GO, GOKind, TM);
   }
-  OutStreamer->SwitchSection(Section);
+  OutStreamer->switchSection(Section);
   return GOKind;
 }
 

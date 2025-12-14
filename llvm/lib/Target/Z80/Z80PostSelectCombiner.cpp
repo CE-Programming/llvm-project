@@ -143,7 +143,7 @@ bool Z80PostSelectCombiner::runOnMachineFunction(MachineFunction &MF) {
         BuildMI(MBB, MI, MI.getDebugLoc(), TII.get(TargetOpcode::COPY), TmpReg)
             .add(MI.getOperand(1));
         MI.setDesc(TII.get(DstReg == Z80::SPL ? Z80::LD24sa : Z80::LD16sa));
-        MI.RemoveOperand(0);
+        MI.removeOperand(0);
         MI.getOperand(0).setReg(TmpReg);
         MachineInstrBuilder(MF, MI).addReg(DstReg, RegState::ImplicitDefine);
         Changed = true;
@@ -164,7 +164,7 @@ bool Z80PostSelectCombiner::runOnMachineFunction(MachineFunction &MF) {
         MachineOperand &BaseMO = SrcMI->getOperand(1);
         auto NewOff = SrcMI->getOperand(2).getImm();
         if (!BaseMO.isReg() || NewOff) {
-          MI.RemoveOperand(0);
+          MI.removeOperand(0);
           MI.setDesc(TII.get(IsPush24 ? Z80::PEA24o : Z80::PEA16o));
           MachineInstrBuilder(MF, MI).add(SrcMI->getOperand(1)).addImm(NewOff);
         } else

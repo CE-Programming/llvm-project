@@ -19,6 +19,7 @@
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
 #include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
+#include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
 #include <functional>
 #include <initializer_list>
 using namespace llvm;
@@ -260,13 +261,8 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .legalForCartesianProduct(LegalTypes, {p[0]})
       .legalForCartesianProduct(LegalTypesOther, {p[1]})
       .legalForCartesianProduct({s8}, {p[2], p[3], p[4]})
-      .minScalar(0, s8)
-      .maxScalarIf(IsSpecificType(1, p[0]), 0, sMax)
-      .maxScalarIf(IsSpecificType(1, p[1]), 0, sOther)
-      .maxScalar(0, s8);
-  for (unsigned MemOp : {G_LOAD, G_STORE})
-    getLegacyLegalizerInfo().setLegalizeScalarToDifferentSizeStrategy(
-        MemOp, 0, LegacyLegalizerInfo::narrowToSmallerAndWidenToSmallest);
+      .widenScalarToNextPow2(0, /*Min=*/8)
+      .clampScalar(0, s8, sMax);
 
   getActionDefinitionsBuilder(
       {G_FRAME_INDEX, G_GLOBAL_VALUE, G_BRINDIRECT, G_JUMP_TABLE})
@@ -320,67 +316,76 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .libcallFor(LegalLibcallScalars)
       .clampScalar(0, s8, s64);
 
-  getLegacyLegalizerInfo().computeTables();
+
   verify(*STI.getInstrInfo());
 }
 
-LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeCustomMaybeLegal(
+bool Z80LegalizerInfo::legalizeCustomMaybeLegal(
     LegalizerHelper &Helper, MachineInstr &MI,
     LostDebugLocObserver &LocObserver) const {
   Helper.MIRBuilder.setInstrAndDebugLoc(MI);
   switch (MI.getOpcode()) {
   default:
     // No idea what to do.
-    return LegalizerHelper::UnableToLegalize;
+    return false;
   case G_ADD:
   case G_SUB:
-    return legalizeAddSub(Helper, MI, LocObserver);
+    return legalizeAddSub(Helper, MI, LocObserver) !=
+           LegalizerHelper::UnableToLegalize;
   case G_AND:
   case G_OR:
   case G_XOR:
   case G_PTRMASK:
-    return legalizeBitwise(Helper, MI, LocObserver);
+    return legalizeBitwise(Helper, MI, LocObserver) !=
+           LegalizerHelper::UnableToLegalize;
   case G_EXTRACT:
   case G_INSERT:
-    return legalizeExtractInsert(Helper, MI);
+    return legalizeExtractInsert(Helper, MI) !=
+           LegalizerHelper::UnableToLegalize;
   case G_FCONSTANT:
-    return legalizeFConstant(Helper, MI);
+    return legalizeFConstant(Helper, MI) != LegalizerHelper::UnableToLegalize;
   case G_VASTART:
-    return legalizeVAStart(Helper, MI);
+    return legalizeVAStart(Helper, MI) != LegalizerHelper::UnableToLegalize;
   case G_SHL:
   case G_LSHR:
   case G_ASHR:
-    return legalizeShift(Helper, MI, LocObserver);
+    return legalizeShift(Helper, MI, LocObserver) !=
+           LegalizerHelper::UnableToLegalize;
   case G_FSHL:
   case G_FSHR:
   case G_ROTR:
   case G_ROTL:
-    return legalizeFunnelShift(Helper, MI);
+    return legalizeFunnelShift(Helper, MI) != LegalizerHelper::UnableToLegalize;
   case G_ICMP:
   case G_FCMP:
-    return legalizeCompare(Helper, MI);
+    return legalizeCompare(Helper, MI, LocObserver) != LegalizerHelper::UnableToLegalize;
   case G_UMULO:
-    return legalizeMultiplyWithOverflow(Helper, MI);
+    return legalizeMultiplyWithOverflow(Helper, MI) !=
+           LegalizerHelper::UnableToLegalize;
   case G_SMULFIX:
   case G_UMULFIX:
   case G_SMULFIXSAT:
   case G_UMULFIXSAT:
-    return legalizeFixedMultiply(Helper, MI);
+    return legalizeFixedMultiply(Helper, MI) !=
+           LegalizerHelper::UnableToLegalize;
   case G_SDIVFIX:
   case G_UDIVFIX:
   case G_SDIVFIXSAT:
   case G_UDIVFIXSAT:
-    return legalizeFixedDivide(Helper, MI);
+    return legalizeFixedDivide(Helper, MI) != LegalizerHelper::UnableToLegalize;
   case G_FCANONICALIZE:
-    return legalizeFCanonicalize(Helper, MI);
+    return legalizeFCanonicalize(Helper, MI) !=
+           LegalizerHelper::UnableToLegalize;
   case G_CTLZ:
-    return legalizeCtlz(Helper, MI);
+    return legalizeCtlz(Helper, MI, LocObserver) !=
+           LegalizerHelper::UnableToLegalize;
   case G_MEMCPY:
   case G_MEMCPY_INLINE:
   case G_MEMMOVE:
   case G_MEMSET:
   case G_BZERO:
-    return legalizeMemIntrinsic(Helper, MI, LocObserver);
+    return legalizeMemIntrinsic(Helper, MI, LocObserver) !=
+           LegalizerHelper::UnableToLegalize;
   }
 }
 
@@ -422,7 +427,7 @@ Z80LegalizerInfo::legalizeAddSub(LegalizerHelper &Helper, MachineInstr &MI,
     }
     Type *Ty = IntegerType::get(Ctx, Size);
     auto Result = createLibcall(Helper.MIRBuilder, Libcall, {DstReg, Ty, 0},
-                                {{LHSReg, Ty, 0}});
+                                {{LHSReg, Ty, 0}}, LocObserver);
     MI.eraseFromParent();
     return Result;
   }
@@ -469,7 +474,7 @@ Z80LegalizerInfo::legalizeBitwise(LegalizerHelper &Helper, MachineInstr &MI,
     }
     Type *Ty = IntegerType::get(Ctx, Size);
     auto Result = createLibcall(Helper.MIRBuilder, Libcall, {DstReg, Ty, 0},
-                                {{LHSReg, Ty, 0}});
+                                {{LHSReg, Ty, 0}}, LocObserver);
     MI.eraseFromParent();
     return Result;
   }
@@ -487,7 +492,7 @@ Z80LegalizerInfo::legalizeBitwise(LegalizerHelper &Helper, MachineInstr &MI,
     Type *Ty = IntegerType::get(Ctx, Size);
     auto Result = createLibcall(Helper.MIRBuilder, Libcall, {DstReg, Ty, 0},
                                 {{MI.getOperand(1).getReg(), Ty, 0},
-                                 {MI.getOperand(2).getReg(), Ty, 1}});
+                                 {MI.getOperand(2).getReg(), Ty, 1}}, LocObserver);
     MI.eraseFromParent();
     return Result;
   }
@@ -598,8 +603,8 @@ Z80LegalizerInfo::legalizeFunnelShift(LegalizerHelper &Helper,
 }
 
 LegalizerHelper::LegalizeResult
-Z80LegalizerInfo::legalizeCompare(LegalizerHelper &Helper,
-                                  MachineInstr &MI) const {
+Z80LegalizerInfo::legalizeCompare(LegalizerHelper &Helper, MachineInstr &MI,
+                                  LostDebugLocObserver &LocObserver) const {
   MachineIRBuilder &MIRBuilder = Helper.MIRBuilder;
   MachineRegisterInfo &MRI = *MIRBuilder.getMRI();
   Register DstReg = MI.getOperand(0).getReg();
@@ -667,7 +672,7 @@ Z80LegalizerInfo::legalizeCompare(LegalizerHelper &Helper,
                                    CallLowering::ArgInfo::NoArgIndex);
     CallLowering::ArgInfo Args[2] = {{LHSReg, Ty, 0}, {RHSReg, Ty, 1}};
     auto Result = createLibcall(MIRBuilder, Libcall, FlagsArg,
-                                makeArrayRef(Args, 2 - ZeroRHS));
+                                ArrayRef(Args, 2 - ZeroRHS), LocObserver);
     if (Result != LegalizerHelper::Legalized)
       return Result;
     MIRBuilder.buildCopy(Register(Z80::F), FlagsReg);
@@ -892,8 +897,8 @@ Z80LegalizerInfo::legalizeFCanonicalize(LegalizerHelper &Helper,
 }
 
 LegalizerHelper::LegalizeResult
-Z80LegalizerInfo::legalizeCtlz(LegalizerHelper &Helper,
-                               MachineInstr &MI) const {
+Z80LegalizerInfo::legalizeCtlz(LegalizerHelper &Helper, MachineInstr &MI,
+                               LostDebugLocObserver &LocObserver) const {
   assert(MI.getOpcode() == G_CTLZ);
   MachineIRBuilder &MIRBuilder = Helper.MIRBuilder;
   MachineRegisterInfo &MRI = *MIRBuilder.getMRI();
@@ -921,7 +926,7 @@ Z80LegalizerInfo::legalizeCtlz(LegalizerHelper &Helper,
   }
   auto Result = createLibcall(MIRBuilder, Libcall,
                               {DstReg, IntegerType::get(Ctx, DstSize), 0},
-                              {{SrcReg, IntegerType::get(Ctx, SrcSize), 0}});
+                              {{SrcReg, IntegerType::get(Ctx, SrcSize), 0}}, LocObserver);
   MI.eraseFromParent();
   return Result;
 }
@@ -1081,12 +1086,12 @@ bool Z80LegalizerInfo::legalizeIntrinsic(LegalizerHelper &Helper,
   auto &Ctx = MF.getFunction().getContext();
   auto &CLI = *MF.getSubtarget().getCallLowering();
 
-  switch (MI.getIntrinsicID()) {
+  switch (cast<GIntrinsic>(MI).getIntrinsicID()) {
   case Intrinsic::trap: {
     CallLowering::CallLoweringInfo Info;
     Info.CallConv = CallingConv::C;
     Info.Callee = MachineOperand::CreateES("abort");
-    Info.OrigRet = CallLowering::ArgInfo{None, Type::getVoidTy(Ctx), 0};
+    Info.OrigRet = CallLowering::ArgInfo{{}, Type::getVoidTy(Ctx), 0};
     if (!CLI.lowerCall(MIRBuilder, Info))
       return false;
     break;

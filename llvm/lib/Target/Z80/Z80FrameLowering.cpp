@@ -415,7 +415,7 @@ bool Z80FrameLowering::assignCalleeSavedSpillSlots(
     std::vector<CalleeSavedInfo> &CSI) const {
   auto &FuncInfo = *MF.getInfo<Z80MachineFunctionInfo>();
   FuncInfo.setUsesAltFP(shouldUseAltFP(MF, Is24Bit ? Z80::UIY : Z80::IY, TRI));
-  MF.getRegInfo().freezeReservedRegs(MF);
+  MF.getRegInfo().freezeReservedRegs();
 
   bool UseShadow = shouldUseShadow(MF);
   unsigned CalleeSavedFrameSize = isFPSaved(MF) ? SlotSize : 0;

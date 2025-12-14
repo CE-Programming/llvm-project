@@ -62,9 +62,9 @@ Z80RegisterInfo::getPointerRegClassForConstraint(const MachineFunction &MF,
   unsigned Kind;
   switch (Constraint) {
   default: llvm_unreachable("Unexpected Constraint!");
-  case InlineAsm::Constraint_V: Kind = 1; break;
-  case InlineAsm::Constraint_m: Kind = 2; break;
-  case InlineAsm::Constraint_o: Kind = 3; break;
+  case static_cast<unsigned>(InlineAsm::ConstraintCode::V): Kind = 1; break;
+  case static_cast<unsigned>(InlineAsm::ConstraintCode::m): Kind = 2; break;
+  case static_cast<unsigned>(InlineAsm::ConstraintCode::o): Kind = 3; break;
   }
   return getPointerRegClass(MF, Kind);
 }
@@ -197,7 +197,7 @@ bool Z80RegisterInfo::saveScavengerRegister(MachineBasicBlock &MBB,
   return true;
 }
 
-void Z80RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+bool Z80RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
                                           int SPAdj, unsigned FIOperandNum,
                                           RegScavenger *RS) const {
   MachineInstr &MI = *II;
@@ -215,6 +215,7 @@ void Z80RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
     // For fixed indices, skip over callee save slots.
     Offset += MF.getInfo<Z80MachineFunctionInfo>()->getCalleeSavedFrameSize();
   TII.rewriteFrameIndex(MI, FIOperandNum, BaseReg, Offset, RS, SPAdj);
+  return false;
 }
 
 Register Z80RegisterInfo::getFrameRegister(const MachineFunction &MF) const {

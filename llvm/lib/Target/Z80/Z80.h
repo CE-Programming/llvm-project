@@ -24,8 +24,8 @@ class Z80RegisterBankInfo;
 class Z80Subtarget;
 class Z80TargetMachine;
 
-FunctionPass *createZ80PreLegalizeCombiner(bool IsOptNone);
-FunctionPass *createZ80PostLegalizeCombiner(bool IsOptNone);
+FunctionPass *createZ80PreLegalizeCombiner();
+FunctionPass *createZ80PostLegalizeCombiner();
 InstructionSelector *createZ80InstructionSelector(const Z80TargetMachine &TM,
                                                   Z80Subtarget &,
                                                   Z80RegisterBankInfo &);

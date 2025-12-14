@@ -38,7 +38,7 @@ public:
                         const MCSubtargetInfo *EndInfo) const override;
   void emitEndOfAsmFile(Module &M) override;
   void emitGlobalVariable(const GlobalVariable *GV) override;
-  void emitGlobalAlias(Module &M, const GlobalAlias &GA) override;
+  void emitGlobalAlias(const Module &M, const GlobalAlias &GA) override;
   void emitInstruction(const MachineInstr *MI) override;
 
 private:
