@@ -1,8 +1,7 @@
 #include "Z80Subtarget.h"
 #include "Z80TargetMachine.h"
-#include "llvm/ADT/STLArrayExtras.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/CodeGen/MIRParser/MIRParser.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
@@ -1480,7 +1479,7 @@ void checkInstructionSizes(StringRef T) {
   ASSERT_TRUE(TheTarget);
 
   std::unique_ptr<Z80TargetMachine> TM(static_cast<Z80TargetMachine *>(
-      TheTarget->createTargetMachine(TT, "generic", "", {}, None)));
+      TheTarget->createTargetMachine(TT, "generic", "", {}, std::nullopt)));
   ASSERT_TRUE(TM);
 
   Z80Subtarget STI(TM->getTargetTriple(), TM->getTargetCPU(),
@@ -1533,7 +1532,7 @@ void checkInstructionSizes(StringRef T) {
   ASSERT_TRUE(F);
   auto &MF = MMI.getOrCreateMachineFunction(*F);
 
-  ASSERT_EQ(MF.getInstructionCount(), array_lengthof(TestInstrs));
+  ASSERT_EQ(MF.getInstructionCount(), std::size(TestInstrs));
   auto TI = std::begin(TestInstrs);
   for (const auto &MBB : MF)
     for (const auto &MI : MBB) {
