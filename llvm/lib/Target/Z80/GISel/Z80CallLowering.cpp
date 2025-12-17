@@ -762,7 +762,7 @@ bool Z80CallLowering::lowerFormalArguments(MachineIRBuilder &MIRBuilder,
   if (!MBB.empty())
     MIRBuilder.setInstr(*MBB.begin());
 
-  OutgoingValueAssigner Assigner(CC_Z80);
+  IncomingValueAssigner Assigner(CC_Z80);
   FormalArgHandler Handler(MIRBuilder, MRI);
   if (!determineAndHandleAssignments(Handler, Assigner, SplitArgs, MIRBuilder,
                                      F.getCallingConv(), F.isVarArg()))

@@ -14,6 +14,7 @@
 #include "Z80TargetMachine.h"
 #include "TargetInfo/Z80TargetInfo.h"
 #include "Z80.h"
+#include "Z80MachineFunctionInfo.h"
 #include "Z80Subtarget.h"
 #include "Z80TargetObjectFile.h"
 #include "llvm/ADT/SmallString.h"
@@ -163,6 +164,13 @@ public:
 
 TargetPassConfig *Z80TargetMachine::createPassConfig(PassManagerBase &PM) {
   return new Z80PassConfig(*this, PM);
+}
+
+MachineFunctionInfo *Z80TargetMachine::createMachineFunctionInfo(
+    BumpPtrAllocator &Allocator, const Function &F,
+    const TargetSubtargetInfo *STI) const {
+  return Z80MachineFunctionInfo::create<Z80MachineFunctionInfo>(Allocator, F,
+                                                                STI);
 }
 
 bool Z80PassConfig::addIRTranslator() {

@@ -531,7 +531,7 @@ def get_run_handler(triple):
       'csky': (scrub_asm_csky, ASM_FUNCTION_CSKY_RE),
       'nvptx': (scrub_asm_nvptx, ASM_FUNCTION_NVPTX_RE),
       'loongarch32': (scrub_asm_loongarch, ASM_FUNCTION_LOONGARCH_RE),
-      'loongarch64': (scrub_asm_loongarch, ASM_FUNCTION_LOONGARCH_RE)
+      'loongarch64': (scrub_asm_loongarch, ASM_FUNCTION_LOONGARCH_RE),
       'z80': (scrub_asm_z80, ASM_FUNCTION_Z80_RE),
       'ez80': (scrub_asm_z80, ASM_FUNCTION_Z80_RE),
   }

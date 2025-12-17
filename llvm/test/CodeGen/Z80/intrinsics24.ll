@@ -556,7 +556,6 @@ define i24 @usub.sat.i24(i24, i24) {
 ; EZ80-NEXT:    ld bc, 0
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld de, (ix + 9)
 ; EZ80-NEXT:    sbc hl, de
 ; EZ80-NEXT:    jr c, BB22_2
 ; EZ80-NEXT:  ; %bb.1:
