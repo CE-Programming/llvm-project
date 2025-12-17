@@ -82,7 +82,7 @@ template <>
 inline std::optional<APInt> matchConstant<APInt>(Register Reg,
                                             const MachineRegisterInfo &MRI) {
   const auto& Val = matchConstant<std::optional<ValueAndVReg>>(Reg, MRI);
-  if (Val.has_value())
+  if (Val.has_value() && Val.value().has_value())
     return { Val.value()->Value };
   return { std::nullopt };
 }
@@ -98,7 +98,7 @@ template <>
 inline std::optional<int64_t> matchConstant<int64_t>(Register Reg,
                                                      const MachineRegisterInfo &MRI) {
   auto Val = matchConstant<APInt>(Reg, MRI);
-  if (Val && Val->getBitWidth() <= 64)
+  if (Val && Val->getBitWidth() > 0 && Val->getBitWidth() <= 64)
     return Val->getSExtValue();
   return std::nullopt;
 }
@@ -107,7 +107,7 @@ template <>
 inline std::optional<uint64_t> matchConstant<uint64_t>(Register Reg,
                                                        const MachineRegisterInfo &MRI) {
   auto Val = matchConstant<APInt>(Reg, MRI);
-  if (Val && Val->getBitWidth() <= 64)
+  if (Val && Val->getBitWidth() > 0 && Val->getBitWidth() <= 64)
     return Val->getSExtValue();
   return std::nullopt;
 }
@@ -116,7 +116,7 @@ template <>
 inline std::optional<unsigned char> matchConstant<unsigned char>(Register Reg,
                                                                  const MachineRegisterInfo &MRI) {
   auto Val = matchConstant<APInt>(Reg, MRI);
-  if (Val && Val->getBitWidth() <= 64)
+  if (Val && Val->getBitWidth() > 0 && Val->getBitWidth() <= 64)
     return Val->getSExtValue();
   return std::nullopt;
 }
@@ -125,7 +125,7 @@ template <>
 inline std::optional<unsigned int> matchConstant<unsigned int>(Register Reg,
                                                                const MachineRegisterInfo &MRI) {
   auto Val = matchConstant<APInt>(Reg, MRI);
-  if (Val && Val->getBitWidth() <= 64)
+  if (Val && Val->getBitWidth() > 0 && Val->getBitWidth() <= 64)
     return Val->getSExtValue();
   return std::nullopt;
 }
@@ -134,7 +134,7 @@ template <>
 inline std::optional<bool> matchConstant<bool>(Register Reg,
                                                const MachineRegisterInfo &MRI) {
   auto Val = matchConstant<APInt>(Reg, MRI);
-  if (Val && Val->getBitWidth() <= 64)
+  if (Val && Val->getBitWidth() > 0 && Val->getBitWidth() <= 64)
     return Val->getSExtValue();
   return std::nullopt;
 }

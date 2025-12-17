@@ -2121,8 +2121,6 @@ define void @store.p2i64(i64, i64 addrspace(2)*) {
 ; Z80-NEXT:    ld c, (ix + 10)
 ; Z80-NEXT:    ld b, (ix + 11)
 ; Z80-NEXT:    ld iyh, c
-; Z80-NEXT:    ld c, (ix + 10)
-; Z80-NEXT:    ld b, (ix + 11)
 ; Z80-NEXT:    ld (ix - 1), b ; 1-byte Folded Spill
 ; Z80-NEXT:    ld c, l
 ; Z80-NEXT:    out (c), a
@@ -2183,7 +2181,6 @@ define void @store.p2i64(i64, i64 addrspace(2)*) {
 ; EZ80-CODE16-NEXT:    ld iyl, iyh
 ; EZ80-CODE16-NEXT:    ld bc, (ix + 10)
 ; EZ80-CODE16-NEXT:    ld iyh, c
-; EZ80-CODE16-NEXT:    ld bc, (ix + 10)
 ; EZ80-CODE16-NEXT:    ld (ix - 1), b ; 1-byte Folded Spill
 ; EZ80-CODE16-NEXT:    ld c, l
 ; EZ80-CODE16-NEXT:    out (c), a
@@ -2470,8 +2467,6 @@ define void @store.p2i64.1(i64) {
 ; Z80-NEXT:    ld e, (ix + 8)
 ; Z80-NEXT:    ld d, (ix + 9)
 ; Z80-NEXT:    ld (ix - 2), e ; 1-byte Folded Spill
-; Z80-NEXT:    ld e, (ix + 8)
-; Z80-NEXT:    ld d, (ix + 9)
 ; Z80-NEXT:    ld (ix - 3), d ; 1-byte Folded Spill
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix + 10)
@@ -2482,11 +2477,6 @@ define void @store.p2i64.1(i64) {
 ; Z80-NEXT:    ld a, iyl
 ; Z80-NEXT:    ld (ix - 4), a ; 1-byte Folded Spill
 ; Z80-NEXT:    pop af
-; Z80-NEXT:    push hl
-; Z80-NEXT:    ld l, (ix + 10)
-; Z80-NEXT:    ld h, (ix + 11)
-; Z80-NEXT:    ex (sp), hl
-; Z80-NEXT:    pop iy
 ; Z80-NEXT:    push af
 ; Z80-NEXT:    ld a, iyh
 ; Z80-NEXT:    ld (ix - 1), a ; 1-byte Folded Spill
@@ -2551,14 +2541,12 @@ define void @store.p2i64.1(i64) {
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    ld de, (ix + 8)
 ; EZ80-CODE16-NEXT:    ld (ix - 2), e ; 1-byte Folded Spill
-; EZ80-CODE16-NEXT:    ld de, (ix + 8)
 ; EZ80-CODE16-NEXT:    ld (ix - 3), d ; 1-byte Folded Spill
 ; EZ80-CODE16-NEXT:    ld iy, (ix + 10)
 ; EZ80-CODE16-NEXT:    push af
 ; EZ80-CODE16-NEXT:    ld a, iyl
 ; EZ80-CODE16-NEXT:    ld (ix - 4), a ; 1-byte Folded Spill
 ; EZ80-CODE16-NEXT:    pop af
-; EZ80-CODE16-NEXT:    ld iy, (ix + 10)
 ; EZ80-CODE16-NEXT:    push af
 ; EZ80-CODE16-NEXT:    ld a, iyh
 ; EZ80-CODE16-NEXT:    ld (ix - 1), a ; 1-byte Folded Spill
@@ -2862,8 +2850,6 @@ define void @store.p3i64(i64, i64 addrspace(3)*) {
 ; Z80-NEXT:    ld l, (ix + 10)
 ; Z80-NEXT:    ld h, (ix + 11)
 ; Z80-NEXT:    ld (ix - 2), l ; 1-byte Folded Spill
-; Z80-NEXT:    ld l, (ix + 10)
-; Z80-NEXT:    ld h, (ix + 11)
 ; Z80-NEXT:    ld (ix - 1), h ; 1-byte Folded Spill
 ; Z80-NEXT:    ld c, iyl
 ; Z80-NEXT:    ld b, iyh
@@ -2945,11 +2931,9 @@ define void @store.p3i64(i64, i64 addrspace(3)*) {
 ; EZ80-CODE16-NEXT:    ld d, b
 ; EZ80-CODE16-NEXT:    ld bc, (ix + 8)
 ; EZ80-CODE16-NEXT:    ld h, c
-; EZ80-CODE16-NEXT:    ld bc, (ix + 8)
 ; EZ80-CODE16-NEXT:    ld (ix - 3), b ; 1-byte Folded Spill
 ; EZ80-CODE16-NEXT:    ld bc, (ix + 10)
 ; EZ80-CODE16-NEXT:    ld (ix - 2), c ; 1-byte Folded Spill
-; EZ80-CODE16-NEXT:    ld bc, (ix + 10)
 ; EZ80-CODE16-NEXT:    ld (ix - 1), b ; 1-byte Folded Spill
 ; EZ80-CODE16-NEXT:    lea bc, iy
 ; EZ80-CODE16-NEXT:    out (c), a
@@ -3221,8 +3205,6 @@ define void @store.p3i64.1(i64) {
 ; Z80-NEXT:    ld l, (ix + 10)
 ; Z80-NEXT:    ld h, (ix + 11)
 ; Z80-NEXT:    ld (ix - 2), l ; 1-byte Folded Spill
-; Z80-NEXT:    ld l, (ix + 10)
-; Z80-NEXT:    ld h, (ix + 11)
 ; Z80-NEXT:    ld (ix - 1), h ; 1-byte Folded Spill
 ; Z80-NEXT:    ld c, iyl
 ; Z80-NEXT:    ld b, iyh
@@ -3305,11 +3287,9 @@ define void @store.p3i64.1(i64) {
 ; EZ80-CODE16-NEXT:    ld d, b
 ; EZ80-CODE16-NEXT:    ld bc, (ix + 8)
 ; EZ80-CODE16-NEXT:    ld h, c
-; EZ80-CODE16-NEXT:    ld bc, (ix + 8)
 ; EZ80-CODE16-NEXT:    ld (ix - 3), b ; 1-byte Folded Spill
 ; EZ80-CODE16-NEXT:    ld bc, (ix + 10)
 ; EZ80-CODE16-NEXT:    ld (ix - 2), c ; 1-byte Folded Spill
-; EZ80-CODE16-NEXT:    ld bc, (ix + 10)
 ; EZ80-CODE16-NEXT:    ld (ix - 1), b ; 1-byte Folded Spill
 ; EZ80-CODE16-NEXT:    lea bc, iy
 ; EZ80-CODE16-NEXT:    out (c), a
