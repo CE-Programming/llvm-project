@@ -907,6 +907,10 @@ void CombinerHelper::applySextInRegOfLoad(
   MI.eraseFromParent();
 }
 
+// Z80-FORK-START: CUSTOM-HELPERS
+// helper functions not found in upstream v17
+// this block should be kept when rebasing to 17+, check for conflicts
+
 bool CombinerHelper::dominates(MachineBasicBlock &DefMBB,
                                MachineBasicBlock &UseMBB) {
   if (MDT)
@@ -937,6 +941,8 @@ bool CombinerHelper::canMove(MachineInstr &MI, MachineBasicBlock &MBB,
   }
   return true;
 }
+
+// Z80-FORK-END: CUSTOM-HELPERS
 
 bool CombinerHelper::findPostIndexCandidate(MachineInstr &MI, Register &Addr,
                                             Register &Base, Register &Offset) {
@@ -4661,9 +4667,9 @@ bool CombinerHelper::matchReassocConstantInnerLHS(GPtrAdd &MI,
   // G_PTR_ADD (G_PTR_ADD X, C), Y) -> (G_PTR_ADD (G_PTR_ADD(X, Y), C)
   // if and only if (G_PTR_ADD X, C) has one use.
   Register LHSBase;
-  ValueAndVReg LHSCstOff;
+  std::optional<ValueAndVReg> LHSCstOff;
   if (!mi_match(MI.getBaseReg(), MRI,
-                m_OneNonDBGUse(m_GPtrAdd(m_Reg(LHSBase), m_ICst(LHSCstOff)))))
+                m_OneNonDBGUse(m_GPtrAdd(m_Reg(LHSBase), m_GCst(LHSCstOff)))))
     return false;
 
   auto *LHSPtrAdd = cast<GPtrAdd>(LHS);
@@ -4674,7 +4680,7 @@ bool CombinerHelper::matchReassocConstantInnerLHS(GPtrAdd &MI,
     LHSPtrAdd->moveBefore(&MI);
     Register RHSReg = MI.getOffsetReg();
     // set VReg will cause type mismatch if it comes from extend/trunc
-    auto NewCst = B.buildConstant(MRI.getType(RHSReg), LHSCstOff.Value);
+    auto NewCst = B.buildConstant(MRI.getType(RHSReg), LHSCstOff->Value);
     Observer.changingInstr(MI);
     MI.getOperand(2).setReg(NewCst.getReg(0));
     Observer.changedInstr(MI);
@@ -6236,6 +6242,11 @@ bool CombinerHelper::matchRedundantBinOpInEquality(MachineInstr &MI,
   return CmpInst::isEquality(Pred) && Y.isValid();
 }
 
+// Z80-FORK-START: CUSTOM-COMBINERS
+// These are Z80-specific generic improvements not found in upstream v17.
+// WHEN REBASING TO v17+: Keep this block, but check for conflicts.
+// Consider upstreaming these improvements to LLVM.
+
 bool CombinerHelper::matchPtrAddGlobalImmed(
     MachineInstr &MI, std::pair<const GlobalValue *, int64_t> &MatchInfo) {
   // We're trying to match the following pattern:
@@ -6354,12 +6365,15 @@ bool CombinerHelper::matchReassocFoldConstants(MachineInstr &MI,
           Opc == TargetOpcode::G_XOR) &&
          "Expected associative opcode");
 
+  // Z80-FORK-START: matchReassocFoldConstants pattern matching
+  int64_t _Unused1, _Unused2; // dummy vars for upstream api
   return mi_match(
       MI, MRI,
       m_CommutativeBinOp(Opc,
                          m_OneNonDBGUse(m_CommutativeBinOp(
-                             Opc, m_Reg(), m_all_of(m_ICst(), m_Reg(Regs[0])))),
-                         m_all_of(m_ICst(), m_Reg(Regs[1]))));
+                             Opc, m_Reg(), m_all_of(m_ICst(_Unused1), m_Reg(Regs[0])))),
+                         m_all_of(m_ICst(_Unused2), m_Reg(Regs[1]))));
+  // Z80-FORK-END
 }
 
 void CombinerHelper::applyReassocFoldConstants(MachineInstr &MI,
@@ -6484,13 +6498,13 @@ bool CombinerHelper::applyCombineOrToAdd(MachineInstr &MI) {
 bool CombinerHelper::matchCombineFunnelShift(MachineInstr &MI,
                                              FunnelShift &MatchInfo) {
   Register DstReg = MI.getOperand(0).getReg();
-  uint64_t ShiftRightAmt;
+  int64_t ShiftRightAmt;
   return mi_match(DstReg, MRI,
                   m_GAdd(m_GShl(m_Reg(MatchInfo.ShiftLeftReg),
                                 m_ICst(MatchInfo.ShiftLeftAmt)),
                          m_GLShr(m_Reg(MatchInfo.ShiftRightReg),
                                  m_ICst(ShiftRightAmt)))) &&
-         MatchInfo.ShiftLeftAmt + ShiftRightAmt ==
+         static_cast<uint64_t>(MatchInfo.ShiftLeftAmt) + static_cast<uint64_t>(ShiftRightAmt) ==
              MRI.getType(DstReg).getSizeInBits();
 }
 
@@ -6903,7 +6917,7 @@ void CombinerHelper::applyNarrowICmp(MachineInstr &MI,
 bool CombinerHelper::matchSimplifyICmpBool(MachineInstr &MI,
                                            RegisterImmPair &MatchInfo) {
   CmpInst::Predicate Pred;
-  bool CmpVal;
+  int64_t CmpVal; // Z80-FORK: changed from bool to int64_t for upstream api
   if (!mi_match(MI.getOperand(0).getReg(), MRI,
                 m_GICmp(m_Pred(Pred), m_Reg(MatchInfo.Reg), m_ICst(CmpVal))) ||
       MRI.getType(MatchInfo.Reg) != LLT::scalar(1))
@@ -6912,9 +6926,10 @@ bool CombinerHelper::matchSimplifyICmpBool(MachineInstr &MI,
   LLVMContext &C = MI.getParent()->getParent()->getFunction().getContext();
   MatchInfo.Imm = 0;
   ConstantInt *BoolCI[2] = {ConstantInt::getFalse(C), ConstantInt::getTrue(C)};
+  bool CmpBool = (CmpVal != 0); // Z80-FORK: convert back to bool for indexing
   for (ConstantInt *InCI : BoolCI)
     if (Constant *ResC =
-            ConstantExpr::getCompare(Pred, InCI, BoolCI[CmpVal], true))
+            ConstantExpr::getCompare(Pred, InCI, BoolCI[CmpBool], true))
       MatchInfo.Imm = MatchInfo.Imm << 1 | (ResC == BoolCI[true]);
     else
       return false;
@@ -7138,6 +7153,8 @@ void CombinerHelper::applySinkConstant(MachineInstr &MI,
   MI.removeFromParent();
   DomUseMI.getParent()->insert(DomUseMI, &MI);
 }
+
+// Z80-FORK-END: CUSTOM-COMBINERS
 
 bool CombinerHelper::tryCombine(MachineInstr &MI) {
   if (tryCombineCopy(MI))

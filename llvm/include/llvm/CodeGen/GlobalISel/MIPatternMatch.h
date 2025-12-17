@@ -62,87 +62,20 @@ inline OneNonDBGUse_match<SubPat> m_OneNonDBGUse(const SubPat &SP) {
   return SP;
 }
 
-struct IgnoreMatch {
-  IgnoreMatch() = default;
-  IgnoreMatch(const IgnoreMatch &) = default;
-  const IgnoreMatch &operator=(const IgnoreMatch &) const { return *this; }
-};
-
 template <typename ConstT>
-std::optional<ConstT> matchConstant(Register Reg, const MachineRegisterInfo &MRI);
+inline std::optional<ConstT> matchConstant(Register,
+                                           const MachineRegisterInfo &);
 
 template <>
-inline std::optional<std::optional<ValueAndVReg>>
-matchConstant<std::optional<ValueAndVReg>>(Register Reg,
-                                      const MachineRegisterInfo &MRI) {
-  return getIConstantVRegValWithLookThrough(Reg, MRI);
+inline std::optional<APInt> matchConstant(Register Reg,
+                                          const MachineRegisterInfo &MRI) {
+  return getIConstantVRegVal(Reg, MRI);
 }
 
 template <>
-inline std::optional<APInt> matchConstant<APInt>(Register Reg,
+inline std::optional<int64_t> matchConstant(Register Reg,
                                             const MachineRegisterInfo &MRI) {
-  const auto& Val = matchConstant<std::optional<ValueAndVReg>>(Reg, MRI);
-  if (Val.has_value() && Val.value().has_value())
-    return { Val.value()->Value };
-  return { std::nullopt };
-}
-
-template <>
-inline std::optional<const IgnoreMatch>
-matchConstant<const IgnoreMatch>(Register Reg, const MachineRegisterInfo &MRI) {
-  matchConstant<APInt>(Reg, MRI);
-  return std::optional<const IgnoreMatch>{ IgnoreMatch{} };
-}
-
-template <>
-inline std::optional<int64_t> matchConstant<int64_t>(Register Reg,
-                                                     const MachineRegisterInfo &MRI) {
-  auto Val = matchConstant<APInt>(Reg, MRI);
-  if (Val && Val->getBitWidth() > 0 && Val->getBitWidth() <= 64)
-    return Val->getSExtValue();
-  return std::nullopt;
-}
-
-template <>
-inline std::optional<uint64_t> matchConstant<uint64_t>(Register Reg,
-                                                       const MachineRegisterInfo &MRI) {
-  auto Val = matchConstant<APInt>(Reg, MRI);
-  if (Val && Val->getBitWidth() > 0 && Val->getBitWidth() <= 64)
-    return Val->getSExtValue();
-  return std::nullopt;
-}
-
-template <>
-inline std::optional<unsigned char> matchConstant<unsigned char>(Register Reg,
-                                                                 const MachineRegisterInfo &MRI) {
-  auto Val = matchConstant<APInt>(Reg, MRI);
-  if (Val && Val->getBitWidth() > 0 && Val->getBitWidth() <= 64)
-    return Val->getSExtValue();
-  return std::nullopt;
-}
-
-template <>
-inline std::optional<unsigned int> matchConstant<unsigned int>(Register Reg,
-                                                               const MachineRegisterInfo &MRI) {
-  auto Val = matchConstant<APInt>(Reg, MRI);
-  if (Val && Val->getBitWidth() > 0 && Val->getBitWidth() <= 64)
-    return Val->getSExtValue();
-  return std::nullopt;
-}
-
-template <>
-inline std::optional<bool> matchConstant<bool>(Register Reg,
-                                               const MachineRegisterInfo &MRI) {
-  auto Val = matchConstant<APInt>(Reg, MRI);
-  if (Val && Val->getBitWidth() > 0 && Val->getBitWidth() <= 64)
-    return Val->getSExtValue();
-  return std::nullopt;
-}
-
-template <>
-inline std::optional<ValueAndVReg> matchConstant<ValueAndVReg>(Register Reg,
-    const MachineRegisterInfo &MRI) {
-  return getIConstantVRegValWithLookThrough(Reg, MRI);
+  return getIConstantVRegSExtVal(Reg, MRI);
 }
 
 template <typename ConstT> struct ConstantMatch {
@@ -157,9 +90,11 @@ template <typename ConstT> struct ConstantMatch {
   }
 };
 
-inline ConstantMatch<const IgnoreMatch> m_ICst() {
-  static constexpr IgnoreMatch ignore;
-  return {ignore};
+inline ConstantMatch<APInt> m_ICst(APInt &Cst) {
+  return ConstantMatch<APInt>(Cst);
+}
+inline ConstantMatch<int64_t> m_ICst(int64_t &Cst) {
+  return ConstantMatch<int64_t>(Cst);
 }
 
 template <typename ConstT>
@@ -212,10 +147,6 @@ struct GCstAndRegMatch {
     return ValReg ? true : false;
   }
 };
-
-template <typename ConstT> inline ConstantMatch<ConstT> m_ICst(ConstT &Cst) {
-  return {Cst};
-}
 
 inline GCstAndRegMatch m_GCst(std::optional<ValueAndVReg> &ValReg) {
   return GCstAndRegMatch(ValReg);
@@ -394,25 +325,34 @@ template <typename BindTy> struct bind_helper {
 template <> struct bind_helper<MachineInstr *> {
   static bool bind(const MachineRegisterInfo &MRI, MachineInstr *&MI,
                    Register Reg) {
-    return MI = MRI.getVRegDef(Reg);
+    MI = MRI.getVRegDef(Reg);
+    if (MI)
+      return true;
+    return false;
   }
   static bool bind(const MachineRegisterInfo &MRI, MachineInstr *&MI,
                    MachineInstr *Inst) {
-    return MI = Inst;
+    MI = Inst;
+    return MI;
   }
 };
 
 template <> struct bind_helper<LLT> {
-  static bool bind(const MachineRegisterInfo &MRI, LLT &Ty, Register Reg) {
+  static bool bind(const MachineRegisterInfo &MRI, LLT Ty, Register Reg) {
     Ty = MRI.getType(Reg);
-    return Ty.isValid();
+    if (Ty.isValid())
+      return true;
+    return false;
   }
 };
 
 template <> struct bind_helper<const ConstantFP *> {
   static bool bind(const MachineRegisterInfo &MRI, const ConstantFP *&F,
                    Register Reg) {
-    return F = getConstantFPVRegVal(Reg, MRI);
+    F = getConstantFPVRegVal(Reg, MRI);
+    if (F)
+      return true;
+    return false;
   }
 };
 
@@ -428,7 +368,7 @@ template <typename Class> struct bind_ty {
 
 inline bind_ty<Register> m_Reg(Register &R) { return R; }
 inline bind_ty<MachineInstr *> m_MInstr(MachineInstr *&MI) { return MI; }
-inline bind_ty<LLT> m_Type(LLT &Ty) { return Ty; }
+inline bind_ty<LLT> m_Type(LLT Ty) { return Ty; }
 inline bind_ty<CmpInst::Predicate> m_Pred(CmpInst::Predicate &P) { return P; }
 inline operand_type_match m_Pred() { return operand_type_match(); }
 
@@ -445,25 +385,6 @@ inline ImplicitDefMatch m_GImplicitDef() { return ImplicitDefMatch(); }
 
 // Helper for matching G_FCONSTANT
 inline bind_ty<const ConstantFP *> m_GFCst(const ConstantFP *&C) { return C; }
-
-template <typename Class> struct specific_ty {
-  Class RequestedVal;
-
-  specific_ty(Class RequestedVal) : RequestedVal(RequestedVal) {}
-
-  bool match(const MachineRegisterInfo &MRI, Register Reg) {
-    Class MatchedVal;
-    return mi_match(Reg, MRI, bind_ty<Class>(MatchedVal)) &&
-           MatchedVal == RequestedVal;
-  }
-};
-
-inline specific_ty<MachineInstr *> m_SpecificMInstr(MachineInstr *MI) {
-  return MI;
-}
-inline specific_ty<CmpInst::Predicate> m_SpecificPred(CmpInst::Predicate P) {
-  return P;
-}
 
 // General helper for all the binary generic MI such as G_ADD/G_SUB etc
 template <typename LHS_P, typename RHS_P, unsigned Opcode,
@@ -733,13 +654,18 @@ struct CompareOp_match {
     if (!mi_match(Op, MRI, m_MInstr(TmpMI)) || TmpMI->getOpcode() != Opcode)
       return false;
 
-    auto TmpPred = CmpInst::Predicate(TmpMI->getOperand(1).getPredicate());
-    return (P.match(MRI, TmpPred) &&
-            L.match(MRI, TmpMI->getOperand(2).getReg()) &&
-            R.match(MRI, TmpMI->getOperand(3).getReg())) ||
-           (P.match(MRI, CmpInst::getSwappedPredicate(TmpPred)) &&
-            R.match(MRI, TmpMI->getOperand(2).getReg()) &&
-            L.match(MRI, TmpMI->getOperand(3).getReg()));
+    auto TmpPred =
+        static_cast<CmpInst::Predicate>(TmpMI->getOperand(1).getPredicate());
+    if (!P.match(MRI, TmpPred))
+      return false;
+    Register LHS = TmpMI->getOperand(2).getReg();
+    Register RHS = TmpMI->getOperand(3).getReg();
+    if (L.match(MRI, LHS) && R.match(MRI, RHS))
+      return true;
+    if (Commutable && L.match(MRI, RHS) && R.match(MRI, LHS) &&
+        P.match(MRI, CmpInst::getSwappedPredicate(TmpPred)))
+      return true;
+    return false;
   }
 };
 

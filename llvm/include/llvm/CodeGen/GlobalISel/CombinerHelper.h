@@ -78,7 +78,7 @@ struct PtrAddChain {
 
 struct FunnelShift {
   Register ShiftLeftReg, ShiftRightReg;
-  uint64_t ShiftLeftAmt;
+  int64_t ShiftLeftAmt;
 };
 
 struct RegisterImmPair {

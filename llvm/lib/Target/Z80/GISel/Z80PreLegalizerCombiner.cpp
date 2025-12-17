@@ -72,7 +72,7 @@ static bool matchCombineTruncShift(MachineInstr &MI, MachineRegisterInfo &MRI,
   LLT DstTy = MRI.getType(DstReg);
   if (DstTy != LLT::scalar(8))
     return false;
-  unsigned ShiftAmt;
+  int64_t ShiftAmt;
   if (!mi_match(DstReg, MRI,
                 m_GTrunc(m_GLShr(m_Reg(SrcReg), m_ICst(ShiftAmt)))) ||
       ShiftAmt != 8)
@@ -93,7 +93,7 @@ static void applyCombineTruncShift(MachineInstr &MI, MachineIRBuilder &Builder,
 
 static bool matchFlipSetCCCond(MachineInstr &MI, MachineRegisterInfo &MRI,
                                MachineInstr *&SetCCMI) {
-  bool Imm;
+  int64_t Imm;
   return mi_match(MI.getOperand(0).getReg(), MRI,
                   m_GXor(m_OneUse(m_MInstr(SetCCMI)), m_ICst(Imm))) &&
          SetCCMI->getOpcode() == Z80::SetCC && Imm;

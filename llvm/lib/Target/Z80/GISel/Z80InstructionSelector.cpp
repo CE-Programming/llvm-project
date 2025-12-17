@@ -1447,13 +1447,13 @@ Z80InstructionSelector::foldCompare(MachineInstr &I, MachineIRBuilder &MIB,
     if (!ConstRHS->Value && (CC == Z80::COND_Z || CC == Z80::COND_NZ)) {
       if (OpSize == 8) {
         Register SrcReg;
-        uint8_t Mask;
+        int64_t Mask;
         if (mi_match(LHSReg, MRI,
                      m_OneUse(m_GAnd(m_Reg(SrcReg), m_ICst(Mask)))) &&
-            isPowerOf2_32(Mask)) {
+            Mask > 0 && isPowerOf2_64(static_cast<uint64_t>(Mask))) {
           Opc = Z80::BIT8gb;
           Reg = {};
-          Ops = {SrcReg, uint64_t(findFirstSet(Mask))};
+          Ops = {SrcReg, uint64_t(findFirstSet(static_cast<uint64_t>(Mask)))};
         } else {
           Opc = Z80::OR8ar;
           Ops = {Reg};
