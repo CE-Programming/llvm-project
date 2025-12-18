@@ -652,6 +652,8 @@ void AsmPrinter::emitLinkage(const GlobalValue *GV, MCSymbol *GVSym) const {
     return;
   case GlobalValue::PrivateLinkage:
   case GlobalValue::InternalLinkage:
+    if (MAI->getLGloblDirective())
+      OutStreamer->emitSymbolAttribute(GVSym, MCSA_LGlobal);
     return;
   case GlobalValue::ExternalWeakLinkage:
   case GlobalValue::AvailableExternallyLinkage:
@@ -2171,7 +2173,7 @@ bool AsmPrinter::doFinalization(Module &M) {
 
   // Emit linkage(XCOFF) and visibility info for declarations
   for (const Function &F : M) {
-    if (!F.isDeclarationForLinker())
+    if (!F.isDeclarationForLinker() || F.isIntrinsic())
       continue;
 
     MCSymbol *Name = getSymbol(&F);
@@ -2185,9 +2187,6 @@ bool AsmPrinter::doFinalization(Module &M) {
       emitVisibility(Name, V, false);
       continue;
     }
-
-    if (F.isIntrinsic())
-      continue;
 
     // Handle the XCOFF case.
     // Variable `Name` is the function descriptor symbol (see above). Get the
@@ -2385,6 +2384,8 @@ bool AsmPrinter::doFinalization(Module &M) {
           MAI->getCodePointerSize());
     }
   }
+
+  OutStreamer->finish();
 
   // Allow the target to emit any magic that it wants at the end of the file,
   // after everything else has gone out.
@@ -2617,6 +2618,8 @@ void AsmPrinter::emitJumpTableInfo() {
       OutStreamer->emitLabel(GetJTISymbol(JTI, true));
 
     MCSymbol* JTISymbol = GetJTISymbol(JTI);
+    if (MAI->getLGloblDirective())
+      OutStreamer->emitSymbolAttribute(JTISymbol, MCSA_LGlobal);
     OutStreamer->emitLabel(JTISymbol);
 
     for (const MachineBasicBlock *MBB : JTBBs)
@@ -2814,7 +2817,7 @@ void AsmPrinter::emitXXStructorList(const DataLayout &DL, const Constant *List,
 }
 
 void AsmPrinter::emitModuleIdents(Module &M) {
-  if (!MAI->hasIdentDirective())
+  if (!MAI->getIdentDirective())
     return;
 
   if (const NamedMDNode *NMD = M.getNamedMetadata("llvm.ident")) {

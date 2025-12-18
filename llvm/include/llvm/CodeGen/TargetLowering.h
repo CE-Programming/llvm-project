@@ -1839,7 +1839,7 @@ public:
   /// example, on X86 targets without SSE2 f64 load / store are done with fldl /
   /// fstpl which also does type conversion. Note the specified type doesn't
   /// have to be legal as the hook is used before type legalization.
-  virtual bool isSafeMemOpType(MVT /*VT*/) const { return true; }
+  virtual bool isSafeMemOpType(MVT VT) const { return VT.isPow2Size(); }
 
   /// Return lower limit for number of blocks in a jump table.
   virtual unsigned getMinimumJumpTableEntries() const;
@@ -4137,6 +4137,15 @@ public:
   virtual bool isTypeDesirableForOp(unsigned /*Opc*/, EVT VT) const {
     // By default, assume all legal types are desirable.
     return isTypeLegal(VT);
+  }
+
+  /// Return true if the target has native support for the specified value type
+  /// and it is 'desirable' to use the type for the given generic opcode. e.g.
+  /// On x86 i16 is legal, but undesirable since i16 instruction encodings are
+  /// longer and some i16 instructions are slow.
+  virtual bool isTypeDesirableForGOp(unsigned /*Opc*/, LLT Ty) const {
+    // By default, assume all legal types are desirable.
+    return isTypeLegal(getMVTForLLT(Ty));
   }
 
   /// Return true if it is profitable for dag combiner to transform a floating

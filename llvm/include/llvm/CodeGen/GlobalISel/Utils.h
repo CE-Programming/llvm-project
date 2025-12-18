@@ -94,9 +94,9 @@ Register constrainRegToClass(MachineRegisterInfo &MRI,
 /// Constrain the Register operand OpIdx, so that it is now constrained to the
 /// TargetRegisterClass passed as an argument (RegClass).
 /// If this fails, create a new virtual register in the correct class and insert
-/// a COPY before \p InsertPt if it is a use or after if it is a definition.
-/// In both cases, the function also updates the register of RegMo. The debug
-/// location of \p InsertPt is used for the new copy.
+/// a COPY before \p I if it is a use or after if it is a definition. In both
+/// cases, the function also updates the register of RegMo. The debug location
+/// of \p I is used for the new copy.
 ///
 /// \return The virtual register constrained to the right register class.
 Register constrainOperandRegClass(const MachineFunction &MF,
@@ -122,8 +122,7 @@ Register constrainOperandRegClass(const MachineFunction &MF,
                                   const TargetRegisterInfo &TRI,
                                   MachineRegisterInfo &MRI,
                                   const TargetInstrInfo &TII,
-                                  const RegisterBankInfo &RBI,
-                                  MachineInstr &InsertPt, const MCInstrDesc &II,
+                                  const RegisterBankInfo &RBI, MachineInstr &I,
                                   MachineOperand &RegMO, unsigned OpIdx);
 
 /// Mutate the newly-selected instruction \p I to constrain its (possibly
@@ -226,14 +225,15 @@ struct DefinitionAndSourceRegister {
 ///
 /// Also walks through hints such as G_ASSERT_ZEXT.
 std::optional<DefinitionAndSourceRegister>
-getDefSrcRegIgnoringCopies(Register Reg, const MachineRegisterInfo &MRI);
+getDefSrcRegIgnoringCopies(Register Reg, const MachineRegisterInfo &MRI,
+                           bool HasOneNonDBGUse = false);
 
 /// Find the def instruction for \p Reg, folding away any trivial copies. May
 /// return nullptr if \p Reg is not a generic virtual register.
 ///
 /// Also walks through hints such as G_ASSERT_ZEXT.
-MachineInstr *getDefIgnoringCopies(Register Reg,
-                                   const MachineRegisterInfo &MRI);
+MachineInstr *getDefIgnoringCopies(Register Reg, const MachineRegisterInfo &MRI,
+                                   bool HasOneNonDBGUse = false);
 
 /// Find the source register for \p Reg, folding away any trivial copies. It
 /// will be an output register of the instruction that getDefIgnoringCopies
@@ -241,7 +241,8 @@ MachineInstr *getDefIgnoringCopies(Register Reg,
 /// register.
 ///
 /// Also walks through hints such as G_ASSERT_ZEXT.
-Register getSrcRegIgnoringCopies(Register Reg, const MachineRegisterInfo &MRI);
+Register getSrcRegIgnoringCopies(Register Reg, const MachineRegisterInfo &MRI,
+                                 bool HasOneNonDBGUse = false);
 
 // Templated variant of getOpcodeDef returning a MachineInstr derived T.
 /// See if Reg is defined by an single def instruction of type T

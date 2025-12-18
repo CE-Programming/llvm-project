@@ -17,6 +17,7 @@
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/GlobalISel/LegacyLegalizerInfo.h"
+#include "llvm/CodeGen/GlobalISel/LegalizerHelper.h"
 #include "llvm/CodeGen/LowLevelType.h"
 #include "llvm/CodeGen/MachineMemOperand.h"
 #include "llvm/CodeGen/TargetOpcodes.h"
@@ -35,6 +36,7 @@ extern cl::opt<bool> DisableGISelLegalityCheck;
 class MachineFunction;
 class raw_ostream;
 class LegalizerHelper;
+class LostDebugLocObserver;
 class MachineInstr;
 class MachineRegisterInfo;
 class MCInstrInfo;
@@ -972,19 +974,14 @@ public:
                     changeTo(typeIdx(TypeIdx), Ty));
   }
 
-  /// Ensure the scalar is at least as wide as Ty if condition is met.
+  /// Conditionally limit the minimum size of the scalar.
   LegalizeRuleSet &minScalarIf(LegalityPredicate Predicate, unsigned TypeIdx,
                                const LLT Ty) {
     using namespace LegalityPredicates;
     using namespace LegalizeMutations;
     return actionIf(
         LegalizeAction::WidenScalar,
-        [=](const LegalityQuery &Query) {
-          const LLT QueryTy = Query.Types[TypeIdx];
-          return QueryTy.isScalar() &&
-                 QueryTy.getSizeInBits() < Ty.getSizeInBits() &&
-                 Predicate(Query);
-        },
+	all(scalarNarrowerThan(TypeIdx, Ty.getSizeInBits()), Predicate),
         changeTo(typeIdx(TypeIdx), Ty));
   }
 
@@ -1015,13 +1012,8 @@ public:
     using namespace LegalizeMutations;
     return actionIf(
         LegalizeAction::NarrowScalar,
-        [=](const LegalityQuery &Query) {
-          const LLT QueryTy = Query.Types[TypeIdx];
-          return QueryTy.isScalar() &&
-                 QueryTy.getSizeInBits() > Ty.getSizeInBits() &&
-                 Predicate(Query);
-        },
-        changeElementTo(typeIdx(TypeIdx), Ty));
+	all(scalarWiderThan(TypeIdx, Ty.getSizeInBits()), Predicate),
+	changeTo(typeIdx(TypeIdx), Ty));
   }
 
   /// Limit the range of scalar sizes to MinTy and MaxTy.
@@ -1288,10 +1280,15 @@ public:
                        const MachineRegisterInfo &MRI) const;
 
   /// Called for instructions with the Custom LegalizationAction.
-  virtual bool legalizeCustom(LegalizerHelper &Helper,
-                              MachineInstr &MI) const {
+  virtual bool legalizeCustom(LegalizerHelper &Helper, MachineInstr &MI) const {
     llvm_unreachable("must implement this if custom action is used");
   }
+
+  /// Z80-FORK: custom legalization with LegalizeResult return type.
+  /// called for instructions with the Custom LegalizationAction.
+  virtual LegalizerHelper::LegalizeResult
+  legalizeCustomMaybeLegal(LegalizerHelper &Helper, MachineInstr &MI,
+                           LostDebugLocObserver &LocObserver) const;
 
   /// \returns true if MI is either legal or has been legalized and false if not
   /// legal.

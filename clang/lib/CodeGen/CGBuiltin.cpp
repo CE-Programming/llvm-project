@@ -5591,6 +5591,9 @@ static Value *EmitTargetArchBuiltinExpr(CodeGenFunction *CGF,
   case llvm::Triple::loongarch32:
   case llvm::Triple::loongarch64:
     return CGF->EmitLoongArchBuiltinExpr(BuiltinID, E);
+  case llvm::Triple::z80:
+  case llvm::Triple::ez80:
+    return CGF->EmitZ80BuiltinExpr(BuiltinID, E);
   default:
     return nullptr;
   }
@@ -20543,4 +20546,14 @@ Value *CodeGenFunction::EmitLoongArchBuiltinExpr(unsigned BuiltinID,
 
   llvm::Function *F = CGM.getIntrinsic(ID);
   return Builder.CreateCall(F, Ops);
+}
+
+Value *CodeGenFunction::EmitZ80BuiltinExpr(unsigned BuiltinID,
+                                           const CallExpr *E) {
+  switch (BuiltinID) {
+  case Z80::BI__builtin_bitreverse24:
+    return emitUnaryBuiltin(*this, E, Intrinsic::bitreverse);
+  default:
+    return nullptr;
+  }
 }

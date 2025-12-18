@@ -116,6 +116,10 @@ public:
 
   void convertToMem(int64_t Offset) { Data = Offset; }
 
+  void setLocInfo(LocInfo NewHTP) {
+    HTP = NewHTP;
+  }
+
   unsigned getValNo() const { return ValNo; }
   MVT getValVT() const { return ValVT; }
 

@@ -1292,7 +1292,7 @@ bool AMDGPUCallLowering::lowerTailCall(
   if (MIB->getOperand(0).isReg()) {
     MIB->getOperand(0).setReg(constrainOperandRegClass(
         MF, *TRI, MRI, *ST.getInstrInfo(), *ST.getRegBankInfo(), *MIB,
-        MIB->getDesc(), MIB->getOperand(0), 0));
+        MIB->getOperand(0), 0));
   }
 
   MF.getFrameInfo().setHasTailCall();
@@ -1400,12 +1400,9 @@ bool AMDGPUCallLowering::lowerCall(MachineIRBuilder &MIRBuilder,
 
   // FIXME: We should define regbankselectable call instructions to handle
   // divergent call targets.
-  if (MIB->getOperand(1).isReg()) {
-    MIB->getOperand(1).setReg(constrainOperandRegClass(
-        MF, *TRI, MRI, *ST.getInstrInfo(),
-        *ST.getRegBankInfo(), *MIB, MIB->getDesc(), MIB->getOperand(1),
-        1));
-  }
+  if (MIB->getOperand(1).isReg())
+    constrainOperandRegClass(MF, *TRI, MRI, *ST.getInstrInfo(),
+                             *ST.getRegBankInfo(), *MIB, MIB->getOperand(1), 1);
 
   // Now we can add the actual call instruction to the correct position.
   MIRBuilder.insertInstr(MIB);

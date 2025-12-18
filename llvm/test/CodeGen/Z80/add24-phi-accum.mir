@@ -1,0 +1,20 @@
+; RUN: llc -mtriple=ez80 -stop-after=instruction-select < %s | FileCheck %s --check-prefix=ISEL
+
+define void @phi_add_accum(i24 %a, i24 %b) {
+entry:
+  br label %loop
+
+loop:
+  %x = phi i24 [ %a, %entry ], [ %x.next, %loop ]
+  %sum = add i24 %b, %x
+  %x.next = add i24 %x, %sum
+  %done = icmp eq i24 %x.next, 0
+  br i1 %done, label %exit, label %loop
+
+exit:
+  ret void
+}
+
+; ISEL-LABEL: name: phi_add_accum
+; ISEL:      [[PHI:%[0-9]+]]:a24 = PHI
+; ISEL:      ADD24_gisel [[PHI]],

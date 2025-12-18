@@ -146,7 +146,8 @@ public:
   DWARFExpression(DataExtractor Data, uint8_t AddressSize,
                   std::optional<dwarf::DwarfFormat> Format = std::nullopt)
       : Data(Data), AddressSize(AddressSize), Format(Format) {
-    assert(AddressSize == 8 || AddressSize == 4 || AddressSize == 2);
+    assert(AddressSize == 8 || AddressSize == 4 || AddressSize == 3 ||
+           AddressSize == 2);
   }
 
   iterator begin() const { return iterator(this, 0); }

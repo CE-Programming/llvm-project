@@ -825,6 +825,8 @@ public:
   static Align getGVAlignment(const GlobalObject *GV, const DataLayout &DL,
                               Align InAlign = Align(1));
 
+  virtual void emitGlobalAlias(Module &M, const GlobalAlias &GA);
+
 private:
   /// Private state for PrintSpecial()
   // Assign a unique ID to this machine instruction.
@@ -869,7 +871,6 @@ private:
   virtual void emitModuleCommandLines(Module &M);
 
   GCMetadataPrinter *getOrCreateGCPrinter(GCStrategy &S);
-  void emitGlobalAlias(Module &M, const GlobalAlias &GA);
   void emitGlobalIFunc(Module &M, const GlobalIFunc &GI);
 
   /// This method decides whether the specified basic block requires a label.

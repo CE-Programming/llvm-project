@@ -168,6 +168,15 @@ void MachineOperand::ChangeToImmediate(int64_t ImmVal, unsigned TargetFlags) {
   setTargetFlags(TargetFlags);
 }
 
+void MachineOperand::ChangeToCImmediate(const ConstantInt *CI) {
+  assert((!isReg() || !isTied()) && "Cannot change a tied operand into an imm");
+
+  removeRegFromUses();
+
+  OpKind = MO_CImmediate;
+  Contents.CI = CI;
+}
+
 void MachineOperand::ChangeToFPImmediate(const ConstantFP *FPImm,
                                          unsigned TargetFlags) {
   assert((!isReg() || !isTied()) && "Cannot change a tied operand into an imm");

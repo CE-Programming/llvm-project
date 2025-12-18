@@ -15,15 +15,29 @@
 #define LLVM_CODEGEN_GLOBALISEL_INLINEASMLOWERING_H
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/CodeGen/TargetLowering.h"
 #include <functional>
 
 namespace llvm {
 class CallBase;
 class MachineIRBuilder;
+class MachineInstrBuilder;
 class MachineOperand;
 class Register;
 class TargetLowering;
 class Value;
+
+/// GISelAsmOperandInfo - This contains information for each constraint that we
+/// are lowering.
+class GISelAsmOperandInfo : public TargetLowering::AsmOperandInfo {
+public:
+  /// Regs - If this is a register or register class operand, this
+  /// contains the set of assigned registers corresponding to the operand.
+  SmallVector<Register, 1> Regs;
+
+  explicit GISelAsmOperandInfo(const TargetLowering::AsmOperandInfo &Info)
+      : TargetLowering::AsmOperandInfo(Info) {}
+};
 
 class InlineAsmLowering {
   const TargetLowering *TLI;
@@ -39,14 +53,22 @@ public:
                       std::function<ArrayRef<Register>(const Value &Val)>
                           GetOrCreateVRegs) const;
 
-  /// Lower the specified operand into the Ops vector.
-  /// \p Val is the IR input value to be lowered
-  /// \p Constraint is the user supplied constraint string
+  /// Lower the specified input operand into the Ops vector.
+  /// \p OpInfo is information about the operand being lowered
   /// \p Ops is the vector to be filled with the lowered operands
   /// \return True if the lowering succeeds, false otherwise.
-  virtual bool lowerAsmOperandForConstraint(Value *Val, StringRef Constraint,
-                                            std::vector<MachineOperand> &Ops,
-                                            MachineIRBuilder &MIRBuilder) const;
+  virtual bool lowerInputAsmOperandForConstraint(
+      GISelAsmOperandInfo &OpInfo, MachineInstrBuilder &Inst,
+      MachineIRBuilder &MIRBuilder) const;
+
+  /// Lower the specified output operand into the Ops vector.
+  /// \p OpInfo is information about the operand being lowered
+  /// \p Ops is the vector to be filled with the lowered operands
+  /// \p ResRegs is the result registers, drop the ones that are used
+  /// \return True if the lowering succeeds, false otherwise.
+  virtual bool lowerOutputAsmOperandForConstraint(
+      GISelAsmOperandInfo &OpInfo, MachineInstrBuilder &Inst,
+      MachineIRBuilder &MIRBuilder, ArrayRef<Register> &ResRegs) const;
 
 protected:
   /// Getter for generic TargetLowering class.

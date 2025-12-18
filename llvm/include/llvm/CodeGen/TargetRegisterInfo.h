@@ -282,7 +282,7 @@ public:
 
   /// Return the size in bytes of the stack slot allocated to hold a spilled
   /// copy of a register from class RC.
-  unsigned getSpillSize(const TargetRegisterClass &RC) const {
+  virtual unsigned getSpillSize(const TargetRegisterClass &RC) const {
     return getRegClassInfo(RC).SpillSize / 8;
   }
 
@@ -803,6 +803,12 @@ public:
   virtual const TargetRegisterClass *
   getPointerRegClass(const MachineFunction &MF, unsigned Kind=0) const {
     llvm_unreachable("Target didn't implement getPointerRegClass!");
+  }
+
+  virtual const TargetRegisterClass *
+  getPointerRegClassForConstraint(const MachineFunction &MF,
+                                  unsigned Constraint) const {
+    return getPointerRegClass(MF);
   }
 
   /// Returns a legal register class to copy a register in the specified class
