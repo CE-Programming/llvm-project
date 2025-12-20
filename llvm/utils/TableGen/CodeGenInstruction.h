@@ -311,6 +311,9 @@ namespace llvm {
     MVT::SimpleValueType
       HasOneImplicitDefWithKnownVT(const CodeGenTarget &TargetInfo) const;
 
+    /// HasImplicitDef - If the instruction has the passed register as an
+    /// implicit def.
+    bool HasImplicitDef(Record *Reg) const;
 
     /// FlattenAsmStringVariants - Flatten the specified AsmString to only
     /// include text from the specified variant, returning the new string.

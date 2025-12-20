@@ -121,6 +121,11 @@ public:
     return true;
   }
 
+  /// Updates liveness when stepping forwards over the instruction \p MI.
+  /// This removes the units killed in \p MI and then adds all live units
+  /// defined in \p MI.
+  void stepForward(const MachineInstr &MI);
+
   /// Updates liveness when stepping backwards over the instruction \p MI.
   /// This removes all register units defined or clobbered in \p MI and then
   /// adds the units used (as in use operands) in \p MI.

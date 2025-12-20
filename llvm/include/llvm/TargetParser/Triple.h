@@ -106,7 +106,9 @@ public:
     renderscript32, // 32-bit RenderScript
     renderscript64, // 64-bit RenderScript
     ve,             // NEC SX-Aurora Vector Engine
-    LastArchType = ve
+    z80,            // Z80
+    ez80,           // eZ80
+    LastArchType = ez80
   };
   enum SubArchType {
     NoSubArch,
@@ -454,6 +456,11 @@ public:
   ///
   /// Note that this tests for 32-bit pointer width, and nothing else.
   bool isArch32Bit() const;
+
+  /// Test whether the architecture is 24-bit
+  ///
+  /// Note that this tests for 24-bit pointer width, and nothing else.
+  bool isArch24Bit() const;
 
   /// Test whether the architecture is 16-bit
   ///
@@ -982,10 +989,15 @@ public:
     return getArch() == Triple::bpfel || getArch() == Triple::bpfeb;
   }
 
+  /// Tests whether the target is (e)z80.
+  bool isZ80() const {
+    return getArch() == Triple::z80 || getArch() == Triple::ez80;
+  }
+
   /// Tests whether the target supports comdat
   bool supportsCOMDAT() const {
     return !(isOSBinFormatMachO() || isOSBinFormatXCOFF() ||
-             isOSBinFormatDXContainer());
+             isOSBinFormatDXContainer() || isZ80());
   }
 
   /// Tests whether the target uses emulated TLS as default.

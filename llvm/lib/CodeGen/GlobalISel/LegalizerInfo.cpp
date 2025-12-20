@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/GlobalISel/LegalizerInfo.h"
+#include "llvm/CodeGen/GlobalISel/LegalizerHelper.h"
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/CodeGen/LowLevelType.h"
 #include "llvm/CodeGen/MachineInstr.h"
@@ -366,6 +367,15 @@ bool LegalizerInfo::isLegalOrCustom(const MachineInstr &MI,
   // If the action is custom, it may not necessarily modify the instruction,
   // so we have to assume it's legal.
   return Action == Legal || Action == Custom;
+}
+
+// Z80-FORK: Default implementation for legalizeCustomMaybeLegal
+LegalizerHelper::LegalizeResult
+LegalizerInfo::legalizeCustomMaybeLegal(LegalizerHelper &Helper,
+                                        MachineInstr &MI,
+                                        LostDebugLocObserver &LocObserver) const {
+  return legalizeCustom(Helper, MI) ? LegalizerHelper::Legalized
+                                    : LegalizerHelper::UnableToLegalize;
 }
 
 unsigned LegalizerInfo::getExtOpcodeForWideningConstant(LLT SmallTy) const {

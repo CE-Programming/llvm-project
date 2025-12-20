@@ -69,6 +69,9 @@ AVRTargetLowering::AVRTargetLowering(const AVRTargetMachine &TM,
   setTruncStoreAction(MVT::i16, MVT::i8, Expand);
 
   for (MVT VT : MVT::integer_valuetypes()) {
+    if (!VT.isPow2Size())
+      continue;
+
     setOperationAction(ISD::ADDC, VT, Legal);
     setOperationAction(ISD::SUBC, VT, Legal);
     setOperationAction(ISD::ADDE, VT, Legal);

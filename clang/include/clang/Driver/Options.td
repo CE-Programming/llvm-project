@@ -190,6 +190,8 @@ def m_wasm_Features_Driver_Group : OptionGroup<"<wasm driver features group>">,
                                    Group<m_Group>, DocName<"WebAssembly Driver">;
 def m_x86_Features_Group : OptionGroup<"<x86 features group>">,
                            Group<m_Group>, Flags<[CoreOption]>, DocName<"X86">;
+def m_z80_Features_Group : OptionGroup<"<z80 features group>">,
+                           Group<m_Group>, Flags<[CoreOption]>, DocName<"Z80">;
 def m_riscv_Features_Group : OptionGroup<"<riscv features group>">,
                              Group<m_Group>, DocName<"RISC-V">;
 
@@ -6671,6 +6673,16 @@ def fexperimental_max_bitint_width_EQ:
   MetaVarName<"<N>">,
   HelpText<"Set the maximum bitwidth for _BitInt (this option is expected to be removed in the future)">,
   MarshallingInfoInt<LangOpts<"MaxBitIntWidth">>;
+
+// Z80/eZ80 Target Options
+
+def fforce_mangle_main_argc_argv : Flag<["-"], "fforce-mangle-main-argc-argv">,
+  HelpText<"Force main to be mangled as __main_argc_argv if it has arguments.">,
+  MarshallingInfoFlag<TargetOpts<"ForceMangleMainArgcArgv">>;
+
+def test_ez80_hack : Flag<["-"], "test-ez80-hack">,
+  HelpText<"Enable hack for testing ez80 code generation.">,
+  MarshallingInfoFlag<TargetOpts<"TestEZ80Hack">>;
 
 } // let Flags = [CC1Option, NoDriverOption]
 
