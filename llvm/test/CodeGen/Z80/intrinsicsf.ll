@@ -4722,16 +4722,15 @@ define double @fmuladd.f64(double, double, double) {
 ; EZ80-NEXT:    push ix
 ; EZ80-NEXT:    ld ix, 0
 ; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld iy, (ix + 6)
-; EZ80-NEXT:    ld bc, (ix + 15)
+; EZ80-NEXT:    ld bc, (ix + 12)
+; EZ80-NEXT:    ld iy, (ix + 15)
 ; EZ80-NEXT:    ld de, (ix + 18)
 ; EZ80-NEXT:    ld hl, (ix + 21)
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    push de
-; EZ80-NEXT:    push bc
-; EZ80-NEXT:    lea hl, iy
+; EZ80-NEXT:    push iy
+; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    ld de, (ix + 9)
-; EZ80-NEXT:    ld bc, (ix + 12)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __dmul
 ; EZ80-NEXT:    ld iy, 9

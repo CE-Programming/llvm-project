@@ -142,6 +142,8 @@ def A16 : Z80RC16<(add HL, I16)> {
   let AllocationPriority = 16;
   let GlobalPriority = true;
 }
+def HL16 : Z80RC16<(add HL)>;
+def HL24 : Z80RC24<(add UHL)>;
 def R16 : Z80RC16<(add G16, I16)>;
 let CopyCost = -1 in
 def Z16 : Z80RC16<(add SPS, AF, UI)>;

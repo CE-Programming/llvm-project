@@ -11,7 +11,7 @@ define i24 @shl.i24(i24, i24) {
 ; EZ80-NEXT:    ; kill: def $c killed $c killed $ubc
 ; EZ80-NEXT:    call __ishl
 ; EZ80-NEXT:    ret
-  shl i24 %0, %1
+  %3 = shl i24 %0, %1
   ret i24 %3
 }
 define i24 @lshr.i24(i24, i24) {
@@ -24,7 +24,7 @@ define i24 @lshr.i24(i24, i24) {
 ; EZ80-NEXT:    ; kill: def $c killed $c killed $ubc
 ; EZ80-NEXT:    call __ishru
 ; EZ80-NEXT:    ret
-  lshr i24 %0, %1
+  %3 = lshr i24 %0, %1
   ret i24 %3
 }
 define i24 @ashr.i24(i24, i24) {
@@ -37,7 +37,7 @@ define i24 @ashr.i24(i24, i24) {
 ; EZ80-NEXT:    ; kill: def $c killed $c killed $ubc
 ; EZ80-NEXT:    call __ishrs
 ; EZ80-NEXT:    ret
-  ashr i24 %0, %1
+  %3 = ashr i24 %0, %1
   ret i24 %3
 }
 define i24 @and.i24(i24, i24) {
@@ -49,7 +49,7 @@ define i24 @and.i24(i24, i24) {
 ; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    call __iand
 ; EZ80-NEXT:    ret
-  and i24 %0, %1
+  %3 = and i24 %0, %1
   ret i24 %3
 }
 define i24 @or.i24(i24, i24) {
@@ -61,7 +61,7 @@ define i24 @or.i24(i24, i24) {
 ; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    call __ior
 ; EZ80-NEXT:    ret
-  or i24 %0, %1
+  %3 = or i24 %0, %1
   ret i24 %3
 }
 define i24 @xor.i24(i24, i24) {
@@ -73,7 +73,7 @@ define i24 @xor.i24(i24, i24) {
 ; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    call __ixor
 ; EZ80-NEXT:    ret
-  xor i24 %0, %1
+  %3 = xor i24 %0, %1
   ret i24 %3
 }
 define i24 @add.i24(i24, i24) {
@@ -85,7 +85,7 @@ define i24 @add.i24(i24, i24) {
 ; EZ80-NEXT:    ld de, (iy + 6)
 ; EZ80-NEXT:    add hl, de
 ; EZ80-NEXT:    ret
-  add i24 %0, %1
+  %3 = add i24 %0, %1
   ret i24 %3
 }
 define i24 @sub.i24(i24, i24) {
@@ -95,13 +95,9 @@ define i24 @sub.i24(i24, i24) {
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
 ; EZ80-NEXT:    ld de, (iy + 6)
-; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop iy
-; EZ80-NEXT:    lea hl, iy
 ; EZ80-NEXT:    ret
-  sub i24 %0, %1
+  %3 = sub i24 %0, %1
   ret i24 %3
 }
 define i24 @mul.i24(i24, i24) {
@@ -113,7 +109,7 @@ define i24 @mul.i24(i24, i24) {
 ; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    call __imulu
 ; EZ80-NEXT:    ret
-  mul i24 %0, %1
+  %3 = mul i24 %0, %1
   ret i24 %3
 }
 define i24 @udiv.i24(i24, i24) {
@@ -125,7 +121,7 @@ define i24 @udiv.i24(i24, i24) {
 ; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    call __idivu
 ; EZ80-NEXT:    ret
-  udiv i24 %0, %1
+  %3 = udiv i24 %0, %1
   ret i24 %3
 }
 define i24 @sdiv.i24(i24, i24) {
@@ -137,7 +133,7 @@ define i24 @sdiv.i24(i24, i24) {
 ; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    call __idivs
 ; EZ80-NEXT:    ret
-  sdiv i24 %0, %1
+  %3 = sdiv i24 %0, %1
   ret i24 %3
 }
 define i24 @urem.i24(i24, i24) {
@@ -149,7 +145,7 @@ define i24 @urem.i24(i24, i24) {
 ; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    call __iremu
 ; EZ80-NEXT:    ret
-  urem i24 %0, %1
+  %3 = urem i24 %0, %1
   ret i24 %3
 }
 define i24 @srem.i24(i24, i24) {
@@ -161,6 +157,6 @@ define i24 @srem.i24(i24, i24) {
 ; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    call __irems
 ; EZ80-NEXT:    ret
-  srem i24 %0, %1
+  %3 = srem i24 %0, %1
   ret i24 %3
 }

@@ -1992,119 +1992,69 @@ bool Z80InstructionSelector::selectAddSub(MachineInstr &I,
   bool Is24Bit = (TySize == 24);
   bool IsSub = (Opc == TargetOpcode::G_SUB);
 
+  MachineIRBuilder MIB(I);
+
   // INC/DEC optimization: For ±1, use INC/DEC which accept R16/R24 class
   // (any register) instead of requiring the accumulator class.
   auto ConstSrc2 = getIConstantVRegValWithLookThrough(Src2Reg, MRI);
   if (ConstSrc2) {
     bool UseInc = false;
     bool UseDec = false;
-    
     if (IsSub) {
-      if (ConstSrc2->Value.isOne())
-        UseDec = true;
-      else if (ConstSrc2->Value.isAllOnes())
-        UseInc = true;
+      if (ConstSrc2->Value.isOne()) UseDec = true;
+      else if (ConstSrc2->Value.isAllOnes()) UseInc = true;
     } else {
-      if (ConstSrc2->Value.isOne())
-        UseInc = true;
-      else if (ConstSrc2->Value.isAllOnes())
-        UseDec = true;
+      if (ConstSrc2->Value.isOne()) UseInc = true;
+      else if (ConstSrc2->Value.isAllOnes()) UseDec = true;
     }
     
     if (UseInc || UseDec) {
-      unsigned IncDecOpc;
-      const TargetRegisterClass *RC;
-      if (Is24Bit) {
-        IncDecOpc = UseInc ? Z80::INC24r : Z80::DEC24r;
-        RC = &Z80::R24RegClass;
-      } else {
-        IncDecOpc = UseInc ? Z80::INC16r : Z80::DEC16r;
-        RC = &Z80::R16RegClass;
-      }
-      
-      MachineIRBuilder MIB(I);
+      unsigned IncDecOpc = Is24Bit ? (UseInc ? Z80::INC24r : Z80::DEC24r)
+                                   : (UseInc ? Z80::INC16r : Z80::DEC16r);
+      const TargetRegisterClass *RC = Is24Bit ? &Z80::R24RegClass : &Z80::R16RegClass;
       auto IncDecI = MIB.buildInstr(IncDecOpc, {DstReg}, {Src1Reg});
-      if (!RBI.constrainGenericRegister(DstReg, *RC, MRI))
-        return false;
-      if (!RBI.constrainGenericRegister(Src1Reg, *RC, MRI))
+      if (!RBI.constrainGenericRegister(DstReg, *RC, MRI) ||
+          !RBI.constrainGenericRegister(Src1Reg, *RC, MRI) ||
+          !constrainSelectedInstRegOperands(*IncDecI, TII, TRI, RBI))
         return false;
       I.eraseFromParent();
-      return constrainSelectedInstRegOperands(*IncDecI, TII, TRI, RBI);
+      return true;
     }
   }
   
-  // Determine physical accumulator register and operand register class
-  Register PhysAccum = Is24Bit ? Z80::UHL : Z80::HL;
+  // Determine accumulator and operand register classes
   const TargetRegisterClass *AccumRC = Is24Bit ? &Z80::A24RegClass : &Z80::A16RegClass;
   const TargetRegisterClass *OperandRC = Is24Bit ? &Z80::O24RegClass : &Z80::O16RegClass;
   
-  MachineBasicBlock &MBB = *I.getParent();
-  const DebugLoc &DL = I.getDebugLoc();
-  MachineIRBuilder MIB(I);
-
-  // Handle Src1: We want to avoid constraining Src1 to AccumRC (HL) directly,
-  // as this propagates back to loads and forces them to target HL, increasing
-  // register pressure.
-  //
-  // Strategy: Try to constrain Src1 to OperandRC (BC/DE) first. If successful,
-  // we create a COPY to a new vreg in AccumRC for the operation. If it fails
-  // (e.g., Src1 is already in a class that doesn't intersect OperandRC),
-  // fall back to constraining to AccumRC directly.
-  Register ActualSrc1;
-  if (RBI.constrainGenericRegister(Src1Reg, *OperandRC, MRI)) {
-    // Src1 constrained to OperandRC (BC/DE) - need COPY to HL for operation
-    ActualSrc1 = MRI.createVirtualRegister(AccumRC);
-    MIB.buildCopy(ActualSrc1, Src1Reg);
-  } else if (RBI.constrainGenericRegister(Src1Reg, *AccumRC, MRI)) {
-    // Src1 already compatible with AccumRC (HL) - use directly
-    ActualSrc1 = Src1Reg;
-  } else {
-    // Neither worked - create COPY to AccumRC
-    ActualSrc1 = MRI.createVirtualRegister(AccumRC);
-    MIB.buildCopy(ActualSrc1, Src1Reg);
-  }
-  
-  // Handle Src2: needs to be in OperandRC (O16/O24)
   Register ActualSrc2 = Src2Reg;
   if (!RBI.constrainGenericRegister(Src2Reg, *OperandRC, MRI)) {
     ActualSrc2 = MRI.createVirtualRegister(OperandRC);
     MIB.buildCopy(ActualSrc2, Src2Reg);
   }
-  
-  // Handle Dst: needs to be in AccumRC (A16/A24)
-  Register ActualDst = DstReg;
-  bool NeedDstCopy = !RBI.constrainGenericRegister(DstReg, *AccumRC, MRI);
-  if (NeedDstCopy) {
-    ActualDst = MRI.createVirtualRegister(AccumRC);
-  }
-  
-  // Step 1: COPY Src1 -> physical accumulator (HL/UHL)
-  BuildMI(MBB, I, DL, TII.get(TargetOpcode::COPY), PhysAccum)
-      .addReg(ActualSrc1);
-  
-  // Step 2: Emit the arithmetic instruction
-  if (IsSub) {
-    // Use Sub16ao/Sub24ao pseudo which encapsulates carry-clearing internally.
-    // This gives the register allocator better liveness information vs
-    // explicit SCF+CCF+SBC sequence which was creating extra spill slots.
-    unsigned SubOpc = Is24Bit ? Z80::Sub24ao : Z80::Sub16ao;
-    BuildMI(MBB, I, DL, TII.get(SubOpc))
-        .addReg(ActualSrc2);
-  } else {
-    // ADD16ao/ADD24ao: dst = src1 + src2
-    unsigned AddOpc = Is24Bit ? Z80::ADD24ao : Z80::ADD16ao;
-    BuildMI(MBB, I, DL, TII.get(AddOpc), PhysAccum)
-        .addReg(PhysAccum)
-        .addReg(ActualSrc2);
-  }
-  
-  // Step 3: COPY physical accumulator -> ActualDst
-  BuildMI(MBB, I, DL, TII.get(TargetOpcode::COPY), ActualDst)
-      .addReg(PhysAccum);
 
-  // Step 4: If we couldn't constrain DstReg directly, COPY ActualDst -> DstReg
-  if (NeedDstCopy) {
-    MIB.buildCopy(DstReg, ActualDst);
+  if (IsSub) {
+    // for subtraction, we MUST use HL/UHL accumulator
+    Register PhysAccum = Is24Bit ? Z80::UHL : Z80::HL;
+    // HL/UHL = COPY Src1
+    MIB.buildCopy(PhysAccum, Src1Reg);
+    // Sub Pseudo (implicit use/def HL/UHL)
+    auto SubI = MIB.buildInstr(Is24Bit ? Z80::Sub24ao : Z80::Sub16ao).addReg(ActualSrc2);
+    if (!constrainSelectedInstRegOperands(*SubI, TII, TRI, RBI))
+      return false;
+    // Dst = COPY HL/UHL
+    // the destination can be any register in the general class
+    const TargetRegisterClass *RegRC = Is24Bit ? &Z80::R24RegClass : &Z80::R16RegClass;
+    MIB.buildCopy(DstReg, PhysAccum);
+    if (!RBI.constrainGenericRegister(DstReg, *RegRC, MRI))
+      return false;
+  } else {
+    // for addition, use virtual registers in A16/A24 to allow RA to pick IX/IY
+    Register ActualSrc1 = MRI.createVirtualRegister(AccumRC);
+    MIB.buildCopy(ActualSrc1, Src1Reg);
+    unsigned AddOpc = Is24Bit ? Z80::ADD24ao : Z80::ADD16ao;
+    auto AddI = MIB.buildInstr(AddOpc, {DstReg}, {ActualSrc1, ActualSrc2});
+    if (!constrainSelectedInstRegOperands(*AddI, TII, TRI, RBI))
+      return false;
   }
   
   I.eraseFromParent();

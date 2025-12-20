@@ -1312,6 +1312,7 @@ define i16 @add.i16(i16, i16) {
 ; EZ80-NEXT:    ld hl, (iy + 3)
 ; EZ80-NEXT:    ld de, (iy + 6)
 ; EZ80-NEXT:    add.sis hl, de
+; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
 ; EZ80-NEXT:    ret
   add i16 %0, %1
   ret i16 %3
@@ -1575,14 +1576,7 @@ define i16 @sub.i16(i16, i16) {
 ; Z80-NEXT:    ld h, (iy + 3)
 ; Z80-NEXT:    ld e, (iy + 4)
 ; Z80-NEXT:    ld d, (iy + 5)
-; Z80-NEXT:    or a, a
 ; Z80-NEXT:    sbc hl, de
-; Z80-NEXT:    ex de, hl
-; Z80-NEXT:    ld iyl, e
-; Z80-NEXT:    ld iyh, d
-; Z80-NEXT:    ld e, iyl
-; Z80-NEXT:    ld d, iyh
-; Z80-NEXT:    ex de, hl
 ; Z80-NEXT:    ret
 ;
 ; EZ80-CODE16-LABEL: sub.i16:
@@ -1591,13 +1585,7 @@ define i16 @sub.i16(i16, i16) {
 ; EZ80-CODE16-NEXT:    add iy, sp
 ; EZ80-CODE16-NEXT:    ld hl, (iy + 2)
 ; EZ80-CODE16-NEXT:    ld de, (iy + 4)
-; EZ80-CODE16-NEXT:    or a, a
 ; EZ80-CODE16-NEXT:    sbc hl, de
-; EZ80-CODE16-NEXT:    ex de, hl
-; EZ80-CODE16-NEXT:    ld iyl, e
-; EZ80-CODE16-NEXT:    ld iyh, d
-; EZ80-CODE16-NEXT:    ex de, hl
-; EZ80-CODE16-NEXT:    lea hl, iy
 ; EZ80-CODE16-NEXT:    ret
 ;
 ; EZ80-LABEL: sub.i16:
@@ -1606,14 +1594,8 @@ define i16 @sub.i16(i16, i16) {
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
 ; EZ80-NEXT:    ld de, (iy + 6)
-; EZ80-NEXT:    or a, a
+; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
 ; EZ80-NEXT:    sbc.sis hl, de
-; EZ80-NEXT:    ex de, hl
-; EZ80-NEXT:    ld iyl, e
-; EZ80-NEXT:    ld iyh, d
-; EZ80-NEXT:    ld e, iyl
-; EZ80-NEXT:    ld d, iyh
-; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ret
   sub i16 %0, %1
   ret i16 %3
