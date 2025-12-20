@@ -1198,7 +1198,7 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   const TargetRegisterInfo &TRI = getRegisterInfo();
   bool Is24Bit = Subtarget.is24Bit();
   bool UseLEA = Is24Bit && !MF.getFunction().hasOptSize();
-  LLVM_DEBUG(dbgs() << "\nZ80InstrInfo::expandPostRAPseudo:"; MI.dump());
+
   switch (unsigned Opc = MI.getOpcode()) {
   default:
     return false;
@@ -1287,7 +1287,10 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   }
   case Z80::Sub16ao:
   case Z80::Sub24ao:
-    expandPostRAPseudo(*BuildMI(MBB, MI, DL, get(Z80::RCF)));
+    // directly emit OR A, A to clear carry flag
+    BuildMI(MBB, MI, DL, get(Z80::OR8ar)).addReg(Z80::A, RegState::Undef)
+        .addReg(Z80::A, RegState::ImplicitDefine);
+
     MI.setDesc(get(Opc == Z80::Cmp24ao || Opc == Z80::Sub24ao ? Z80::SBC24ao
                                                               : Z80::SBC16ao));
     MIB.addReg(Z80::F, RegState::Implicit);

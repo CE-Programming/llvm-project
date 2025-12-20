@@ -46,7 +46,26 @@ Z80RegisterBankInfo::getRegBankFromRegClass(const TargetRegisterClass &RC,
   if (Z80::R8RegClass.hasSubClassEq(&RC) ||
       Z80::R16RegClass.hasSubClassEq(&RC) ||
       Z80::R24RegClass.hasSubClassEq(&RC) ||
+      Z80::G8RegClass.hasSubClassEq(&RC) ||
+      Z80::G16RegClass.hasSubClassEq(&RC) ||
+      Z80::G24RegClass.hasSubClassEq(&RC) ||
+      Z80::O8RegClass.hasSubClassEq(&RC) ||
+      Z80::O16RegClass.hasSubClassEq(&RC) ||
+      Z80::O24RegClass.hasSubClassEq(&RC) ||
+      Z80::A16RegClass.hasSubClassEq(&RC) ||
+      Z80::A24RegClass.hasSubClassEq(&RC) ||
+      Z80::I8RegClass.hasSubClassEq(&RC) ||
+      Z80::I16RegClass.hasSubClassEq(&RC) ||
+      Z80::I24RegClass.hasSubClassEq(&RC) ||
+      Z80::X8RegClass.hasSubClassEq(&RC) ||
+      Z80::X16RegClass.hasSubClassEq(&RC) ||
+      Z80::X24RegClass.hasSubClassEq(&RC) ||
+      Z80::Y8RegClass.hasSubClassEq(&RC) ||
+      Z80::Y16RegClass.hasSubClassEq(&RC) ||
+      Z80::Y24RegClass.hasSubClassEq(&RC) ||
       Z80::F8RegClass.hasSubClassEq(&RC) ||
+      Z80::HL16RegClass.hasSubClassEq(&RC) ||
+      Z80::HL24RegClass.hasSubClassEq(&RC) ||
       Z80::Z8RegClass.hasSubClassEq(&RC) ||
       Z80::Z16RegClass.hasSubClassEq(&RC) ||
       Z80::Z24RegClass.hasSubClassEq(&RC))

@@ -386,23 +386,23 @@ define i8 @switch(i8) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld a, (iy + 3)
-; EZ80-NEXT:    ld c, 0
-; EZ80-NEXT:    ld de, 0
+; EZ80-NEXT:    ld e, 0
+; EZ80-NEXT:    ld bc, 0
 ; EZ80-NEXT:    cp a, 4
 ; EZ80-NEXT:    jr c, BB11_2
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld a, -1
 ; EZ80-NEXT:    ret
 ; EZ80-NEXT:  BB11_2:
-; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld c, a
 ; EZ80-NEXT:    ld hl, JTI11_0
-; EZ80-NEXT:    add hl, de
-; EZ80-NEXT:    add hl, de
-; EZ80-NEXT:    add hl, de
+; EZ80-NEXT:    add hl, bc
+; EZ80-NEXT:    add hl, bc
+; EZ80-NEXT:    add hl, bc
 ; EZ80-NEXT:    ld hl, (hl)
 ; EZ80-NEXT:    jp (hl)
 ; EZ80-NEXT:  BB11_3:
-; EZ80-NEXT:    ld a, c
+; EZ80-NEXT:    ld a, e
 ; EZ80-NEXT:    ret
 ; EZ80-NEXT:  BB11_4:
 ; EZ80-NEXT:    ld a, 2
