@@ -37,10 +37,7 @@ Z80RegisterInfo::Z80RegisterInfo(const Triple &TT)
 }
 
 unsigned Z80RegisterInfo::getSpillSize(const TargetRegisterClass &RC) const {
-  unsigned SpillSize = TargetRegisterInfo::getSpillSize(RC);
-  if (Is24Bit && SpillSize == 2)
-    SpillSize = 3;
-  return SpillSize;
+  return TargetRegisterInfo::getSpillSize(RC);
 }
 
 const TargetRegisterClass *

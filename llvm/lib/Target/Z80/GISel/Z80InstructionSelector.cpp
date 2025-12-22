@@ -491,49 +491,128 @@ bool Z80InstructionSelector::selectSExt(MachineInstr &I,
   LLT DstTy = MRI.getType(DstReg);
   LLT SrcTy = MRI.getType(SrcReg);
 
-  if (SrcTy != LLT::scalar(1))
+  // handle s1 -> sN sign extension (boolean to integer), result is 0 or -1
+  if (SrcTy == LLT::scalar(1)) {
+    if (MRI.hasOneUse(SrcReg) &&
+        selectSetCond(I.getOpcode(), DstReg, SrcReg, I, MRI))
+      return true;
+
+    unsigned FillOpc;
+    Register FillReg;
+    const TargetRegisterClass *FillRC;
+    switch (DstTy.getSizeInBits()) {
+    case 8:
+      FillOpc = Z80::SBC8ar;
+      FillReg = Z80::A;
+      FillRC = &Z80::R8RegClass;
+      break;
+    case 16:
+      FillOpc = Z80::SBC16aa;
+      FillReg = Z80::HL;
+      FillRC = &Z80::R16RegClass;
+      break;
+    case 24:
+      FillOpc = Z80::SBC24aa;
+      FillReg = Z80::UHL;
+      FillRC = &Z80::R24RegClass;
+      break;
+    default:
+      return false;
+    }
+
+    MachineIRBuilder MIB(I);
+    auto Rotate = MIB.buildInstr(Z80::RRC8g, {LLT::scalar(8)}, {SrcReg});
+    if (!constrainSelectedInstRegOperands(*Rotate, TII, TRI, RBI))
+      return false;
+    auto Fill = MIB.buildInstr(FillOpc);
+    Fill->findRegisterUseOperand(FillReg)->setIsUndef();
+    if (FillOpc == Z80::SBC8ar)
+      Fill.addReg(FillReg, RegState::Undef);
+    if (!constrainSelectedInstRegOperands(*Fill, TII, TRI, RBI))
+      return false;
+    auto CopyFromReg = MIB.buildCopy(DstReg, FillReg);
+    if (!RBI.constrainGenericRegister(CopyFromReg.getReg(0), *FillRC, MRI))
+      return false;
+
+    I.eraseFromParent();
+    return true;
+  }
+
+  // handle non s1 sign extensions s8->s16, s8->s24, s16->s24
+  const unsigned SrcSize = SrcTy.getSizeInBits();
+  const unsigned DstSize = DstTy.getSizeInBits();
+
+  const TargetRegisterClass *SrcRC = getRegClass(SrcReg, MRI);
+  const TargetRegisterClass *DstRC = getRegClass(DstReg, MRI);
+  if (!SrcRC || !DstRC)
     return false;
 
-  if (MRI.hasOneUse(SrcReg) &&
-      selectSetCond(I.getOpcode(), DstReg, SrcReg, I, MRI))
-    return true;
+  if (!RBI.constrainGenericRegister(SrcReg, *SrcRC, MRI) ||
+      !RBI.constrainGenericRegister(DstReg, *DstRC, MRI)) {
+    LLVM_DEBUG(dbgs() << "Failed to constrain G_SEXT operand\n");
+    return false;
+  }
 
   unsigned FillOpc;
   Register FillReg;
   const TargetRegisterClass *FillRC;
-  switch (DstTy.getSizeInBits()) {
-  case 8:
-    FillOpc = Z80::SBC8ar;
-    FillReg = Z80::A;
-    FillRC = &Z80::R8RegClass;
-    break;
-  case 16:
+  unsigned InsertSub = Z80::NoSubRegister;
+  if (SrcSize == 8 && DstSize == 16) {
     FillOpc = Z80::SBC16aa;
     FillReg = Z80::HL;
     FillRC = &Z80::R16RegClass;
-    break;
-  case 24:
+    InsertSub = Z80::sub_low;
+  } else if (SrcSize == 8 && DstSize == 24) {
     FillOpc = Z80::SBC24aa;
     FillReg = Z80::UHL;
     FillRC = &Z80::R24RegClass;
-    break;
-  default:
+    InsertSub = Z80::sub_low;
+  } else if (SrcSize == 16 && DstSize == 24) {
+    FillOpc = Z80::SBC24aa;
+    FillReg = Z80::UHL;
+    FillRC = &Z80::R24RegClass;
+    InsertSub = Z80::sub_short;
+  } else {
+    LLVM_DEBUG(dbgs() << "Unsupported G_SEXT: s" << SrcSize << " -> s"
+                      << DstSize << "\n");
     return false;
   }
 
   MachineIRBuilder MIB(I);
-  auto Rotate = MIB.buildInstr(Z80::RRC8g, {LLT::scalar(8)}, {SrcReg});
+
+  // set carry from the source sign bit
+  // - for s8  : bit7 of the value
+  // - for s16 : bit7 of the high byte (bit15 overall)
+  Register SignSrc = SrcReg;
+  if (SrcSize == 16) {
+    auto CopyHigh = MIB.buildCopy(LLT::scalar(8), SrcReg);
+    CopyHigh->getOperand(1).setSubReg(Z80::sub_high);
+    if (!constrainSelectedInstRegOperands(*CopyHigh, TII, TRI, RBI))
+      return false;
+    SignSrc = CopyHigh.getReg(0);
+  } else {
+    auto Copy8 = MIB.buildCopy(LLT::scalar(8), SrcReg);
+    if (!constrainSelectedInstRegOperands(*Copy8, TII, TRI, RBI))
+      return false;
+    SignSrc = Copy8.getReg(0);
+  }
+
+  auto Rotate = MIB.buildInstr(Z80::RLC8g, {LLT::scalar(8)}, {SignSrc});
   if (!constrainSelectedInstRegOperands(*Rotate, TII, TRI, RBI))
     return false;
+
+  // fillReg <- 0 or -1 based on carry
   auto Fill = MIB.buildInstr(FillOpc);
   Fill->findRegisterUseOperand(FillReg)->setIsUndef();
-  if (FillOpc == Z80::SBC8ar)
-    Fill.addReg(FillReg, RegState::Undef);
   if (!constrainSelectedInstRegOperands(*Fill, TII, TRI, RBI))
     return false;
-  auto CopyFromReg = MIB.buildCopy(DstReg, FillReg);
-  if (!RBI.constrainGenericRegister(CopyFromReg.getReg(0), *FillRC, MRI))
+
+  auto CopyMask = MIB.buildCopy(DstTy, FillReg);
+  if (!RBI.constrainGenericRegister(CopyMask.getReg(0), *FillRC, MRI))
     return false;
+
+  MIB.buildInstr(TargetOpcode::INSERT_SUBREG, {DstReg},
+                 {CopyMask.getReg(0), SrcReg, uint64_t(InsertSub)});
 
   I.eraseFromParent();
   return true;
