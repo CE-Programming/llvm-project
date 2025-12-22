@@ -155,7 +155,7 @@ struct CallArgHandler : public Z80OutgoingValueHandler {
     MIRBuilder.setInsertPt(MIRBuilder.getMBB(), StackPushes);
     --StackPushes;
     if (MemTy.getSizeInBits() < SlotTy.getSizeInBits())
-      ValVReg = MIRBuilder.buildAnyExt(SlotTy, ValVReg).getReg(0);
+      ValVReg = extendRegister(ValVReg, VA);
     MachineInstr &PushI = *MIRBuilder.buildInstr(
         STI.is24Bit() ? Z80::PUSH24r : Z80::PUSH16r, {}, {ValVReg});
     constrainOperandRegClass(MIRBuilder.getMF(), *STI.getRegisterInfo(),

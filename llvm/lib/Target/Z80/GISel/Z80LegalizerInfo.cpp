@@ -123,11 +123,25 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .clampScalar(0, *LegalScalars.begin(), *std::prev(LegalScalars.end()))
       .clampScalar(1, *NotMaxWithOne.begin(), *std::prev(NotMaxWithOne.end()));
 
-  getActionDefinitionsBuilder(G_SEXT)
-      .legalForCartesianProduct(LegalScalars, {s1})
-      .maxScalar(0, sMax)
-      .maxScalar(0, s8)
-      .maxScalar(1, s8);
+  // sign extension:
+  // - s1 -> sN is supported (result 0 or -1)
+  // - also allow s8/s16 -> s16/s24 so instruction selection can emit
+  //   proper SBC based sign fill and avoid broken sequences
+  if (Is24Bit) {
+    getActionDefinitionsBuilder(G_SEXT)
+        .legalFor({{s8, s1},
+                   {s16, s1},
+                   {s24, s1},
+                   {s16, s8},
+                   {s24, s8},
+                   {s24, s16}})
+        .customFor({{s32, s1}, {s32, s8}, {s32, s16}, {s32, s24}})
+        .lower();
+  } else {
+    getActionDefinitionsBuilder(G_SEXT)
+        .legalFor({{s8, s1}, {s16, s1}, {s16, s8}})
+        .lower();
+  }
 
   getActionDefinitionsBuilder(G_TRUNC)
       .legalForCartesianProduct(NotMaxWithOne, LegalScalars)
@@ -344,6 +358,8 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeCustomMaybeLegal(
   case G_XOR:
   case G_PTRMASK:
     return legalizeBitwise(Helper, MI, LocObserver);
+  case G_SEXT:
+    return legalizeSExt(Helper, MI, LocObserver);
   case G_EXTRACT:
   case G_INSERT:
     return legalizeExtractInsert(Helper, MI);
@@ -498,6 +514,44 @@ Z80LegalizerInfo::legalizeBitwise(LegalizerHelper &Helper, MachineInstr &MI,
     return Result;
   }
   return Helper.libcall(MI, LocObserver);
+}
+
+LegalizerHelper::LegalizeResult
+Z80LegalizerInfo::legalizeSExt(LegalizerHelper &Helper, MachineInstr &MI,
+                               LostDebugLocObserver &LocObserver) const {
+  assert(MI.getOpcode() == G_SEXT && "Unexpected opcode");
+
+  if (!Subtarget.is24Bit())
+    return LegalizerHelper::UnableToLegalize;
+
+  MachineRegisterInfo &MRI = *Helper.MIRBuilder.getMRI();
+  Register DstReg = MI.getOperand(0).getReg();
+  Register SrcReg = MI.getOperand(1).getReg();
+  LLT DstTy = MRI.getType(DstReg);
+  LLT SrcTy = MRI.getType(SrcReg);
+
+  // TODO:
+  // not sure if we have/can have direct selection patterns for wide sign extends to s32.
+  // use the existing eZ80 i16/i8/i1 -> i24 extensions and then the i24->i32 libcall
+  // _itol
+  if (DstTy != LLT::scalar(32))
+    return LegalizerHelper::UnableToLegalize;
+
+  Register ArgReg = SrcReg;
+  if (SrcTy != LLT::scalar(24)) {
+    ArgReg = MRI.createGenericVirtualRegister(LLT::scalar(24));
+    Helper.MIRBuilder.buildInstr(G_SEXT, {ArgReg}, {SrcReg});
+  }
+
+  LLVMContext &Ctx = Helper.MIRBuilder.getMF().getFunction().getContext();
+  Type *DstIRTy = IntegerType::get(Ctx, 32);
+  Type *ArgIRTy = IntegerType::get(Ctx, 24);
+  auto Result =
+      createLibcall(Helper.MIRBuilder, RTLIB::SEXT_I24_I32, {DstReg, DstIRTy, 0},
+                    {{ArgReg, ArgIRTy, 0}});
+
+  MI.eraseFromParent();
+  return Result;
 }
 
 LegalizerHelper::LegalizeResult
