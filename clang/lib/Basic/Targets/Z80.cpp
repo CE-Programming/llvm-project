@@ -244,8 +244,8 @@ void Z80TargetInfo::getTargetDefines(const LangOptions &Opts,
 }
 
 ArrayRef<Builtin::Info> Z80TargetInfo::getTargetBuiltins() const {
-  return llvm::ArrayRef(BuiltinInfoZ80, Z80::LastZ80CommonBuiltin -
-                                                Builtin::FirstTSBuiltin + 1);
+  return llvm::ArrayRef(BuiltinInfoZ80, static_cast<size_t>(Z80::LastZ80CommonBuiltin -
+                                                Builtin::FirstTSBuiltin + 1));
 }
 
 ArrayRef<const char *> Z80TargetInfo::getGCCRegNames() const {
@@ -268,7 +268,7 @@ void EZ80TargetInfo::getTargetDefines(const LangOptions &Opts,
 
 ArrayRef<Builtin::Info> EZ80TargetInfo::getTargetBuiltins() const {
   return llvm::ArrayRef(BuiltinInfoZ80,
-                            Z80::LastTSBuiltin - Builtin::FirstTSBuiltin);
+                            static_cast<size_t>(Z80::LastTSBuiltin - Builtin::FirstTSBuiltin));
 }
 
 ArrayRef<const char *> EZ80TargetInfo::getGCCRegNames() const {
