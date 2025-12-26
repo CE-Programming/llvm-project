@@ -314,6 +314,9 @@ createTargetCodeGenInfo(CodeGenModule &CGM) {
     return createLoongArchTargetCodeGenInfo(
         CGM, Target.getPointerWidth(LangAS::Default), ABIFRLen);
   }
+  case llvm::Triple::z80:
+  case llvm::Triple::ez80:
+    return createZ80TargetCodeGenInfo(CGM);
   }
 }
 

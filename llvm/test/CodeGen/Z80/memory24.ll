@@ -469,26 +469,24 @@ define void @store.p2i24(i24, i24 addrspace(2)*) {
 define void @store.p2i24.1(i24) {
 ; EZ80-LABEL: store.p2i24.1:
 ; EZ80:       ; %bb.0:
-; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld ix, 0
-; EZ80-NEXT:    add ix, sp
+; EZ80-NEXT:    ld iy, 0
+; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    ld de, (ix + 6)
-; EZ80-NEXT:    ld iyl, 1
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld h, (ix - 1)
-; EZ80-NEXT:    ld l, d
-; EZ80-NEXT:    ld a, e
+; EZ80-NEXT:    ld bc, (iy + 3)
+; EZ80-NEXT:    ld l, 1
+; EZ80-NEXT:    ld (iy - 3), bc
+; EZ80-NEXT:    ld e, (iy - 1)
+; EZ80-NEXT:    ld h, b
+; EZ80-NEXT:    ld a, c
 ; EZ80-NEXT:    out (1), a
-; EZ80-NEXT:    ld c, iyl
+; EZ80-NEXT:    ld c, l
 ; EZ80-NEXT:    inc c
-; EZ80-NEXT:    out (bc), l
-; EZ80-NEXT:    ld a, iyl
+; EZ80-NEXT:    out (bc), h
+; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    add a, 2
 ; EZ80-NEXT:    ld c, a
-; EZ80-NEXT:    out (bc), h
-; EZ80-NEXT:    ld sp, ix
-; EZ80-NEXT:    pop ix
+; EZ80-NEXT:    out (bc), e
+; EZ80-NEXT:    pop hl
 ; EZ80-NEXT:    ret
   store i24 %0, i24 addrspace(2)* inttoptr (i1 1 to i24 addrspace(2)*)
   ret void
@@ -736,7 +734,8 @@ define void @store.p4i24.1(i24) {
 ; EZ80-NEXT:    push ix
 ; EZ80-NEXT:    ld ix, 0
 ; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    push hl
+; EZ80-NEXT:    lea hl, ix - 4
+; EZ80-NEXT:    ld sp, hl
 ; EZ80-NEXT:    ld de, (ix + 6)
 ; EZ80-NEXT:    ld bc, 1
 ; EZ80-NEXT:    push bc
@@ -744,19 +743,20 @@ define void @store.p4i24.1(i24) {
 ; EZ80-NEXT:    call __iand
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop iy
-; EZ80-NEXT:    ex de, hl
-; EZ80-NEXT:    ld (ix - 3), hl
+; EZ80-NEXT:    ld (ix - 3), de
 ; EZ80-NEXT:    ld a, (ix - 1)
-; EZ80-NEXT:    ld e, h
-; EZ80-NEXT:    ; kill: def $l killed $l killed $uhl
+; EZ80-NEXT:    ld (ix - 4), a
+; EZ80-NEXT:    ld a, d
+; EZ80-NEXT:    ld l, e
 ; EZ80-NEXT:    lea bc, iy
 ; EZ80-NEXT:    out (bc), l
 ; EZ80-NEXT:    lea hl, iy + 2
 ; EZ80-NEXT:    inc iy
 ; EZ80-NEXT:    lea bc, iy
-; EZ80-NEXT:    out (bc), e
+; EZ80-NEXT:    out (bc), a
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop bc
+; EZ80-NEXT:    ld a, (ix - 4)
 ; EZ80-NEXT:    out (bc), a
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix

@@ -210,6 +210,7 @@ void Z80PassConfig::addMachineSSAOptimization() {
   addPass(createZ80PostSelectCombiner());
   TargetPassConfig::addMachineSSAOptimization();
   addPass(createZ80MachineEarlyOptimizationPass());
+  addPass(createZ80MachinePreRAOptimizationPass());
 }
 
 void Z80PassConfig::addFastRegAlloc() {
@@ -221,7 +222,6 @@ void Z80PassConfig::addFastRegAlloc() {
 }
 
 bool Z80PassConfig::addRegAssignAndRewriteOptimized() {
-  addPass(createZ80MachinePreRAOptimizationPass());
   return TargetPassConfig::addRegAssignAndRewriteOptimized();
 }
 

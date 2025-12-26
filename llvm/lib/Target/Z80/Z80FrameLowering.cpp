@@ -235,37 +235,54 @@ void Z80FrameLowering::emitPrologue(MachineFunction &MF,
             .addCFIIndex(MF.addFrameInst(MCCFIInstruction::createOffset(
                 nullptr, TRI->getDwarfRegNum(FrameReg, true), -2 * SlotSize)));
       }
-      return;
-    }
-
-    if (isFPSaved(MF)) {
-      BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::PUSH24r : Z80::PUSH16r))
-          .addReg(FrameReg)
-          .setMIFlag(MachineInstr::FrameSetup);
-      if (MF.needsFrameMoves()) {
-        BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
-            .addCFIIndex(MF.addFrameInst(
-                MCCFIInstruction::cfiDefCfaOffset(nullptr, 2 * SlotSize)));
-        BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
-            .addCFIIndex(MF.addFrameInst(MCCFIInstruction::createOffset(
-                nullptr, TRI->getDwarfRegNum(FrameReg, true), -2 * SlotSize)));
+    } else {
+      if (isFPSaved(MF)) {
+        BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::PUSH24r : Z80::PUSH16r))
+            .addReg(FrameReg)
+            .setMIFlag(MachineInstr::FrameSetup);
+        if (MF.needsFrameMoves()) {
+          BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
+              .addCFIIndex(MF.addFrameInst(
+                  MCCFIInstruction::cfiDefCfaOffset(nullptr, 2 * SlotSize)));
+          BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
+              .addCFIIndex(MF.addFrameInst(MCCFIInstruction::createOffset(
+                  nullptr, TRI->getDwarfRegNum(FrameReg, true), -2 * SlotSize)));
+        }
       }
+
+      BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::LD24ri : Z80::LD16ri),
+              FrameReg)
+          .addImm(0)
+          .setMIFlag(MachineInstr::FrameSetup);
+      BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::ADD24as : Z80::ADD16as),
+              FrameReg)
+          .addReg(FrameReg)
+          .setMIFlag(MachineInstr::FrameSetup)
+          ->addRegisterDead(Z80::F, TRI);
+      FPOffset = 0;
+      if (MF.needsFrameMoves())
+        BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
+            .addCFIIndex(MF.addFrameInst(MCCFIInstruction::createDefCfaRegister(
+                nullptr, TRI->getDwarfRegNum(FrameReg, true))));
     }
 
-    BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::LD24ri : Z80::LD16ri),
-            FrameReg)
-        .addImm(0)
-        .setMIFlag(MachineInstr::FrameSetup);
-    BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::ADD24as : Z80::ADD16as),
-            FrameReg)
-        .addReg(FrameReg)
-        .setMIFlag(MachineInstr::FrameSetup)
-        ->addRegisterDead(Z80::F, TRI);
-    FPOffset = 0;
-    if (MF.needsFrameMoves())
-      BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
-          .addCFIIndex(MF.addFrameInst(MCCFIInstruction::createDefCfaRegister(
-              nullptr, TRI->getDwarfRegNum(FrameReg, true))));
+    // SFB (Secondary Frame Base) handling is disabled, see #if 0 block in Z80RegisterInfo.cpp
+#if 0
+    // secondary frame base (IY = IX - offset) for deep stack access
+    // no push/pop needed since IY is reserved when secondary frame base is active
+    auto &FuncInfo = *MF.getInfo<Z80MachineFunctionInfo>();
+    if (FuncInfo.getUsesSecondaryFrameBase()) {
+      int64_t SecOffset = FuncInfo.getSecondaryFrameBaseOffset();
+      MCRegister IYReg = Is24Bit ? Z80::UIY : Z80::IY;
+      BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::LEA24ro : Z80::LEA16ro), IYReg)
+          .addReg(FrameReg)
+          .addImm(-SecOffset)
+          .setMIFlag(MachineInstr::FrameSetup);
+    }
+#endif
+
+    if (MF.getFunction().hasOptSize())
+      return;
   }
 
   BuildStackAdjustment(MF, MBB, MBBI, DL, ScratchReg, StackSize, FPOffset,
@@ -415,6 +432,7 @@ bool Z80FrameLowering::assignCalleeSavedSpillSlots(
     std::vector<CalleeSavedInfo> &CSI) const {
   auto &FuncInfo = *MF.getInfo<Z80MachineFunctionInfo>();
   FuncInfo.setUsesAltFP(shouldUseAltFP(MF, Is24Bit ? Z80::UIY : Z80::IY, TRI));
+
   MF.getRegInfo().freezeReservedRegs(MF);
 
   bool UseShadow = shouldUseShadow(MF);
@@ -443,12 +461,22 @@ bool Z80FrameLowering::spillCalleeSavedRegisters(
   DebugLoc DL = MBB.findDebugLoc(MI);
   if (UseShadow)
     shadowCalleeSavedRegisters(MBB, MI, DL, MachineInstr::FrameSetup, CSI);
+  
+  // When using -Oz with __frameset, it already saves IX, so skip spilling
+  // the frame register here to avoid double-push stack corruption.
+  Register FrameReg = TRI->getFrameRegister(MF);
+  bool SkipFrameReg = hasFP(MF) && MF.getFunction().hasOptSize();
+  
   for (unsigned i = CSI.size(); i != 0; --i) {
     unsigned Reg = CSI[i - 1].getReg();
 
     // Non-index registers can be spilled to shadow registers.
     if (UseShadow && !Z80::I24RegClass.contains(Reg) &&
         !Z80::I16RegClass.contains(Reg))
+      continue;
+    
+    // Skip frame register when using __frameset (it saves IX already).
+    if (SkipFrameReg && TRI->regsOverlap(Reg, FrameReg))
       continue;
 
     bool isLiveIn = MRI.isLiveIn(Reg);
@@ -488,12 +516,22 @@ bool Z80FrameLowering::restoreCalleeSavedRegisters(
   const MachineFunction &MF = *MBB.getParent();
   bool UseShadow = shouldUseShadow(MF);
   DebugLoc DL = MBB.findDebugLoc(MI);
+  
+  // When using -Oz with __frameset, it restores IX, so skip restoring
+  // the frame register here to match the spill skip.
+  Register FrameReg = TRI->getFrameRegister(MF);
+  bool SkipFrameReg = hasFP(MF) && MF.getFunction().hasOptSize();
+  
   for (unsigned i = 0, e = CSI.size(); i != e; ++i) {
     unsigned Reg = CSI[i].getReg();
 
     // Non-index registers can be spilled to shadow registers.
     if (UseShadow && !Z80::I24RegClass.contains(Reg) &&
         !Z80::I16RegClass.contains(Reg))
+      continue;
+    
+    // Skip frame register when using __frameset (epilogue handles it).
+    if (SkipFrameReg && TRI->regsOverlap(Reg, FrameReg))
       continue;
 
     if (Reg == Z80::AF)

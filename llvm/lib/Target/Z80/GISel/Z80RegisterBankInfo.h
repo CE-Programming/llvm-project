@@ -42,6 +42,10 @@ class TargetRegisterInfo;
 /// This class provides the information for the target register banks.
 class Z80RegisterBankInfo final : public Z80GenRegisterBankInfo {
 private:
+  bool Is24BitMode = false;
+
+  PartialMappingIdx getPartialMappingIdxForType(const LLT &Ty) const;
+
   /// Get an instruction mapping.
   /// \return An InstructionMappings with a statically allocated
   /// OperandsMapping.
@@ -49,20 +53,22 @@ private:
   getSameOperandsMapping(const MachineInstr &MI) const;
 
   /// Track the bank of each instruction operand(register)
-  static void
+  void
   getInstrPartialMappingIdxs(const MachineInstr &MI,
                              const MachineRegisterInfo &MRI,
-                             SmallVectorImpl<PartialMappingIdx> &OpRegBankIdx);
+                             SmallVectorImpl<PartialMappingIdx> &OpRegBankIdx)
+      const;
 
   /// Construct the instruction ValueMapping from PartialMappingIdxs
   /// \return true if mapping succeeded.
-  static bool
+  bool
   getInstrValueMapping(const MachineInstr &MI,
                        const SmallVectorImpl<PartialMappingIdx> &OpRegBankIdx,
-                       SmallVectorImpl<const ValueMapping *> &OpdsMapping);
+                       SmallVectorImpl<const ValueMapping *> &OpdsMapping)
+      const;
 
 public:
-  Z80RegisterBankInfo(const TargetRegisterInfo &TRI);
+  Z80RegisterBankInfo(const TargetRegisterInfo &TRI, bool Is24BitMode);
 
   const RegisterBank &getRegBankFromRegClass(const TargetRegisterClass &RC,
                                              LLT Ty) const override;

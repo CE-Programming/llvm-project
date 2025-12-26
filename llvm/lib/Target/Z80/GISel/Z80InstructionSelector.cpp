@@ -172,6 +172,12 @@ const TargetRegisterClass *Z80InstructionSelector::selectRegClass(
     case 1: case 8: return RC8;
     case 16: return RC16;
     case 24: return RC24;
+    case 32:
+      return STI.is24Bit() ? &Z80::R32_24RegClass : &Z80::R32_16RegClass;
+    case 48:
+      return STI.is24Bit() ? &Z80::R48_24RegClass : nullptr;
+    case 64:
+      return STI.is24Bit() ? &Z80::R64_24RegClass : &Z80::R64_16RegClass;
     }
   }
 
@@ -214,11 +220,21 @@ static int64_t getSubRegIndex(unsigned Width, unsigned Off = 0) {
     switch (Off) {
     case 0: return Z80::sub_low;
     case 8: return Z80::sub_high;
+    case 24: return Z80::sub_high8;
     }
     break;
   case 16:
     switch (Off) {
     case 0: return Z80::sub_short;
+    case 16: return Z80::sub_word1;
+    case 32: return Z80::sub_word2;
+    case 48: return Z80::sub_word3;
+    }
+    break;
+  case 24:
+    switch (Off) {
+    case 0: return Z80::sub_low24;
+    case 24: return Z80::sub_mid24;
     }
     break;
   }
@@ -287,6 +303,16 @@ bool Z80InstructionSelector::selectCopy(MachineInstr &I,
   // No need to constrain SrcReg. It will get constrained when
   // we hit another of its use or its defs.
   // Copies do not have constraints.
+  if (SrcReg.isVirtual()) {
+    const TargetRegisterClass *OldSrcRC = MRI.getRegClassOrNull(SrcReg);
+    if (!OldSrcRC || !SrcRC->hasSubClassEq(OldSrcRC)) {
+      if (!RBI.constrainGenericRegister(SrcReg, *SrcRC, MRI)) {
+        LLVM_DEBUG(dbgs() << "Failed to constrain " << TII.getName(I.getOpcode())
+                          << " operand\n");
+        return false;
+      }
+    }
+  }
   const TargetRegisterClass *OldRC = MRI.getRegClassOrNull(DstReg);
   if (!OldRC || !DstRC->hasSubClassEq(OldRC)) {
     if (!RBI.constrainGenericRegister(DstReg, *DstRC, MRI)) {
@@ -490,10 +516,11 @@ bool Z80InstructionSelector::selectSExt(MachineInstr &I,
 
   LLT DstTy = MRI.getType(DstReg);
   LLT SrcTy = MRI.getType(SrcReg);
+  const bool Is24Bit = STI.is24Bit();
 
   // handle s1 -> sN sign extension (boolean to integer), result is 0 or -1
   if (SrcTy == LLT::scalar(1)) {
-    if (MRI.hasOneUse(SrcReg) &&
+    if (DstTy.getSizeInBits() <= 24 && MRI.hasOneUse(SrcReg) &&
         selectSetCond(I.getOpcode(), DstReg, SrcReg, I, MRI))
       return true;
 
@@ -516,6 +543,135 @@ bool Z80InstructionSelector::selectSExt(MachineInstr &I,
       FillReg = Z80::UHL;
       FillRC = &Z80::R24RegClass;
       break;
+    case 32: {
+      const TargetRegisterClass *DstRC = getRegClass(DstReg, MRI);
+      if (!DstRC)
+        return false;
+      MachineIRBuilder MIB(I);
+      auto Rotate = MIB.buildInstr(Z80::RRC8g, {LLT::scalar(8)}, {SrcReg});
+      if (!constrainSelectedInstRegOperands(*Rotate, TII, TRI, RBI))
+        return false;
+
+      if (Is24Bit) {
+        auto Fill24I = MIB.buildInstr(Z80::SBC24aa);
+        Fill24I->findRegisterUseOperand(Z80::UHL)->setIsUndef();
+        if (!constrainSelectedInstRegOperands(*Fill24I, TII, TRI, RBI))
+          return false;
+        auto Fill24 = MIB.buildCopy(LLT::scalar(24), Register(Z80::UHL));
+        if (!RBI.constrainGenericRegister(Fill24.getReg(0), Z80::R24RegClass,
+                                          MRI))
+          return false;
+        auto Fill8 = MIB.buildCopy(LLT::scalar(8), Fill24.getReg(0));
+        Fill8->getOperand(1).setSubReg(Z80::sub_low);
+        if (!constrainSelectedInstRegOperands(*Fill8, TII, TRI, RBI))
+          return false;
+        auto SeqI = MIB.buildInstr(TargetOpcode::REG_SEQUENCE, {DstReg},
+                                   {Fill24.getReg(0), int64_t(Z80::sub_low24),
+                                    Fill8.getReg(0), int64_t(Z80::sub_high8)});
+        if (!constrainSelectedInstRegOperands(*SeqI, TII, TRI, RBI))
+          return false;
+      } else {
+        auto Fill16I = MIB.buildInstr(Z80::SBC16aa);
+        Fill16I->findRegisterUseOperand(Z80::HL)->setIsUndef();
+        if (!constrainSelectedInstRegOperands(*Fill16I, TII, TRI, RBI))
+          return false;
+        auto Fill16 = MIB.buildCopy(LLT::scalar(16), Register(Z80::HL));
+        if (!RBI.constrainGenericRegister(Fill16.getReg(0), Z80::R16RegClass,
+                                          MRI))
+          return false;
+        auto SeqI = MIB.buildInstr(TargetOpcode::REG_SEQUENCE, {DstReg},
+                                   {Fill16.getReg(0), int64_t(Z80::sub_short),
+                                    Fill16.getReg(0), int64_t(Z80::sub_word1)});
+        if (!constrainSelectedInstRegOperands(*SeqI, TII, TRI, RBI))
+          return false;
+      }
+
+      if (!RBI.constrainGenericRegister(DstReg, *DstRC, MRI))
+        return false;
+      I.eraseFromParent();
+      return true;
+    }
+    case 48: {
+      if (!Is24Bit)
+        return false;
+      const TargetRegisterClass *DstRC = getRegClass(DstReg, MRI);
+      if (!DstRC)
+        return false;
+      MachineIRBuilder MIB(I);
+      auto Rotate = MIB.buildInstr(Z80::RRC8g, {LLT::scalar(8)}, {SrcReg});
+      if (!constrainSelectedInstRegOperands(*Rotate, TII, TRI, RBI))
+        return false;
+      auto Fill24I = MIB.buildInstr(Z80::SBC24aa);
+      Fill24I->findRegisterUseOperand(Z80::UHL)->setIsUndef();
+      if (!constrainSelectedInstRegOperands(*Fill24I, TII, TRI, RBI))
+        return false;
+      auto Fill24 = MIB.buildCopy(LLT::scalar(24), Register(Z80::UHL));
+      if (!RBI.constrainGenericRegister(Fill24.getReg(0), Z80::R24RegClass,
+                                        MRI))
+        return false;
+      auto SeqI = MIB.buildInstr(TargetOpcode::REG_SEQUENCE, {DstReg},
+                                 {Fill24.getReg(0), int64_t(Z80::sub_low24),
+                                  Fill24.getReg(0), int64_t(Z80::sub_mid24)});
+      if (!constrainSelectedInstRegOperands(*SeqI, TII, TRI, RBI))
+        return false;
+      if (!RBI.constrainGenericRegister(DstReg, *DstRC, MRI))
+        return false;
+      I.eraseFromParent();
+      return true;
+    }
+    case 64: {
+      const TargetRegisterClass *DstRC = getRegClass(DstReg, MRI);
+      if (!DstRC)
+        return false;
+      MachineIRBuilder MIB(I);
+      auto Rotate = MIB.buildInstr(Z80::RRC8g, {LLT::scalar(8)}, {SrcReg});
+      if (!constrainSelectedInstRegOperands(*Rotate, TII, TRI, RBI))
+        return false;
+
+      if (Is24Bit) {
+        auto Fill24I = MIB.buildInstr(Z80::SBC24aa);
+        Fill24I->findRegisterUseOperand(Z80::UHL)->setIsUndef();
+        if (!constrainSelectedInstRegOperands(*Fill24I, TII, TRI, RBI))
+          return false;
+        auto Fill24 = MIB.buildCopy(LLT::scalar(24), Register(Z80::UHL));
+        if (!RBI.constrainGenericRegister(Fill24.getReg(0), Z80::R24RegClass,
+                                          MRI))
+          return false;
+        auto Fill16 = MIB.buildCopy(LLT::scalar(16), Fill24.getReg(0));
+        Fill16->getOperand(1).setSubReg(Z80::sub_short);
+        if (!constrainSelectedInstRegOperands(*Fill16, TII, TRI, RBI))
+          return false;
+        auto SeqI =
+            MIB.buildInstr(TargetOpcode::REG_SEQUENCE, {DstReg},
+                           {Fill24.getReg(0), int64_t(Z80::sub_low24),
+                            Fill24.getReg(0), int64_t(Z80::sub_mid24),
+                            Fill16.getReg(0), int64_t(Z80::sub_word3)});
+        if (!constrainSelectedInstRegOperands(*SeqI, TII, TRI, RBI))
+          return false;
+      } else {
+        auto Fill16I = MIB.buildInstr(Z80::SBC16aa);
+        Fill16I->findRegisterUseOperand(Z80::HL)->setIsUndef();
+        if (!constrainSelectedInstRegOperands(*Fill16I, TII, TRI, RBI))
+          return false;
+        auto Fill16 = MIB.buildCopy(LLT::scalar(16), Register(Z80::HL));
+        if (!RBI.constrainGenericRegister(Fill16.getReg(0), Z80::R16RegClass,
+                                          MRI))
+          return false;
+        auto SeqI = MIB.buildInstr(
+            TargetOpcode::REG_SEQUENCE, {DstReg},
+            {Fill16.getReg(0), int64_t(Z80::sub_short),
+             Fill16.getReg(0), int64_t(Z80::sub_word1),
+             Fill16.getReg(0), int64_t(Z80::sub_word2),
+             Fill16.getReg(0), int64_t(Z80::sub_word3)});
+        if (!constrainSelectedInstRegOperands(*SeqI, TII, TRI, RBI))
+          return false;
+      }
+
+      if (!RBI.constrainGenericRegister(DstReg, *DstRC, MRI))
+        return false;
+      I.eraseFromParent();
+      return true;
+    }
     default:
       return false;
     }
@@ -550,6 +706,330 @@ bool Z80InstructionSelector::selectSExt(MachineInstr &I,
   if (!RBI.constrainGenericRegister(SrcReg, *SrcRC, MRI) ||
       !RBI.constrainGenericRegister(DstReg, *DstRC, MRI)) {
     LLVM_DEBUG(dbgs() << "Failed to constrain G_SEXT operand\n");
+    return false;
+  }
+
+  if (DstSize > 24) {
+    MachineIRBuilder MIB(I);
+    MachineFunction &MF = MIB.getMF();
+
+    auto ExtractByteFrom24 = [&](Register Src24,
+                                 unsigned ByteOffset) -> Register {
+      Register ByteReg =
+          createGenericVirtualRegister(MRI, LLT::scalar(8));
+      int FI = MF.getFrameInfo().CreateStackObject(3, Align(1), false);
+      auto Store = MIB.buildInstr(Z80::LD24or)
+                       .addFrameIndex(FI)
+                       .addImm(0)
+                       .addReg(Src24);
+      auto Load = MIB.buildInstr(Z80::LD8ro, {ByteReg}, {})
+                      .addFrameIndex(FI)
+                      .addImm(ByteOffset);
+      return constrainSelectedInstRegOperands(*Store, TII, TRI, RBI) &&
+                     constrainSelectedInstRegOperands(*Load, TII, TRI, RBI)
+                 ? ByteReg
+                 : Register();
+    };
+
+    auto CopySubReg = [&](LLT Ty, Register Reg, unsigned SubIdx) -> Register {
+      Register Tmp = createGenericVirtualRegister(MRI, Ty);
+      if (const TargetRegisterClass *RC = getRegClass(Tmp, MRI)) {
+        if (!RBI.constrainGenericRegister(Tmp, *RC, MRI))
+          return Register();
+      }
+      auto Copy = MIB.buildCopy(Tmp, Reg);
+      Copy->getOperand(1).setSubReg(SubIdx);
+      return constrainSelectedInstRegOperands(*Copy, TII, TRI, RBI) ? Tmp
+                                                                    : Register();
+    };
+
+    auto BuildFill16FromSignByte = [&](Register SignByte) -> Register {
+      auto Rotate = MIB.buildInstr(Z80::RLC8g, {LLT::scalar(8)}, {SignByte});
+      if (!constrainSelectedInstRegOperands(*Rotate, TII, TRI, RBI))
+        return Register();
+      auto Fill16I = MIB.buildInstr(Z80::SBC16aa);
+      Fill16I->findRegisterUseOperand(Z80::HL)->setIsUndef();
+      if (!constrainSelectedInstRegOperands(*Fill16I, TII, TRI, RBI))
+        return Register();
+      auto Fill16 = MIB.buildCopy(LLT::scalar(16), Register(Z80::HL));
+      // Keep the fill result out of HL to avoid pinning wide tuples to HL and
+      // causing register exhaustion during allocation.
+      return RBI.constrainGenericRegister(Fill16.getReg(0), Z80::O16RegClass,
+                                          MRI)
+                 ? Fill16.getReg(0)
+                 : Register();
+    };
+
+    auto BuildFill8FromSignByte = [&](Register SignByte) -> Register {
+      auto Rotate = MIB.buildInstr(Z80::RLC8g, {LLT::scalar(8)}, {SignByte});
+      if (!constrainSelectedInstRegOperands(*Rotate, TII, TRI, RBI))
+        return Register();
+      auto Fill8I = MIB.buildInstr(Z80::SBC8ar);
+      Fill8I->findRegisterUseOperand(Z80::A)->setIsUndef();
+      Fill8I.addReg(Z80::A, RegState::Undef);
+      if (!constrainSelectedInstRegOperands(*Fill8I, TII, TRI, RBI))
+        return Register();
+      auto Fill8 = MIB.buildCopy(LLT::scalar(8), Register(Z80::A));
+      return RBI.constrainGenericRegister(Fill8.getReg(0), Z80::R8RegClass, MRI)
+                 ? Fill8.getReg(0)
+                 : Register();
+    };
+
+    auto BuildFill24FromSignByte = [&](Register SignByte) -> Register {
+      auto Rotate = MIB.buildInstr(Z80::RLC8g, {LLT::scalar(8)}, {SignByte});
+      if (!constrainSelectedInstRegOperands(*Rotate, TII, TRI, RBI))
+        return Register();
+      auto Fill24I = MIB.buildInstr(Z80::SBC24aa);
+      Fill24I->findRegisterUseOperand(Z80::UHL)->setIsUndef();
+      if (!constrainSelectedInstRegOperands(*Fill24I, TII, TRI, RBI))
+        return Register();
+      auto Fill24 = MIB.buildCopy(LLT::scalar(24), Register(Z80::UHL));
+      return RBI.constrainGenericRegister(Fill24.getReg(0), Z80::R24RegClass,
+                                          MRI)
+                 ? Fill24.getReg(0)
+                 : Register();
+    };
+
+    auto BuildSelectedSExt = [&](LLT Ty, Register Src) -> Register {
+      Register Tmp = createGenericVirtualRegister(MRI, Ty);
+      auto Ext = MIB.buildSExt(Tmp, Src);
+      return select(*Ext) ? Tmp : Register();
+    };
+
+    auto GetSignByte = [&]() -> Register {
+      switch (SrcSize) {
+      case 8:
+        return SrcReg;
+      case 16:
+        return CopySubReg(LLT::scalar(8), SrcReg, Z80::sub_high);
+      case 24:
+        return ExtractByteFrom24(SrcReg, 2);
+      case 32:
+        if (Is24Bit)
+          return CopySubReg(LLT::scalar(8), SrcReg, Z80::sub_high8);
+        if (Register W1 =
+                CopySubReg(LLT::scalar(16), SrcReg, Z80::sub_word1))
+          return CopySubReg(LLT::scalar(8), W1, Z80::sub_high);
+        return Register();
+      case 48:
+        if (!Is24Bit)
+          return Register();
+        if (Register Hi24 = CopySubReg(LLT::scalar(24), SrcReg, Z80::sub_mid24))
+          return ExtractByteFrom24(Hi24, 2);
+        return Register();
+      default:
+        return Register();
+      }
+    };
+
+    if (!Is24Bit) {
+      if (DstSize == 32) {
+        if (SrcSize != 8 && SrcSize != 16)
+          return false;
+        Register Lo16 = SrcSize == 16
+                            ? SrcReg
+                            : BuildSelectedSExt(LLT::scalar(16), SrcReg);
+        if (!Lo16)
+          return false;
+        Register SignByte = GetSignByte();
+        if (!SignByte)
+          return false;
+        Register Fill16 = BuildFill16FromSignByte(SignByte);
+        if (!Fill16)
+          return false;
+        auto SeqI = MIB.buildInstr(TargetOpcode::REG_SEQUENCE, {DstReg},
+                                   {Lo16, int64_t(Z80::sub_short), Fill16,
+                                    int64_t(Z80::sub_word1)});
+        if (!constrainSelectedInstRegOperands(*SeqI, TII, TRI, RBI))
+          return false;
+        I.eraseFromParent();
+        return true;
+      }
+
+      if (DstSize == 64) {
+        Register W0, W1;
+        if (SrcSize == 32) {
+          W0 = CopySubReg(LLT::scalar(16), SrcReg, Z80::sub_short);
+          W1 = CopySubReg(LLT::scalar(16), SrcReg, Z80::sub_word1);
+        } else if (SrcSize == 16) {
+          W0 = SrcReg;
+          W1 = Register();
+        } else if (SrcSize == 8) {
+          W0 = BuildSelectedSExt(LLT::scalar(16), SrcReg);
+          W1 = Register();
+        } else {
+          return false;
+        }
+        if (!W0)
+          return false;
+        Register SignByte =
+            SrcSize == 32
+                ? CopySubReg(LLT::scalar(8), W1, Z80::sub_high)
+                : GetSignByte();
+        if (!SignByte)
+          return false;
+        Register Fill16 = BuildFill16FromSignByte(SignByte);
+        if (!Fill16)
+          return false;
+        auto SeqI =
+            SrcSize == 32
+                ? MIB.buildInstr(
+                      TargetOpcode::REG_SEQUENCE, {DstReg},
+                      {W0, int64_t(Z80::sub_short), W1,
+                       int64_t(Z80::sub_word1), Fill16,
+                       int64_t(Z80::sub_word2), Fill16,
+                       int64_t(Z80::sub_word3)})
+                : MIB.buildInstr(
+                      TargetOpcode::REG_SEQUENCE, {DstReg},
+                      {W0, int64_t(Z80::sub_short), Fill16,
+                       int64_t(Z80::sub_word1), Fill16,
+                       int64_t(Z80::sub_word2), Fill16,
+                       int64_t(Z80::sub_word3)});
+        if (!constrainSelectedInstRegOperands(*SeqI, TII, TRI, RBI))
+          return false;
+        I.eraseFromParent();
+        return true;
+      }
+      return false;
+    }
+
+    // 24 bit mode wide sign extension
+    if (DstSize == 32) {
+      if (SrcSize != 8 && SrcSize != 16 && SrcSize != 24)
+        return false;
+      Register Low24 = SrcSize == 24
+                           ? SrcReg
+                           : BuildSelectedSExt(LLT::scalar(24), SrcReg);
+      if (!Low24)
+        return false;
+      Register SignByte = GetSignByte();
+      if (!SignByte)
+        return false;
+      Register Fill8 = BuildFill8FromSignByte(SignByte);
+      if (!Fill8)
+        return false;
+      auto SeqI = MIB.buildInstr(TargetOpcode::REG_SEQUENCE, {DstReg},
+                                 {Low24, int64_t(Z80::sub_low24), Fill8,
+                                  int64_t(Z80::sub_high8)});
+      if (!constrainSelectedInstRegOperands(*SeqI, TII, TRI, RBI))
+        return false;
+      I.eraseFromParent();
+      return true;
+    }
+
+    if (DstSize == 48) {
+      Register Low24;
+      Register High24;
+      if (SrcSize == 32) {
+        Low24 =
+            CopySubReg(LLT::scalar(24), SrcReg, Z80::sub_low24);
+        Register Hi8 =
+            CopySubReg(LLT::scalar(8), SrcReg, Z80::sub_high8);
+        if (!Low24 || !Hi8)
+          return false;
+        High24 = BuildSelectedSExt(LLT::scalar(24), Hi8);
+      } else if (SrcSize == 8 || SrcSize == 16 || SrcSize == 24) {
+        Low24 = SrcSize == 24 ? SrcReg
+                              : BuildSelectedSExt(LLT::scalar(24), SrcReg);
+        Register SignByte = GetSignByte();
+        if (!Low24 || !SignByte)
+          return false;
+        High24 = BuildFill24FromSignByte(SignByte);
+      } else {
+        return false;
+      }
+      if (!Low24 || !High24)
+        return false;
+      auto SeqI = MIB.buildInstr(TargetOpcode::REG_SEQUENCE, {DstReg},
+                                 {Low24, int64_t(Z80::sub_low24), High24,
+                                  int64_t(Z80::sub_mid24)});
+      if (!constrainSelectedInstRegOperands(*SeqI, TII, TRI, RBI))
+        return false;
+      I.eraseFromParent();
+      return true;
+    }
+
+    if (DstSize == 64) {
+      Register Low24;
+      Register Mid24;
+      Register High16;
+      if (SrcSize == 48) {
+        Low24 =
+            CopySubReg(LLT::scalar(24), SrcReg, Z80::sub_low24);
+        Mid24 =
+            CopySubReg(LLT::scalar(24), SrcReg, Z80::sub_mid24);
+        if (!Low24 || !Mid24)
+          return false;
+        Register SignByte = ExtractByteFrom24(Mid24, 2);
+        if (!SignByte)
+          return false;
+        High16 = BuildFill16FromSignByte(SignByte);
+      } else if (SrcSize == 32) {
+        // src is a (24+8) tuple. for wide sign extension, keep the low24 and
+        // sign byte as separate scalars to avoid forcing an R32_24 reload
+        // through register allocation (which can become impossible under
+        // register pressure)
+        MachineFunction &MF = MIB.getMF();
+        int FI = MF.getFrameInfo().CreateStackObject(4, Align(1), false);
+
+        auto StoreLow =
+            MIB.buildInstr(Z80::LD24or)
+                .addFrameIndex(FI)
+                .addImm(0)
+                .addReg(SrcReg, 0, Z80::sub_low24);
+        auto StoreHi =
+            MIB.buildInstr(Z80::LD8or)
+                .addFrameIndex(FI)
+                .addImm(3)
+                .addReg(SrcReg, 0, Z80::sub_high8);
+        if (!constrainSelectedInstRegOperands(*StoreLow, TII, TRI, RBI) ||
+            !constrainSelectedInstRegOperands(*StoreHi, TII, TRI, RBI))
+          return false;
+
+        Register Lo24Reg = createGenericVirtualRegister(MRI, LLT::scalar(24));
+        Register Hi8Reg = createGenericVirtualRegister(MRI, LLT::scalar(8));
+        auto LoadLow = MIB.buildInstr(Z80::LD24ro, {Lo24Reg}, {})
+                           .addFrameIndex(FI)
+                           .addImm(0);
+        auto LoadHi = MIB.buildInstr(Z80::LD8ro, {Hi8Reg}, {})
+                          .addFrameIndex(FI)
+                          .addImm(3);
+        if (!constrainSelectedInstRegOperands(*LoadLow, TII, TRI, RBI) ||
+            !constrainSelectedInstRegOperands(*LoadHi, TII, TRI, RBI))
+          return false;
+        if (!RBI.constrainGenericRegister(Lo24Reg, Z80::R24RegClass, MRI) ||
+            !RBI.constrainGenericRegister(Hi8Reg, Z80::R8RegClass, MRI))
+          return false;
+
+        Low24 = Lo24Reg;
+        Mid24 = BuildSelectedSExt(LLT::scalar(24), Hi8Reg);
+        High16 = BuildFill16FromSignByte(Hi8Reg);
+      } else if (SrcSize == 8 || SrcSize == 16 || SrcSize == 24) {
+        Low24 = SrcSize == 24 ? SrcReg
+                              : BuildSelectedSExt(LLT::scalar(24), SrcReg);
+        Register SignByte = GetSignByte();
+        if (!Low24 || !SignByte)
+          return false;
+        Mid24 = BuildFill24FromSignByte(SignByte);
+        if (!Mid24)
+          return false;
+        High16 = CopySubReg(LLT::scalar(16), Mid24, Z80::sub_short);
+      } else {
+        return false;
+      }
+      if (!Low24 || !Mid24 || !High16)
+        return false;
+      auto SeqI =
+          MIB.buildInstr(TargetOpcode::REG_SEQUENCE, {DstReg},
+                         {Low24, int64_t(Z80::sub_low24), Mid24,
+                          int64_t(Z80::sub_mid24), High16,
+                          int64_t(Z80::sub_word3)});
+      if (!constrainSelectedInstRegOperands(*SeqI, TII, TRI, RBI))
+        return false;
+      I.eraseFromParent();
+      return true;
+    }
+
     return false;
   }
 
@@ -628,6 +1108,7 @@ bool Z80InstructionSelector::selectZExt(MachineInstr &I,
   LLT DstTy = MRI.getType(DstReg);
   unsigned SrcSize = SrcTy.getSizeInBits();
   unsigned DstSize = DstTy.getSizeInBits();
+  const bool Is24Bit = STI.is24Bit();
 
   // Handle s1 -> sN zero extension (boolean to integer)
   if (SrcTy == LLT::scalar(1)) {
@@ -671,6 +1152,71 @@ bool Z80InstructionSelector::selectZExt(MachineInstr &I,
   }
 
   MachineIRBuilder MIB(I);
+
+  // 24 bit mode: s32 (24+8) -> s64 (24+24+16) zero extension
+  // keep the source byte pieces separate to reduce register pressure and avoid
+  // forcing R32_24/R64_24 tuple reloads through the register allocator
+  if (Is24Bit && SrcSize == 32 && DstSize == 64) {
+    int FI = MIB.getMF().getFrameInfo().CreateStackObject(4, Align(1), false);
+    auto StoreLow =
+        MIB.buildInstr(Z80::LD24or)
+            .addFrameIndex(FI)
+            .addImm(0)
+            .addReg(SrcReg, 0, Z80::sub_low24);
+    auto StoreHi =
+        MIB.buildInstr(Z80::LD8or)
+            .addFrameIndex(FI)
+            .addImm(3)
+            .addReg(SrcReg, 0, Z80::sub_high8);
+    if (!constrainSelectedInstRegOperands(*StoreLow, TII, TRI, RBI) ||
+        !constrainSelectedInstRegOperands(*StoreHi, TII, TRI, RBI))
+      return false;
+
+    Register Lo24Reg = createGenericVirtualRegister(MRI, LLT::scalar(24));
+    Register Hi8Reg = createGenericVirtualRegister(MRI, LLT::scalar(8));
+    auto LoadLow = MIB.buildInstr(Z80::LD24ro, {Lo24Reg}, {})
+                       .addFrameIndex(FI)
+                       .addImm(0);
+    auto LoadHi = MIB.buildInstr(Z80::LD8ro, {Hi8Reg}, {})
+                      .addFrameIndex(FI)
+                      .addImm(3);
+    if (!constrainSelectedInstRegOperands(*LoadLow, TII, TRI, RBI) ||
+        !constrainSelectedInstRegOperands(*LoadHi, TII, TRI, RBI))
+      return false;
+    if (!RBI.constrainGenericRegister(Lo24Reg, Z80::R24RegClass, MRI) ||
+        !RBI.constrainGenericRegister(Hi8Reg, Z80::R8RegClass, MRI))
+      return false;
+
+    auto Mid24Zero = MIB.buildInstr(Z80::LD24r0, {&Z80::R24RegClass}, {});
+    if (!constrainSelectedInstRegOperands(*Mid24Zero, TII, TRI, RBI))
+      return false;
+    Register Mid24Reg = createGenericVirtualRegister(MRI, LLT::scalar(24));
+    auto Mid24Insert =
+        MIB.buildInstr(TargetOpcode::INSERT_SUBREG, {Mid24Reg},
+                       {Mid24Zero.getReg(0), Hi8Reg, uint64_t(Z80::sub_low)});
+    if (!select(*Mid24Insert))
+      return false;
+    if (!RBI.constrainGenericRegister(Mid24Reg, Z80::R24RegClass, MRI))
+      return false;
+
+    auto High16Zero = MIB.buildInstr(Z80::LD16ri, {&Z80::R16RegClass}, {int64_t(0)});
+    if (!constrainSelectedInstRegOperands(*High16Zero, TII, TRI, RBI))
+      return false;
+    Register High16Reg = High16Zero.getReg(0);
+    if (!RBI.constrainGenericRegister(High16Reg, Z80::O16RegClass, MRI))
+      return false;
+
+    auto SeqI =
+        MIB.buildInstr(TargetOpcode::REG_SEQUENCE, {DstReg},
+                       {Lo24Reg, int64_t(Z80::sub_low24), Mid24Reg,
+                        int64_t(Z80::sub_mid24), High16Reg,
+                        int64_t(Z80::sub_word3)});
+    if (!constrainSelectedInstRegOperands(*SeqI, TII, TRI, RBI))
+      return false;
+
+    I.eraseFromParent();
+    return true;
+  }
 
   if (SrcSize == 8 && DstSize == 16) {
     // s8 -> s16: use REG_SEQUENCE with zero high byte
@@ -1301,28 +1847,59 @@ bool Z80InstructionSelector::selectUnmergeValues(MachineInstr &I,
   assert(I.getOpcode() == TargetOpcode::G_UNMERGE_VALUES &&
          "unexpected instruction");
   MachineIRBuilder MIB(I);
-  Register LoReg = I.getOperand(0).getReg();
-  Register HiReg = I.getOperand(1).getReg();
   Register SrcReg = I.getOperand(I.getNumOperands() - 1).getReg();
-  LLT Ty = MRI.getType(SrcReg);
-  assert(MRI.getType(LoReg) == LLT::scalar(8) &&
-         MRI.getType(HiReg) == LLT::scalar(8) && Ty.isScalar() &&
-         "Illegal type");
-  const TargetRegisterClass *RC;
-  switch (Ty.getSizeInBits()) {
-  case 16:
+  LLT SrcTy = MRI.getType(SrcReg);
+  assert(SrcTy.isScalar() && "Illegal type");
+
+  auto Constrain = [&](Register Reg) -> bool {
+    if (Reg.isPhysical())
+      return true;
+    if (const TargetRegisterClass *RC = getRegClass(Reg, MRI))
+      return RBI.constrainGenericRegister(Reg, *RC, MRI) != nullptr;
+    return false;
+  };
+
+  const TargetRegisterClass *SrcRC = getRegClass(SrcReg, MRI);
+  if (!SrcRC)
+    return false;
+
+  switch (SrcTy.getSizeInBits()) {
+  case 16: {
+    Register LoReg = I.getOperand(0).getReg();
+    Register HiReg = I.getOperand(1).getReg();
     assert(I.getNumOperands() == 3 && "Illegal instruction");
-    RC = STI.hasIndexHalfRegs() ? &Z80::R16RegClass : &Z80::G16RegClass;
+    assert(MRI.getType(LoReg) == LLT::scalar(8) &&
+           MRI.getType(HiReg) == LLT::scalar(8) && "Illegal instruction");
+
+    const TargetRegisterClass *RC =
+        STI.hasIndexHalfRegs() ? &Z80::R16RegClass : &Z80::G16RegClass;
+    if (!RBI.constrainGenericRegister(SrcReg, *RC, MRI))
+      return false;
+
     MIB.buildInstr(TargetOpcode::COPY, {LoReg}, {})
         .addReg(SrcReg, 0, Z80::sub_low);
     MIB.buildInstr(TargetOpcode::COPY, {HiReg}, {})
         .addReg(SrcReg, 0, Z80::sub_high);
+
+    if (!RBI.constrainGenericRegister(LoReg, Z80::R8RegClass, MRI) ||
+        !RBI.constrainGenericRegister(HiReg, Z80::R8RegClass, MRI))
+      return false;
     break;
+  }
   case 24: {
+    assert(STI.is24Bit() && "Illegal instruction");
+    assert(I.getNumOperands() == 4 && "Illegal instruction");
+
+    Register LoReg = I.getOperand(0).getReg();
+    Register HiReg = I.getOperand(1).getReg();
     Register UpReg = I.getOperand(2).getReg();
-    assert(STI.is24Bit() && I.getNumOperands() == 4 &&
+    assert(MRI.getType(LoReg) == LLT::scalar(8) &&
+           MRI.getType(HiReg) == LLT::scalar(8) &&
            MRI.getType(UpReg) == LLT::scalar(8) && "Illegal instruction");
-    RC = &Z80::R24RegClass;
+
+    if (!RBI.constrainGenericRegister(SrcReg, Z80::R24RegClass, MRI))
+      return false;
+
     int FI = MF.getFrameInfo().CreateStackObject(3, Align(1), false);
     MIB.buildInstr(Z80::LD24or).addFrameIndex(FI).addImm(0).addReg(SrcReg);
     MIB.buildInstr(Z80::LD8ro, {UpReg}, {}).addFrameIndex(FI).addImm(2);
@@ -1330,17 +1907,89 @@ bool Z80InstructionSelector::selectUnmergeValues(MachineInstr &I,
         .addReg(SrcReg, 0, Z80::sub_high);
     MIB.buildInstr(TargetOpcode::COPY, {LoReg}, {})
         .addReg(SrcReg, 0, Z80::sub_low);
-    if (!RBI.constrainGenericRegister(UpReg, Z80::R8RegClass, MRI))
+
+    if (!RBI.constrainGenericRegister(LoReg, Z80::R8RegClass, MRI) ||
+        !RBI.constrainGenericRegister(HiReg, Z80::R8RegClass, MRI) ||
+        !RBI.constrainGenericRegister(UpReg, Z80::R8RegClass, MRI))
+      return false;
+    break;
+  }
+  case 32: {
+    assert(!STI.is24Bit() && "Unexpected unmerge of s32 in 24-bit mode");
+    assert(I.getNumOperands() == 3 && "Illegal instruction");
+
+    Register LoReg = I.getOperand(0).getReg();
+    Register HiReg = I.getOperand(1).getReg();
+    assert(MRI.getType(LoReg) == LLT::scalar(16) &&
+           MRI.getType(HiReg) == LLT::scalar(16) && "Illegal instruction");
+
+    if (!RBI.constrainGenericRegister(SrcReg, *SrcRC, MRI))
+      return false;
+
+    MIB.buildInstr(TargetOpcode::COPY, {LoReg}, {})
+        .addReg(SrcReg, 0, Z80::sub_short);
+    MIB.buildInstr(TargetOpcode::COPY, {HiReg}, {})
+        .addReg(SrcReg, 0, Z80::sub_word1);
+
+    if (!Constrain(LoReg) || !Constrain(HiReg))
+      return false;
+    break;
+  }
+  case 48: {
+    assert(STI.is24Bit() && "Illegal instruction");
+    assert(I.getNumOperands() == 3 && "Illegal instruction");
+
+    Register LoReg = I.getOperand(0).getReg();
+    Register HiReg = I.getOperand(1).getReg();
+    assert(MRI.getType(LoReg) == LLT::scalar(24) &&
+           MRI.getType(HiReg) == LLT::scalar(24) && "Illegal instruction");
+
+    if (!RBI.constrainGenericRegister(SrcReg, *SrcRC, MRI))
+      return false;
+
+    MIB.buildInstr(TargetOpcode::COPY, {LoReg}, {})
+        .addReg(SrcReg, 0, Z80::sub_low24);
+    MIB.buildInstr(TargetOpcode::COPY, {HiReg}, {})
+        .addReg(SrcReg, 0, Z80::sub_mid24);
+
+    if (!Constrain(LoReg) || !Constrain(HiReg))
+      return false;
+    break;
+  }
+  case 64: {
+    assert(!STI.is24Bit() && "Unexpected unmerge of s64 in 24-bit mode");
+    assert(I.getNumOperands() == 5 && "Illegal instruction");
+
+    Register W0 = I.getOperand(0).getReg();
+    Register W1 = I.getOperand(1).getReg();
+    Register W2 = I.getOperand(2).getReg();
+    Register W3 = I.getOperand(3).getReg();
+    assert(MRI.getType(W0) == LLT::scalar(16) &&
+           MRI.getType(W1) == LLT::scalar(16) &&
+           MRI.getType(W2) == LLT::scalar(16) &&
+           MRI.getType(W3) == LLT::scalar(16) && "Illegal instruction");
+
+    if (!RBI.constrainGenericRegister(SrcReg, *SrcRC, MRI))
+      return false;
+
+    MIB.buildInstr(TargetOpcode::COPY, {W0}, {})
+        .addReg(SrcReg, 0, Z80::sub_short);
+    MIB.buildInstr(TargetOpcode::COPY, {W1}, {})
+        .addReg(SrcReg, 0, Z80::sub_word1);
+    MIB.buildInstr(TargetOpcode::COPY, {W2}, {})
+        .addReg(SrcReg, 0, Z80::sub_word2);
+    MIB.buildInstr(TargetOpcode::COPY, {W3}, {})
+        .addReg(SrcReg, 0, Z80::sub_word3);
+
+    if (!Constrain(W0) || !Constrain(W1) || !Constrain(W2) || !Constrain(W3))
       return false;
     break;
   }
   default:
-    llvm_unreachable("Illegal instruction");
+    return false;
   }
   I.eraseFromParent();
-  return RBI.constrainGenericRegister(LoReg, Z80::R8RegClass, MRI) &&
-         RBI.constrainGenericRegister(HiReg, Z80::R8RegClass, MRI) &&
-         RBI.constrainGenericRegister(SrcReg, *RC, MRI);
+  return true;
 }
 
 bool Z80InstructionSelector::selectInsert(MachineInstr &I,
@@ -1414,6 +2063,20 @@ bool Z80InstructionSelector::selectMergeValues(MachineInstr &I,
   Register DstReg = I.getOperand(0).getReg();
   const TargetRegisterClass *RC;
   switch (MRI.getType(DstReg).getSizeInBits()) {
+  case 32: {
+    assert(!STI.is24Bit() && "Unexpected merge of s32 in 24-bit mode");
+    assert(I.getNumOperands() == 3 &&
+           MRI.getType(I.getOperand(1).getReg()) == LLT::scalar(16) &&
+           MRI.getType(I.getOperand(2).getReg()) == LLT::scalar(16) &&
+           "Illegal instruction");
+    RC = &Z80::R32_16RegClass;
+    auto SeqI = MIB.buildInstr(TargetOpcode::REG_SEQUENCE, {DstReg},
+                               {I.getOperand(1), int64_t(Z80::sub_short),
+                                I.getOperand(2), int64_t(Z80::sub_word1)});
+    if (!constrainSelectedInstRegOperands(*SeqI, TII, TRI, RBI))
+      return false;
+    break;
+  }
   case 16: {
     assert(I.getNumOperands() == 3 &&
            MRI.getType(I.getOperand(1).getReg()) == LLT::scalar(8) &&
@@ -1471,6 +2134,39 @@ bool Z80InstructionSelector::selectMergeValues(MachineInstr &I,
       TmpReg = InsertI.getReg(0);
     }
     MIB.buildCopy(DstReg, TmpReg);
+    break;
+  }
+  case 48: {
+    assert(STI.is24Bit() && "Illegal instruction");
+    assert(I.getNumOperands() == 3 &&
+           MRI.getType(I.getOperand(1).getReg()) == LLT::scalar(24) &&
+           MRI.getType(I.getOperand(2).getReg()) == LLT::scalar(24) &&
+           "Illegal instruction");
+    RC = &Z80::R48_24RegClass;
+    auto SeqI = MIB.buildInstr(TargetOpcode::REG_SEQUENCE, {DstReg},
+                               {I.getOperand(1), int64_t(Z80::sub_low24),
+                                I.getOperand(2), int64_t(Z80::sub_mid24)});
+    if (!constrainSelectedInstRegOperands(*SeqI, TII, TRI, RBI))
+      return false;
+    break;
+  }
+  case 64: {
+    assert(!STI.is24Bit() && "Unexpected merge of s64 in 24-bit mode");
+    assert(I.getNumOperands() == 5 &&
+           MRI.getType(I.getOperand(1).getReg()) == LLT::scalar(16) &&
+           MRI.getType(I.getOperand(2).getReg()) == LLT::scalar(16) &&
+           MRI.getType(I.getOperand(3).getReg()) == LLT::scalar(16) &&
+           MRI.getType(I.getOperand(4).getReg()) == LLT::scalar(16) &&
+           "Illegal instruction");
+    RC = &Z80::R64_16RegClass;
+    auto SeqI = MIB.buildInstr(
+        TargetOpcode::REG_SEQUENCE, {DstReg},
+        {I.getOperand(1), int64_t(Z80::sub_short),
+         I.getOperand(2), int64_t(Z80::sub_word1),
+         I.getOperand(3), int64_t(Z80::sub_word2),
+         I.getOperand(4), int64_t(Z80::sub_word3)});
+    if (!constrainSelectedInstRegOperands(*SeqI, TII, TRI, RBI))
+      return false;
     break;
   }
   default:
@@ -1957,6 +2653,85 @@ bool Z80InstructionSelector::selectShift(MachineInstr &I,
     return constrainSelectedInstRegOperands(*ShiftI, TII, TRI, RBI);
   }
 
+  // handle s16/s24 G_SHL by 1-6 (inline add hl, hl instructions)
+  // for s24, use ADD24aa for all adds (generates add hl, hl, 1 byte each)
+  // for s16 in 24 bit mode with shift > 1, use SUBREG_TO_REG to promote to s24,
+  //   then (N-1) * ADD24aa (1 byte each) + final ADD16aa (2 bytes) for truncation
+  //   this saves 1 byte per intermediate add vs all ADD16aa (2 bytes each)
+  // for s16 with shift == 1 or in 16 bit mode, use ADD16aa
+  if (Opc == TargetOpcode::G_SHL && Amt->Value.uge(1) && Amt->Value.ule(6) &&
+      (TySize == 16 || (STI.is24Bit() && TySize == 24))) {
+    unsigned ShiftAmt = Amt->Value.getZExtValue();
+    MachineBasicBlock &MBB = *I.getParent();
+    MachineBasicBlock::iterator InsertPt = I.getIterator();
+    DebugLoc DL = I.getDebugLoc();
+    
+    // s16 shifts in 24 bit mode with shift > 1
+    // use all ADD24aa (1 byte each) - upper byte is undefined anyway, and
+    // carry flag from bit 15 overflow is not observable through G_SHL
+    // this saves N bytes vs all ADD16aa (2 bytes each)
+    if (TySize == 16 && STI.is24Bit() && ShiftAmt > 1) {
+      // promote s16 to s24 via SUBREG_TO_REG (HL -> UHL)
+      Register ExtReg = MRI.createVirtualRegister(&Z80::A24RegClass);
+      BuildMI(MBB, InsertPt, DL, TII.get(TargetOpcode::SUBREG_TO_REG), ExtReg)
+        .addImm(0)           // upper bits undefined (don't care)
+        .addReg(SrcReg)      // source s16
+        .addImm(Z80::sub_short);
+      if (!RBI.constrainGenericRegister(SrcReg, Z80::A16RegClass, MRI))
+        return false;
+      
+      // copy to physical UHL for ADD24aa operations
+      BuildMI(MBB, InsertPt, DL, TII.get(TargetOpcode::COPY), Z80::UHL)
+        .addReg(ExtReg);
+      
+      // emit N * ADD24aa (1 byte each)
+      for (unsigned i = 0; i < ShiftAmt; ++i) {
+        BuildMI(MBB, InsertPt, DL, TII.get(Z80::ADD24aa), Z80::UHL)
+          .addReg(Z80::UHL);
+      }
+      
+      // copy result from HL sub reg (lower 16 bits of UHL)
+      MIB.buildCopy(DstReg, Register(Z80::HL));
+      if (!RBI.constrainGenericRegister(DstReg, Z80::A16RegClass, MRI))
+        return false;
+      I.eraseFromParent();
+      return true;
+    }
+    
+    // standard path, s24 or s16 with shift == 1
+    unsigned AddOpc;
+    Register AccumReg;
+    const TargetRegisterClass *RC;  // for register constraints
+    
+    if (TySize == 24) {
+      AddOpc = Z80::ADD24aa;
+      AccumReg = Z80::UHL;
+      RC = &Z80::R24RegClass;
+    } else {
+      AddOpc = Z80::ADD16aa;
+      AccumReg = Z80::HL;
+      RC = &Z80::R16RegClass;
+    }
+    
+    // copy source to accumulator - source can be any register, we are copying TO the accumulator
+    MIB.buildCopy(AccumReg, SrcReg);
+    if (!RBI.constrainGenericRegister(SrcReg, *RC, MRI))
+      return false;
+
+    // emit N adds using BuildMI for proper physical register handling
+    for (unsigned i = 0; i < ShiftAmt; ++i) {
+      BuildMI(MBB, InsertPt, DL, TII.get(AddOpc), AccumReg)
+        .addReg(AccumReg);
+    }
+
+    // copy result from accumulator to destination
+    MIB.buildCopy(DstReg, AccumReg);
+    if (!RBI.constrainGenericRegister(DstReg, *RC, MRI))
+      return false;
+    I.eraseFromParent();
+    return true;
+  }
+
   // Handle s16 G_SHL/G_LSHR by 8 (byte swap)
   if ((Opc == TargetOpcode::G_SHL || Opc == TargetOpcode::G_LSHR) &&
       Ty == LLT::scalar(16) && Amt->Value == 8) {
@@ -2390,8 +3165,10 @@ bool Z80InstructionSelector::selectInlineAsm(MachineInstr &I,
     Register Reg = MO.getReg();
     if (Reg == Z80::NoRegister || !Reg.isVirtual())
       continue;
-    if (const auto *RC = I.getRegClassConstraint(Idx, &TII, &TRI))
+    if (const auto *RC = I.getRegClassConstraint(Idx, &TII, &TRI)) {
+      (void)RC;
       Reg = constrainOperandRegClass(*MF, TRI, MRI, TII, RBI, I, MO, Idx);
+    }
   }
   return true;
 }

@@ -735,6 +735,37 @@ void Z80InstrInfo::copyPhysReg(MachineBasicBlock &MBB,
   }
   // Otherwise, implement as two copies. A 16-bit copy should copy high and low
   // 8 bits separately.
+  auto CopyTuple = [&](ArrayRef<unsigned> SubRegIndices) {
+    for (unsigned I = 0, E = SubRegIndices.size(); I != E; ++I) {
+      bool KillThis = KillSrc && (I + 1 == E);
+      copyPhysReg(MBB, MI, DL, RI.getSubReg(DstReg, SubRegIndices[I]),
+                  RI.getSubReg(SrcReg, SubRegIndices[I]), KillThis);
+    }
+    --MI;
+    MI->addRegisterDefined(DstReg, &RI);
+  };
+
+  if (Z80::R32_16RegClass.contains(DstReg, SrcReg)) {
+    CopyTuple({Z80::sub_short, Z80::sub_word1});
+    return;
+  }
+  if (Z80::R32_24RegClass.contains(DstReg, SrcReg)) {
+    CopyTuple({Z80::sub_low24, Z80::sub_high8});
+    return;
+  }
+  if (Z80::R48_24RegClass.contains(DstReg, SrcReg)) {
+    CopyTuple({Z80::sub_low24, Z80::sub_mid24});
+    return;
+  }
+  if (Z80::R64_16RegClass.contains(DstReg, SrcReg)) {
+    CopyTuple({Z80::sub_short, Z80::sub_word1, Z80::sub_word2, Z80::sub_word3});
+    return;
+  }
+  if (Z80::R64_24RegClass.contains(DstReg, SrcReg)) {
+    CopyTuple({Z80::sub_low24, Z80::sub_mid24, Z80::sub_word3});
+    return;
+  }
+
   assert(Z80::R16RegClass.contains(DstReg, SrcReg) && "Unknown copy width");
   unsigned SubLo = Z80::sub_low;
   unsigned SubHi = Z80::sub_high;
@@ -841,6 +872,85 @@ void Z80InstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
     assert(Is24Bit && "Only 24-bit should have 3 byte stack slots");
     Opc = Z80::LD24or;
     break;
+  case 4: {
+    if (Is24Bit) {
+      // s32 (24+8) store low24, then high8
+      BuildMI(MBB, MI, DL, get(Z80::LD24or))
+          .addFrameIndex(FI)
+          .addImm(0)
+          .addReg(SrcReg, 0, Z80::sub_low24);
+      BuildMI(MBB, MI, DL, get(Z80::LD8or))
+          .addFrameIndex(FI)
+          .addImm(3)
+          .addReg(SrcReg, getKillRegState(IsKill), Z80::sub_high8);
+      return;
+    }
+
+    // s32 (16+16) store word0, then word1
+    unsigned Store16 = Subtarget.has16BitEZ80Ops() ? Z80::LD16or : Z80::LD88or;
+    BuildMI(MBB, MI, DL, get(Store16))
+        .addFrameIndex(FI)
+        .addImm(0)
+        .addReg(SrcReg, 0, Z80::sub_short);
+    BuildMI(MBB, MI, DL, get(Store16))
+        .addFrameIndex(FI)
+        .addImm(2)
+        .addReg(SrcReg, getKillRegState(IsKill), Z80::sub_word1);
+    return;
+  }
+  case 6: {
+    assert(Is24Bit && "Only 24-bit should have 6 byte stack slots");
+    // s48 (24+24) store low24, then high24
+    BuildMI(MBB, MI, DL, get(Z80::LD24or))
+        .addFrameIndex(FI)
+        .addImm(0)
+        .addReg(SrcReg, 0, Z80::sub_low24);
+    BuildMI(MBB, MI, DL, get(Z80::LD24or))
+        .addFrameIndex(FI)
+        .addImm(3)
+        .addReg(SrcReg, getKillRegState(IsKill), Z80::sub_mid24);
+    return;
+  }
+  case 8: {
+    if (Is24Bit) {
+      // s64 (24+24+16) store low24, mid24, then high16
+      unsigned Store16 =
+          Subtarget.has16BitEZ80Ops() ? Z80::LD16or : Z80::LD88or;
+      BuildMI(MBB, MI, DL, get(Z80::LD24or))
+          .addFrameIndex(FI)
+          .addImm(0)
+          .addReg(SrcReg, 0, Z80::sub_low24);
+      BuildMI(MBB, MI, DL, get(Z80::LD24or))
+          .addFrameIndex(FI)
+          .addImm(3)
+          .addReg(SrcReg, 0, Z80::sub_mid24);
+      BuildMI(MBB, MI, DL, get(Store16))
+          .addFrameIndex(FI)
+          .addImm(6)
+          .addReg(SrcReg, getKillRegState(IsKill), Z80::sub_word3);
+      return;
+    }
+
+    // s64 (16+16+16+16) store word0..word3
+    unsigned Store16 = Subtarget.has16BitEZ80Ops() ? Z80::LD16or : Z80::LD88or;
+    BuildMI(MBB, MI, DL, get(Store16))
+        .addFrameIndex(FI)
+        .addImm(0)
+        .addReg(SrcReg, 0, Z80::sub_short);
+    BuildMI(MBB, MI, DL, get(Store16))
+        .addFrameIndex(FI)
+        .addImm(2)
+        .addReg(SrcReg, 0, Z80::sub_word1);
+    BuildMI(MBB, MI, DL, get(Store16))
+        .addFrameIndex(FI)
+        .addImm(4)
+        .addReg(SrcReg, 0, Z80::sub_word2);
+    BuildMI(MBB, MI, DL, get(Store16))
+        .addFrameIndex(FI)
+        .addImm(6)
+        .addReg(SrcReg, getKillRegState(IsKill), Z80::sub_word3);
+    return;
+  }
   }
 
   if (Is24Bit && Opc == Z80::LD24or && SrcReg.isPhysical())
@@ -897,6 +1007,88 @@ void Z80InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
                                                    &Z80::R24RegClass))
         DstReg = SuperReg;
     break;
+  case 4: {
+    MachineRegisterInfo &MRI = MBB.getParent()->getRegInfo();
+    if (Is24Bit) {
+      Register Lo24 = MRI.createVirtualRegister(&Z80::R24RegClass);
+      Register Hi8 = MRI.createVirtualRegister(&Z80::R8RegClass);
+      BuildMI(MBB, MI, DL, get(Z80::LD24ro), Lo24).addFrameIndex(FI).addImm(0);
+      BuildMI(MBB, MI, DL, get(Z80::LD8ro), Hi8).addFrameIndex(FI).addImm(3);
+      BuildMI(MBB, MI, DL, get(TargetOpcode::REG_SEQUENCE), DstReg)
+          .addReg(Lo24)
+          .addImm(Z80::sub_low24)
+          .addReg(Hi8)
+          .addImm(Z80::sub_high8);
+      return;
+    }
+
+    unsigned Load16 = Subtarget.has16BitEZ80Ops() ? Z80::LD16ro : Z80::LD88ro;
+    Register W0 = MRI.createVirtualRegister(&Z80::R16RegClass);
+    Register W1 = MRI.createVirtualRegister(&Z80::R16RegClass);
+    BuildMI(MBB, MI, DL, get(Load16), W0).addFrameIndex(FI).addImm(0);
+    BuildMI(MBB, MI, DL, get(Load16), W1).addFrameIndex(FI).addImm(2);
+    BuildMI(MBB, MI, DL, get(TargetOpcode::REG_SEQUENCE), DstReg)
+        .addReg(W0)
+        .addImm(Z80::sub_short)
+        .addReg(W1)
+        .addImm(Z80::sub_word1);
+    return;
+  }
+  case 6: {
+    assert(Is24Bit && "Only 24-bit should have 6 byte stack slots");
+    MachineRegisterInfo &MRI = MBB.getParent()->getRegInfo();
+    Register Lo24 = MRI.createVirtualRegister(&Z80::R24RegClass);
+    Register Hi24 = MRI.createVirtualRegister(&Z80::R24RegClass);
+    BuildMI(MBB, MI, DL, get(Z80::LD24ro), Lo24).addFrameIndex(FI).addImm(0);
+    BuildMI(MBB, MI, DL, get(Z80::LD24ro), Hi24).addFrameIndex(FI).addImm(3);
+    BuildMI(MBB, MI, DL, get(TargetOpcode::REG_SEQUENCE), DstReg)
+        .addReg(Lo24)
+        .addImm(Z80::sub_low24)
+        .addReg(Hi24)
+        .addImm(Z80::sub_mid24);
+    return;
+  }
+  case 8: {
+    MachineRegisterInfo &MRI = MBB.getParent()->getRegInfo();
+    if (Is24Bit) {
+      unsigned Load16 =
+          Subtarget.has16BitEZ80Ops() ? Z80::LD16ro : Z80::LD88ro;
+      Register Lo24 = MRI.createVirtualRegister(&Z80::R24RegClass);
+      Register Mid24 = MRI.createVirtualRegister(&Z80::R24RegClass);
+      Register Hi16 = MRI.createVirtualRegister(&Z80::R16RegClass);
+      BuildMI(MBB, MI, DL, get(Z80::LD24ro), Lo24).addFrameIndex(FI).addImm(0);
+      BuildMI(MBB, MI, DL, get(Z80::LD24ro), Mid24).addFrameIndex(FI).addImm(3);
+      BuildMI(MBB, MI, DL, get(Load16), Hi16).addFrameIndex(FI).addImm(6);
+      BuildMI(MBB, MI, DL, get(TargetOpcode::REG_SEQUENCE), DstReg)
+          .addReg(Lo24)
+          .addImm(Z80::sub_low24)
+          .addReg(Mid24)
+          .addImm(Z80::sub_mid24)
+          .addReg(Hi16)
+          .addImm(Z80::sub_word3);
+      return;
+    }
+
+    unsigned Load16 = Subtarget.has16BitEZ80Ops() ? Z80::LD16ro : Z80::LD88ro;
+    Register W0 = MRI.createVirtualRegister(&Z80::R16RegClass);
+    Register W1 = MRI.createVirtualRegister(&Z80::R16RegClass);
+    Register W2 = MRI.createVirtualRegister(&Z80::R16RegClass);
+    Register W3 = MRI.createVirtualRegister(&Z80::R16RegClass);
+    BuildMI(MBB, MI, DL, get(Load16), W0).addFrameIndex(FI).addImm(0);
+    BuildMI(MBB, MI, DL, get(Load16), W1).addFrameIndex(FI).addImm(2);
+    BuildMI(MBB, MI, DL, get(Load16), W2).addFrameIndex(FI).addImm(4);
+    BuildMI(MBB, MI, DL, get(Load16), W3).addFrameIndex(FI).addImm(6);
+    BuildMI(MBB, MI, DL, get(TargetOpcode::REG_SEQUENCE), DstReg)
+        .addReg(W0)
+        .addImm(Z80::sub_short)
+        .addReg(W1)
+        .addImm(Z80::sub_word1)
+        .addReg(W2)
+        .addImm(Z80::sub_word2)
+        .addReg(W3)
+        .addImm(Z80::sub_word3);
+    return;
+  }
   }
   BuildMI(MBB, MI, DL, get(Opc), DstReg).addFrameIndex(FI).addImm(0);
 }
@@ -1035,6 +1227,30 @@ bool Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
       Is24Bit ? &Z80::A24RegClass : &Z80::A16RegClass;
   const TargetRegisterClass *IndexScratchRC =
       Is24Bit ? &Z80::I24RegClass : &Z80::I16RegClass;
+  bool HasLEA = Is24Bit || Subtarget.hasEZ80Ops();
+
+  auto emitChunkedLEAAdjust = [&](Register Reg, int64_t Adj) {
+    if (!Adj)
+      return;
+    assert(HasLEA && "LEA adjustment requires eZ80 ops");
+    if (isInt<8>(Adj)) {
+      BuildMI(MBB, II, DL, get(Is24Bit ? Z80::LEA24ro : Z80::LEA16ro), Reg)
+          .addReg(Reg)
+          .addImm(Adj);
+      return;
+    }
+
+    int64_t Remaining = Adj;
+    while (Remaining) {
+      int64_t Step = Remaining < 0 ? std::max<int64_t>(Remaining, -128)
+                                   : std::min<int64_t>(Remaining, 127);
+      assert(isInt<8>(Step) && Step != 0);
+      BuildMI(MBB, II, DL, get(Is24Bit ? Z80::LEA24ro : Z80::LEA16ro), Reg)
+          .addReg(Reg)
+          .addImm(Step);
+      Remaining -= Step;
+    }
+  };
 
   auto regOverlapsMI = [&](Register Cand) -> bool {
     if (!Cand)
@@ -1048,22 +1264,23 @@ bool Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
     return false;
   };
 
-  auto selectUnusedNoOverlap = [&](const TargetRegisterClass *RC,
-                                   Register Exclude0,
-                                   Register Exclude1) -> Register {
-    if (!RS)
-      return Register();
-    for (MCPhysReg Reg : *RC) {
-      if (Reg == Exclude0 || Reg == Exclude1)
-        continue;
-      if (RS->isRegUsed(Reg))
-        continue;
-      if (regOverlapsMI(Reg))
-        continue;
-      return Reg;
-    }
-    return Register();
-  };
+	  auto selectUnusedNoOverlap = [&](const TargetRegisterClass *RC,
+	                                   Register Exclude0,
+	                                   Register Exclude1,
+	                                   bool IncludeReserved = true) -> Register {
+	    if (!RS)
+	      return Register();
+	    for (MCPhysReg Reg : *RC) {
+	      if (Reg == Exclude0 || Reg == Exclude1)
+	        continue;
+	      if (RS->isRegUsed(Reg, IncludeReserved))
+	        continue;
+	      if (regOverlapsMI(Reg))
+	        continue;
+	      return Reg;
+	    }
+	    return Register();
+	  };
 
   auto selectAnyNoOverlap = [&](const TargetRegisterClass *RC, Register Exclude0,
                                 Register Exclude1) -> Register {
@@ -1154,15 +1371,16 @@ bool Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
   bool SpillOffsetReg = false;
   if (!RS) {
     ScratchReg = findUnusedOrCreateRegister(AddrScratchRC, MRI, /*RS=*/nullptr);
-  } else if (BaseReg.isPhysical()) {
-    // prefer an unused index register (IY/IX) for scratch if available. that
-    // keeps the original opcode (indexed addressing with 0 offset)
-    ScratchReg = selectUnusedNoOverlap(IndexScratchRC, /*Exclude0=*/BaseReg,
-                                       /*Exclude1=*/Register());
-    if (!ScratchReg)
-      ScratchReg = selectUnusedNoOverlap(AddrScratchRC, /*Exclude0=*/BaseReg,
-                                         /*Exclude1=*/Register());
-  }
+	  } else if (BaseReg.isPhysical()) {
+	    // prefer an unused index register (IY/IX) for scratch if available. that
+	    // keeps the original opcode (indexed addressing with 0 offset)
+	    ScratchReg = selectUnusedNoOverlap(IndexScratchRC, /*Exclude0=*/BaseReg,
+	                                       /*Exclude1=*/Register(),
+	                                       /*IncludeReserved=*/false);
+	    if (!ScratchReg)
+	      ScratchReg = selectUnusedNoOverlap(AddrScratchRC, /*Exclude0=*/BaseReg,
+	                                         /*Exclude1=*/Register());
+	  }
 
   if (ScratchReg) {
     // take the scratch reg rewrite path only when we can get a truly unused
@@ -1173,8 +1391,31 @@ bool Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
       std::tie(OffsetReg, SpillOffsetReg) =
           selectOffsetTemp(/*Exclude0=*/ScratchReg, /*Exclude1=*/BaseReg);
     } else {
-      OffsetReg = selectUnusedNoOverlap(OffsetRC, /*Exclude0=*/ScratchReg,
-                                        /*Exclude1=*/BaseReg);
+	      OffsetReg = selectUnusedNoOverlap(OffsetRC, /*Exclude0=*/ScratchReg,
+	                                        /*Exclude1=*/BaseReg);
+	      if (!OffsetReg &&
+	          HasLEA &&
+	          (Is24Bit ? Z80::I24RegClass : Z80::I16RegClass).contains(ScratchReg)) {
+        // if we can get an unused index scratch register but no unused offset
+        // register, avoid push/adjust/pop of the base by materializing the
+        // adjusted address directly into the scratch using chunked LEA\
+        // TODO: revisit this
+        copyRegister(MBB, II, DL, ScratchReg, BaseReg);
+        emitChunkedLEAAdjust(ScratchReg, NewOffset);
+
+        if (IllegalLEA) {
+          copyRegister(MBB, II, DL, MI.getOperand(0).getReg(), ScratchReg);
+          MI.eraseFromParent();
+          return true;
+        }
+
+        MI.getOperand(FIOperandNum).ChangeToRegister(ScratchReg, false);
+        MI.getOperand(FIOperandNum + 1).ChangeToImmediate(0);
+        if (Is24Bit)
+          canonicalizePhysRegsTo24Bit(MI, TRI);
+        return false;
+      }
+
       if (!OffsetReg)
         ScratchReg = Register();
     }
@@ -1261,18 +1502,14 @@ bool Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
   // prefer lea for the base-reg push/adjust/pop fallback. it doesnt clobber
   // flags and avoids consuming a scratch/offset register (which can otherwise
   // lead to spill/kill ordering issues under PEI+RegScavenger)
-  if (Is24Bit || Subtarget.hasEZ80Ops()) {
-    if (isInt<8>(NewOffset)) {
-      BuildMI(MBB, II, DL, get(Is24Bit ? Z80::LEA24ro : Z80::LEA16ro), BaseReg)
-          .addReg(BaseReg)
-          .addImm(NewOffset);
-    } else if (RS) {
+  if (HasLEA) {
+    if (!isInt<8>(NewOffset) && RS) {
       // under PEI and RegScavenger, spilling a live offset temp (push/pop) tends to
       // destroy code size. if we cant get a truly unused offset reg, adjust
       // the base in signed 8 bit chunks using LEA
-      Register UnusedOffset =
-          selectUnusedNoOverlap(OffsetRC, /*Exclude0=*/BaseReg,
-                                /*Exclude1=*/Register());
+	      Register UnusedOffset =
+	          selectUnusedNoOverlap(OffsetRC, /*Exclude0=*/BaseReg,
+	                                /*Exclude1=*/Register());
       if (UnusedOffset) {
         BuildMI(MBB, II, DL, get(Is24Bit ? Z80::LD24ri : Z80::LD16ri),
                 UnusedOffset)
@@ -1290,33 +1527,34 @@ bool Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
           applySPAdjust(*BuildMI(MBB, II, DL,
                                  get(Is24Bit ? Z80::POP24AF : Z80::POP16AF)));
       } else {
-        int64_t Remaining = NewOffset;
-        while (Remaining) {
-          int64_t Step = Remaining < 0 ? std::max<int64_t>(Remaining, -128)
-                                       : std::min<int64_t>(Remaining, 127);
-          assert(isInt<8>(Step) && Step != 0);
-          BuildMI(MBB, II, DL, get(Is24Bit ? Z80::LEA24ro : Z80::LEA16ro),
-                  BaseReg)
-              .addReg(BaseReg)
-              .addImm(Step);
-          Remaining -= Step;
-        }
+        emitChunkedLEAAdjust(BaseReg, NewOffset);
       }
     } else {
-      // no scavenger
-      OffsetReg = MRI.createVirtualRegister(OffsetRC);
-      BuildMI(MBB, II, DL, get(Is24Bit ? Z80::LD24ri : Z80::LD16ri), OffsetReg)
-          .addImm(NewOffset);
-      if (SaveFlags)
-        applySPAdjust(
-            *BuildMI(MBB, II, DL, get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF)))
-            .findRegisterUseOperand(Z80::AF)->setIsUndef();
-      BuildMI(MBB, II, DL, get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao), BaseReg)
-          .addReg(BaseReg).addReg(OffsetReg, RegState::Kill)
-          ->addRegisterDead(Z80::F, &TRI);
-      if (SaveFlags)
-        applySPAdjust(
-            *BuildMI(MBB, II, DL, get(Is24Bit ? Z80::POP24AF : Z80::POP16AF)));
+      // for small adjustments, always prefer LEA so we dont clobber flags or
+      // consume extra regs
+      if (isInt<8>(NewOffset))
+        emitChunkedLEAAdjust(BaseReg, NewOffset);
+      else if (!RS) {
+        // no scavenger
+        OffsetReg = MRI.createVirtualRegister(OffsetRC);
+        BuildMI(MBB, II, DL, get(Is24Bit ? Z80::LD24ri : Z80::LD16ri), OffsetReg)
+            .addImm(NewOffset);
+        if (SaveFlags)
+          applySPAdjust(*BuildMI(MBB, II, DL,
+                                 get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF)))
+              .findRegisterUseOperand(Z80::AF)
+              ->setIsUndef();
+        BuildMI(MBB, II, DL, get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao), BaseReg)
+            .addReg(BaseReg)
+            .addReg(OffsetReg, RegState::Kill)
+            ->addRegisterDead(Z80::F, &TRI);
+        if (SaveFlags)
+          applySPAdjust(
+              *BuildMI(MBB, II, DL, get(Is24Bit ? Z80::POP24AF : Z80::POP16AF)));
+      } else {
+        // with a scavenger and no unused offset temp fall back to LEA chunks
+        emitChunkedLEAAdjust(BaseReg, NewOffset);
+      }
     }
   } else {
     std::tie(OffsetReg, SpillOffsetReg) =
@@ -2310,6 +2548,19 @@ Z80InstrInfo::foldMemoryOperandImpl(MachineFunction &MF, MachineInstr &MI,
   for (auto Op : Ops)
     if (MI.getOperand(Op).getSubReg())
       return nullptr;
+
+  // F8 (flags) register spill sequence uses EX which introduces physreg defs
+  // that InlineSpiller cannot handle. reject folding for F8 to force the
+  // standard spill path
+  if (MI.isCopy()) {
+    const MachineRegisterInfo &MRI = MF.getRegInfo();
+    for (auto Op : Ops) {
+      Register Reg = MI.getOperand(Op).getReg();
+      if (Reg.isVirtual() &&
+          Z80::F8RegClass.hasSubClassEq(MRI.getRegClass(Reg)))
+        return nullptr;
+    }
+  }
 
   const MachineFrameInfo &MFI = MF.getFrameInfo();
   unsigned Size = MFI.getObjectSize(FrameIndex);

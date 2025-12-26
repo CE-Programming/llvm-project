@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Z80AsmPrinter.h"
+#include "llvm/CodeGen/TargetOpcodes.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Mangler.h"
 #include "llvm/MC/MCContext.h"
@@ -107,6 +108,18 @@ void Z80MCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
 }
 
 void Z80AsmPrinter::emitInstruction(const MachineInstr *MI) {
+  switch (MI->getOpcode()) {
+  case TargetOpcode::KILL:
+  case TargetOpcode::REG_SEQUENCE:
+  case TargetOpcode::INSERT_SUBREG:
+  case TargetOpcode::EXTRACT_SUBREG:
+  case TargetOpcode::SUBREG_TO_REG:
+  case TargetOpcode::IMPLICIT_DEF:
+    return;
+  default:
+    break;
+  }
+
   Z80MCInstLower MCInstLowering(*MF, *this);
 
   MCInst TmpInst;

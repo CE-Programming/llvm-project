@@ -10,4 +10,5 @@
 //===----------------------------------------------------------------------===//
 
 /// General Purpose Registers
-def GPRRegBank : RegisterBank<"GPR", [R24, Z24, Z16, Z8]>;
+def GPRRegBank : RegisterBank<"GPR", [R64_24, R64_16, R48_24, R32_24, R32_16,
+                                      R24, Z24, Z16, Z8]>;

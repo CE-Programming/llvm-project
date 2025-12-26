@@ -25,7 +25,9 @@ using namespace llvm;
 #define GET_TARGET_REGBANK_INFO_IMPL
 #include "Z80GenRegisterBankInfo.def"
 
-Z80RegisterBankInfo::Z80RegisterBankInfo(const TargetRegisterInfo &TRI) {
+	Z80RegisterBankInfo::Z80RegisterBankInfo(const TargetRegisterInfo &TRI,
+	                                         bool Is24BitMode)
+	    : Is24BitMode(Is24BitMode) {
 
   // validate RegBank initialization.
   const RegisterBank &RBGPR = getRegBank(Z80::GPRRegBankID);
@@ -36,19 +38,24 @@ Z80RegisterBankInfo::Z80RegisterBankInfo(const TargetRegisterInfo &TRI) {
   // R24 + its subclasses.
   assert(RBGPR.covers(*TRI.getRegClass(Z80::R24RegClassID)) &&
          "Subclass not added?");
-  assert(getMaximumSize(Z80::GPRRegBankID) == 24 &&
-         "GPRs should hold up to 24-bits");
+  assert(getMaximumSize(Z80::GPRRegBankID) >= 64 &&
+         "GPR register bank should cover wide tuple registers (up to s64)");
 }
 
 const RegisterBank &
 Z80RegisterBankInfo::getRegBankFromRegClass(const TargetRegisterClass &RC,
                                             LLT) const {
-  if (Z80::R8RegClass.hasSubClassEq(&RC) ||
-      Z80::R16RegClass.hasSubClassEq(&RC) ||
-      Z80::R24RegClass.hasSubClassEq(&RC) ||
-      Z80::G8RegClass.hasSubClassEq(&RC) ||
-      Z80::G16RegClass.hasSubClassEq(&RC) ||
-      Z80::G24RegClass.hasSubClassEq(&RC) ||
+	  if (Z80::R8RegClass.hasSubClassEq(&RC) ||
+	      Z80::R16RegClass.hasSubClassEq(&RC) ||
+	      Z80::R24RegClass.hasSubClassEq(&RC) ||
+	      Z80::R32_16RegClass.hasSubClassEq(&RC) ||
+	      Z80::R32_24RegClass.hasSubClassEq(&RC) ||
+	      Z80::R48_24RegClass.hasSubClassEq(&RC) ||
+	      Z80::R64_16RegClass.hasSubClassEq(&RC) ||
+	      Z80::R64_24RegClass.hasSubClassEq(&RC) ||
+	      Z80::G8RegClass.hasSubClassEq(&RC) ||
+	      Z80::G16RegClass.hasSubClassEq(&RC) ||
+	      Z80::G24RegClass.hasSubClassEq(&RC) ||
       Z80::O8RegClass.hasSubClassEq(&RC) ||
       Z80::O16RegClass.hasSubClassEq(&RC) ||
       Z80::O24RegClass.hasSubClassEq(&RC) ||
@@ -72,41 +79,69 @@ Z80RegisterBankInfo::getRegBankFromRegClass(const TargetRegisterClass &RC,
     return getRegBank(Z80::GPRRegBankID);
 
   llvm_unreachable("Unsupported register kind.");
-}
+	}
 
-Z80GenRegisterBankInfo::PartialMappingIdx
-Z80GenRegisterBankInfo::getPartialMappingIdx(const LLT &Ty) {
-  if (Ty.isVector())
-    llvm_unreachable("Vector is unsupported.");
+	Z80GenRegisterBankInfo::PartialMappingIdx
+	Z80RegisterBankInfo::getPartialMappingIdxForType(const LLT &Ty) const {
+	  if (Ty.isVector())
+	    llvm_unreachable("Vector is unsupported.");
 
-  switch (Ty.getSizeInBits()) {
-  case 1:
-  case 8: return PMI_GPR8;
-  case 16: return PMI_GPR16;
-  case 24: return PMI_GPR24;
-  default:
-    llvm_unreachable("Unsupported register size.");
-  }
-}
+	  switch (Ty.getSizeInBits()) {
+	  case 1:
+	  case 8:
+	    return PMI_GPR8;
+	  case 16:
+	    return PMI_GPR16;
+	  case 24:
+	    return PMI_GPR24;
+	  case 32:
+	    return Is24BitMode ? PMI_GPR32_24 : PMI_GPR32_16;
+	  case 48:
+	    return Is24BitMode ? PMI_GPR48_24 : PMI_GPR48_16;
+	  case 64:
+	    return Is24BitMode ? PMI_GPR64_24 : PMI_GPR64_16;
+	  default:
+	    llvm_unreachable("Unsupported register size.");
+	  }
+	}
 
-void Z80RegisterBankInfo::getInstrPartialMappingIdxs(
-    const MachineInstr &MI, const MachineRegisterInfo &MRI,
-    SmallVectorImpl<PartialMappingIdx> &OpRegBankIdx) {
+	Z80GenRegisterBankInfo::PartialMappingIdx
+	Z80GenRegisterBankInfo::getPartialMappingIdx(const LLT &Ty) {
+	  if (Ty.isVector())
+	    llvm_unreachable("Vector is unsupported.");
+
+	  switch (Ty.getSizeInBits()) {
+	  case 1:
+	  case 8: return PMI_GPR8;
+	  case 16: return PMI_GPR16;
+	  case 24: return PMI_GPR24;
+	  case 32: return PMI_GPR32_16;
+	  case 48: return PMI_GPR48_16;
+	  case 64: return PMI_GPR64_16;
+	  default:
+	    llvm_unreachable("Unsupported register size.");
+	  }
+	}
+
+        void Z80RegisterBankInfo::getInstrPartialMappingIdxs(
+            const MachineInstr &MI, const MachineRegisterInfo &MRI,
+            SmallVectorImpl<PartialMappingIdx> &OpRegBankIdx) const {
 
   unsigned NumOperands = MI.getNumOperands();
-  for (unsigned Idx = 0; Idx < NumOperands; ++Idx) {
-    auto &MO = MI.getOperand(Idx);
-    if (!MO.isReg())
-      OpRegBankIdx[Idx] = PMI_None;
-    else
-      OpRegBankIdx[Idx] = getPartialMappingIdx(MRI.getType(MO.getReg()));
-  }
-}
+	  for (unsigned Idx = 0; Idx < NumOperands; ++Idx) {
+	    auto &MO = MI.getOperand(Idx);
+	    if (!MO.isReg())
+	      OpRegBankIdx[Idx] = PMI_None;
+	    else
+	      OpRegBankIdx[Idx] =
+	          getPartialMappingIdxForType(MRI.getType(MO.getReg()));
+	  }
+	}
 
-bool Z80RegisterBankInfo::getInstrValueMapping(
-    const MachineInstr &MI,
-    const SmallVectorImpl<PartialMappingIdx> &OpRegBankIdx,
-    SmallVectorImpl<const ValueMapping *> &OpdsMapping) {
+        bool Z80RegisterBankInfo::getInstrValueMapping(
+            const MachineInstr &MI,
+            const SmallVectorImpl<PartialMappingIdx> &OpRegBankIdx,
+            SmallVectorImpl<const ValueMapping *> &OpdsMapping) const {
 
   unsigned NumOperands = MI.getNumOperands();
   for (unsigned Idx = 0; Idx < NumOperands; ++Idx) {
@@ -119,11 +154,11 @@ bool Z80RegisterBankInfo::getInstrValueMapping(
 
     OpdsMapping[Idx] = Mapping;
   }
-  return true;
-}
+	  return true;
+	}
 
-const RegisterBankInfo::InstructionMapping &
-Z80RegisterBankInfo::getSameOperandsMapping(const MachineInstr &MI) const {
+	const RegisterBankInfo::InstructionMapping &
+	Z80RegisterBankInfo::getSameOperandsMapping(const MachineInstr &MI) const {
   const MachineRegisterInfo &MRI = MI.getMF()->getRegInfo();
 
   unsigned NumOperands = MI.getNumOperands();
@@ -133,9 +168,9 @@ Z80RegisterBankInfo::getSameOperandsMapping(const MachineInstr &MI) const {
       (Ty != MRI.getType(MI.getOperand(2).getReg())))
     llvm_unreachable("Unsupported operand mapping yet.");
 
-  auto Mapping = getValueMapping(getPartialMappingIdx(Ty), 3);
-  return getInstructionMapping(DefaultMappingID, 1, Mapping, NumOperands);
-}
+	  auto Mapping = getValueMapping(getPartialMappingIdxForType(Ty), 3);
+	  return getInstructionMapping(DefaultMappingID, 1, Mapping, NumOperands);
+	}
 
 const RegisterBankInfo::InstructionMapping &
 Z80RegisterBankInfo::getInstrMapping(const MachineInstr &MI) const {
@@ -155,28 +190,28 @@ Z80RegisterBankInfo::getInstrMapping(const MachineInstr &MI) const {
   switch (Opc) {
   case TargetOpcode::G_ADD:
   case TargetOpcode::G_SUB:
-  case TargetOpcode::G_MUL:
-    return getSameOperandsMapping(MI);
+	  case TargetOpcode::G_MUL:
+	    return getSameOperandsMapping(MI);
   case TargetOpcode::G_SHL:
   case TargetOpcode::G_LSHR:
-  case TargetOpcode::G_ASHR: {
-    LLT Ty = MRI.getType(MI.getOperand(0).getReg());
+	  case TargetOpcode::G_ASHR: {
+	    LLT Ty = MRI.getType(MI.getOperand(0).getReg());
 
-    auto Mapping = getValueMapping(getPartialMappingIdx(Ty), 3);
-    return getInstructionMapping(DefaultMappingID, 1, Mapping, NumOperands);
-  }
+	    auto Mapping = getValueMapping(getPartialMappingIdxForType(Ty), 3);
+	    return getInstructionMapping(DefaultMappingID, 1, Mapping, NumOperands);
+	  }
   default:
     break;
   }
 
-  // Track the bank of each register.
-  SmallVector<PartialMappingIdx, 4> OpRegBankIdx(NumOperands);
-  getInstrPartialMappingIdxs(MI, MRI, OpRegBankIdx);
+	  // Track the bank of each register.
+	  SmallVector<PartialMappingIdx, 4> OpRegBankIdx(NumOperands);
+	  getInstrPartialMappingIdxs(MI, MRI, OpRegBankIdx);
 
-  // Finally construct the computed mapping.
-  SmallVector<const ValueMapping *, 8> OpdsMapping(NumOperands);
-  if (!getInstrValueMapping(MI, OpRegBankIdx, OpdsMapping))
-    return getInvalidInstructionMapping();
+	  // Finally construct the computed mapping.
+	  SmallVector<const ValueMapping *, 8> OpdsMapping(NumOperands);
+	  if (!getInstrValueMapping(MI, OpRegBankIdx, OpdsMapping))
+	    return getInvalidInstructionMapping();
 
   return getInstructionMapping(DefaultMappingID, /* Cost */ 1,
                                getOperandsMapping(OpdsMapping), NumOperands);

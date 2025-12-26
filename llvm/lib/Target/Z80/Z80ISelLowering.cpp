@@ -158,6 +158,12 @@ Z80TargetLowering::Z80TargetLowering(const Z80TargetMachine &TM,
   setLibcall(RTLIB::CTLZ_I32,         "_lctlz",      CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::CTLZ_I48,         "_i48ctlz",    CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::CTLZ_I64,         "_llctlz",     CallingConv::Z80_LibCall   );
+  setLibcall(RTLIB::CTTZ_I8,          "_bcttz",      CallingConv::Z80_LibCall_AC);
+  setLibcall(RTLIB::CTTZ_I16,         "_scttz",      CallingConv::Z80_LibCall   );
+  setLibcall(RTLIB::CTTZ_I24,         "_icttz",      CallingConv::Z80_LibCall   );
+  setLibcall(RTLIB::CTTZ_I32,         "_lcttz",      CallingConv::Z80_LibCall   );
+  setLibcall(RTLIB::CTTZ_I48,         "_i48cttz",    CallingConv::Z80_LibCall   );
+  setLibcall(RTLIB::CTTZ_I64,         "_llcttz",     CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::POPCNT_I8,        "_bpopcnt",    CallingConv::Z80_LibCall_AC);
   setLibcall(RTLIB::POPCNT_I16,       "_spopcnt",    CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::POPCNT_I24,       "_ipopcnt",    CallingConv::Z80_LibCall   );
@@ -207,6 +213,34 @@ Z80TargetLowering::Z80TargetLowering(const Z80TargetMachine &TM,
   setLibcall(RTLIB::SINTTOFP_I64_F64, "_lltod",      CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::UINTTOFP_I32_F64, "_ultod",      CallingConv::Z80_LibCall   );
   setLibcall(RTLIB::UINTTOFP_I64_F64, "_ulltod",     CallingConv::Z80_LibCall   );
+
+  // Override standard C libcalls to use long double for 64-bit.
+  setLibcall(RTLIB::FMA_F64,          "fmal",        CallingConv::C             );
+  setLibcall(RTLIB::SQRT_F64,         "sqrtl",       CallingConv::C             );
+  setLibcall(RTLIB::CBRT_F64,         "cbrtl",       CallingConv::C             );
+  setLibcall(RTLIB::LOG_F64,          "logl",        CallingConv::C             );
+  setLibcall(RTLIB::LOG2_F64,         "log2l",       CallingConv::C             );
+  setLibcall(RTLIB::LOG10_F64,        "log10l",      CallingConv::C             );
+  setLibcall(RTLIB::EXP_F64,          "expl",        CallingConv::C             );
+  setLibcall(RTLIB::EXP2_F64,         "exp2l",       CallingConv::C             );
+  setLibcall(RTLIB::SIN_F64,          "sinl",        CallingConv::C             );
+  setLibcall(RTLIB::COS_F64,          "cosl",        CallingConv::C             );
+  setLibcall(RTLIB::POW_F64,          "powl",        CallingConv::C             );
+  setLibcall(RTLIB::CEIL_F64,         "ceill",       CallingConv::C             );
+  setLibcall(RTLIB::TRUNC_F64,        "truncl",      CallingConv::C             );
+  setLibcall(RTLIB::RINT_F64,         "rintl",       CallingConv::C             );
+  setLibcall(RTLIB::NEARBYINT_F64,    "nearbyintl",  CallingConv::C             );
+  setLibcall(RTLIB::ROUND_F64,        "roundl",      CallingConv::C             );
+  setLibcall(RTLIB::ROUNDEVEN_F64,    "roundevenl",  CallingConv::C             );
+  setLibcall(RTLIB::FLOOR_F64,        "floorl",      CallingConv::C             );
+  setLibcall(RTLIB::COPYSIGN_F64,     "copysignl",   CallingConv::C             );
+  setLibcall(RTLIB::FMIN_F64,         "fminl",       CallingConv::C             );
+  setLibcall(RTLIB::FMAX_F64,         "fmaxl",       CallingConv::C             );
+  setLibcall(RTLIB::LROUND_F64,       "lroundl",     CallingConv::C             );
+  setLibcall(RTLIB::LLROUND_F64,      "llroundl",    CallingConv::C             );
+  setLibcall(RTLIB::LRINT_F64,        "lrintl",      CallingConv::C             );
+  setLibcall(RTLIB::LLRINT_F64,       "llrintl",     CallingConv::C             );
+  setLibcall(RTLIB::ABS_F64,          "fabsl",       CallingConv::C             );
 }
 
 unsigned Z80TargetLowering::getJumpTableEncoding() const {
@@ -472,8 +506,10 @@ Z80TargetLowering::EmitLoweredMemMove(MachineInstr &MI,
   Register HL = Is24Bit ? Z80::UHL : Z80::HL;
   Register BC = Is24Bit ? Z80::UBC : Z80::BC;
   Register PhysRegs[] = { DE, HL, BC };
+  Register VirtRegs[3] = {};
   assert((Is24Bit || MI.getOpcode() == Z80::LDR16) && "Unexpected opcode");
 
+  const TargetRegisterInfo *TRI = Subtarget.getRegisterInfo();
   const TargetInstrInfo *TII = Subtarget.getInstrInfo();
   DebugLoc DL = MI.getDebugLoc();
 
@@ -482,12 +518,13 @@ Z80TargetLowering::EmitLoweredMemMove(MachineInstr &MI,
   MachineFunction::iterator I = ++BB->getIterator();
 
   MachineFunction *F = BB->getParent();
+  MachineRegisterInfo &MRI = F->getRegInfo();
   MachineBasicBlock *LDIR_BB = F->CreateMachineBasicBlock(LLVM_BB);
   MachineBasicBlock *LDDR_BB = F->CreateMachineBasicBlock(LLVM_BB);
   MachineBasicBlock *NextBB = F->CreateMachineBasicBlock(LLVM_BB);
   for (auto *MBB : {LDIR_BB, LDDR_BB}) {
     F->insert(I, MBB);
-    for (auto LiveIn : {BC, DE, HL})
+    for (auto LiveIn : PhysRegs)
       MBB->addLiveIn(LiveIn);
   }
   F->insert(I, NextBB);
@@ -499,8 +536,25 @@ Z80TargetLowering::EmitLoweredMemMove(MachineInstr &MI,
   NextBB->transferSuccessorsAndUpdatePHIs(BB);
 
   // BB:
-  //   JP C,LDDR_BB
+  //   COPY DE, DstReg
+  //   COPY HL, SrcReg
+  //   COPY BC, LenReg
+  //   SUB HL, DE   (or a, a; sbc hl, de - sets flags: C if HL < DE)
+  //   <save to virtregs>
+  //   JP C, LDDR_BB
   //   fallthrough --> LDIR_BB
+  for (int J = 0; J != 3; ++J)
+    BuildMI(BB, DL, TII->get(Z80::COPY), PhysRegs[J])
+        .add(MI.getOperand(J));
+  // sub24ao/Sub16ao: HL = HL - DE, sets flags
+  // this always uses valid registers (HL and DE) which avoiods sbc hl, iy
+  BuildMI(BB, DL, TII->get(Is24Bit ? Z80::Sub24ao : Z80::Sub16ao))
+      .addReg(DE);
+  // preserve physical registers for the successors
+  for (int J = 0; J != 3; ++J) {
+    VirtRegs[J] = MRI.createVirtualRegister(TRI->getRegClass(PhysRegs[J]));
+    BuildMI(BB, DL, TII->get(Z80::COPY), VirtRegs[J]).addReg(PhysRegs[J]);
+  }
   BuildMI(BB, DL, TII->get(Z80::JQCC)).addMBB(LDDR_BB)
       .addImm(Z80::COND_C);
   // Next, add the LDIR and LDDR blocks as its successors.
@@ -508,42 +562,54 @@ Z80TargetLowering::EmitLoweredMemMove(MachineInstr &MI,
   BB->addSuccessor(LDDR_BB);
 
   // LDIR_BB:
+  //   ADD HL, DE  (restore HL since subtraction destroyed it)
   //   LDIR
   //   JP NextBB
-  for (int I = 0; I != 3; ++I)
-    BuildMI(LDIR_BB, DL, TII->get(Z80::COPY), PhysRegs[I])
-        .add(MI.getOperand(I));
+  for (int J = 0; J != 3; ++J)
+    BuildMI(LDIR_BB, DL, TII->get(Z80::COPY), PhysRegs[J])
+        .addReg(VirtRegs[J]);
+  // restore HL = HL + DE (since we computed HL - DE earlier)
+  BuildMI(LDIR_BB, DL, TII->get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao), HL)
+      .addReg(HL).addReg(DE);
   BuildMI(LDIR_BB, DL, TII->get(Is24Bit ? Z80::LDIR24 : Z80::LDIR16));
   BuildMI(LDIR_BB, DL, TII->get(Z80::JQ)).addMBB(NextBB);
   // Update machine-CFG edges
   LDIR_BB->addSuccessor(NextBB);
 
   // LDDR_BB:
-  //   ADD HL,BC
-  //   DEC HL
-  //   EX DE,HL
-  //   ADD HL,BC
-  //   DEC HL
-  //   EX DE,HL
+  //   (virtregs have HL = HL - DE after subtraction, which is negative)
+  //   EX DE, HL     (DE = HL - DE = negative offset, HL = original DE)
+  //   ADD HL, BC    (HL = DE + BC = DE + len)
+  //   DEC HL        (HL = DE + len - 1 = end of dest)
+  //   EX DE, HL     (DE = end of dest, HL = negative offset)
+  //   ADD HL, DE    (HL = negative offset + end of dest = SrcOrig - DstOrig + DstEnd
+  //                    = SrcOrig + len - 1 = end of source)
   //   LDDR
   // # Fallthrough to Next MBB
-  for (int I = 0; I != 3; ++I)
-    BuildMI(LDDR_BB, DL, TII->get(Z80::COPY), PhysRegs[I])
-        .add(MI.getOperand(I));
-  for (int I = 0; I != 2; ++I) {
-    BuildMI(LDDR_BB, DL, TII->get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao), HL)
-        .addReg(HL).addReg(BC);
-    BuildMI(LDDR_BB, DL, TII->get(Is24Bit ? Z80::DEC24r : Z80::DEC16r), HL)
-        .addReg(HL);
-    BuildMI(LDDR_BB, DL, TII->get(Is24Bit ? Z80::EX24DE : Z80::EX16DE));
-  }
+  for (int J = 0; J != 3; ++J)
+    BuildMI(LDDR_BB, DL, TII->get(Z80::COPY), PhysRegs[J])
+        .addReg(VirtRegs[J]);
+  BuildMI(LDDR_BB, DL, TII->get(Is24Bit ? Z80::EX24DE : Z80::EX16DE));
+  BuildMI(LDDR_BB, DL, TII->get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao), HL)
+      .addReg(HL).addReg(BC);
+  BuildMI(LDDR_BB, DL, TII->get(Is24Bit ? Z80::DEC24r : Z80::DEC16r), HL)
+      .addReg(HL);
+  BuildMI(LDDR_BB, DL, TII->get(Is24Bit ? Z80::EX24DE : Z80::EX16DE));
+  BuildMI(LDDR_BB, DL, TII->get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao), HL)
+      .addReg(HL).addReg(DE);
   BuildMI(LDDR_BB, DL, TII->get(Is24Bit ? Z80::LDDR24 : Z80::LDDR16));
   LDDR_BB->addSuccessor(NextBB);
+
+  // replace virtual register usages with the corresponding physical
+  // registers to ensure no-op copies.
+  for (int J = 0; J != 3; ++J)
+    MRI.replaceRegWith(VirtRegs[J], PhysRegs[J]);
 
   MI.eraseFromParent();   // The pseudo instruction is gone now.
   LLVM_DEBUG(F->dump());
   return NextBB;
 }
+
 
 void Z80TargetLowering::computeKnownBitsForTargetInstr(
     GISelKnownBits &Analysis, Register Reg, KnownBits &Known,

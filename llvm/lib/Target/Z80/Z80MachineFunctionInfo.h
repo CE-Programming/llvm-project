@@ -49,6 +49,15 @@ private:
   /// UsesAltFP - We use an alternate frame pointer as an optimization.
   AltFPMode UsesAltFP = AFPM_None;
 
+  /// UsesSecondaryFrameBase - When true, IY is reserved as a secondary frame
+  /// base register (IY = IX - SecondaryFrameBaseOffset) for deep stack access
+  /// this allows accessing deep stack slots without push/pop sequences
+  bool UsesSecondaryFrameBase = false;
+  
+  /// secondaryFrameBaseOffset - Offset from IX to IY when using secondary
+  /// frame base
+  int64_t SecondaryFrameBaseOffset = 0;
+
 public:
   Z80MachineFunctionInfo() = default;
 
@@ -80,6 +89,12 @@ public:
 
   AltFPMode getUsesAltFP() const { return UsesAltFP; }
   void setUsesAltFP(AltFPMode V) { UsesAltFP = V; }
+
+  bool getUsesSecondaryFrameBase() const { return UsesSecondaryFrameBase; }
+  void setUsesSecondaryFrameBase(bool V) { UsesSecondaryFrameBase = V; }
+
+  int64_t getSecondaryFrameBaseOffset() const { return SecondaryFrameBaseOffset; }
+  void setSecondaryFrameBaseOffset(int64_t Off) { SecondaryFrameBaseOffset = Off; }
 };
 
 } // End llvm namespace

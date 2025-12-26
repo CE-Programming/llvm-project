@@ -12,6 +12,7 @@
 
 #include "Z80LegalizerInfo.h"
 #include "MCTargetDesc/Z80MCTargetDesc.h"
+#include "Z80.h"
 #include "Z80MachineFunctionInfo.h"
 #include "Z80Subtarget.h"
 #include "Z80TargetMachine.h"
@@ -98,10 +99,13 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
   };
 
   getActionDefinitionsBuilder(G_IMPLICIT_DEF)
-      .legalFor(LegalTypesWithOne);
+      .legalFor(LegalTypesWithOne)
+      .legalFor(LegalLargeScalars);
 
   getActionDefinitionsBuilder(G_MERGE_VALUES)
       .legalForCartesianProduct(NotMin, NotMax)
+      // allow creating s32/s48/s64 from legal scalar sources (needed for libcall args)
+      .legalForCartesianProduct(LegalLargeScalars, LegalScalars)
       .customIf([=](const LegalityQuery &Q) {
         // custom legalize G_MERGE_VALUES when source type is s1, expand into shifts+ORs
         return Q.Types[1] == s1;
@@ -111,11 +115,13 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
 
   getActionDefinitionsBuilder(G_UNMERGE_VALUES)
       .legalForCartesianProduct(NotMax, NotMin)
+      // allow splitting wide scalars into legal scalar parts (s32->s16, s48->s24, s64->s16)
+      .legalForCartesianProduct(LegalScalars, LegalLargeScalars)
       .clampScalar(1, *NotMin.begin(), *std::prev(NotMin.end()))
       .clampScalar(0, *NotMax.begin(), *std::prev(NotMax.end()));
 
   getActionDefinitionsBuilder({G_EXTRACT, G_INSERT})
-      .customForCartesianProduct(LegalTypes, LegalTypes)
+      .customForCartesianProduct(LegalLibcallScalars, LegalLibcallScalars)
       .unsupported();
 
   getActionDefinitionsBuilder({G_ZEXT, G_ANYEXT})
@@ -134,13 +140,36 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
                    {s24, s1},
                    {s16, s8},
                    {s24, s8},
-                   {s24, s16}})
-        .customFor({{s32, s1}, {s32, s8}, {s32, s16}, {s32, s24}})
-        .lower();
+                   {s24, s16},
+                   {s32, s1},
+                   {s32, s8},
+                   {s32, s16},
+                   {s32, s24},
+                   {s48, s1},
+                   {s48, s8},
+                   {s48, s16},
+                   {s48, s24},
+                   {s48, s32},
+                   {s64, s1},
+                   {s64, s8},
+                   {s64, s16},
+                   {s64, s24},
+                   {s64, s32},
+                   {s64, s48}})
+        .maxScalar(0, sMax);
   } else {
     getActionDefinitionsBuilder(G_SEXT)
-        .legalFor({{s8, s1}, {s16, s1}, {s16, s8}})
-        .lower();
+        .legalFor({{s8, s1},
+                   {s16, s1},
+                   {s16, s8},
+                   {s32, s1},
+                   {s32, s8},
+                   {s32, s16},
+                   {s64, s1},
+                   {s64, s8},
+                   {s64, s16},
+                   {s64, s32}})
+        .maxScalar(0, sMax);
   }
 
   getActionDefinitionsBuilder(G_TRUNC)
@@ -218,7 +247,7 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .minScalar(0, s64)
       .maxScalar(0, s64);
 
-  getActionDefinitionsBuilder({G_FSHL, G_FSHR, G_ROTR, G_ROTL, G_UMULO,
+  getActionDefinitionsBuilder({G_FSHL, G_FSHR, G_ROTR, G_ROTL, G_UMULO, G_SMULO,
                                G_UMULFIX, G_SMULFIX, G_SMULFIXSAT, G_UMULFIXSAT,
                                G_UDIVFIX, G_SDIVFIX, G_SDIVFIXSAT, G_UDIVFIXSAT,
                                G_FCANONICALIZE, G_MEMCPY, G_MEMCPY_INLINE,
@@ -292,6 +321,10 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
 
   getActionDefinitionsBuilder(G_VASTART).customFor({p[0]});
 
+  getActionDefinitionsBuilder(G_VAARG)
+      .customForCartesianProduct(LegalTypes, {p[0]})
+      .clampScalar(0, s8, sMax);
+
   getActionDefinitionsBuilder(G_ICMP)
       .legalForCartesianProduct({s1}, LegalTypes)
       .customForCartesianProduct({s1}, LegalLargeScalars)
@@ -302,6 +335,7 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
 
   getActionDefinitionsBuilder(G_BRCOND)
       .legalFor({s1});
+      
 
   getActionDefinitionsBuilder(G_BRJT)
       .legalForCartesianProduct({p[0]}, LegalScalars)
@@ -312,16 +346,16 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .clampScalar(0, s8, sMax);
 
   getActionDefinitionsBuilder(
-      {G_SDIVREM, G_UDIVREM, G_ABS, G_DYN_STACKALLOC, G_SEXT_INREG, G_SMULO,
+      {G_SDIVREM, G_UDIVREM, G_ABS, G_DYN_STACKALLOC, G_SEXT_INREG,
        G_SMULH, G_UMULH, G_SMIN, G_SMAX, G_UMIN, G_UMAX, G_UADDSAT, G_SADDSAT,
        G_USUBSAT, G_SSUBSAT, G_USHLSAT, G_SSHLSAT, G_FPOWI})
       .lower();
 
-  getActionDefinitionsBuilder({G_CTTZ, G_CTTZ_ZERO_UNDEF, G_CTLZ_ZERO_UNDEF})
+  getActionDefinitionsBuilder({G_CTTZ_ZERO_UNDEF, G_CTLZ_ZERO_UNDEF})
       .lowerForCartesianProduct({s8}, LegalLibcallScalars)
       .clampScalar(0, s8, s8);
 
-  getActionDefinitionsBuilder(G_CTLZ)
+  getActionDefinitionsBuilder({G_CTLZ, G_CTTZ})
       .customForCartesianProduct({s8}, LegalLibcallScalars)
       .clampScalar(0, s8, s8);
 
@@ -367,6 +401,8 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeCustomMaybeLegal(
     return legalizeFConstant(Helper, MI);
   case G_VASTART:
     return legalizeVAStart(Helper, MI);
+  case G_VAARG:
+    return legalizeVAArg(Helper, MI);
   case G_SHL:
   case G_LSHR:
   case G_ASHR:
@@ -380,6 +416,7 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeCustomMaybeLegal(
   case G_FCMP:
     return legalizeCompare(Helper, MI);
   case G_UMULO:
+  case G_SMULO:
     return legalizeMultiplyWithOverflow(Helper, MI);
   case G_SMULFIX:
   case G_UMULFIX:
@@ -394,7 +431,8 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeCustomMaybeLegal(
   case G_FCANONICALIZE:
     return legalizeFCanonicalize(Helper, MI);
   case G_CTLZ:
-    return legalizeCtlz(Helper, MI);
+  case G_CTTZ:
+    return legalizeCtz(Helper, MI);
   case G_MEMCPY:
   case G_MEMCPY_INLINE:
   case G_MEMMOVE:
@@ -521,38 +559,184 @@ Z80LegalizerInfo::legalizeSExt(LegalizerHelper &Helper, MachineInstr &MI,
                                LostDebugLocObserver &LocObserver) const {
   assert(MI.getOpcode() == G_SEXT && "Unexpected opcode");
 
-  if (!Subtarget.is24Bit())
-    return LegalizerHelper::UnableToLegalize;
-
-  MachineRegisterInfo &MRI = *Helper.MIRBuilder.getMRI();
+  MachineIRBuilder &MIRBuilder = Helper.MIRBuilder;
+  MachineRegisterInfo &MRI = *MIRBuilder.getMRI();
   Register DstReg = MI.getOperand(0).getReg();
   Register SrcReg = MI.getOperand(1).getReg();
   LLT DstTy = MRI.getType(DstReg);
   LLT SrcTy = MRI.getType(SrcReg);
+  unsigned DstSize = DstTy.getSizeInBits();
 
-  // TODO:
-  // not sure if we have/can have direct selection patterns for wide sign extends to s32.
-  // use the existing eZ80 i16/i8/i1 -> i24 extensions and then the i24->i32 libcall
-  // _itol
-  if (DstTy != LLT::scalar(32))
-    return LegalizerHelper::UnableToLegalize;
+  const bool Is24Bit = Subtarget.is24Bit();
+  (void)LocObserver;
 
-  Register ArgReg = SrcReg;
-  if (SrcTy != LLT::scalar(24)) {
-    ArgReg = MRI.createGenericVirtualRegister(LLT::scalar(24));
-    Helper.MIRBuilder.buildInstr(G_SEXT, {ArgReg}, {SrcReg});
+  auto buildAShrSignFill = [&](LLT Ty, Register Val) {
+    const unsigned Bits = Ty.getSizeInBits();
+    Register Amt = MIRBuilder.buildConstant(LLT::scalar(8), Bits - 1).getReg(0);
+    return MIRBuilder.buildAShr(Ty, Val, Amt).getReg(0);
+  };
+
+  if (!Is24Bit) {
+    // 16 bit mode: build sign fill from the high 16-bit chunk (or the extended
+    // source for <=16-bit values)
+    LLT s16 = LLT::scalar(16);
+
+    auto sextTo16 = [&](Register V) {
+      if (MRI.getType(V) == s16)
+        return V;
+      return MIRBuilder.buildSExt(s16, V).getReg(0);
+    };
+
+    const unsigned SrcSize = SrcTy.getSizeInBits();
+    if (DstSize == 32) {
+      Register Lo16 = (SrcSize <= 16) ? sextTo16(SrcReg)
+                                      : MRI.createGenericVirtualRegister(s16);
+      Register Hi16 = MRI.createGenericVirtualRegister(s16);
+      if (SrcSize == 32) {
+        MIRBuilder.buildUnmerge({Lo16, Hi16}, SrcReg);
+      } else if (SrcSize <= 16) {
+        Hi16 = buildAShrSignFill(s16, Lo16);
+      } else {
+        return LegalizerHelper::UnableToLegalize;
+      }
+      if (SrcSize <= 16)
+        MIRBuilder.buildMergeLikeInstr(DstReg, {Lo16, Hi16});
+      else
+        MIRBuilder.buildMergeLikeInstr(DstReg, {Lo16, Hi16});
+    } else if (DstSize == 64) {
+      if (SrcSize <= 16) {
+        Register Ext16 = sextTo16(SrcReg);
+        Register SignFill16 = buildAShrSignFill(s16, Ext16);
+        MIRBuilder.buildMergeLikeInstr(DstReg,
+                                       {Ext16, SignFill16, SignFill16,
+                                        SignFill16});
+      } else if (SrcSize == 32) {
+        Register Lo16 = MRI.createGenericVirtualRegister(s16);
+        Register Hi16 = MRI.createGenericVirtualRegister(s16);
+        MIRBuilder.buildUnmerge({Lo16, Hi16}, SrcReg);
+        Register SignFill16 = buildAShrSignFill(s16, Hi16);
+        MIRBuilder.buildMergeLikeInstr(DstReg,
+                                       {Lo16, Hi16, SignFill16, SignFill16});
+      } else {
+        return LegalizerHelper::UnableToLegalize;
+      }
+    } else {
+      return LegalizerHelper::UnableToLegalize;
+    }
+
+    MI.eraseFromParent();
+    return LegalizerHelper::Legalized;
   }
 
-  LLVMContext &Ctx = Helper.MIRBuilder.getMF().getFunction().getContext();
-  Type *DstIRTy = IntegerType::get(Ctx, 32);
-  Type *ArgIRTy = IntegerType::get(Ctx, 24);
-  auto Result =
-      createLibcall(Helper.MIRBuilder, RTLIB::SEXT_I24_I32, {DstReg, DstIRTy, 0},
-                    {{ArgReg, ArgIRTy, 0}});
+  // 24 bit mode
+  LLT s8 = LLT::scalar(8);
+  LLT s16 = LLT::scalar(16);
+  LLT s24 = LLT::scalar(24);
 
-  MI.eraseFromParent();
-  return Result;
+  auto sextTo24 = [&](Register V) {
+    if (MRI.getType(V) == s24)
+      return V;
+    return MIRBuilder.buildSExt(s24, V).getReg(0);
+  };
+
+  const unsigned SrcSize = SrcTy.getSizeInBits();
+
+  if (DstSize == 32) {
+    if (SrcSize == 32) {
+      MIRBuilder.buildCopy(DstReg, SrcReg);
+      MI.eraseFromParent();
+      return LegalizerHelper::Legalized;
+    }
+
+    if (SrcSize > 24)
+      return LegalizerHelper::UnableToLegalize;
+
+    Register Ext24 = sextTo24(SrcReg);
+    LLVMContext &Ctx = MIRBuilder.getMF().getFunction().getContext();
+    Type *DstIRTy = IntegerType::get(Ctx, 32);
+    Type *ArgIRTy = IntegerType::get(Ctx, 24);
+    auto Result = createLibcall(MIRBuilder, RTLIB::SEXT_I24_I32,
+                                {DstReg, DstIRTy, 0}, {{Ext24, ArgIRTy, 0}});
+    MI.eraseFromParent();
+    return Result;
+  }
+
+  if (DstSize == 48) {
+    if (SrcSize <= 24) {
+      Register Ext24 = sextTo24(SrcReg);
+      Register SignFill24 = buildAShrSignFill(s24, Ext24);
+      MIRBuilder.buildMergeLikeInstr(DstReg, {Ext24, SignFill24});
+    } else if (SrcSize == 32) {
+      Register Lo24 = MRI.createGenericVirtualRegister(s24);
+      MIRBuilder.buildInstr(G_EXTRACT, {Lo24}, {SrcReg}).addImm(0);
+      Register Hi8 = MRI.createGenericVirtualRegister(s8);
+      MIRBuilder.buildInstr(G_EXTRACT, {Hi8}, {SrcReg}).addImm(24);
+
+      Register SignFill16 = MIRBuilder.buildSExt(s16, Hi8).getReg(0);
+      Register Hi8Z = MIRBuilder.buildZExt(s24, Hi8).getReg(0);
+      Register SF24 = MIRBuilder.buildZExt(s24, SignFill16).getReg(0);
+      Register ShAmt = MIRBuilder.buildConstant(s8, 8).getReg(0);
+      Register SFShift = MIRBuilder.buildShl(s24, SF24, ShAmt).getReg(0);
+      Register Mid24 = MIRBuilder.buildOr(s24, Hi8Z, SFShift).getReg(0);
+      MIRBuilder.buildMergeLikeInstr(DstReg, {Lo24, Mid24});
+    } else if (SrcSize == 48) {
+      MIRBuilder.buildCopy(DstReg, SrcReg);
+    } else {
+      return LegalizerHelper::UnableToLegalize;
+    }
+
+    MI.eraseFromParent();
+    return LegalizerHelper::Legalized;
+  }
+
+  if (DstSize == 64) {
+    if (SrcSize <= 24) {
+      Register Ext24 = sextTo24(SrcReg);
+      Register SignFill24 = buildAShrSignFill(s24, Ext24);
+      Register SignFill16 = MIRBuilder.buildTrunc(s16, SignFill24).getReg(0);
+      auto Seq = MIRBuilder.buildInstr(TargetOpcode::REG_SEQUENCE, {DstReg}, {});
+      Seq.addUse(Ext24).addImm(Z80::sub_low24);
+      Seq.addUse(SignFill24).addImm(Z80::sub_mid24);
+      Seq.addUse(SignFill16).addImm(Z80::sub_word3);
+    } else if (SrcSize == 32) {
+      Register Lo24 = MRI.createGenericVirtualRegister(s24);
+      MIRBuilder.buildInstr(G_EXTRACT, {Lo24}, {SrcReg}).addImm(0);
+      Register Hi8 = MRI.createGenericVirtualRegister(s8);
+      MIRBuilder.buildInstr(G_EXTRACT, {Hi8}, {SrcReg}).addImm(24);
+
+      Register SignFill16 = MIRBuilder.buildSExt(s16, Hi8).getReg(0);
+      Register Hi8Z = MIRBuilder.buildZExt(s24, Hi8).getReg(0);
+      Register SF24 = MIRBuilder.buildZExt(s24, SignFill16).getReg(0);
+      Register ShAmt = MIRBuilder.buildConstant(s8, 8).getReg(0);
+      Register SFShift = MIRBuilder.buildShl(s24, SF24, ShAmt).getReg(0);
+      Register Mid24 = MIRBuilder.buildOr(s24, Hi8Z, SFShift).getReg(0);
+      auto Seq = MIRBuilder.buildInstr(TargetOpcode::REG_SEQUENCE, {DstReg}, {});
+      Seq.addUse(Lo24).addImm(Z80::sub_low24);
+      Seq.addUse(Mid24).addImm(Z80::sub_mid24);
+      Seq.addUse(SignFill16).addImm(Z80::sub_word3);
+    } else if (SrcSize == 48) {
+      Register Lo24 = MRI.createGenericVirtualRegister(s24);
+      Register Mid24 = MRI.createGenericVirtualRegister(s24);
+      MIRBuilder.buildUnmerge({Lo24, Mid24}, SrcReg);
+      Register SignFill24 = buildAShrSignFill(s24, Mid24);
+      Register SignFill16 = MIRBuilder.buildTrunc(s16, SignFill24).getReg(0);
+      auto Seq = MIRBuilder.buildInstr(TargetOpcode::REG_SEQUENCE, {DstReg}, {});
+      Seq.addUse(Lo24).addImm(Z80::sub_low24);
+      Seq.addUse(Mid24).addImm(Z80::sub_mid24);
+      Seq.addUse(SignFill16).addImm(Z80::sub_word3);
+    } else if (SrcSize == 64) {
+      MIRBuilder.buildCopy(DstReg, SrcReg);
+    } else {
+      return LegalizerHelper::UnableToLegalize;
+    }
+
+    MI.eraseFromParent();
+    return LegalizerHelper::Legalized;
+  }
+
+  return LegalizerHelper::UnableToLegalize;
 }
+
 
 LegalizerHelper::LegalizeResult
 Z80LegalizerInfo::legalizeExtractInsert(LegalizerHelper &Helper,
@@ -595,6 +779,75 @@ Z80LegalizerInfo::legalizeVAStart(LegalizerHelper &Helper,
 }
 
 LegalizerHelper::LegalizeResult
+Z80LegalizerInfo::legalizeVAArg(LegalizerHelper &Helper,
+                                MachineInstr &MI) const {
+  assert(MI.getOpcode() == G_VAARG && "Unexpected opcode");
+  
+  MachineIRBuilder &MIRBuilder = Helper.MIRBuilder;
+  MachineFunction &MF = MIRBuilder.getMF();
+  MachineRegisterInfo &MRI = *MIRBuilder.getMRI();
+  
+  // G_VAARG operands:
+  // %dst = G_VAARG %list_ptr, alignment
+  Register DstReg = MI.getOperand(0).getReg();
+  Register ListPtr = MI.getOperand(1).getReg();
+  
+  // alignment from G_VAARG can be 0 or not power of 2, use 1 as default
+  uint64_t AlignVal = MI.getOperand(2).getImm();
+  Align Alignment = (AlignVal && llvm::isPowerOf2_64(AlignVal)) 
+                    ? Align(AlignVal) : Align(1);
+  
+  LLT PtrTy = MRI.getType(ListPtr);
+  LLT ValTy = MRI.getType(DstReg);
+
+  const unsigned PtrSize = (PtrTy.getSizeInBits() + 7) / 8;  // round up to bytes
+  const Align PtrAlign = Align(1);
+  
+  // load the current va_list pointer value
+  auto List = MIRBuilder.buildLoad(
+      PtrTy, ListPtr,
+      *MF.getMachineMemOperand(MachinePointerInfo(), MachineMemOperand::MOLoad,
+                               PtrTy, PtrAlign));
+  
+  // handle alignment if needed (Z80 typically doesn't need this, but be safe)
+  MachineInstrBuilder ArgPtr;
+  if (Alignment > PtrAlign) {
+    // realign the list to the actual required alignment
+    LLT IntPtrTy = LLT::scalar(PtrTy.getSizeInBits());
+    auto AlignMinus1 = MIRBuilder.buildConstant(IntPtrTy, Alignment.value() - 1);
+    auto ListTmp = MIRBuilder.buildPtrAdd(PtrTy, List, AlignMinus1.getReg(0));
+    // mask off the low bits to align
+    auto AlignMask = MIRBuilder.buildConstant(IntPtrTy, ~(Alignment.value() - 1));
+    auto ListInt = MIRBuilder.buildPtrToInt(IntPtrTy, ListTmp);
+    auto AlignedInt = MIRBuilder.buildAnd(IntPtrTy, ListInt, AlignMask);
+    ArgPtr = MIRBuilder.buildIntToPtr(PtrTy, AlignedInt);
+  } else {
+    ArgPtr = List;
+  }
+  
+  // load the actual argument value from the va_list pointer
+  uint64_t ValSize = ValTy.getSizeInBits() / 8;
+  MIRBuilder.buildLoad(
+      DstReg, ArgPtr,
+      *MF.getMachineMemOperand(MachinePointerInfo(), MachineMemOperand::MOLoad,
+                               ValTy, std::max(Alignment, PtrAlign)));
+  
+  // calculate the new va_list pointer (advance by pointer-size-aligned value size)
+  LLT IntPtrTy = LLT::scalar(PtrTy.getSizeInBits());
+  auto Size = MIRBuilder.buildConstant(IntPtrTy, alignTo(ValSize, PtrSize));
+  auto NewList = MIRBuilder.buildPtrAdd(PtrTy, ArgPtr, Size.getReg(0));
+  
+  // store the updated pointer back to va_list
+  MIRBuilder.buildStore(NewList, ListPtr,
+                        *MF.getMachineMemOperand(MachinePointerInfo(),
+                                                 MachineMemOperand::MOStore,
+                                                 PtrTy, PtrAlign));
+  
+  MI.eraseFromParent();
+  return LegalizerHelper::Legalized;
+}
+
+LegalizerHelper::LegalizeResult
 Z80LegalizerInfo::legalizeShift(LegalizerHelper &Helper, MachineInstr &MI,
                                 LostDebugLocObserver &LocObserver) const {
   unsigned Opc = MI.getOpcode();
@@ -607,6 +860,13 @@ Z80LegalizerInfo::legalizeShift(LegalizerHelper &Helper, MachineInstr &MI,
           getIConstantVRegValWithLookThrough(MI.getOperand(2).getReg(), MRI)) {
     if (Ty == LLT::scalar(8) && Amt->Value == 1)
       return LegalizerHelper::AlreadyLegal;
+    // s16/s24 left shift by 1-6 can use inline ADD instructions
+    // library call is 7-8 bytes (ld bc, N + call __ishl), so up to 6 adds is optimal
+    if (Opc == G_SHL && Amt->Value.uge(1) && Amt->Value.ule(6)) {
+      unsigned TySize = Ty.getSizeInBits();
+      if (TySize == 16 || (Subtarget.is24Bit() && TySize == 24))
+        return LegalizerHelper::AlreadyLegal;
+    }
     if ((Opc == G_SHL || Opc == G_LSHR) && Ty == LLT::scalar(16) &&
         Amt->Value == 8)
       return LegalizerHelper::AlreadyLegal;
@@ -621,7 +881,7 @@ Z80LegalizerInfo::legalizeShift(LegalizerHelper &Helper, MachineInstr &MI,
 LegalizerHelper::LegalizeResult
 Z80LegalizerInfo::legalizeFunnelShift(LegalizerHelper &Helper,
                                       MachineInstr &MI) const {
-  unsigned Opc = MI.getOpcode();
+  unsigned Opc = MI.getOpcode(); 
   assert((Opc == G_FSHL || Opc == G_FSHR || Opc == G_ROTR || Opc == G_ROTL) &&
          "Unexpected opcode");
 
@@ -919,7 +1179,8 @@ Z80LegalizerInfo::legalizeMultiplyWithOverflow(LegalizerHelper &Helper,
   MachineIRBuilder &MIRBuilder = Helper.MIRBuilder;
   MachineRegisterInfo &MRI = *MIRBuilder.getMRI();
 
-  assert(MI.getOpcode() == G_UMULO && "Unexpected opcode");
+  unsigned Opc = MI.getOpcode();
+  assert((Opc == G_UMULO || Opc == G_SMULO) && "Unexpected opcode");
 
   Register MulReg = MI.getOperand(0).getReg();
   Register OverflowReg = MI.getOperand(1).getReg();
@@ -928,15 +1189,101 @@ Z80LegalizerInfo::legalizeMultiplyWithOverflow(LegalizerHelper &Helper,
   Register LHSReg = MI.getOperand(2).getReg();
   Register RHSReg = MI.getOperand(3).getReg();
 
-  MIRBuilder.buildMul(MulReg, LHSReg, RHSReg);
+  if (Opc == G_UMULO) {
+    MIRBuilder.buildMul(MulReg, LHSReg, RHSReg);
 
-  auto One = MIRBuilder.buildConstant(Ty, 1);
-  auto Max =
-      MIRBuilder.buildConstant(Ty, APInt::getMaxValue(Ty.getSizeInBits()));
-  MIRBuilder.buildICmp(
-      CmpInst::ICMP_UGT, OverflowReg, LHSReg,
-      MIRBuilder.buildInstr(G_UDIV, {Ty},
-                            {Max, MIRBuilder.buildUMax(Ty, RHSReg, One)}));
+    auto One = MIRBuilder.buildConstant(Ty, 1);
+    auto Max =
+        MIRBuilder.buildConstant(Ty, APInt::getMaxValue(Ty.getSizeInBits()));
+    MIRBuilder.buildICmp(
+        CmpInst::ICMP_UGT, OverflowReg, LHSReg,
+        MIRBuilder.buildInstr(G_UDIV, {Ty},
+                              {Max, MIRBuilder.buildUMax(Ty, RHSReg, One)}));
+  } else {
+    // signed multiply with overflow:
+    // - i64 uses the standard compiler-rt helper (__mulodi4) via RTLIB::MULO_I64
+    // - smaller sizes widen to i32 and use __mulosi4, then check truncation
+    //   for the original size
+    const unsigned Size = Ty.getSizeInBits();
+    LLVMContext &Ctx = MIRBuilder.getMF().getFunction().getContext();
+
+    RTLIB::Libcall Libcall;
+    unsigned WideBits;
+    if (Size > 32) {
+      if (Size != 64)
+        return LegalizerHelper::UnableToLegalize;
+      Libcall = RTLIB::MULO_I64;
+      WideBits = 64;
+    } else {
+      Libcall = RTLIB::MULO_I32;
+      WideBits = 32;
+    }
+
+    LLT WideTy = LLT::scalar(WideBits);
+    Type *WideIRTy = IntegerType::get(Ctx, WideBits);
+    Type *PtrIRTy = PointerType::get(Ctx, 0);
+
+    // __mul{o}si4/di4 write the overflow flag through an int*
+    MachineFunction &MF = MIRBuilder.getMF();
+    MachineFrameInfo &MFI = MF.getFrameInfo();
+    int OFI = MFI.CreateStackObject(4, Align(1), /*IsSpillSlot=*/false);
+
+    const unsigned PtrBits = TM.getPointerSizeInBits(0);
+    Register OFAddr = MIRBuilder
+                          .buildFrameIndex(LLT::pointer(0, PtrBits), OFI)
+                          .getReg(0);
+
+    Register WideMulReg = (Size == WideBits) ? MulReg
+                                             : MRI.createGenericVirtualRegister(WideTy);
+    Register WideLHS = (Size == WideBits)
+                           ? LHSReg
+                           : MIRBuilder.buildSExt(WideTy, LHSReg).getReg(0);
+    Register WideRHS = (Size == WideBits)
+                           ? RHSReg
+                           : MIRBuilder.buildSExt(WideTy, RHSReg).getReg(0);
+
+    auto CallResult = createLibcall(
+        MIRBuilder, Libcall, {WideMulReg, WideIRTy, 0},
+        {{WideLHS, WideIRTy, 0}, {WideRHS, WideIRTy, 1}, {OFAddr, PtrIRTy, 2}});
+    if (CallResult != LegalizerHelper::Legalized)
+      return CallResult;
+
+    // Load `int overflow` and convert to i1.
+    MachinePointerInfo MPO = MachinePointerInfo::getFixedStack(MF, OFI);
+    auto *MMO = MF.getMachineMemOperand(MPO, MachineMemOperand::MOLoad, 4,
+                                        Align(1));
+    Register OF32 = MRI.createGenericVirtualRegister(LLT::scalar(32));
+    MIRBuilder.buildLoad(OF32, OFAddr, *MMO);
+    Register OFBool =
+        MIRBuilder
+            .buildICmp(CmpInst::ICMP_NE, LLT::scalar(1), OF32,
+                       MIRBuilder.buildConstant(LLT::scalar(32), 0))
+            .getReg(0);
+
+    if (Size == WideBits) {
+      MIRBuilder.buildCopy(OverflowReg, OFBool);
+    } else {
+      // truncate back to the original size and compute additional overflow due
+      // to truncation (i32 product doesnt fit in i8/i16/i24).
+      MIRBuilder.buildTrunc(MulReg, WideMulReg);
+      Register ResExt =
+          MIRBuilder.buildSExt(WideTy, MulReg).getReg(0);
+      Register TruncOverflow =
+          MIRBuilder
+              .buildICmp(CmpInst::ICMP_NE, LLT::scalar(1), ResExt, WideMulReg)
+              .getReg(0);
+
+      LLT s8 = LLT::scalar(8);
+      Register OF8 = MIRBuilder.buildZExt(s8, OFBool).getReg(0);
+      Register TO8 = MIRBuilder.buildZExt(s8, TruncOverflow).getReg(0);
+      Register Any8 = MIRBuilder.buildOr(s8, OF8, TO8).getReg(0);
+      MIRBuilder.buildICmp(CmpInst::ICMP_NE, OverflowReg, Any8,
+                           MIRBuilder.buildConstant(s8, 0));
+    }
+
+    MI.eraseFromParent();
+    return LegalizerHelper::Legalized;
+  }
 
   MI.eraseFromParent();
   return LegalizerHelper::Legalized;
@@ -952,9 +1299,9 @@ Z80LegalizerInfo::legalizeFCanonicalize(LegalizerHelper &Helper,
 }
 
 LegalizerHelper::LegalizeResult
-Z80LegalizerInfo::legalizeCtlz(LegalizerHelper &Helper,
-                               MachineInstr &MI) const {
-  assert(MI.getOpcode() == G_CTLZ);
+Z80LegalizerInfo::legalizeCtz(LegalizerHelper &Helper, MachineInstr &MI) const {
+  assert((MI.getOpcode() == G_CTLZ || MI.getOpcode() == G_CTTZ) &&
+         "Unexpected opcode");
   MachineIRBuilder &MIRBuilder = Helper.MIRBuilder;
   MachineRegisterInfo &MRI = *MIRBuilder.getMRI();
   auto &Ctx = MIRBuilder.getMF().getFunction().getContext();
@@ -970,14 +1317,15 @@ Z80LegalizerInfo::legalizeCtlz(LegalizerHelper &Helper,
     return LegalizerHelper::UnableToLegalize;
 
   RTLIB::Libcall Libcall;
+  bool Leading = MI.getOpcode() == G_CTLZ;
   switch (SrcSize) {
   default: return LegalizerHelper::UnableToLegalize;
-  case  8: Libcall = RTLIB::CTLZ_I8 ; break;
-  case 16: Libcall = RTLIB::CTLZ_I16; break;
-  case 24: Libcall = RTLIB::CTLZ_I24; break;
-  case 32: Libcall = RTLIB::CTLZ_I32; break;
-  case 48: Libcall = RTLIB::CTLZ_I48; break;
-  case 64: Libcall = RTLIB::CTLZ_I64; break;
+  case  8: Libcall = Leading ? RTLIB::CTLZ_I8  : RTLIB::CTTZ_I8;  break;
+  case 16: Libcall = Leading ? RTLIB::CTLZ_I16 : RTLIB::CTTZ_I16; break;
+  case 24: Libcall = Leading ? RTLIB::CTLZ_I24 : RTLIB::CTTZ_I24; break;
+  case 32: Libcall = Leading ? RTLIB::CTLZ_I32 : RTLIB::CTTZ_I32; break;
+  case 48: Libcall = Leading ? RTLIB::CTLZ_I48 : RTLIB::CTTZ_I48; break;
+  case 64: Libcall = Leading ? RTLIB::CTLZ_I64 : RTLIB::CTTZ_I64; break;
   }
   auto Result = createLibcall(MIRBuilder, Libcall,
                               {DstReg, IntegerType::get(Ctx, DstSize), 0},
@@ -1079,9 +1427,10 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeMemIntrinsic(
           return LegalizerHelper::Legalized;
         }
         if (Opc == G_MEMMOVE && !ConstAddr) {
-          MIRBuilder.buildCopy(HL, SrcReg);
-          MIRBuilder.buildInstr(Is24Bit ? Z80::Cmp24ao : Z80::Cmp16ao, {},
-                                {DstReg});
+          // the LDR24/LDR16 pseudo instruction handles the comparison
+          // internally to amke sure its always uses sbc hl, de
+          // rather than potentially sbc hl, iy (invalid instruction) if DstReg
+          // happens to be allocated to IY
           MIRBuilder
               .buildInstr(Is24Bit ? Z80::LDR24 : Z80::LDR16, {},
                           {DstReg, SrcReg, LenReg})

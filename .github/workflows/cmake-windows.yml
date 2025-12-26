@@ -91,7 +91,7 @@ jobs:
           path: ez80-lto2${{env.EXE}}
 
       - name: Disk Usage
-        run: wmic logicaldisk get size,freespace,caption
+        run: Get-CimInstance Win32_LogicalDisk | Select-Object Caption, FreeSpace, Size
 
   build-clang:
     needs: [build-llvm]
@@ -169,7 +169,7 @@ jobs:
           path: ez80-clang${{env.EXE}}
 
       - name: Disk Usage
-        run: wmic logicaldisk get size,freespace,caption
+        run: Get-CimInstance Win32_LogicalDisk | Select-Object Caption, FreeSpace, Size
 
   nightly:
     runs-on: ubuntu-latest

@@ -158,14 +158,57 @@ BitVector Z80RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   Reserved.set(getProgramCounter());
 
   // Set the frame-pointer register and its aliases as reserved if needed.
-  for (Register Reg :
-       {Register(Is24Bit ? Z80::UIX : Z80::IX), getFrameRegister(MF)})
-    for (MCRegAliasIterator I(Reg, this, /*IncludeSelf=*/true); I.isValid();
+  // only reserve when a frame pointer is actually used
+  const Z80FrameLowering *TFI = getFrameLowering(MF);
+  // with -Oz, __frameset ALWAYS sets up IX as the frame pointer, regardless of
+  // what hasFP() returns at this point. reserve IX unconditionally for
+  // -Oz to prevent register allocation from using IX as a general register
+  // there might be a better way of going about this
+  bool NeedsFP = TFI->hasFP(MF) || MF.getFunction().hasOptSize();
+  if (NeedsFP) {
+    Register FPReg = Is24Bit ? Z80::UIX : Z80::IX;
+    for (MCRegAliasIterator I(FPReg, this, /*IncludeSelf=*/true); I.isValid();
          ++I)
       Reserved.set(*I);
+  }
+
+  // reserve IY when used as secondary frame base for deep stack access
+  // This decision needs to be made here (before register allocation) to
+  // properly reserve the register.
+  // only activate SFB when estimated stack size exceeds the reach of
+  // single LEA instruction
+  auto &FuncInfo = *const_cast<MachineFunction &>(MF).getInfo<Z80MachineFunctionInfo>();
+  
+  // SFB activation causes I24 register exhaustion because it reserves
+  // both UIX (frame pointer) and UIY (secondary frame base), leaving no registers
+  // for instructions that architecturally require I24 (like LEA24ro, LD24ro, probably more)
+#if 0
+  if (!FuncInfo.getUsesSecondaryFrameBase() && !FuncInfo.getUsesAltFP() &&
+      MF.getSubtarget().getFrameLowering()->hasFP(MF) && Is24Bit) {
+    uint64_t EstStackSize = MF.getFrameInfo().estimateStackSize(MF);
+    // NOTE: if both index registers (UIX/UIY) are reserved, the I24 class 
+    // becomes empty, causing register allocation failures for instructions 
+    // like LEA24ro. to avoid this, SFB is limited to a 256 byte threshold 
+    // for now. This is compatible with later expanding SFB to lower IX indexes
+    // only enable for stacks where IX+IY can cover all offsets
+    if (EstStackSize > 127 && EstStackSize <= 256) {
+      FuncInfo.setUsesSecondaryFrameBase(true);
+      FuncInfo.setSecondaryFrameBaseOffset(128);
+    }
+  }
+#endif
+
+  if (FuncInfo.getUsesSecondaryFrameBase()) {
+    Register IYReg = Is24Bit ? Z80::UIY : Z80::IY;
+    for (MCRegAliasIterator I(IYReg, this, /*IncludeSelf=*/true); I.isValid();
+         ++I)
+      Reserved.set(*I);
+  }
 
   return Reserved;
 }
+
+
 
 bool Z80RegisterInfo::saveScavengerRegister(MachineBasicBlock &MBB,
                                             MachineBasicBlock::iterator MI,
@@ -211,6 +254,24 @@ bool Z80RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   if (FrameIndex < 0)
     // For fixed indices, skip over callee save slots.
     Offset += MF.getInfo<Z80MachineFunctionInfo>()->getCalleeSavedFrameSize();
+
+  // SFB handling is disabled. see #if 0 block in getReservedRegs
+#if 0
+  // try using secondary frame base (IY) for deep offsets
+  // IY points to (IX - SecondaryFrameBaseOffset), so offset via IY is:
+  // Offset + SecondaryFrameBaseOffset
+  const auto &FuncInfo = *MF.getInfo<Z80MachineFunctionInfo>();
+  if (FuncInfo.getUsesSecondaryFrameBase()) {
+    int64_t SecOffset = FuncInfo.getSecondaryFrameBaseOffset();
+    int64_t IYOffset = Offset + SecOffset;  // offset from IY's pov
+    // if IY can reach it with a simple offset but IX cannot, use IY
+    if (!isInt<8>(Offset) && isInt<8>(IYOffset)) {
+      Register IYReg = Is24Bit ? Z80::UIY : Z80::IY;
+      return TII.rewriteFrameIndex(MI, FIOperandNum, IYReg, IYOffset, RS, SPAdj);
+    }
+  }
+#endif
+
   return TII.rewriteFrameIndex(MI, FIOperandNum, BaseReg, Offset, RS, SPAdj);
 }
 
@@ -299,6 +360,23 @@ bool Z80RegisterInfo::isFrameOffsetLegal(const MachineInstr *MI,
                                          Register BaseReg,
                                          int64_t Offset) const {
   Offset += getFrameIndexInstrOffset(MI, getFIOperandNum(*MI));
-  return isInt<8>(Offset) &&
-         (!isSplitLoadStoreOpc(MI->getOpcode()) || isInt<8>(Offset + 1));
+  bool IsSplit = isSplitLoadStoreOpc(MI->getOpcode());
+
+  // check if reachable via primary frame register (IX)
+  if (isInt<8>(Offset) && (!IsSplit || isInt<8>(Offset + 1)))
+    return true;
+
+  // SFB handling is disabled. see #if 0 block in getReservedRegs
+#if 0
+  // check if reachable via secondary frame base (IY)
+  const MachineFunction &MF = *MI->getMF();
+  const auto &FuncInfo = *MF.getInfo<Z80MachineFunctionInfo>();
+  if (FuncInfo.getUsesSecondaryFrameBase()) {
+    int64_t IYOffset = Offset + FuncInfo.getSecondaryFrameBaseOffset();
+    if (isInt<8>(IYOffset) && (!IsSplit || isInt<8>(IYOffset + 1)))
+      return true;
+  }
+#endif
+
+  return false;
 }

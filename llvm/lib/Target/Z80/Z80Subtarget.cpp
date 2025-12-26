@@ -49,7 +49,7 @@ Z80Subtarget::Z80Subtarget(const Triple &TT, StringRef CPU, StringRef TuneCPU,
   InlineAsmLoweringInfo.reset(new Z80InlineAsmLowering(*getTargetLowering()));
   Legalizer.reset(new Z80LegalizerInfo(*this, TM));
 
-  auto *RBI = new Z80RegisterBankInfo(*getRegisterInfo());
+  auto *RBI = new Z80RegisterBankInfo(*getRegisterInfo(), is24Bit());
   RegBankInfo.reset(RBI);
   InstSelector.reset(createZ80InstructionSelector(TM, *this, *RBI));
 }

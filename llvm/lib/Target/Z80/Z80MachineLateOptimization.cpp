@@ -37,12 +37,20 @@ class RegVal {
 public:
   RegVal() {}
   RegVal(MCRegister Reg, const TargetRegisterInfo &TRI) {
-    if (auto *RC = TRI.getMinimalPhysRegClass(Reg))
-      Mask = maskTrailingOnes<unsigned>(TRI.getRegSizeInBits(*RC));
+    const TargetRegisterClass *RC = nullptr;
+    for (const TargetRegisterClass *C : TRI.regclasses()) {
+      if (C->contains(Reg) && (!RC || RC->hasSubClass(C)))
+        RC = C;
+    }
+    if (RC)
+      if (unsigned Bits = TRI.getRegSizeInBits(*RC); Bits <= 32)
+        Mask = maskTrailingOnes<unsigned>(Bits);
   }
   RegVal(const MachineOperand &MO, MCRegister Reg,
          const TargetRegisterInfo &TRI)
       : RegVal(Reg, TRI) {
+    if (!Mask)
+      return;
     switch (MO.getType()) {
     case MachineOperand::MO_Immediate:
       Off = MO.getImm();
@@ -62,6 +70,8 @@ public:
   }
   RegVal(int Imm, MCRegister Reg, const TargetRegisterInfo &TRI)
       : RegVal(Reg, TRI) {
+    if (!Mask)
+      return;
     Off = Imm & Mask;
     assert(valid() && "Mask should have been less than 32 bits");
   }
@@ -127,6 +137,10 @@ class Z80MachineLateOptimization : public MachineFunctionPass {
 
   const TargetRegisterInfo *TRI;
   RegVal RegVals[Z80::NUM_TARGET_REGS];
+  
+  // track when Z flag correctly reflects whether A is zero
+  // after SBC A,A: A is a member of {0, 0xFF} and Z = (A == 0), so OR A,A is redundant
+  bool ZFlagReflectsAZero = false;
 
   template <typename... Args> void assign(MCRegister Reg, Args &&...args) {
     RegVals[Reg] = RegVal(std::forward<Args>(args)..., Reg, *TRI);
@@ -437,6 +451,7 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
     LiveUnits.clear();
     LiveUnits.addLiveIns(MBB);
     clobberAll();
+    ZFlagReflectsAZero = false;
     for (MachineBasicBlock::iterator I = MBB.begin(), E = MBB.end(); I != E;) {
       MachineInstrBuilder MIB(MF, I);
       LiveUnits.stepForward(*I);
@@ -597,6 +612,18 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
         MIB->getOperand(0).setImplicit();
         MIB->getOperand(1).setImplicit();
         break;
+      // dead OR A,A after SBC A,A
+      // after SBC A,A, A is a member of {0x00, 0xFF} and Z = (A == 0). OR A,A also sets
+      // Z = (A == 0), so its redundant. tracked via ZFlagReflectsAZero
+      case Z80::OR8ar:
+        if (MIB->getOperand(0).getReg() == Z80::A && ZFlagReflectsAZero) {
+          LLVM_DEBUG(dbgs() << "Erasing redundant OR A,A (after SBC A,A): ";
+                     MIB->dump());
+          MIB->eraseFromParent();
+          Changed = true;
+          continue;
+        }
+        break;
       case Z80::Sub16ao:
       case Z80::Sub24ao:
       case Z80::Cmp16ao:
@@ -646,21 +673,27 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
 
       bool NeedInc = RegVals[DstReg].matches(DstVal, -1);
       if (NeedInc || RegVals[DstReg].matches(DstVal, +1)) {
+        const TargetRegisterClass *DstRC = nullptr;
+        for (const TargetRegisterClass *C : TRI->regclasses())
+          if (C->contains(DstReg) && (!DstRC || DstRC->hasSubClass(C)))
+            DstRC = C;
         unsigned NewOpc = Z80::INSTRUCTION_LIST_END;
-        switch (TRI->getRegSizeInBits(*TRI->getMinimalPhysRegClass(DstReg))) {
-        default:
-          llvm_unreachable("Unknown register width");
-        case 8:
-          if (!LiveUnits.available(Z80::F))
+        if (DstRC) {
+          switch (TRI->getRegSizeInBits(*DstRC)) {
+          default:
+            break; // Unknown width, skip optimization
+          case 8:
+            if (!LiveUnits.available(Z80::F))
+              break;
+            NewOpc = NeedInc ? Z80::INC8r : Z80::DEC8r;
             break;
-          NewOpc = NeedInc ? Z80::INC8r : Z80::DEC8r;
-          break;
-        case 16:
-          NewOpc = NeedInc ? Z80::INC16r : Z80::DEC16r;
-          break;
-        case 24:
-          NewOpc = NeedInc ? Z80::INC24r : Z80::DEC24r;
-          break;
+          case 16:
+            NewOpc = NeedInc ? Z80::INC16r : Z80::DEC16r;
+            break;
+          case 24:
+            NewOpc = NeedInc ? Z80::INC24r : Z80::DEC24r;
+            break;
+          }
         }
         if (NewOpc != Z80::INSTRUCTION_LIST_END) {
           LLVM_DEBUG(dbgs() << "Replacing: "; MIB->dump();
@@ -679,17 +712,36 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
       KnownFlags KnownFlags =
           getKnownFlags(*MIB, KnownFlagsVal, KnownFlagsMask);
 
-      // Clobber defs.
+      // Clobber defs and track ZFlagReflectsAZero
+      bool ClobberedA = false, ClobberedF = false;
       for (MachineOperand &MO : MIB->operands()) {
         if (MO.isReg() && MO.isDef() &&
             !(DstReg.isValid() && MO.isImplicit() &&
-              TRI->isSuperRegister(DstReg, MO.getReg())))
+              TRI->isSuperRegister(DstReg, MO.getReg()))) {
           clobber<MCRegAliasIterator>(MO.getReg(), true);
-        else if (MO.isRegMask())
+          // check if A or F is clobbered
+          for (MCRegAliasIterator AI(MO.getReg(), TRI, true); AI.isValid(); ++AI) {
+            if (*AI == Z80::A) ClobberedA = true;
+            if (*AI == Z80::F) ClobberedF = true;
+          }
+        } else if (MO.isRegMask()) {
           for (MCRegister Reg = Z80::NoRegister + 1;
                Reg != Z80::NUM_TARGET_REGS; Reg = Reg + 1)
             if (MO.clobbersPhysReg(Reg))
               assign(Reg);
+          if (MO.clobbersPhysReg(Z80::A)) ClobberedA = true;
+          if (MO.clobbersPhysReg(Z80::F)) ClobberedF = true;
+        }
+      }
+      
+      // after SBC A,A, Z flag correctly reflects (A == 0)
+      // track this so we can eliminate redundant OR A,A
+      unsigned Opc = MIB->getOpcode();
+      if (Opc == Z80::SBC8ar && MIB->getOperand(0).getReg() == Z80::A) {
+        ZFlagReflectsAZero = true;
+      } else if (ClobberedA || ClobberedF) {
+        // if A or F is modified by something other than SBC A,A, reset tracking
+        ZFlagReflectsAZero = false;
       }
 
       // Apply KnownFlags after clobbering defs.

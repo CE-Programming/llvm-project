@@ -296,7 +296,8 @@ define i8 @load.p2i8(i8 addrspace(2)*) {
 ; Z80:       ; %bb.0:
 ; Z80-NEXT:    ld iy, 0
 ; Z80-NEXT:    add iy, sp
-; Z80-NEXT:    ld c, (iy + 2)
+; Z80-NEXT:    ld a, (iy + 2)
+; Z80-NEXT:    ld c, a
 ; Z80-NEXT:    in a, (c)
 ; Z80-NEXT:    ret
 ;
@@ -304,7 +305,8 @@ define i8 @load.p2i8(i8 addrspace(2)*) {
 ; EZ80-CODE16:       ; %bb.0:
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    add iy, sp
-; EZ80-CODE16-NEXT:    ld c, (iy + 2)
+; EZ80-CODE16-NEXT:    ld a, (iy + 2)
+; EZ80-CODE16-NEXT:    ld c, a
 ; EZ80-CODE16-NEXT:    in a, (c)
 ; EZ80-CODE16-NEXT:    ret
 ;
@@ -312,7 +314,8 @@ define i8 @load.p2i8(i8 addrspace(2)*) {
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
-; EZ80-NEXT:    ld c, (iy + 3)
+; EZ80-NEXT:    ld a, (iy + 3)
+; EZ80-NEXT:    ld c, a
 ; EZ80-NEXT:    in a, (bc)
 ; EZ80-NEXT:    ret
   load i8, i8 addrspace(2)* %0
@@ -678,17 +681,17 @@ define i32 @load.p2i32.1() {
 ; Z80-NEXT:    ld l, a
 ; Z80-NEXT:    ld c, iyl
 ; Z80-NEXT:    inc c
-; Z80-NEXT:    in d, (c)
+; Z80-NEXT:    in e, (c)
 ; Z80-NEXT:    ld a, iyl
 ; Z80-NEXT:    add a, 2
 ; Z80-NEXT:    ld c, a
-; Z80-NEXT:    in e, (c)
+; Z80-NEXT:    in d, (c)
 ; Z80-NEXT:    ld a, iyl
 ; Z80-NEXT:    add a, 3
 ; Z80-NEXT:    ld c, a
 ; Z80-NEXT:    in a, (c)
-; Z80-NEXT:    ld h, d
-; Z80-NEXT:    ; kill: def $e killed $e def $de
+; Z80-NEXT:    ld h, e
+; Z80-NEXT:    ld e, d
 ; Z80-NEXT:    ld d, a
 ; Z80-NEXT:    ret
 ;
@@ -699,17 +702,17 @@ define i32 @load.p2i32.1() {
 ; EZ80-CODE16-NEXT:    ld l, a
 ; EZ80-CODE16-NEXT:    ld c, iyl
 ; EZ80-CODE16-NEXT:    inc c
-; EZ80-CODE16-NEXT:    in d, (c)
+; EZ80-CODE16-NEXT:    in e, (c)
 ; EZ80-CODE16-NEXT:    ld a, iyl
 ; EZ80-CODE16-NEXT:    add a, 2
 ; EZ80-CODE16-NEXT:    ld c, a
-; EZ80-CODE16-NEXT:    in e, (c)
+; EZ80-CODE16-NEXT:    in d, (c)
 ; EZ80-CODE16-NEXT:    ld a, iyl
 ; EZ80-CODE16-NEXT:    add a, 3
 ; EZ80-CODE16-NEXT:    ld c, a
 ; EZ80-CODE16-NEXT:    in a, (c)
-; EZ80-CODE16-NEXT:    ld h, d
-; EZ80-CODE16-NEXT:    ; kill: def $e killed $e def $de
+; EZ80-CODE16-NEXT:    ld h, e
+; EZ80-CODE16-NEXT:    ld e, d
 ; EZ80-CODE16-NEXT:    ld d, a
 ; EZ80-CODE16-NEXT:    ret
 ;
@@ -719,21 +722,21 @@ define i32 @load.p2i32.1() {
 ; EZ80-NEXT:    ld ix, 0
 ; EZ80-NEXT:    add ix, sp
 ; EZ80-NEXT:    dec sp
-; EZ80-NEXT:    ld l, 1
+; EZ80-NEXT:    ld e, 1
 ; EZ80-NEXT:    in a, (1)
 ; EZ80-NEXT:    ld iyl, a
-; EZ80-NEXT:    ld c, l
+; EZ80-NEXT:    ld c, e
 ; EZ80-NEXT:    inc c
 ; EZ80-NEXT:    in d, (bc)
-; EZ80-NEXT:    ld a, l
+; EZ80-NEXT:    ld a, e
 ; EZ80-NEXT:    add a, 2
 ; EZ80-NEXT:    ld c, a
-; EZ80-NEXT:    in h, (bc)
-; EZ80-NEXT:    ld a, l
+; EZ80-NEXT:    in l, (bc)
+; EZ80-NEXT:    ld a, e
 ; EZ80-NEXT:    add a, 3
 ; EZ80-NEXT:    ld c, a
 ; EZ80-NEXT:    in e, (bc)
-; EZ80-NEXT:    ld (ix - 1), h
+; EZ80-NEXT:    ld (ix - 1), l
 ; EZ80-NEXT:    ld hl, (ix - 3)
 ; EZ80-NEXT:    ld h, d
 ; EZ80-NEXT:    ex de, hl
@@ -750,9 +753,9 @@ define i64 @load.p2i64.1() {
 ; Z80-LABEL: load.p2i64.1:
 ; Z80:       ; %bb.0:
 ; Z80-NEXT:    push ix
+; Z80-NEXT:    push ix
 ; Z80-NEXT:    ld ix, 0
 ; Z80-NEXT:    add ix, sp
-; Z80-NEXT:    push hl
 ; Z80-NEXT:    dec sp
 ; Z80-NEXT:    ld e, 1
 ; Z80-NEXT:    in a, (1)
@@ -769,17 +772,17 @@ define i64 @load.p2i64.1() {
 ; Z80-NEXT:    add a, 3
 ; Z80-NEXT:    ld c, a
 ; Z80-NEXT:    in a, (c)
-; Z80-NEXT:    ld (ix - 2), a
+; Z80-NEXT:    ld iyh, a
 ; Z80-NEXT:    ld a, e
 ; Z80-NEXT:    add a, 4
 ; Z80-NEXT:    ld c, a
 ; Z80-NEXT:    in a, (c)
-; Z80-NEXT:    ld (ix - 3), a
+; Z80-NEXT:    ld ixl, a
 ; Z80-NEXT:    ld a, e
 ; Z80-NEXT:    add a, 5
 ; Z80-NEXT:    ld c, a
 ; Z80-NEXT:    in a, (c)
-; Z80-NEXT:    ld iyh, a
+; Z80-NEXT:    ld ixh, a
 ; Z80-NEXT:    ld a, e
 ; Z80-NEXT:    add a, 6
 ; Z80-NEXT:    ld c, a
@@ -791,22 +794,23 @@ define i64 @load.p2i64.1() {
 ; Z80-NEXT:    in a, (c)
 ; Z80-NEXT:    ld h, (ix - 1) ; 1-byte Folded Reload
 ; Z80-NEXT:    ld e, d
-; Z80-NEXT:    ld d, (ix - 2) ; 1-byte Folded Reload
-; Z80-NEXT:    ld c, (ix - 3) ; 1-byte Folded Reload
-; Z80-NEXT:    ld b, iyh
+; Z80-NEXT:    ld d, iyh
+; Z80-NEXT:    ld c, ixl
+; Z80-NEXT:    ld b, ixh
 ; Z80-NEXT:    ; kill: def $iyl killed $iyl def $iy
 ; Z80-NEXT:    ld iyh, a
-; Z80-NEXT:    ld sp, ix
+; Z80-NEXT:    inc sp
+; Z80-NEXT:    pop ix
 ; Z80-NEXT:    pop ix
 ; Z80-NEXT:    ret
 ;
 ; EZ80-CODE16-LABEL: load.p2i64.1:
 ; EZ80-CODE16:       ; %bb.0:
 ; EZ80-CODE16-NEXT:    push ix
+; EZ80-CODE16-NEXT:    push ix
 ; EZ80-CODE16-NEXT:    ld ix, 0
 ; EZ80-CODE16-NEXT:    add ix, sp
-; EZ80-CODE16-NEXT:    lea hl, ix - 3
-; EZ80-CODE16-NEXT:    ld sp, hl
+; EZ80-CODE16-NEXT:    dec sp
 ; EZ80-CODE16-NEXT:    ld e, 1
 ; EZ80-CODE16-NEXT:    in a, (1)
 ; EZ80-CODE16-NEXT:    ld l, a
@@ -822,17 +826,17 @@ define i64 @load.p2i64.1() {
 ; EZ80-CODE16-NEXT:    add a, 3
 ; EZ80-CODE16-NEXT:    ld c, a
 ; EZ80-CODE16-NEXT:    in a, (c)
-; EZ80-CODE16-NEXT:    ld (ix - 2), a
+; EZ80-CODE16-NEXT:    ld iyh, a
 ; EZ80-CODE16-NEXT:    ld a, e
 ; EZ80-CODE16-NEXT:    add a, 4
 ; EZ80-CODE16-NEXT:    ld c, a
 ; EZ80-CODE16-NEXT:    in a, (c)
-; EZ80-CODE16-NEXT:    ld (ix - 3), a
+; EZ80-CODE16-NEXT:    ld ixl, a
 ; EZ80-CODE16-NEXT:    ld a, e
 ; EZ80-CODE16-NEXT:    add a, 5
 ; EZ80-CODE16-NEXT:    ld c, a
 ; EZ80-CODE16-NEXT:    in a, (c)
-; EZ80-CODE16-NEXT:    ld iyh, a
+; EZ80-CODE16-NEXT:    ld ixh, a
 ; EZ80-CODE16-NEXT:    ld a, e
 ; EZ80-CODE16-NEXT:    add a, 6
 ; EZ80-CODE16-NEXT:    ld c, a
@@ -844,12 +848,13 @@ define i64 @load.p2i64.1() {
 ; EZ80-CODE16-NEXT:    in a, (c)
 ; EZ80-CODE16-NEXT:    ld h, (ix - 1) ; 1-byte Folded Reload
 ; EZ80-CODE16-NEXT:    ld e, d
-; EZ80-CODE16-NEXT:    ld d, (ix - 2) ; 1-byte Folded Reload
-; EZ80-CODE16-NEXT:    ld c, (ix - 3) ; 1-byte Folded Reload
-; EZ80-CODE16-NEXT:    ld b, iyh
+; EZ80-CODE16-NEXT:    ld d, iyh
+; EZ80-CODE16-NEXT:    ld c, ixl
+; EZ80-CODE16-NEXT:    ld b, ixh
 ; EZ80-CODE16-NEXT:    ; kill: def $iyl killed $iyl def $iy
 ; EZ80-CODE16-NEXT:    ld iyh, a
-; EZ80-CODE16-NEXT:    ld sp, ix
+; EZ80-CODE16-NEXT:    inc sp
+; EZ80-CODE16-NEXT:    pop ix
 ; EZ80-CODE16-NEXT:    pop ix
 ; EZ80-CODE16-NEXT:    ret
 ;
@@ -1310,18 +1315,15 @@ define i32 @load.p3i32.1() {
 ; Z80-LABEL: load.p3i32.1:
 ; Z80:       ; %bb.0:
 ; Z80-NEXT:    push ix
-; Z80-NEXT:    ld ix, 0
-; Z80-NEXT:    add ix, sp
-; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld iyl, 1
 ; Z80-NEXT:    ld iyh, 0
 ; Z80-NEXT:    ld c, iyl
 ; Z80-NEXT:    ld b, iyh
 ; Z80-NEXT:    in a, (c)
-; Z80-NEXT:    ld (ix - 1), a
+; Z80-NEXT:    ld ixl, a
 ; Z80-NEXT:    inc bc
 ; Z80-NEXT:    in a, (c)
-; Z80-NEXT:    ld (ix - 2), a
+; Z80-NEXT:    ld ixh, a
 ; Z80-NEXT:    ld de, 2
 ; Z80-NEXT:    ex de, hl
 ; Z80-NEXT:    ld e, iyl
@@ -1336,11 +1338,12 @@ define i32 @load.p3i32.1() {
 ; Z80-NEXT:    ld c, iyl
 ; Z80-NEXT:    ld b, iyh
 ; Z80-NEXT:    in c, (c)
-; Z80-NEXT:    ld l, (ix - 1) ; 1-byte Folded Reload
-; Z80-NEXT:    ld h, (ix - 2) ; 1-byte Folded Reload
+; Z80-NEXT:    ex de, hl
+; Z80-NEXT:    ld e, ixl
+; Z80-NEXT:    ld d, ixh
+; Z80-NEXT:    ex de, hl
 ; Z80-NEXT:    ld e, a
 ; Z80-NEXT:    ld d, c
-; Z80-NEXT:    ld sp, ix
 ; Z80-NEXT:    pop ix
 ; Z80-NEXT:    ret
 ;
@@ -1393,11 +1396,11 @@ define i64 @load.p3i64.1() {
 ; Z80-LABEL: load.p3i64.1:
 ; Z80:       ; %bb.0:
 ; Z80-NEXT:    push ix
+; Z80-NEXT:    push ix
 ; Z80-NEXT:    ld ix, 0
 ; Z80-NEXT:    add ix, sp
-; Z80-NEXT:    ld hl, -5
-; Z80-NEXT:    add hl, sp
-; Z80-NEXT:    ld sp, hl
+; Z80-NEXT:    push hl
+; Z80-NEXT:    dec sp
 ; Z80-NEXT:    ld iyl, 1
 ; Z80-NEXT:    ld iyh, 0
 ; Z80-NEXT:    ld c, iyl
@@ -1444,7 +1447,7 @@ define i64 @load.p3i64.1() {
 ; Z80-NEXT:    ld c, l
 ; Z80-NEXT:    ld b, h
 ; Z80-NEXT:    in a, (c)
-; Z80-NEXT:    ld (ix - 4), a
+; Z80-NEXT:    ld ixh, a
 ; Z80-NEXT:    ld bc, 6
 ; Z80-NEXT:    ex de, hl
 ; Z80-NEXT:    ld e, iyl
@@ -1454,7 +1457,7 @@ define i64 @load.p3i64.1() {
 ; Z80-NEXT:    ld c, l
 ; Z80-NEXT:    ld b, h
 ; Z80-NEXT:    in a, (c)
-; Z80-NEXT:    ld (ix - 5), a
+; Z80-NEXT:    ld ixl, a
 ; Z80-NEXT:    ld bc, 7
 ; Z80-NEXT:    add iy, bc
 ; Z80-NEXT:    ld c, iyl
@@ -1465,23 +1468,24 @@ define i64 @load.p3i64.1() {
 ; Z80-NEXT:    ld e, d
 ; Z80-NEXT:    ld d, (ix - 2) ; 1-byte Folded Reload
 ; Z80-NEXT:    ld c, (ix - 3) ; 1-byte Folded Reload
-; Z80-NEXT:    ld b, (ix - 4) ; 1-byte Folded Reload
+; Z80-NEXT:    ld b, ixh
 ; Z80-NEXT:    push af
-; Z80-NEXT:    ld a, (ix - 5) ; 1-byte Folded Reload
+; Z80-NEXT:    ld a, ixl
 ; Z80-NEXT:    ld iyl, a
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    ld iyh, a
 ; Z80-NEXT:    ld sp, ix
+; Z80-NEXT:    pop ix
 ; Z80-NEXT:    pop ix
 ; Z80-NEXT:    ret
 ;
 ; EZ80-CODE16-LABEL: load.p3i64.1:
 ; EZ80-CODE16:       ; %bb.0:
 ; EZ80-CODE16-NEXT:    push ix
+; EZ80-CODE16-NEXT:    push ix
 ; EZ80-CODE16-NEXT:    ld ix, 0
 ; EZ80-CODE16-NEXT:    add ix, sp
-; EZ80-CODE16-NEXT:    lea hl, ix - 4
-; EZ80-CODE16-NEXT:    ld sp, hl
+; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld iyl, 1
 ; EZ80-CODE16-NEXT:    ld iyh, 0
 ; EZ80-CODE16-NEXT:    lea bc, iy
@@ -1498,10 +1502,10 @@ define i64 @load.p3i64.1() {
 ; EZ80-CODE16-NEXT:    ld (ix - 2), a
 ; EZ80-CODE16-NEXT:    lea bc, iy + 5
 ; EZ80-CODE16-NEXT:    in a, (c)
-; EZ80-CODE16-NEXT:    ld (ix - 3), a
+; EZ80-CODE16-NEXT:    ld ixh, a
 ; EZ80-CODE16-NEXT:    lea bc, iy + 6
 ; EZ80-CODE16-NEXT:    in a, (c)
-; EZ80-CODE16-NEXT:    ld (ix - 4), a
+; EZ80-CODE16-NEXT:    ld ixl, a
 ; EZ80-CODE16-NEXT:    lea bc, iy + 7
 ; EZ80-CODE16-NEXT:    in a, (c)
 ; EZ80-CODE16-NEXT:    ; kill: def $l killed $l def $hl
@@ -1509,13 +1513,14 @@ define i64 @load.p3i64.1() {
 ; EZ80-CODE16-NEXT:    ld e, d
 ; EZ80-CODE16-NEXT:    ld d, (ix - 1) ; 1-byte Folded Reload
 ; EZ80-CODE16-NEXT:    ld c, (ix - 2) ; 1-byte Folded Reload
-; EZ80-CODE16-NEXT:    ld b, (ix - 3) ; 1-byte Folded Reload
+; EZ80-CODE16-NEXT:    ld b, ixh
 ; EZ80-CODE16-NEXT:    push af
-; EZ80-CODE16-NEXT:    ld a, (ix - 4) ; 1-byte Folded Reload
+; EZ80-CODE16-NEXT:    ld a, ixl
 ; EZ80-CODE16-NEXT:    ld iyl, a
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    ld iyh, a
 ; EZ80-CODE16-NEXT:    ld sp, ix
+; EZ80-CODE16-NEXT:    pop ix
 ; EZ80-CODE16-NEXT:    pop ix
 ; EZ80-CODE16-NEXT:    ret
 ;
@@ -1825,28 +1830,28 @@ define void @store.p0i32.1(i32) {
 ; Z80:       ; %bb.0:
 ; Z80-NEXT:    ld iy, 0
 ; Z80-NEXT:    add iy, sp
-; Z80-NEXT:    ld l, (iy + 2)
-; Z80-NEXT:    ld h, (iy + 3)
-; Z80-NEXT:    ld e, (iy + 4)
-; Z80-NEXT:    ld d, (iy + 5)
+; Z80-NEXT:    ld e, (iy + 2)
+; Z80-NEXT:    ld d, (iy + 3)
+; Z80-NEXT:    ld l, (iy + 4)
+; Z80-NEXT:    ld h, (iy + 5)
 ; Z80-NEXT:    ld iyl, 1
 ; Z80-NEXT:    ld iyh, 0
-; Z80-NEXT:    ld (iy), l
-; Z80-NEXT:    ld (iy + 1), h
-; Z80-NEXT:    ld (iy + 2), e
-; Z80-NEXT:    ld (iy + 3), d
+; Z80-NEXT:    ld (iy), e
+; Z80-NEXT:    ld (iy + 1), d
+; Z80-NEXT:    ld (iy + 2), l
+; Z80-NEXT:    ld (iy + 3), h
 ; Z80-NEXT:    ret
 ;
 ; EZ80-CODE16-LABEL: store.p0i32.1:
 ; EZ80-CODE16:       ; %bb.0:
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    add iy, sp
-; EZ80-CODE16-NEXT:    ld hl, (iy + 2)
-; EZ80-CODE16-NEXT:    ld de, (iy + 4)
+; EZ80-CODE16-NEXT:    ld de, (iy + 2)
+; EZ80-CODE16-NEXT:    ld hl, (iy + 4)
 ; EZ80-CODE16-NEXT:    ld iyl, 1
 ; EZ80-CODE16-NEXT:    ld iyh, 0
-; EZ80-CODE16-NEXT:    ld (iy), hl
-; EZ80-CODE16-NEXT:    ld (iy + 2), de
+; EZ80-CODE16-NEXT:    ld (iy), de
+; EZ80-CODE16-NEXT:    ld (iy + 2), hl
 ; EZ80-CODE16-NEXT:    ret
 ;
 ; EZ80-LABEL: store.p0i32.1:
@@ -1943,7 +1948,8 @@ define void @store.p2i8(i8, i8 addrspace(2)*) {
 ; Z80-NEXT:    ld iy, 0
 ; Z80-NEXT:    add iy, sp
 ; Z80-NEXT:    ld a, (iy + 2)
-; Z80-NEXT:    ld c, (iy + 4)
+; Z80-NEXT:    ld l, (iy + 4)
+; Z80-NEXT:    ld c, l
 ; Z80-NEXT:    out (c), a
 ; Z80-NEXT:    ret
 ;
@@ -1952,7 +1958,8 @@ define void @store.p2i8(i8, i8 addrspace(2)*) {
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    add iy, sp
 ; EZ80-CODE16-NEXT:    ld a, (iy + 2)
-; EZ80-CODE16-NEXT:    ld c, (iy + 4)
+; EZ80-CODE16-NEXT:    ld l, (iy + 4)
+; EZ80-CODE16-NEXT:    ld c, l
 ; EZ80-CODE16-NEXT:    out (c), a
 ; EZ80-CODE16-NEXT:    ret
 ;
@@ -1961,7 +1968,8 @@ define void @store.p2i8(i8, i8 addrspace(2)*) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld a, (iy + 3)
-; EZ80-NEXT:    ld c, (iy + 6)
+; EZ80-NEXT:    ld l, (iy + 6)
+; EZ80-NEXT:    ld c, l
 ; EZ80-NEXT:    out (bc), a
 ; EZ80-NEXT:    ret
   store i8 %0, i8 addrspace(2)* %1
@@ -2029,19 +2037,19 @@ define void @store.p2i32(i32, i32 addrspace(2)*) {
 ; Z80-NEXT:    ld b, (iy + 5)
 ; Z80-NEXT:    ld l, (iy + 6)
 ; Z80-NEXT:    ld a, e
-; Z80-NEXT:    ld h, d
-; Z80-NEXT:    ld d, c
+; Z80-NEXT:    ; kill: def $d killed $d killed $de
+; Z80-NEXT:    ld h, c
 ; Z80-NEXT:    ld e, b
 ; Z80-NEXT:    ld c, l
 ; Z80-NEXT:    out (c), a
 ; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    inc a
 ; Z80-NEXT:    ld c, a
-; Z80-NEXT:    out (c), h
+; Z80-NEXT:    out (c), d
 ; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    add a, 2
 ; Z80-NEXT:    ld c, a
-; Z80-NEXT:    out (c), d
+; Z80-NEXT:    out (c), h
 ; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    add a, 3
 ; Z80-NEXT:    ld c, a
@@ -2056,19 +2064,19 @@ define void @store.p2i32(i32, i32 addrspace(2)*) {
 ; EZ80-CODE16-NEXT:    ld bc, (iy + 4)
 ; EZ80-CODE16-NEXT:    ld l, (iy + 6)
 ; EZ80-CODE16-NEXT:    ld a, e
-; EZ80-CODE16-NEXT:    ld h, d
-; EZ80-CODE16-NEXT:    ld d, c
+; EZ80-CODE16-NEXT:    ; kill: def $d killed $d killed $de
+; EZ80-CODE16-NEXT:    ld h, c
 ; EZ80-CODE16-NEXT:    ld e, b
 ; EZ80-CODE16-NEXT:    ld c, l
 ; EZ80-CODE16-NEXT:    out (c), a
 ; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    inc a
 ; EZ80-CODE16-NEXT:    ld c, a
-; EZ80-CODE16-NEXT:    out (c), h
+; EZ80-CODE16-NEXT:    out (c), d
 ; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    add a, 2
 ; EZ80-CODE16-NEXT:    ld c, a
-; EZ80-CODE16-NEXT:    out (c), d
+; EZ80-CODE16-NEXT:    out (c), h
 ; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    add a, 3
 ; EZ80-CODE16-NEXT:    ld c, a
@@ -2458,43 +2466,35 @@ define void @store.p2i64.1(i64) {
 ; Z80-NEXT:    push ix
 ; Z80-NEXT:    ld ix, 0
 ; Z80-NEXT:    add ix, sp
-; Z80-NEXT:    ld hl, -6
-; Z80-NEXT:    add hl, sp
-; Z80-NEXT:    ld sp, hl
-; Z80-NEXT:    ld c, (ix + 4)
-; Z80-NEXT:    ld b, (ix + 5)
 ; Z80-NEXT:    push hl
-; Z80-NEXT:    ld l, (ix + 6)
-; Z80-NEXT:    ld h, (ix + 7)
+; Z80-NEXT:    dec sp
+; Z80-NEXT:    ld e, (ix + 4)
+; Z80-NEXT:    ld d, (ix + 5)
+; Z80-NEXT:    ld c, (ix + 6)
+; Z80-NEXT:    ld b, (ix + 7)
+; Z80-NEXT:    push hl
+; Z80-NEXT:    ld l, (ix + 8)
+; Z80-NEXT:    ld h, (ix + 9)
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop iy
 ; Z80-NEXT:    ld l, 1
-; Z80-NEXT:    ld h, b
+; Z80-NEXT:    ld h, d
+; Z80-NEXT:    ld e, c
+; Z80-NEXT:    ld d, b
 ; Z80-NEXT:    push af
 ; Z80-NEXT:    ld a, iyl
-; Z80-NEXT:    ld (ix - 6), a ; 1-byte Folded Spill
+; Z80-NEXT:    ld (ix - 3), a ; 1-byte Folded Spill
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    push af
 ; Z80-NEXT:    ld a, iyh
-; Z80-NEXT:    ld (ix - 5), a ; 1-byte Folded Spill
+; Z80-NEXT:    ld (ix - 2), a ; 1-byte Folded Spill
 ; Z80-NEXT:    pop af
-; Z80-NEXT:    ld e, (ix + 8)
-; Z80-NEXT:    ld d, (ix + 9)
-; Z80-NEXT:    ld (ix - 2), e ; 1-byte Folded Spill
-; Z80-NEXT:    ld (ix - 3), d ; 1-byte Folded Spill
-; Z80-NEXT:    push hl
-; Z80-NEXT:    ld l, (ix + 10)
-; Z80-NEXT:    ld h, (ix + 11)
-; Z80-NEXT:    ex (sp), hl
-; Z80-NEXT:    pop iy
-; Z80-NEXT:    push af
-; Z80-NEXT:    ld a, iyl
-; Z80-NEXT:    ld (ix - 4), a ; 1-byte Folded Spill
-; Z80-NEXT:    pop af
-; Z80-NEXT:    push af
-; Z80-NEXT:    ld a, iyh
-; Z80-NEXT:    ld (ix - 1), a ; 1-byte Folded Spill
-; Z80-NEXT:    pop af
+; Z80-NEXT:    ld c, (ix + 10)
+; Z80-NEXT:    ld b, (ix + 11)
+; Z80-NEXT:    ld (ix - 1), c ; 1-byte Folded Spill
+; Z80-NEXT:    ld iyl, b
+; Z80-NEXT:    ld c, (ix + 4)
+; Z80-NEXT:    ld b, (ix + 5)
 ; Z80-NEXT:    ld a, c
 ; Z80-NEXT:    out (1), a
 ; Z80-NEXT:    ld c, l
@@ -2503,32 +2503,30 @@ define void @store.p2i64.1(i64) {
 ; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    add a, 2
 ; Z80-NEXT:    ld c, a
-; Z80-NEXT:    ld a, (ix - 6)
-; Z80-NEXT:    out (c), a
+; Z80-NEXT:    out (c), e
 ; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    add a, 3
 ; Z80-NEXT:    ld c, a
-; Z80-NEXT:    ld a, (ix - 5)
-; Z80-NEXT:    out (c), a
+; Z80-NEXT:    out (c), d
 ; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    add a, 4
-; Z80-NEXT:    ld c, a
-; Z80-NEXT:    ld a, (ix - 2)
-; Z80-NEXT:    out (c), a
-; Z80-NEXT:    ld a, l
-; Z80-NEXT:    add a, 5
 ; Z80-NEXT:    ld c, a
 ; Z80-NEXT:    ld a, (ix - 3)
 ; Z80-NEXT:    out (c), a
 ; Z80-NEXT:    ld a, l
+; Z80-NEXT:    add a, 5
+; Z80-NEXT:    ld c, a
+; Z80-NEXT:    ld a, (ix - 2)
+; Z80-NEXT:    out (c), a
+; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    add a, 6
 ; Z80-NEXT:    ld c, a
-; Z80-NEXT:    ld a, (ix - 4)
+; Z80-NEXT:    ld a, (ix - 1)
 ; Z80-NEXT:    out (c), a
 ; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    add a, 7
 ; Z80-NEXT:    ld c, a
-; Z80-NEXT:    ld a, (ix - 1)
+; Z80-NEXT:    ld a, iyl
 ; Z80-NEXT:    out (c), a
 ; Z80-NEXT:    ld sp, ix
 ; Z80-NEXT:    pop ix
@@ -2539,32 +2537,27 @@ define void @store.p2i64.1(i64) {
 ; EZ80-CODE16-NEXT:    push ix
 ; EZ80-CODE16-NEXT:    ld ix, 0
 ; EZ80-CODE16-NEXT:    add ix, sp
-; EZ80-CODE16-NEXT:    lea hl, ix - 6
+; EZ80-CODE16-NEXT:    lea hl, ix - 3
 ; EZ80-CODE16-NEXT:    ld sp, hl
-; EZ80-CODE16-NEXT:    ld bc, (ix + 4)
-; EZ80-CODE16-NEXT:    ld iy, (ix + 6)
+; EZ80-CODE16-NEXT:    ld de, (ix + 4)
+; EZ80-CODE16-NEXT:    ld bc, (ix + 6)
+; EZ80-CODE16-NEXT:    ld iy, (ix + 8)
 ; EZ80-CODE16-NEXT:    ld l, 1
-; EZ80-CODE16-NEXT:    ld h, b
+; EZ80-CODE16-NEXT:    ld h, d
+; EZ80-CODE16-NEXT:    ld e, c
+; EZ80-CODE16-NEXT:    ld d, b
 ; EZ80-CODE16-NEXT:    push af
 ; EZ80-CODE16-NEXT:    ld a, iyl
-; EZ80-CODE16-NEXT:    ld (ix - 6), a ; 1-byte Folded Spill
+; EZ80-CODE16-NEXT:    ld (ix - 3), a ; 1-byte Folded Spill
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    push af
 ; EZ80-CODE16-NEXT:    ld a, iyh
-; EZ80-CODE16-NEXT:    ld (ix - 5), a ; 1-byte Folded Spill
+; EZ80-CODE16-NEXT:    ld (ix - 2), a ; 1-byte Folded Spill
 ; EZ80-CODE16-NEXT:    pop af
-; EZ80-CODE16-NEXT:    ld de, (ix + 8)
-; EZ80-CODE16-NEXT:    ld (ix - 2), e ; 1-byte Folded Spill
-; EZ80-CODE16-NEXT:    ld (ix - 3), d ; 1-byte Folded Spill
-; EZ80-CODE16-NEXT:    ld iy, (ix + 10)
-; EZ80-CODE16-NEXT:    push af
-; EZ80-CODE16-NEXT:    ld a, iyl
-; EZ80-CODE16-NEXT:    ld (ix - 4), a ; 1-byte Folded Spill
-; EZ80-CODE16-NEXT:    pop af
-; EZ80-CODE16-NEXT:    push af
-; EZ80-CODE16-NEXT:    ld a, iyh
-; EZ80-CODE16-NEXT:    ld (ix - 1), a ; 1-byte Folded Spill
-; EZ80-CODE16-NEXT:    pop af
+; EZ80-CODE16-NEXT:    ld bc, (ix + 10)
+; EZ80-CODE16-NEXT:    ld (ix - 1), c ; 1-byte Folded Spill
+; EZ80-CODE16-NEXT:    ld iyl, b
+; EZ80-CODE16-NEXT:    ld bc, (ix + 4)
 ; EZ80-CODE16-NEXT:    ld a, c
 ; EZ80-CODE16-NEXT:    out (1), a
 ; EZ80-CODE16-NEXT:    ld c, l
@@ -2573,32 +2566,30 @@ define void @store.p2i64.1(i64) {
 ; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    add a, 2
 ; EZ80-CODE16-NEXT:    ld c, a
-; EZ80-CODE16-NEXT:    ld a, (ix - 6)
-; EZ80-CODE16-NEXT:    out (c), a
+; EZ80-CODE16-NEXT:    out (c), e
 ; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    add a, 3
 ; EZ80-CODE16-NEXT:    ld c, a
-; EZ80-CODE16-NEXT:    ld a, (ix - 5)
-; EZ80-CODE16-NEXT:    out (c), a
+; EZ80-CODE16-NEXT:    out (c), d
 ; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    add a, 4
-; EZ80-CODE16-NEXT:    ld c, a
-; EZ80-CODE16-NEXT:    ld a, (ix - 2)
-; EZ80-CODE16-NEXT:    out (c), a
-; EZ80-CODE16-NEXT:    ld a, l
-; EZ80-CODE16-NEXT:    add a, 5
 ; EZ80-CODE16-NEXT:    ld c, a
 ; EZ80-CODE16-NEXT:    ld a, (ix - 3)
 ; EZ80-CODE16-NEXT:    out (c), a
 ; EZ80-CODE16-NEXT:    ld a, l
+; EZ80-CODE16-NEXT:    add a, 5
+; EZ80-CODE16-NEXT:    ld c, a
+; EZ80-CODE16-NEXT:    ld a, (ix - 2)
+; EZ80-CODE16-NEXT:    out (c), a
+; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    add a, 6
 ; EZ80-CODE16-NEXT:    ld c, a
-; EZ80-CODE16-NEXT:    ld a, (ix - 4)
+; EZ80-CODE16-NEXT:    ld a, (ix - 1)
 ; EZ80-CODE16-NEXT:    out (c), a
 ; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    add a, 7
 ; EZ80-CODE16-NEXT:    ld c, a
-; EZ80-CODE16-NEXT:    ld a, (ix - 1)
+; EZ80-CODE16-NEXT:    ld a, iyl
 ; EZ80-CODE16-NEXT:    out (c), a
 ; EZ80-CODE16-NEXT:    ld sp, ix
 ; EZ80-CODE16-NEXT:    pop ix
@@ -2623,17 +2614,17 @@ define void @store.p2i64.1(i64) {
 ; EZ80-NEXT:    ld (ix - 10), d ; 1-byte Folded Spill
 ; EZ80-NEXT:    ld h, e
 ; EZ80-NEXT:    ld (ix - 3), iy
-; EZ80-NEXT:    ld e, (ix - 1)
-; EZ80-NEXT:    ld d, iyh
+; EZ80-NEXT:    ld d, (ix - 1)
+; EZ80-NEXT:    ld e, iyh
 ; EZ80-NEXT:    ld a, iyl
 ; EZ80-NEXT:    out (1), a
 ; EZ80-NEXT:    ld c, l
 ; EZ80-NEXT:    inc c
-; EZ80-NEXT:    out (bc), d
+; EZ80-NEXT:    out (bc), e
 ; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    add a, 2
 ; EZ80-NEXT:    ld c, a
-; EZ80-NEXT:    out (bc), e
+; EZ80-NEXT:    out (bc), d
 ; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    add a, 3
 ; EZ80-NEXT:    ld c, a
@@ -2745,26 +2736,24 @@ define void @store.p3i16(i16, i16 addrspace(3)*) {
 define void @store.p3i32(i32, i32 addrspace(3)*) {
 ; Z80-LABEL: store.p3i32:
 ; Z80:       ; %bb.0:
-; Z80-NEXT:    push ix
-; Z80-NEXT:    ld ix, 0
-; Z80-NEXT:    add ix, sp
-; Z80-NEXT:    dec sp
-; Z80-NEXT:    ld l, (ix + 4)
-; Z80-NEXT:    ld h, (ix + 5)
-; Z80-NEXT:    ld c, (ix + 6)
-; Z80-NEXT:    ld b, (ix + 7)
+; Z80-NEXT:    ld iy, 0
+; Z80-NEXT:    add iy, sp
+; Z80-NEXT:    ld l, (iy + 2)
+; Z80-NEXT:    ld h, (iy + 3)
+; Z80-NEXT:    ld c, (iy + 4)
+; Z80-NEXT:    ld b, (iy + 5)
 ; Z80-NEXT:    push hl
-; Z80-NEXT:    ld l, (ix + 8)
-; Z80-NEXT:    ld h, (ix + 9)
+; Z80-NEXT:    ld l, (iy + 6)
+; Z80-NEXT:    ld h, (iy + 7)
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop iy
-; Z80-NEXT:    ld a, l
+; Z80-NEXT:    ld d, l
 ; Z80-NEXT:    ld l, h
 ; Z80-NEXT:    ld e, c
-; Z80-NEXT:    ld (ix - 1), b ; 1-byte Folded Spill
+; Z80-NEXT:    ld a, b
 ; Z80-NEXT:    ld c, iyl
 ; Z80-NEXT:    ld b, iyh
-; Z80-NEXT:    out (c), a
+; Z80-NEXT:    out (c), d
 ; Z80-NEXT:    inc bc
 ; Z80-NEXT:    out (c), l
 ; Z80-NEXT:    ld bc, 2
@@ -2780,10 +2769,7 @@ define void @store.p3i32(i32, i32 addrspace(3)*) {
 ; Z80-NEXT:    add iy, de
 ; Z80-NEXT:    ld c, iyl
 ; Z80-NEXT:    ld b, iyh
-; Z80-NEXT:    ld a, (ix - 1)
 ; Z80-NEXT:    out (c), a
-; Z80-NEXT:    inc sp
-; Z80-NEXT:    pop ix
 ; Z80-NEXT:    ret
 ;
 ; EZ80-CODE16-LABEL: store.p3i32:
@@ -2794,15 +2780,15 @@ define void @store.p3i32(i32, i32 addrspace(3)*) {
 ; EZ80-CODE16-NEXT:    ld de, (iy + 4)
 ; EZ80-CODE16-NEXT:    ld iy, (iy + 6)
 ; EZ80-CODE16-NEXT:    ld a, l
-; EZ80-CODE16-NEXT:    ld l, h
-; EZ80-CODE16-NEXT:    ld h, e
+; EZ80-CODE16-NEXT:    ; kill: def $h killed $h killed $hl
+; EZ80-CODE16-NEXT:    ld l, e
 ; EZ80-CODE16-NEXT:    ld e, d
 ; EZ80-CODE16-NEXT:    lea bc, iy
 ; EZ80-CODE16-NEXT:    out (c), a
 ; EZ80-CODE16-NEXT:    inc bc
-; EZ80-CODE16-NEXT:    out (c), l
-; EZ80-CODE16-NEXT:    lea bc, iy + 2
 ; EZ80-CODE16-NEXT:    out (c), h
+; EZ80-CODE16-NEXT:    lea bc, iy + 2
+; EZ80-CODE16-NEXT:    out (c), l
 ; EZ80-CODE16-NEXT:    lea bc, iy + 3
 ; EZ80-CODE16-NEXT:    out (c), e
 ; EZ80-CODE16-NEXT:    ret
@@ -3110,13 +3096,13 @@ define void @store.p3i32.1(i32) {
 ; Z80-NEXT:    ld b, (iy + 5)
 ; Z80-NEXT:    ld iyl, 1
 ; Z80-NEXT:    ld iyh, 0
-; Z80-NEXT:    ld e, l
+; Z80-NEXT:    ld d, l
 ; Z80-NEXT:    ld l, h
-; Z80-NEXT:    ld d, c
+; Z80-NEXT:    ld e, c
 ; Z80-NEXT:    ld a, b
 ; Z80-NEXT:    ld c, iyl
 ; Z80-NEXT:    ld b, iyh
-; Z80-NEXT:    out (c), e
+; Z80-NEXT:    out (c), d
 ; Z80-NEXT:    inc bc
 ; Z80-NEXT:    out (c), l
 ; Z80-NEXT:    ld bc, 2
@@ -3127,7 +3113,7 @@ define void @store.p3i32.1(i32) {
 ; Z80-NEXT:    add hl, bc
 ; Z80-NEXT:    ld c, l
 ; Z80-NEXT:    ld b, h
-; Z80-NEXT:    out (c), d
+; Z80-NEXT:    out (c), e
 ; Z80-NEXT:    ld de, 3
 ; Z80-NEXT:    add iy, de
 ; Z80-NEXT:    ld c, iyl
@@ -3140,21 +3126,21 @@ define void @store.p3i32.1(i32) {
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    add iy, sp
 ; EZ80-CODE16-NEXT:    ld hl, (iy + 2)
-; EZ80-CODE16-NEXT:    ld de, (iy + 4)
+; EZ80-CODE16-NEXT:    ld bc, (iy + 4)
 ; EZ80-CODE16-NEXT:    ld iyl, 1
 ; EZ80-CODE16-NEXT:    ld iyh, 0
-; EZ80-CODE16-NEXT:    ld a, l
+; EZ80-CODE16-NEXT:    ld e, l
 ; EZ80-CODE16-NEXT:    ld l, h
-; EZ80-CODE16-NEXT:    ld h, e
-; EZ80-CODE16-NEXT:    ld e, d
+; EZ80-CODE16-NEXT:    ld h, c
+; EZ80-CODE16-NEXT:    ld a, b
 ; EZ80-CODE16-NEXT:    lea bc, iy
-; EZ80-CODE16-NEXT:    out (c), a
+; EZ80-CODE16-NEXT:    out (c), e
 ; EZ80-CODE16-NEXT:    inc bc
 ; EZ80-CODE16-NEXT:    out (c), l
 ; EZ80-CODE16-NEXT:    lea bc, iy + 2
 ; EZ80-CODE16-NEXT:    out (c), h
 ; EZ80-CODE16-NEXT:    lea bc, iy + 3
-; EZ80-CODE16-NEXT:    out (c), e
+; EZ80-CODE16-NEXT:    out (c), a
 ; EZ80-CODE16-NEXT:    ret
 ;
 ; EZ80-LABEL: store.p3i32.1:
@@ -3194,14 +3180,14 @@ define void @store.p3i64.1(i64) {
 ; Z80-NEXT:    add ix, sp
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    push hl
-; Z80-NEXT:    ld e, (ix + 4)
-; Z80-NEXT:    ld d, (ix + 5)
+; Z80-NEXT:    ld l, (ix + 4)
+; Z80-NEXT:    ld h, (ix + 5)
 ; Z80-NEXT:    ld c, (ix + 6)
 ; Z80-NEXT:    ld b, (ix + 7)
 ; Z80-NEXT:    ld iyl, 1
 ; Z80-NEXT:    ld iyh, 0
-; Z80-NEXT:    ld a, e
-; Z80-NEXT:    ld l, d
+; Z80-NEXT:    ld a, l
+; Z80-NEXT:    ld l, h
 ; Z80-NEXT:    ld e, c
 ; Z80-NEXT:    ld d, b
 ; Z80-NEXT:    ld c, (ix + 8)
@@ -3282,12 +3268,12 @@ define void @store.p3i64.1(i64) {
 ; EZ80-CODE16-NEXT:    add ix, sp
 ; EZ80-CODE16-NEXT:    lea hl, ix - 3
 ; EZ80-CODE16-NEXT:    ld sp, hl
-; EZ80-CODE16-NEXT:    ld hl, (ix + 4)
+; EZ80-CODE16-NEXT:    ld de, (ix + 4)
 ; EZ80-CODE16-NEXT:    ld bc, (ix + 6)
 ; EZ80-CODE16-NEXT:    ld iyl, 1
 ; EZ80-CODE16-NEXT:    ld iyh, 0
-; EZ80-CODE16-NEXT:    ld a, l
-; EZ80-CODE16-NEXT:    ld l, h
+; EZ80-CODE16-NEXT:    ld a, e
+; EZ80-CODE16-NEXT:    ld l, d
 ; EZ80-CODE16-NEXT:    ld e, c
 ; EZ80-CODE16-NEXT:    ld d, b
 ; EZ80-CODE16-NEXT:    ld bc, (ix + 8)
