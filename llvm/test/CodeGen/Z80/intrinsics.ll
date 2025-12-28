@@ -20,7 +20,6 @@ define i8 @abs.i8(i8) {
 ; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    xor a, e
 ; Z80-NEXT:    ld l, a
-; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    ret
 ;
 ; EZ80-CODE16-LABEL: abs.i8:
@@ -38,7 +37,6 @@ define i8 @abs.i8(i8) {
 ; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    xor a, e
 ; EZ80-CODE16-NEXT:    ld l, a
-; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    ret
 ;
 ; EZ80-LABEL: abs.i8:
@@ -56,7 +54,6 @@ define i8 @abs.i8(i8) {
 ; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    xor a, e
 ; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    ret
   call i8 @llvm.abs.i8(i8 %0, i1 false)
   ret i8 %2
@@ -3281,7 +3278,6 @@ define i8 @fshl.i8(i8, i8, i8) {
 ; Z80-NEXT:    ld a, e
 ; Z80-NEXT:    or a, l
 ; Z80-NEXT:    ld l, a
-; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    ret
 ;
 ; EZ80-CODE16-LABEL: fshl.i8:
@@ -3309,7 +3305,6 @@ define i8 @fshl.i8(i8, i8, i8) {
 ; EZ80-CODE16-NEXT:    ld a, e
 ; EZ80-CODE16-NEXT:    or a, l
 ; EZ80-CODE16-NEXT:    ld l, a
-; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    ret
 ;
 ; EZ80-LABEL: fshl.i8:
@@ -3337,7 +3332,6 @@ define i8 @fshl.i8(i8, i8, i8) {
 ; EZ80-NEXT:    ld a, e
 ; EZ80-NEXT:    or a, l
 ; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    ret
   call i8 @llvm.fshl.i8(i8 %0, i8 %1, i8 %2)
   ret i8 %4
@@ -3901,7 +3895,6 @@ define i8 @fshr.i8(i8, i8, i8) {
 ; Z80-NEXT:    ld a, e
 ; Z80-NEXT:    or a, l
 ; Z80-NEXT:    ld l, a
-; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    ret
 ;
 ; EZ80-CODE16-LABEL: fshr.i8:
@@ -3929,7 +3922,6 @@ define i8 @fshr.i8(i8, i8, i8) {
 ; EZ80-CODE16-NEXT:    ld a, e
 ; EZ80-CODE16-NEXT:    or a, l
 ; EZ80-CODE16-NEXT:    ld l, a
-; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    ret
 ;
 ; EZ80-LABEL: fshr.i8:
@@ -3957,7 +3949,6 @@ define i8 @fshr.i8(i8, i8, i8) {
 ; EZ80-NEXT:    ld a, e
 ; EZ80-NEXT:    or a, l
 ; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    ret
   call i8 @llvm.fshr.i8(i8 %0, i8 %1, i8 %2)
   ret i8 %4
@@ -5598,7 +5589,6 @@ define i1 @smul.with.overflow.i8(i8, i8) {
 ; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    or a, e
 ; Z80-NEXT:    ld l, a
-; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    or a, a
 ; Z80-NEXT:    jr z, BB63_6
 ; Z80-NEXT:  ; %bb.5:
@@ -5702,7 +5692,6 @@ define i1 @smul.with.overflow.i8(i8, i8) {
 ; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    or a, e
 ; EZ80-CODE16-NEXT:    ld l, a
-; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    or a, a
 ; EZ80-CODE16-NEXT:    jr z, BB63_6
 ; EZ80-CODE16-NEXT:  ; %bb.5:
@@ -5793,7 +5782,6 @@ define i1 @smul.with.overflow.i8(i8, i8) {
 ; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    or a, e
 ; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    jr z, BB63_6
 ; EZ80-NEXT:  ; %bb.5:
@@ -5916,7 +5904,6 @@ define i1 @smul.with.overflow.i16(i16, i16) {
 ; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    or a, e
 ; Z80-NEXT:    ld l, a
-; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    or a, a
 ; Z80-NEXT:    jr z, BB64_6
 ; Z80-NEXT:  ; %bb.5:
@@ -6005,7 +5992,6 @@ define i1 @smul.with.overflow.i16(i16, i16) {
 ; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    or a, e
 ; EZ80-CODE16-NEXT:    ld l, a
-; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    or a, a
 ; EZ80-CODE16-NEXT:    jr z, BB64_6
 ; EZ80-CODE16-NEXT:  ; %bb.5:
@@ -6102,7 +6088,6 @@ define i1 @smul.with.overflow.i16(i16, i16) {
 ; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    or a, e
 ; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    jr z, BB64_6
 ; EZ80-NEXT:  ; %bb.5:
