@@ -52,6 +52,8 @@ Z80MCAsmInfoELF::Z80MCAsmInfoELF(const Triple &T) {
     Data16bitsDirective = "\tdw\t";
     Data24bitsDirective = "\td24\t";
     Data32bitsDirective = "\td32\t";
+    StringConstantsEscapeNonPrint = true;
+    StringConstantsRequiredEscapes = {"\n\r\32", 4}; // include null
   } else {
     Code16Directive = "assume\tadl = 0";
     Code24Directive = "assume\tadl = 1";
