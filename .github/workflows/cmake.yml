@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [ubuntu-22.04, ubuntu-latest, macos-13, macos-14]
+        runs-on: [ubuntu-22.04, ubuntu-latest, macos-15-intel, macos-14]
         build-type: [Release]
     runs-on: ${{matrix.runs-on}}
     steps:
@@ -130,7 +130,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [ubuntu-22.04, ubuntu-latest, macos-13, macos-14]
+        runs-on: [ubuntu-22.04, ubuntu-latest, macos-15-intel, macos-14]
         build-type: [Release]
     runs-on: ${{matrix.runs-on}}
     steps:
@@ -233,7 +233,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [ubuntu-22.04, ubuntu-latest, macos-13, macos-14]
+        runs-on: [ubuntu-22.04, ubuntu-latest, macos-15-intel, macos-14]
         build-type: [Release]
     runs-on: ${{matrix.runs-on}}
     steps:
@@ -275,7 +275,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [ubuntu-22.04, ubuntu-latest, macos-13, macos-14]
+        runs-on: [ubuntu-22.04, ubuntu-latest, macos-15-intel, macos-14]
         build-type: [Debug]
     continue-on-error: true
     if: false
@@ -317,7 +317,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [ubuntu-22.04, ubuntu-latest, macos-13, macos-14]
+        runs-on: [ubuntu-22.04, ubuntu-latest, macos-15-intel, macos-14]
         build-type: [Debug]
     continue-on-error: true
     if: false
@@ -380,17 +380,17 @@ jobs:
           chmod +x ez80-clang ez80-link
           zip ez80-clang-link_ubuntu_nightly.zip ez80-clang ez80-link
           rm ez80-clang ez80-link
-      - name: Download macOS 13 ez80-clang
+      - name: Download macOS 15 ez80-clang
         uses: actions/download-artifact@v4
         with:
-          name: ez80-clang-macos-13Release
+          name: ez80-clang-macos-15-intelRelease
           path: ${{github.workspace}}
-      - name: Download macOS 13 ez80-link
+      - name: Download macOS 15 ez80-link
         uses: actions/download-artifact@v4
         with:
-          name: ez80-link-macos-13Release
+          name: ez80-link-macos-15-intelRelease
           path: ${{github.workspace}}
-      - name: chmod and zip macOS 13 intel Artifacts
+      - name: chmod and zip macOS 15 intel Artifacts
         run: |
           chmod +x ez80-clang ez80-link
           zip ez80-clang-link_macOS_intel_nightly.zip ez80-clang ez80-link
