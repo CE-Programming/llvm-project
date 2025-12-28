@@ -142,6 +142,11 @@ class Z80MachineLateOptimization : public MachineFunctionPass {
   // after SBC A,A: A is a member of {0, 0xFF} and Z = (A == 0), so OR A,A is redundant
   bool ZFlagReflectsAZero = false;
 
+  // track redundant A<->reg copies, after "ld X, a", X mirrors A
+  // if A hasnt changed when we see "ld a, X", we can eliminate the copy
+  // AMirroredInReg = X means the value currently in A is also in X
+  MCRegister AMirroredInReg = Z80::NoRegister;
+
   template <typename... Args> void assign(MCRegister Reg, Args &&...args) {
     RegVals[Reg] = RegVal(std::forward<Args>(args)..., Reg, *TRI);
   }
@@ -452,6 +457,7 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
     LiveUnits.addLiveIns(MBB);
     clobberAll();
     ZFlagReflectsAZero = false;
+    AMirroredInReg = Z80::NoRegister;
     for (MachineBasicBlock::iterator I = MBB.begin(), E = MBB.end(); I != E;) {
       MachineInstrBuilder MIB(MF, I);
       LiveUnits.stepForward(*I);
@@ -624,6 +630,45 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
           continue;
         }
         break;
+      // redundant copy elimination: track COPY from A and eliminate COPY back if A unchanged
+      // this runs before pseudo expansion, so we see COPY, not LD8gg/xx/yy
+      case TargetOpcode::COPY: {
+        MCRegister CopyDst = MIB->getOperand(0).getReg();
+        MCRegister CopySrc = MIB->getOperand(1).getReg();
+        // only handle 8-bit A-related copies
+        if (!Z80::R8RegClass.contains(CopyDst) || !Z80::R8RegClass.contains(CopySrc))
+          break;
+        // if copying TO A from the register that mirrors A, the copy is redundant
+        if (CopyDst == Z80::A && CopySrc == AMirroredInReg) {
+          LLVM_DEBUG(dbgs() << "Erasing redundant copy to A from " 
+                            << TRI->getName(CopySrc) << " (A mirrors "
+                            << TRI->getName(AMirroredInReg) << "): ";
+                     MIB->dump());
+          MIB->eraseFromParent();
+          Changed = true;
+          continue;
+        }
+        // if copying FROM A to X, record that X now mirrors A
+        if (CopySrc == Z80::A) {
+          AMirroredInReg = CopyDst;
+        }
+        break;
+      }
+      // 8 bit ALU pseudos: ADD8_gisel, SUB8_gisel, etc. have an explicit 8 bit def
+      // and implicit def A (because Z80 ALU ops always write to A)
+      // after these instructions, A and the dest register hold the same value
+      case Z80::ADD8_gisel:
+      case Z80::SUB8_gisel:
+      case Z80::AND8_gisel:
+      case Z80::OR8_gisel:
+      case Z80::XOR8_gisel: {
+        MCRegister ExplicitDst = MIB->getOperand(0).getReg();
+        // after ALU pseudo, explicit dest and A have the same value if dest is not A itself, record that dest mirrors A
+        if (ExplicitDst != Z80::A) {
+          AMirroredInReg = ExplicitDst;
+        }
+        break;
+      }
       case Z80::Sub16ao:
       case Z80::Sub24ao:
       case Z80::Cmp16ao:
@@ -734,14 +779,44 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
         }
       }
       
-      // after SBC A,A, Z flag correctly reflects (A == 0)
-      // track this so we can eliminate redundant OR A,A
+      // SBC A,A sets Z=(A==0). INC/DEC A preserve this. Track to eliminate redundant OR A,A
       unsigned Opc = MIB->getOpcode();
       if (Opc == Z80::SBC8ar && MIB->getOperand(0).getReg() == Z80::A) {
         ZFlagReflectsAZero = true;
+      } else if (ZFlagReflectsAZero && 
+                 (Opc == Z80::INC8r || Opc == Z80::DEC8r) &&
+                 MIB->getOperand(0).getReg() == Z80::A) {
+        // INC/DEC A preserves Z=(A==0)
       } else if (ClobberedA || ClobberedF) {
-        // if A or F is modified by something other than SBC A,A, reset tracking
         ZFlagReflectsAZero = false;
+      }
+
+      // invalidate A<->reg mirroring if A or mirrored reg is clobbered (except by tracked ops)
+      if (ClobberedA) {
+        bool isCopyFromA = Opc == TargetOpcode::COPY &&
+                           MIB->getOperand(1).getReg() == Z80::A;
+        bool isALUPseudo = (Opc == Z80::ADD8_gisel || Opc == Z80::SUB8_gisel ||
+                            Opc == Z80::AND8_gisel || Opc == Z80::OR8_gisel ||
+                            Opc == Z80::XOR8_gisel);
+        if (!isCopyFromA && !isALUPseudo)
+          AMirroredInReg = Z80::NoRegister;
+      }
+      if (AMirroredInReg != Z80::NoRegister) {
+        bool isALUPseudoOrCopy = (Opc == Z80::ADD8_gisel || Opc == Z80::SUB8_gisel ||
+                                  Opc == Z80::AND8_gisel || Opc == Z80::OR8_gisel ||
+                                  Opc == Z80::XOR8_gisel || Opc == TargetOpcode::COPY);
+        if (!isALUPseudoOrCopy) {
+          for (MachineOperand &MO : MIB->operands()) {
+            if (MO.isReg() && MO.isDef()) {
+              for (MCRegAliasIterator AI(MO.getReg(), TRI, true); AI.isValid(); ++AI) {
+                if (*AI == AMirroredInReg) {
+                  AMirroredInReg = Z80::NoRegister;
+                  break;
+                }
+              }
+            }
+          }
+        }
       }
 
       // Apply KnownFlags after clobbering defs.

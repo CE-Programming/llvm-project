@@ -106,6 +106,17 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .legalForCartesianProduct(NotMin, NotMax)
       // allow creating s32/s48/s64 from legal scalar sources (needed for libcall args)
       .legalForCartesianProduct(LegalLargeScalars, LegalScalars)
+      // allow merging legal scalars into larger types (handles s72, s96, s128, etc.)
+      .legalIf([=](const LegalityQuery &Q) {
+        LLT DstTy = Q.Types[0];
+        LLT SrcTy = Q.Types[1];
+        if (!SrcTy.isScalar() || !DstTy.isScalar())
+          return false;
+        if (DstTy.getSizeInBits() % SrcTy.getSizeInBits() != 0)
+          return false;
+        unsigned SrcSize = SrcTy.getSizeInBits();
+        return SrcSize == 8 || SrcSize == 16 || (Is24Bit && SrcSize == 24);
+      })
       .customIf([=](const LegalityQuery &Q) {
         // custom legalize G_MERGE_VALUES when source type is s1, expand into shifts+ORs
         return Q.Types[1] == s1;
@@ -117,6 +128,17 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .legalForCartesianProduct(NotMax, NotMin)
       // allow splitting wide scalars into legal scalar parts (s32->s16, s48->s24, s64->s16)
       .legalForCartesianProduct(LegalScalars, LegalLargeScalars)
+      // allow unmerging larger types into legal scalar parts (handles s72, s96, s128, etc.)
+      .legalIf([=](const LegalityQuery &Q) {
+        LLT DstTy = Q.Types[0];
+        LLT SrcTy = Q.Types[1];
+        if (!SrcTy.isScalar() || !DstTy.isScalar())
+          return false;
+        if (SrcTy.getSizeInBits() % DstTy.getSizeInBits() != 0)
+          return false;
+        unsigned DstSize = DstTy.getSizeInBits();
+        return DstSize == 8 || DstSize == 16 || (Is24Bit && DstSize == 24);
+      })
       .clampScalar(1, *NotMin.begin(), *std::prev(NotMin.end()))
       .clampScalar(0, *NotMax.begin(), *std::prev(NotMax.end()));
 
@@ -126,6 +148,8 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
 
   getActionDefinitionsBuilder({G_ZEXT, G_ANYEXT})
       .legalForCartesianProduct(LegalScalars, NotMaxWithOne)
+      .widenScalarToNextPow2(0, 8)
+      .widenScalarToNextPow2(1, 1)
       .clampScalar(0, *LegalScalars.begin(), *std::prev(LegalScalars.end()))
       .clampScalar(1, *NotMaxWithOne.begin(), *std::prev(NotMaxWithOne.end()));
 
@@ -174,11 +198,14 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
 
   getActionDefinitionsBuilder(G_TRUNC)
       .legalForCartesianProduct(NotMaxWithOne, LegalScalars)
+      .widenScalarToNextPow2(0, 1)
+      .widenScalarToNextPow2(1, 8)
       .clampScalar(1, *LegalScalars.begin(), *std::prev(LegalScalars.end()))
       .clampScalar(0, *NotMaxWithOne.begin(), *std::prev(NotMaxWithOne.end()));
 
   getActionDefinitionsBuilder({G_FREEZE, G_PHI, G_CONSTANT})
       .legalFor(LegalTypes)
+      .widenScalarToNextPow2(0, 8)
       .clampScalar(0, s8, sMax);
 
   getActionDefinitionsBuilder(G_FCONSTANT)
@@ -219,6 +246,7 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
   getActionDefinitionsBuilder(G_MUL)
       .legalIf(all(predZ180Ops, typeIs(0, s8)))
       .libcallFor(LegalLibcallScalars)
+      .widenScalarToNextPow2(0, 8)
       .minScalar(0, s8)
       .minScalar(0, s16)
       .minScalarIf(pred24Bit, 0, s24)
@@ -239,6 +267,7 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
   getActionDefinitionsBuilder({G_SHL, G_LSHR, G_ASHR})
       .customForCartesianProduct(LegalLibcallScalars, {s8})
       .clampScalar(1, s8, s8)
+      .widenScalarToNextPow2(0, 8)
       .minScalar(0, s8)
       .minScalar(0, s16)
       .minScalarIf(pred24Bit, 0, s24)
