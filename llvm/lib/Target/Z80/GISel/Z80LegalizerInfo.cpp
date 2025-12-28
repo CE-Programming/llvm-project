@@ -148,8 +148,6 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
 
   getActionDefinitionsBuilder({G_ZEXT, G_ANYEXT})
       .legalForCartesianProduct(LegalScalars, NotMaxWithOne)
-      .widenScalarToNextPow2(0, 8)
-      .widenScalarToNextPow2(1, 1)
       .clampScalar(0, *LegalScalars.begin(), *std::prev(LegalScalars.end()))
       .clampScalar(1, *NotMaxWithOne.begin(), *std::prev(NotMaxWithOne.end()));
 
@@ -198,8 +196,6 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
 
   getActionDefinitionsBuilder(G_TRUNC)
       .legalForCartesianProduct(NotMaxWithOne, LegalScalars)
-      .widenScalarToNextPow2(0, 1)
-      .widenScalarToNextPow2(1, 8)
       .clampScalar(1, *LegalScalars.begin(), *std::prev(LegalScalars.end()))
       .clampScalar(0, *NotMaxWithOne.begin(), *std::prev(NotMaxWithOne.end()));
 

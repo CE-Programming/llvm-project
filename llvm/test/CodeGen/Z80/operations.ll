@@ -599,7 +599,6 @@ define i8 @and.i8(i8, i8) {
 ; EZ80-NEXT:    ld l, (iy + 6)
 ; EZ80-NEXT:    and a, l
 ; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    ret
   and i8 %0, %1
   ret i8 %3
@@ -826,7 +825,6 @@ define i8 @or.i8(i8, i8) {
 ; EZ80-NEXT:    ld l, (iy + 6)
 ; EZ80-NEXT:    or a, l
 ; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    ret
   or i8 %0, %1
   ret i8 %3
@@ -1053,7 +1051,6 @@ define i8 @xor.i8(i8, i8) {
 ; EZ80-NEXT:    ld l, (iy + 6)
 ; EZ80-NEXT:    xor a, l
 ; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    ret
   xor i8 %0, %1
   ret i8 %3
@@ -1280,7 +1277,6 @@ define i8 @add.i8(i8, i8) {
 ; EZ80-NEXT:    ld l, (iy + 6)
 ; EZ80-NEXT:    add a, l
 ; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    ret
   add i8 %0, %1
   ret i8 %3
@@ -1563,7 +1559,6 @@ define i8 @sub.i8(i8, i8) {
 ; EZ80-NEXT:    ld l, (iy + 6)
 ; EZ80-NEXT:    sub a, l
 ; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    ret
   sub i8 %0, %1
   ret i8 %3
