@@ -32,6 +32,7 @@ InstructionSelector *createZ80InstructionSelector(const Z80TargetMachine &TM,
 FunctionPass *createZ80PostSelectCombiner();
 FunctionPass *createZ80MachineEarlyOptimizationPass();
 FunctionPass *createZ80MachinePreRAOptimizationPass();
+FunctionPass *createZ80R64SpillPass();
 FunctionPass *createZ80MachineLateOptimizationPass();
 FunctionPass *createZ80BranchSelectorPass();
 
@@ -40,6 +41,7 @@ void initializeZ80PostLegalizerCombinerPass(PassRegistry &);
 void initializeZ80PostSelectCombinerPass(PassRegistry &);
 void initializeZ80MachineEarlyOptimizationPass(PassRegistry &);
 void initializeZ80MachinePreRAOptimizationPass(PassRegistry &);
+void initializeZ80R64SpillPassPass(PassRegistry &);
 void initializeZ80MachineLateOptimizationPass(PassRegistry &);
 void initializeZ80BranchSelectorPass(PassRegistry &);
 

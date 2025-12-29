@@ -36,6 +36,7 @@ set(sources
   Z80MachineLateOptimization.cpp
   Z80MachinePreRAOptimization.cpp
   Z80PostSelectCombiner.cpp
+  Z80R64SpillPass.cpp
   Z80RegisterInfo.cpp
   Z80Subtarget.cpp
   Z80TargetMachine.cpp
