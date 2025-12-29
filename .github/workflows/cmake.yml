@@ -3,7 +3,7 @@ name: "CMake Linux/macOS"
 on:
   workflow_dispatch:
   push:
-    branches: [z80,rebase-v16,rebase-v17]
+    branches: [z80]
 
 jobs:
   build-llvm:
