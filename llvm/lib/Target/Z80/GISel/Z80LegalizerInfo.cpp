@@ -347,8 +347,9 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
   getActionDefinitionsBuilder(G_VASTART).customFor({p[0]});
 
   getActionDefinitionsBuilder(G_VAARG)
-      .customForCartesianProduct(LegalTypes, {p[0]})
-      .clampScalar(0, s8, sMax);
+      .customForCartesianProduct(LegalLibcallScalars, {p[0]})
+      .customForCartesianProduct({p[0], p[1], p[2], p[3], p[4]}, {p[0]})
+      .clampScalar(0, s8, s64);
 
   getActionDefinitionsBuilder(G_ICMP)
       .legalForCartesianProduct({s1}, LegalTypes)
