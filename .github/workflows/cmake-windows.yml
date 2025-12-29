@@ -2,9 +2,9 @@ name: "CMake Windows"
 
 on:
   push:
-    branches: [z80]
+    branches: [z80-15.0.7]
   pull_request:
-    branches: [z80]
+    branches: [z80-15.0.7]
 
 jobs:
   build-llvm:
