@@ -48,12 +48,13 @@ Z80MCAsmInfoELF::Z80MCAsmInfoELF(const Triple &T) {
   if (Z80GasStyle) {
     Code16Directive = ".assume\tADL = 0";
     Code24Directive = ".assume\tADL = 1";
-    AsciiDirective = ByteListDirective = Data8bitsDirective = "\tdb\t";
+    AsciiDirective = "\t.ascii\t";
+    AscizDirective = "\t.asciz\t";
+    ZeroDirective = "\t.zero\t";
+    ByteListDirective = Data8bitsDirective = "\tdb\t";
     Data16bitsDirective = "\tdw\t";
     Data24bitsDirective = "\td24\t";
     Data32bitsDirective = "\td32\t";
-    StringConstantsEscapeNonPrint = true;
-    StringConstantsRequiredEscapes = {"\n\r\32", 4}; // include null
   } else {
     Code16Directive = "assume\tadl = 0";
     Code24Directive = "assume\tadl = 1";
