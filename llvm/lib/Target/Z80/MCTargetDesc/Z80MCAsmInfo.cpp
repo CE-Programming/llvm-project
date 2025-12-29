@@ -38,7 +38,6 @@ Z80MCAsmInfoELF::Z80MCAsmInfoELF(const Triple &T) {
 
   // Common to both GAS and fasmg
   CommentString = ";";
-  AscizDirective = nullptr;
   Code32Directive = Code64Directive = nullptr;
   UseIntegratedAssembler = false;
   AssemblerDialect = !Is16Bit;
@@ -64,6 +63,7 @@ Z80MCAsmInfoELF::Z80MCAsmInfoELF(const Triple &T) {
     SupportsQuotedNames = false;
     ZeroDirective = nullptr;
     BlockSeparator = " dup ";
+    AscizDirective = nullptr;
     AsciiDirective = ByteListDirective = Data8bitsDirective = "\tdb\t";
     NumberLiteralSyntax = ANLS_PlainDecimal;
     CharacterLiteralSyntax = ACLS_SingleQuotes;

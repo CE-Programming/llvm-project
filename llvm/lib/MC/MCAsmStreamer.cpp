@@ -1261,6 +1261,11 @@ void MCAsmStreamer::PrintQuotedString(StringRef Data, raw_ostream &OS) const {
       case '\t':
         insideString() << "\\t";
         continue;
+      // Z80-FORK: octal escape quotes for some reason
+      case '\"':
+        insideString() << '\\';
+        PrintOctal('\"', OS);
+        continue;
       default:
         if (!IsPrint) {
           // Z80-FORK: emit non-printable characters as \OOO octal escapes inside the string
