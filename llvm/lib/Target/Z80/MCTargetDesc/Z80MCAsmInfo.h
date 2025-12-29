@@ -15,6 +15,9 @@
 #define LLVM_LIB_TARGET_Z80_MCTARGETDESC_Z80MCASMINFO_H
 
 #include "llvm/MC/MCAsmInfoELF.h"
+#include "llvm/Support/CommandLine.h"
+
+extern llvm::cl::opt<bool> Z80GasStyle;
 
 namespace llvm {
 class Triple;

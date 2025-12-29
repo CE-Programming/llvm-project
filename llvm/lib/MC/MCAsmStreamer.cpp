@@ -1262,8 +1262,12 @@ void MCAsmStreamer::PrintQuotedString(StringRef Data, raw_ostream &OS) const {
         insideString() << "\\t";
         continue;
       default:
-        if (!IsPrint)
-          break;
+        if (!IsPrint) {
+          // Z80-FORK: emit non-printable characters as \OOO octal escapes inside the string
+          insideString() << '\\';
+          PrintOctal(C, OS);
+          continue;
+        }
         insideString() << '\\' << C;
         continue;
       }
