@@ -16,7 +16,7 @@
 // 2. Creates three replacement registers: Lo24 (r24), Mid24 (r24), Hi16 (r16)
 // 3. Rewrites REG_SEQUENCE defs to populate the component registers
 // 4. Rewrites EXTRACT_SUBREG uses to read from the appropriate component
-// 5. Rewrites whole-register uses to inline-reconstruct R64_24 when needed
+// 5. Erases the original R64_24 definitions once all uses are rewritten
 //
 // This matches the v15 backend's approach of keeping 64-bit values decomposed.
 //
@@ -73,8 +73,8 @@ private:
   DenseMap<Register, DecomposedR64> DecompMap;
 
   bool decomposeR64Registers(MachineFunction &MF);
-  bool rewriteR64Def(MachineInstr &MI, Register R64Reg);
-  bool rewriteR64Uses(Register R64Reg);
+  void rewriteR64Def(MachineInstr &MI, Register R64Reg);
+  void rewriteR64Uses(Register R64Reg, SmallVectorImpl<MachineInstr *> &ToErase);
   DecomposedR64 getOrCreateDecomp(Register R64Reg);
 };
 
@@ -109,22 +109,22 @@ DecomposedR64 Z80R64SpillPass::getOrCreateDecomp(Register R64Reg) {
 
 /// rewrite the definition of an R64_24 register
 /// handles REG_SEQUENCE, INSERT_SUBREG, and IMPLICIT_DEF patterns
-bool Z80R64SpillPass::rewriteR64Def(MachineInstr &MI, Register R64Reg) {
+void Z80R64SpillPass::rewriteR64Def(MachineInstr &MI, Register R64Reg) {
   MachineBasicBlock &MBB = *MI.getParent();
   DebugLoc DL = MI.getDebugLoc();
   DecomposedR64 D = getOrCreateDecomp(R64Reg);
 
   unsigned Opc = MI.getOpcode();
+  auto InsertPt = std::next(MI.getIterator());
   
   if (Opc == TargetOpcode::IMPLICIT_DEF) {
     // IMPLICIT_DEF -> create IMPLICIT_DEF for each component
-    auto InsertPt = std::next(MI.getIterator());
     BuildMI(MBB, InsertPt, DL, TII->get(TargetOpcode::IMPLICIT_DEF), D.Lo24);
     BuildMI(MBB, InsertPt, DL, TII->get(TargetOpcode::IMPLICIT_DEF), D.Mid24);
     BuildMI(MBB, InsertPt, DL, TII->get(TargetOpcode::IMPLICIT_DEF), D.Hi16);
     
     LLVM_DEBUG(dbgs() << "  Decomposed IMPLICIT_DEF: " << MI);
-    return true;
+    return;
   }
   
   if (Opc == TargetOpcode::REG_SEQUENCE) {
@@ -146,7 +146,6 @@ bool Z80R64SpillPass::rewriteR64Def(MachineInstr &MI, Register R64Reg) {
         Hi = SrcReg;
     }
     
-    auto InsertPt = std::next(MI.getIterator());
     if (Lo.isValid())
       BuildMI(MBB, InsertPt, DL, TII->get(TargetOpcode::COPY), D.Lo24).addReg(Lo);
     if (Mid.isValid())
@@ -155,7 +154,7 @@ bool Z80R64SpillPass::rewriteR64Def(MachineInstr &MI, Register R64Reg) {
       BuildMI(MBB, InsertPt, DL, TII->get(TargetOpcode::COPY), D.Hi16).addReg(Hi);
     
     LLVM_DEBUG(dbgs() << "  Decomposed REG_SEQUENCE: " << MI);
-    return true;
+    return;
   }
   
   if (Opc == TargetOpcode::INSERT_SUBREG) {
@@ -173,8 +172,6 @@ bool Z80R64SpillPass::rewriteR64Def(MachineInstr &MI, Register R64Reg) {
         MRI->getRegClassOrNull(SrcReg) == &Z80::R64_24RegClass) {
       SrcD = getOrCreateDecomp(SrcReg);
     }
-    
-    auto InsertPt = std::next(MI.getIterator());
     
     if (SrcD.IsValid) {
       if (SubIdx != Z80::sub_low24)
@@ -199,22 +196,20 @@ bool Z80R64SpillPass::rewriteR64Def(MachineInstr &MI, Register R64Reg) {
           .addReg(InsertReg);
     
     LLVM_DEBUG(dbgs() << "  Decomposed INSERT_SUBREG: " << MI);
-    return true;
+    return;
   }
   
   // for other defs (COPY, loads, etc.), we need to extract components
-  // this probably doesnt happen often for R64_24
   LLVM_DEBUG(dbgs() << "  Unhandled R64_24 def: " << MI);
-  return false;
 }
 
 /// rewrite all uses of an R64_24 register to use decomposed components
-bool Z80R64SpillPass::rewriteR64Uses(Register R64Reg) {
+void Z80R64SpillPass::rewriteR64Uses(Register R64Reg,
+                                     SmallVectorImpl<MachineInstr *> &ToErase) {
   DecomposedR64 D = getOrCreateDecomp(R64Reg);
   if (!D.IsValid)
-    return false;
+    return;
 
-  bool Changed = false;
   SmallVector<MachineInstr *, 16> UsesToRewrite;
   
   for (MachineInstr &UseMI : MRI->use_instructions(R64Reg)) {
@@ -228,45 +223,65 @@ bool Z80R64SpillPass::rewriteR64Uses(Register R64Reg) {
     
     if (Opc == TargetOpcode::EXTRACT_SUBREG) {
       // EXTRACT_SUBREG %dst, %r64, subidx
-      // -> COPY %dst, %component
+      // -> COPY %dst, %component (possibly with subidx extraction)
       Register DstReg = UseMI->getOperand(0).getReg();
       unsigned SubIdx = UseMI->getOperand(2).getImm();
       
       Register SrcComp;
-      if (SubIdx == Z80::sub_low24)
+      unsigned NestedSubReg = 0;
+      
+      if (SubIdx == Z80::sub_low24) {
         SrcComp = D.Lo24;
-      else if (SubIdx == Z80::sub_mid24)
+      } else if (SubIdx == Z80::sub_mid24) {
         SrcComp = D.Mid24;
-      else if (SubIdx == Z80::sub_word3)
+      } else if (SubIdx == Z80::sub_word3) {
         SrcComp = D.Hi16;
-      else if (SubIdx == Z80::sub_short) {
-        // sub_short is the low 16 bits of the low24
-        // need to extract from Lo24
-        auto InsertPt = UseMI->getIterator();
-        BuildMI(MBB, InsertPt, DL, TII->get(TargetOpcode::COPY), DstReg)
-            .addReg(D.Lo24, 0, Z80::sub_short);
-        UseMI->eraseFromParent();
-        Changed = true;
+      } else if (SubIdx == Z80::sub_short) {
+        // sub_short is the low 16 bits of sub_low24
+        SrcComp = D.Lo24;
+        NestedSubReg = Z80::sub_short;
+      } else if (SubIdx == Z80::sub_low) {
+        // sub_low is the low 8 bits, extract from Lo24
+        SrcComp = D.Lo24;
+        NestedSubReg = Z80::sub_low;
+      } else if (SubIdx == Z80::sub_high) {
+        // sub_high might be bits 8-15
+        SrcComp = D.Lo24;
+        NestedSubReg = Z80::sub_high;
+      } else {
+        LLVM_DEBUG(dbgs() << "  Unknown subreg index " << SubIdx 
+                          << " in EXTRACT: " << *UseMI);
         continue;
       }
       
       if (SrcComp.isValid()) {
-        UseMI->setDesc(TII->get(TargetOpcode::COPY));
-        UseMI->removeOperand(2); // subidx
-        UseMI->getOperand(1).setReg(SrcComp);
-        UseMI->getOperand(1).setSubReg(0);
-        Changed = true;
-        LLVM_DEBUG(dbgs() << "  Rewrote EXTRACT_SUBREG to COPY: " << *UseMI);
+        auto InsertPt = UseMI->getIterator();
+        if (NestedSubReg) {
+          BuildMI(MBB, InsertPt, DL, TII->get(TargetOpcode::COPY), DstReg)
+              .addReg(SrcComp, 0, NestedSubReg);
+        } else {
+          BuildMI(MBB, InsertPt, DL, TII->get(TargetOpcode::COPY), DstReg)
+              .addReg(SrcComp);
+        }
+        ToErase.push_back(UseMI);
+        LLVM_DEBUG(dbgs() << "  Rewrote EXTRACT_SUBREG: " << *UseMI);
       }
       continue;
     }
     
     if (Opc == TargetOpcode::INSERT_SUBREG) {
-      // If this INSERT_SUBREG uses R64Reg as source its already handled in rewriteR64Def for the destination
+      // if this INSERT_SUBREG uses R64Reg as source, it's already handled
+      // in rewriteR64Def for the destination
+      // just mark it for erasure since we have created decomposed copies
+      if (UseMI->getOperand(0).getReg() != R64Reg) {
+        // R64Reg is being used as the source (operand 1)
+        // this is handled when we process the destination R64_24
+        continue;
+      }
       continue;
     }
     
-    // for other uses (stores, passing to calls via sub-regs)
+    // handle other uses with subreg access
     for (MachineOperand &MO : UseMI->operands()) {
       if (!MO.isReg() || MO.getReg() != R64Reg || !MO.isUse())
         continue;
@@ -275,15 +290,12 @@ bool Z80R64SpillPass::rewriteR64Uses(Register R64Reg) {
       if (SubReg == Z80::sub_low24) {
         MO.setReg(D.Lo24);
         MO.setSubReg(0);
-        Changed = true;
       } else if (SubReg == Z80::sub_mid24) {
         MO.setReg(D.Mid24);
         MO.setSubReg(0);
-        Changed = true;
       } else if (SubReg == Z80::sub_word3) {
         MO.setReg(D.Hi16);
         MO.setSubReg(0);
-        Changed = true;
       } else if (SubReg == 0) {
         // whole register use reconstruct R64_24
         // not sure when this would happen
@@ -291,14 +303,10 @@ bool Z80R64SpillPass::rewriteR64Uses(Register R64Reg) {
       }
     }
   }
-
-  return Changed;
 }
 
 bool Z80R64SpillPass::decomposeR64Registers(MachineFunction &MF) {
-  bool Changed = false;
-
-  // all R64_24 virtual registers and their defs
+  // collect all R64_24 virtual registers and their defs
   SmallVector<std::pair<Register, MachineInstr *>, 16> R64Defs;
   
   for (unsigned I = 0, E = MRI->getNumVirtRegs(); I != E; ++I) {
@@ -317,26 +325,36 @@ bool Z80R64SpillPass::decomposeR64Registers(MachineFunction &MF) {
   if (R64Defs.empty())
     return false;
 
-  // process defs first
+  // process defs first, this creates the decomposed component defs
   for (auto &[Reg, DefMI] : R64Defs) {
-    Changed |= rewriteR64Def(*DefMI, Reg);
+    rewriteR64Def(*DefMI, Reg);
   }
 
-  // then rewrite uses
+  // then rewrite uses and collect instructions to erase
+  SmallVector<MachineInstr *, 32> ToErase;
   for (auto &[Reg, DefMI] : R64Defs) {
-    Changed |= rewriteR64Uses(Reg);
+    rewriteR64Uses(Reg, ToErase);
   }
 
-  // remove original R64_24 defs that are now dead
+  // erase rewritten EXTRACT_SUBREG instructions
+  for (MachineInstr *MI : ToErase) {
+    MI->eraseFromParent();
+  }
+
+  // erase original R64_24 defs
   for (auto &[Reg, DefMI] : R64Defs) {
     if (MRI->use_empty(Reg)) {
       LLVM_DEBUG(dbgs() << "  Removing dead R64_24 def: " << *DefMI);
       DefMI->eraseFromParent();
-      Changed = true;
+    } else {
+      LLVM_DEBUG(dbgs() << "  WARNING: R64_24 still has uses: " << *DefMI);
+      for (MachineInstr &Use : MRI->use_instructions(Reg)) {
+        LLVM_DEBUG(dbgs() << "    Used by: " << Use);
+      }
     }
   }
 
-  return Changed;
+  return true;
 }
 
 bool Z80R64SpillPass::runOnMachineFunction(MachineFunction &MF) {
