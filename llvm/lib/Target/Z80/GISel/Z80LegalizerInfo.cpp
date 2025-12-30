@@ -896,9 +896,12 @@ Z80LegalizerInfo::legalizeShift(LegalizerHelper &Helper, MachineInstr &MI,
     if ((Opc == G_SHL || Opc == G_LSHR) && Ty == LLT::scalar(16) &&
         Amt->Value == 8)
       return LegalizerHelper::AlreadyLegal;
-    if (MI.getOpcode() == G_ASHR && Amt->Value == Ty.getSizeInBits() - 1 &&
+    if (Opc == G_ASHR && Amt->Value == Ty.getSizeInBits() - 1 &&
         (Ty == LLT::scalar(8) || Ty == LLT::scalar(16) ||
          (Subtarget.is24Bit() && Ty == LLT::scalar(24))))
+      return LegalizerHelper::AlreadyLegal;
+    if (Opc == G_LSHR && Subtarget.is24Bit() &&
+        Ty == LLT::scalar(24) && Amt->Value == 23)
       return LegalizerHelper::AlreadyLegal;
   }
   return Helper.libcall(MI, LocObserver);

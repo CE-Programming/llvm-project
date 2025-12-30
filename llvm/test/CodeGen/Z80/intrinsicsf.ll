@@ -369,13 +369,11 @@ define float @powi.f32.i16(float, i16) {
 ; Z80-NEXT:    push ix
 ; Z80-NEXT:    ld ix, 0
 ; Z80-NEXT:    add ix, sp
-; Z80-NEXT:    ld l, (ix + 8)
-; Z80-NEXT:    ld h, (ix + 9)
-; Z80-NEXT:    ld c, l
-; Z80-NEXT:    ld b, h
-; Z80-NEXT:    ld iyl, c
-; Z80-NEXT:    ld iyh, b
-; Z80-NEXT:    add iy, iy
+; Z80-NEXT:    ld c, (ix + 8)
+; Z80-NEXT:    ld b, (ix + 9)
+; Z80-NEXT:    ld l, c
+; Z80-NEXT:    ld h, b
+; Z80-NEXT:    add hl, hl
 ; Z80-NEXT:    sbc hl, hl
 ; Z80-NEXT:    ex de, hl
 ; Z80-NEXT:    ld iyl, e
@@ -400,12 +398,10 @@ define float @powi.f32.i16(float, i16) {
 ; EZ80-CODE16-NEXT:    push ix
 ; EZ80-CODE16-NEXT:    ld ix, 0
 ; EZ80-CODE16-NEXT:    add ix, sp
-; EZ80-CODE16-NEXT:    ld hl, (ix + 8)
-; EZ80-CODE16-NEXT:    ld c, l
-; EZ80-CODE16-NEXT:    ld b, h
-; EZ80-CODE16-NEXT:    ld iyl, c
-; EZ80-CODE16-NEXT:    ld iyh, b
-; EZ80-CODE16-NEXT:    add iy, iy
+; EZ80-CODE16-NEXT:    ld bc, (ix + 8)
+; EZ80-CODE16-NEXT:    ld l, c
+; EZ80-CODE16-NEXT:    ld h, b
+; EZ80-CODE16-NEXT:    add hl, hl
 ; EZ80-CODE16-NEXT:    sbc hl, hl
 ; EZ80-CODE16-NEXT:    ex de, hl
 ; EZ80-CODE16-NEXT:    ld iyl, e
@@ -467,9 +463,7 @@ define double @powi.f64.i16(double, i16) {
 ; Z80-NEXT:    ld b, (ix + 13)
 ; Z80-NEXT:    ld l, c
 ; Z80-NEXT:    ld h, b
-; Z80-NEXT:    ld iyl, c
-; Z80-NEXT:    ld iyh, b
-; Z80-NEXT:    add iy, iy
+; Z80-NEXT:    add hl, hl
 ; Z80-NEXT:    sbc hl, hl
 ; Z80-NEXT:    ld e, l
 ; Z80-NEXT:    ld d, h
@@ -513,9 +507,7 @@ define double @powi.f64.i16(double, i16) {
 ; EZ80-CODE16-NEXT:    ld bc, (ix + 12)
 ; EZ80-CODE16-NEXT:    ld l, c
 ; EZ80-CODE16-NEXT:    ld h, b
-; EZ80-CODE16-NEXT:    ld iyl, c
-; EZ80-CODE16-NEXT:    ld iyh, b
-; EZ80-CODE16-NEXT:    add iy, iy
+; EZ80-CODE16-NEXT:    add hl, hl
 ; EZ80-CODE16-NEXT:    sbc hl, hl
 ; EZ80-CODE16-NEXT:    ld e, l
 ; EZ80-CODE16-NEXT:    ld d, h

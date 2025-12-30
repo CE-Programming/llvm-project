@@ -5144,9 +5144,7 @@ define i48 @sext.i24.i48(i24) {
 ; EZ80-NEXT:    ld bc, (iy + 3)
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    pop hl
-; EZ80-NEXT:    push bc
-; EZ80-NEXT:    pop iy
-; EZ80-NEXT:    add iy, iy
+; EZ80-NEXT:    add hl, hl
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop de

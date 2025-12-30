@@ -2665,7 +2665,7 @@ bool Z80InstructionSelector::selectShift(MachineInstr &I,
     MachineBasicBlock &MBB = *I.getParent();
     MachineBasicBlock::iterator InsertPt = I.getIterator();
     DebugLoc DL = I.getDebugLoc();
-    
+
     // s16 shifts in 24 bit mode with shift > 1
     // use all ADD24aa (1 byte each) - upper byte is undefined anyway, and
     // carry flag from bit 15 overflow is not observable through G_SHL
@@ -2676,20 +2676,20 @@ bool Z80InstructionSelector::selectShift(MachineInstr &I,
       BuildMI(MBB, InsertPt, DL, TII.get(TargetOpcode::SUBREG_TO_REG), ExtReg)
         .addImm(0)           // upper bits undefined (don't care)
         .addReg(SrcReg)      // source s16
-        .addImm(Z80::sub_short);
+          .addImm(Z80::sub_short);
       if (!RBI.constrainGenericRegister(SrcReg, Z80::A16RegClass, MRI))
         return false;
-      
+
       // copy to physical UHL for ADD24aa operations
       BuildMI(MBB, InsertPt, DL, TII.get(TargetOpcode::COPY), Z80::UHL)
-        .addReg(ExtReg);
-      
+          .addReg(ExtReg);
+
       // emit N * ADD24aa (1 byte each)
       for (unsigned i = 0; i < ShiftAmt; ++i) {
         BuildMI(MBB, InsertPt, DL, TII.get(Z80::ADD24aa), Z80::UHL)
-          .addReg(Z80::UHL);
+            .addReg(Z80::UHL);
       }
-      
+
       // copy result from HL sub reg (lower 16 bits of UHL)
       MIB.buildCopy(DstReg, Register(Z80::HL));
       if (!RBI.constrainGenericRegister(DstReg, Z80::A16RegClass, MRI))
@@ -2697,12 +2697,12 @@ bool Z80InstructionSelector::selectShift(MachineInstr &I,
       I.eraseFromParent();
       return true;
     }
-    
+
     // standard path, s24 or s16 with shift == 1
     unsigned AddOpc;
     Register AccumReg;
     const TargetRegisterClass *RC;  // for register constraints
-    
+
     if (TySize == 24) {
       AddOpc = Z80::ADD24aa;
       AccumReg = Z80::UHL;
@@ -2712,7 +2712,7 @@ bool Z80InstructionSelector::selectShift(MachineInstr &I,
       AccumReg = Z80::HL;
       RC = &Z80::R16RegClass;
     }
-    
+
     // copy source to accumulator - source can be any register, we are copying TO the accumulator
     MIB.buildCopy(AccumReg, SrcReg);
     if (!RBI.constrainGenericRegister(SrcReg, *RC, MRI))
@@ -2768,50 +2768,107 @@ bool Z80InstructionSelector::selectShift(MachineInstr &I,
         DstReg, STI.hasIndexHalfRegs() ? Z80::R16RegClass : Z80::G16RegClass, MRI);
   }
 
+  // handle G_LSHR by 23 for s24 - MSB extraction pattern (unsigned)
+  // lshr i24, 23  ->  ADD HL,HL; CCF; SBC HL,HL; INC HL
+  // result: 1 if bit 23 was set, 0 otherwise
+  // s16 lshr by 15 has regalloc issues with 16/24 bit register overlap,
+  // so it falls through to libcall handling
+  if (Opc == TargetOpcode::G_LSHR && TySize == 24 && Amt->Value == 23 &&
+      STI.is24Bit()) {
+    MachineBasicBlock &MBB = *I.getParent();
+    MachineBasicBlock::iterator InsertPt = I.getIterator();
+    DebugLoc DL = I.getDebugLoc();
+
+    // copy src -> UHL
+    MIB.buildCopy(Z80::UHL, SrcReg);
+    if (!RBI.constrainGenericRegister(SrcReg, Z80::R24RegClass, MRI))
+      return false;
+
+    // shifts bit 23 into carry
+    BuildMI(MBB, InsertPt, DL, TII.get(Z80::ADD24aa), Z80::UHL).addReg(Z80::UHL);
+    // complement carry
+    BuildMI(MBB, InsertPt, DL, TII.get(Z80::CCF));
+    // SBC HL,HL - HL = carry ? 0 : -1
+    BuildMI(MBB, InsertPt, DL, TII.get(Z80::SBC24aa));
+    // INC HL - HL = carry ? 1 : 0
+    BuildMI(MBB, InsertPt, DL, TII.get(Z80::INC24r), Z80::UHL).addReg(Z80::UHL);
+
+    // copy UHL -> dst
+    MIB.buildCopy(DstReg, Register(Z80::UHL));
+    if (!RBI.constrainGenericRegister(DstReg, Z80::R24RegClass, MRI))
+      return false;
+
+    I.eraseFromParent();
+    return true;
+  }
+
   // Handle G_ASHR by (bitwidth-1) - sign extension pattern
   if (Opc == TargetOpcode::G_ASHR && Amt->Value == TySize - 1) {
+    MachineBasicBlock &MBB = *I.getParent();
+    MachineBasicBlock::iterator InsertPt = I.getIterator();
+    DebugLoc DL = I.getDebugLoc();
+
     Register Reg;
     unsigned AddOpc, SbcOpc;
     const TargetRegisterClass *RC;
     switch (TySize) {
     default:
       llvm_unreachable("Illegal type");
-    case 8:
+    case 8: {
+      // for i8: RLC A, SBC A,A (A = -CF)
       Reg = Z80::A;
-      AddOpc = Z80::RLC8g;
-      SbcOpc = Z80::SBC8ar;
       RC = &Z80::R8RegClass;
+
+      // copy src -> A
+      MIB.buildCopy(Reg, SrcReg);
+      if (!RBI.constrainGenericRegister(SrcReg, *RC, MRI))
+        return false;
+
+      // RLC A - rotates bit 7 into carry
+      BuildMI(MBB, InsertPt, DL, TII.get(Z80::RLC8g), Reg).addReg(Reg);
+      // SBC A,A - A = 0 - 0 - CF = -CF (0 or -1)
+      BuildMI(MBB, InsertPt, DL, TII.get(Z80::SBC8ar))
+          .addReg(Reg, RegState::Undef);
+
+      // copy A -> dst
+      MIB.buildCopy(DstReg, Reg);
+      if (!RBI.constrainGenericRegister(DstReg, *RC, MRI))
+        return false;
       break;
+    }
     case 16:
       Reg = Z80::HL;
       AddOpc = Z80::ADD16aa;
       SbcOpc = Z80::SBC16aa;
       RC = &Z80::R16RegClass;
-      break;
+      goto common_16_24;
     case 24:
       assert(STI.is24Bit() && "Illegal type");
       Reg = Z80::UHL;
       AddOpc = Z80::ADD24aa;
       SbcOpc = Z80::SBC24aa;
       RC = &Z80::R24RegClass;
-      break;
-    }
-    if (Ty != LLT::scalar(8)) {
+      // fall through
+    common_16_24:
+      // copy src -> HL/UHL
       MIB.buildCopy(Reg, SrcReg);
       if (!RBI.constrainGenericRegister(SrcReg, *RC, MRI))
         return false;
+
+      // ADD HL,HL / ADD UHL,UHL - shifts bit 15/23 into carry
+      BuildMI(MBB, InsertPt, DL, TII.get(AddOpc), Reg).addReg(Reg);
+      // SBC HL,HL / SBC UHL,UHL - HL/UHL = 0 - 0 - CF = -CF (0 or -1)
+      BuildMI(MBB, InsertPt, DL, TII.get(SbcOpc));
+
+      // copy HL/UHL -> dst
+      MIB.buildCopy(DstReg, Reg);
+      if (!RBI.constrainGenericRegister(DstReg, *RC, MRI))
+        return false;
+      break;
     }
-    auto AddI = MIB.buildInstr(AddOpc, {Ty}, {SrcReg});
-    auto SbcI = MIB.buildInstr(SbcOpc);
-    if (Ty == LLT::scalar(8)) {
-      SbcI->findRegisterUseOperand(Reg)->setIsUndef();
-      SbcI.addReg(Reg, RegState::Undef);
-    }
-    MIB.buildCopy(DstReg, Reg);
+
     I.eraseFromParent();
-    return constrainSelectedInstRegOperands(*AddI, TII, TRI, RBI) &&
-           constrainSelectedInstRegOperands(*SbcI, TII, TRI, RBI) &&
-           RBI.constrainGenericRegister(DstReg, *RC, MRI);
+    return true;
   }
 
   // Unhandled shift - should have been legalized to libcall
