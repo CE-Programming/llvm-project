@@ -191,8 +191,8 @@ jobs:
   nightly:
     runs-on: ubuntu-latest
     needs: [build-clang]
-    if: github.ref == 'refs/heads/z80'
 
+    if: github.ref == 'refs/heads/z80' && github.event_name != 'pull_request'
     steps:
       - name: Download Windows ez80-clang
         uses: actions/download-artifact@v4
@@ -209,9 +209,10 @@ jobs:
           zip ez80-clang-link_windows_nightly.zip ez80-clang.exe ez80-link.exe
           rm ez80-clang.exe ez80-link.exe
       - name: Update nightly release
-        uses: pyTooling/Actions/releaser@main
+        uses: softprops/action-gh-release@5122b4edc95f85501a71628a57dc180a03ec7588 # latest as of 2025-12-30
         with:
-          tag: nightly
+          tag_name: nightly
+          prerelease: true
           token: ${{secrets.GITHUB_TOKEN}}
           files: |
             ez80-clang-link_windows_nightly.zip
