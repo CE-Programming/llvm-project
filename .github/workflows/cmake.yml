@@ -1,9 +1,9 @@
-name: "CMake Linux/macOS"
+name: "CMake Build"
 
 on:
   workflow_dispatch:
   push:
-    branches: [z80]
+    branches: [z80, ci-unification]
 
 jobs:
   build-llvm:
@@ -11,41 +11,65 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [ubuntu-22.04, ubuntu-latest, macos-15-intel, macos-14]
+        runs-on: [ubuntu-22.04, ubuntu-latest, macos-15-intel, macos-14, windows-latest]
         build-type: [Release]
     runs-on: ${{matrix.runs-on}}
     steps:
-      - name: Uninstall Unused Packages
+      - name: Bootstrap Build Environment (Windows)
+        if: runner.os == 'Windows'
+        run: "cmake -E echo >> $env:GITHUB_ENV ENV=env:"
+
+      - name: Configure Git (Windows)
+        if: runner.os == 'Windows'
+        run: git config --global core.autocrlf false
+
+      - name: Set Windows Environment
+        if: runner.os == 'Windows'
+        run: |
+          $path = vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          cmake -E echo >> $${{env.ENV}}GITHUB_PATH "$(join-path $path 'VC\Tools\Llvm\bin')"
+          cmd /s /c >> $${{env.ENV}}GITHUB_ENV """$(join-path $path 'Common7\Tools\vsdevcmd.bat')"" > nul && set"
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CC=clang-cl
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CXX=clang-cl
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV EXE=.exe
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV PY=.py
+
+      - name: Uninstall Unused Packages (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get remove azure-cli libgl1-mesa-dri ^google-chrome.*$ ^dotnet-sdk-[0-9.]+$ firefox
 
-      - name: Prepare Build Environment
+      - name: Prepare Build Environment (Linux/macOS)
+        if: runner.os != 'Windows'
         run: |
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV CC=clang
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV CFLAGS=-std=c17
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV CXX=clang++
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV CXXFLAGS=-std=c++17
-      - name: Prepare Build Configuration
+
+      - name: Prepare Build Configuration (Release)
         if: matrix.build-type == 'Release'
         run: cmake -E echo >> $${{env.ENV}}GITHUB_ENV CMAKE_CONFIG=-DLLVM_TARGETS_TO_BUILD:STRING= -DLLVM_ENABLE_LTO:STRING=OFF -DLLVM_STATIC_LINK_CXX_STDLIB:BOOL=ON
 
-      - name: Prepare Build Environment
+      - name: Set DYLIB (Debug)
         if: matrix.build-type == 'Debug'
         run: cmake -E echo >> $${{env.ENV}}GITHUB_ENV DYLIB=ON
-      - name: Prepare Build Environment
+      - name: Set DYLIB (Non-Debug)
         if: matrix.build-type != 'Debug'
         run: cmake -E echo >> $${{env.ENV}}GITHUB_ENV DYLIB=OFF
 
-      - name: Install Build Dependencies
+      - name: Install Build Dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get install -y ninja-build
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV
-      - name: Install Build Dependencies
+      - name: Install Build Dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
           brew install ninja
           cmake -E echo >> $${{env.ENV}}GITHUB_PATH /usr/local/opt/llvm/bin
+      - name: Install Build Dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: pip install ninja
 
       - name: Install sccache
         uses: mozilla-actions/sccache-action@v0.0.9
@@ -84,6 +108,7 @@ jobs:
       - name: Install ez80-link
         run: cmake -E copy llvm/bin/llvm-link${{env.EXE}} ez80-link${{env.EXE}}
       - name: Strip ez80-link
+        if: runner.os != 'Windows'
         run: strip ez80-link${{env.EXE}}
       - name: Upload ez80-link
         uses: actions/upload-artifact@v4
@@ -94,6 +119,7 @@ jobs:
       - name: Install ez80-lto
         run: cmake -E copy llvm/bin/llvm-lto${{env.EXE}} ez80-lto${{env.EXE}}
       - name: Strip ez80-lto
+        if: runner.os != 'Windows'
         run: strip ez80-lto${{env.EXE}}
       - name: Upload ez80-lto
         uses: actions/upload-artifact@v4
@@ -104,6 +130,7 @@ jobs:
       - name: Install ez80-lto2
         run: cmake -E copy llvm/bin/llvm-lto2${{env.EXE}} ez80-lto2${{env.EXE}}
       - name: Strip ez80-lto2
+        if: runner.os != 'Windows'
         run: strip ez80-lto2${{env.EXE}}
       - name: Upload ez80-lto2
         uses: actions/upload-artifact@v4
@@ -112,10 +139,13 @@ jobs:
           path: ez80-lto2${{env.EXE}}
 
       - name: Configure Test
+        if: runner.os != 'Windows'
         run: cmake build -DLLVM_LINK_LLVM_DYLIB:BOOL=${{env.DYLIB}} -DLLVM_ENABLE_PROJECTS:STRING=clang -DLLVM_INCLUDE_EXAMPLES:BOOL=OFF -DLLVM_INCLUDE_TESTS:BOOL=ON -DLLVM_TOOL_DSYMUTIL_BUILD:BOOL=ON -DLLVM_TOOL_GOLD_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_AS_FUZZER_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_CFI_VERIFY_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_CVTRES_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_DWP_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_EXEGESIS_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_GSYMUTIL_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_IFS_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_ISEL_FUZZER_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_ITANIUM_DEMANGLE_FUZZER_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_JITLINK_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_JITLISTENER_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_LIPO_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_LTO2_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_LTO_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_MCA_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_MC_ASSEMBLE_FUZZER_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_MC_DISASSEMBLE_FUZZER_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_MICROSOFT_DEMANGLE_FUZZER_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_MT_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_OPT_FUZZER_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_PDBUTIL_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_PROFDATA_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_RC_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_SPECIAL_CASE_LIST_FUZZER_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_UNDNAME_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_XRAY_BUILD:BOOL=ON -DLLVM_TOOL_LLVM_YAML_NUMERIC_PARSER_FUZZER_BUILD:BOOL=ON -DLLVM_TOOL_SANCOV_BUILD:BOOL=ON -DLLVM_TOOL_SANSTATS_BUILD:BOOL=ON -DLLVM_TOOL_VFABI_DEMANGLE_FUZZER_BUILD:BOOL=ON
       - name: Build Test
+        if: runner.os != 'Windows'
         run: cmake --build build --config ${{matrix.build-type}} --target Z80Tests --parallel
       - name: Install Test
+        if: runner.os != 'Windows'
         run: |
           cmake -E make_directory test/bin test/test/Unit test/tools/clang/bin test/tools/clang/test/Unit test/unittests/Target/Z80
           cmake -E copy build/bin/not${{env.EXE}} build/bin/FileCheck${{env.EXE}} build/bin/llvm-PerfectShuffle${{env.EXE}} build/bin/lli-child-target${{env.EXE}} build/bin/llvm-lit${{env.PY}} build/bin/llvm-locstats build/bin/count${{env.EXE}} build/bin/yaml-bench${{env.EXE}} test/bin
@@ -126,54 +156,82 @@ jobs:
           cmake -E copy build/tools/clang/test/Unit/lit.site.cfg.py test/tools/clang/test/Unit
           cmake -E copy build/unittests/Target/Z80/Z80Tests${{env.EXE}} test/unittests/Target/Z80
       - name: Upload Test
+        if: runner.os != 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: Test${{matrix.runs-on}}${{matrix.build-type}}
           path: test
 
-      - name: Disk Usage
+      - name: Disk Usage (Linux/macOS)
+        if: runner.os != 'Windows'
         run: df -h
+      - name: Disk Usage (Windows)
+        if: runner.os == 'Windows'
+        run: Get-CimInstance Win32_LogicalDisk | Select-Object Caption, FreeSpace, Size
 
   build-clang:
     needs: [build-llvm]
     strategy:
       fail-fast: false
       matrix:
-        runs-on: [ubuntu-22.04, ubuntu-latest, macos-15-intel, macos-14]
+        runs-on: [ubuntu-22.04, ubuntu-latest, macos-15-intel, macos-14, windows-latest]
         build-type: [Release]
     runs-on: ${{matrix.runs-on}}
     steps:
-      - name: Uninstall Unused Packages
+      - name: Bootstrap Build Environment (Windows)
+        if: runner.os == 'Windows'
+        run: "cmake -E echo >> $env:GITHUB_ENV ENV=env:"
+
+      - name: Configure Git (Windows)
+        if: runner.os == 'Windows'
+        run: git config --global core.autocrlf false
+
+      - name: Set Windows Environment
+        if: runner.os == 'Windows'
+        run: |
+          $path = vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          cmake -E echo >> $${{env.ENV}}GITHUB_PATH "$(join-path $path 'VC\Tools\Llvm\bin')"
+          cmd /s /c >> $${{env.ENV}}GITHUB_ENV """$(join-path $path 'Common7\Tools\vsdevcmd.bat')"" > nul && set"
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CC=clang-cl
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CXX=clang-cl
+          cmake -E echo >> $${{env.ENV}}GITHUB_ENV EXE=.exe
+
+      - name: Uninstall Unused Packages (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get remove azure-cli libgl1-mesa-dri ^google-chrome.*$ ^dotnet-sdk-[0-9.]+$ firefox
 
-      - name: Prepare Build Environment
+      - name: Prepare Build Environment (Linux/macOS)
+        if: runner.os != 'Windows'
         run: |
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV CC=clang
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV CFLAGS=-std=c17
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV CXX=clang++
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV CXXFLAGS=-std=c++17
-      - name: Prepare Build Configuration
+
+      - name: Prepare Build Configuration (Release)
         if: matrix.build-type == 'Release'
         run: cmake -E echo >> $${{env.ENV}}GITHUB_ENV CMAKE_CONFIG=-DLLVM_TARGETS_TO_BUILD:STRING= -DLLVM_ENABLE_LTO:STRING=OFF -DLLVM_STATIC_LINK_CXX_STDLIB:BOOL=ON
 
-      - name: Prepare Build Environment
+      - name: Set DYLIB (Debug)
         if: matrix.build-type == 'Debug'
         run: cmake -E echo >> $${{env.ENV}}GITHUB_ENV DYLIB=ON
-      - name: Prepare Build Environment
+      - name: Set DYLIB (Non-Debug)
         if: matrix.build-type != 'Debug'
         run: cmake -E echo >> $${{env.ENV}}GITHUB_ENV DYLIB=OFF
 
-      - name: Install Build Dependencies
+      - name: Install Build Dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get install -y ninja-build
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV
-      - name: Install Build Dependencies
+      - name: Install Build Dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
           brew install ninja
           cmake -E echo >> $${{env.ENV}}GITHUB_PATH /usr/local/opt/llvm/bin
+      - name: Install Build Dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: pip install ninja
 
       - name: Install sccache
         uses: mozilla-actions/sccache-action@v0.0.9
@@ -199,7 +257,8 @@ jobs:
         with:
           name: LLVM${{matrix.runs-on}}${{matrix.build-type}}
           path: llvm
-      - name: Set Executable
+      - name: Set Executable (Linux/macOS)
+        if: runner.os != 'Windows'
         run: chmod +x llvm/bin/*
 
       - name: Configure Clang
@@ -219,6 +278,7 @@ jobs:
       - name: Install ez80-clang
         run: cmake -E copy clang/bin/clang${{env.EXE}} ez80-clang${{env.EXE}}
       - name: Strip ez80-clang
+        if: runner.os != 'Windows'
         run: strip ez80-clang${{env.EXE}}
       - name: Test ez80-clang
         run: cmake -E echo "void test(void){}" | ./ez80-clang${{env.EXE}} -S -xc - -o -
@@ -229,21 +289,28 @@ jobs:
           path: ez80-clang${{env.EXE}}
 
       - name: Download Test
+        if: runner.os != 'Windows'
         uses: actions/download-artifact@v4
         with:
           name: Test${{matrix.runs-on}}${{matrix.build-type}}
           path: test
       - name: Install Test
+        if: runner.os != 'Windows'
         run: cmake -E copy build/bin/arcmt-test${{env.EXE}} build/bin/c-arcmt-test${{env.EXE}} build/bin/clang-diff${{env.EXE}} build/bin/clang-tblgen${{env.EXE}} test/bin
       - name: Upload Test
+        if: runner.os != 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: Test${{matrix.runs-on}}${{matrix.build-type}}
           path: test
           overwrite: true
 
-      - name: Disk Usage
+      - name: Disk Usage (Linux/macOS)
+        if: runner.os != 'Windows'
         run: df -h
+      - name: Disk Usage (Windows)
+        if: runner.os == 'Windows'
+        run: Get-CimInstance Win32_LogicalDisk | Select-Object Caption, FreeSpace, Size
 
   test-llvm-z80:
     needs: [build-llvm]
@@ -254,7 +321,7 @@ jobs:
         build-type: [Release]
     runs-on: ${{matrix.runs-on}}
     steps:
-      - name: Uninstall Unused Packages
+      - name: Uninstall Unused Packages (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get remove azure-cli libgl1-mesa-dri ^google-chrome.*$ ^dotnet-sdk-[0-9.]+$ firefox
 
@@ -287,95 +354,6 @@ jobs:
       - name: Test LLVM Z80
         run: build/bin/llvm-lit${{env.PY}} -v src/llvm/test/CodeGen/Z80
 
-  test-llvm:
-    needs: [build-llvm]
-    strategy:
-      fail-fast: false
-      matrix:
-        runs-on: [ubuntu-22.04, ubuntu-latest, macos-15-intel, macos-14]
-        build-type: [Debug]
-    continue-on-error: true
-    if: false
-    runs-on: ${{matrix.runs-on}}
-    steps:
-      - name: Uninstall Unused Packages
-        if: runner.os == 'Linux'
-        run: sudo apt-get remove azure-cli libgl1-mesa-dri ^google-chrome.*$ ^dotnet-sdk-[0-9.]+$ firefox
-
-      - name: Checkout Project
-        uses: actions/checkout@v4
-        with:
-          path: src
-      - name: Sparse Checkout
-        working-directory: src
-        run: |
-          git version
-          git sparse-checkout init --cone
-          git sparse-checkout set cmake third-party llvm/test llvm/utils/lit/lit
-
-      - name: Download Test
-        uses: actions/download-artifact@v4
-        with:
-          name: Test${{matrix.runs-on}}${{matrix.build-type}}
-          path: build
-      - name: Download LLVM
-        uses: actions/download-artifact@v4
-        with:
-          name: LLVM${{matrix.runs-on}}${{matrix.build-type}}
-          path: build
-      - name: Set Executable
-        run: chmod +x build/bin/*
-
-      - name: Test LLVM
-        run: build/bin/llvm-lit${{env.PY}} -v src/llvm/test
-
-  test-clang:
-    needs: [build-llvm, build-clang]
-    strategy:
-      fail-fast: false
-      matrix:
-        runs-on: [ubuntu-22.04, ubuntu-latest, macos-15-intel, macos-14]
-        build-type: [Debug]
-    continue-on-error: true
-    if: false
-    runs-on: ${{matrix.runs-on}}
-    steps:
-      - name: Uninstall Unused Packages
-        if: runner.os == 'Linux'
-        run: sudo apt-get remove azure-cli libgl1-mesa-dri ^google-chrome.*$ ^dotnet-sdk-[0-9.]+$ firefox
-
-      - name: Checkout Project
-        uses: actions/checkout@v4
-        with:
-          path: src
-      - name: Sparse Checkout
-        working-directory: src
-        run: |
-          git version
-          git sparse-checkout init --cone
-          git sparse-checkout set cmake third-party clang/test llvm/utils/lit/lit
-
-      - name: Download Test
-        uses: actions/download-artifact@v4
-        with:
-          name: Test${{matrix.runs-on}}${{matrix.build-type}}
-          path: build
-      - name: Download LLVM
-        uses: actions/download-artifact@v4
-        with:
-          name: LLVM${{matrix.runs-on}}${{matrix.build-type}}
-          path: build
-      - name: Download Clang
-        uses: actions/download-artifact@v4
-        with:
-          name: Clang${{matrix.runs-on}}${{matrix.build-type}}
-          path: build
-      - name: Set Executable
-        run: chmod +x build/bin/*
-
-      - name: Test Clang
-        run: build/bin/llvm-lit${{env.PY}} -v src/clang/test
-
   nightly:
     runs-on: ubuntu-latest
     needs: [build-clang, test-llvm-z80]
@@ -392,11 +370,12 @@ jobs:
         with:
           name: ez80-link-ubuntu-22.04Release
           path: ${{github.workspace}}
-      - name: chmod and zip Ubuntu Artifacts
+      - name: Package Ubuntu Artifacts
         run: |
           chmod +x ez80-clang ez80-link
           zip ez80-clang-link_ubuntu_nightly.zip ez80-clang ez80-link
           rm ez80-clang ez80-link
+
       - name: Download macOS 15 ez80-clang
         uses: actions/download-artifact@v4
         with:
@@ -407,11 +386,12 @@ jobs:
         with:
           name: ez80-link-macos-15-intelRelease
           path: ${{github.workspace}}
-      - name: chmod and zip macOS 15 intel Artifacts
+      - name: Package macOS Intel Artifacts
         run: |
           chmod +x ez80-clang ez80-link
           zip ez80-clang-link_macOS_intel_nightly.zip ez80-clang ez80-link
           rm ez80-clang ez80-link
+
       - name: Download macOS 14 ez80-clang
         uses: actions/download-artifact@v4
         with:
@@ -422,11 +402,27 @@ jobs:
         with:
           name: ez80-link-macos-14Release
           path: ${{github.workspace}}
-      - name: chmod and zip macOS 14 arm Artifacts
+      - name: Package macOS ARM Artifacts
         run: |
           chmod +x ez80-clang ez80-link
           zip ez80-clang-link_macOS_arm_nightly.zip ez80-clang ez80-link
           rm ez80-clang ez80-link
+
+      - name: Download Windows ez80-clang
+        uses: actions/download-artifact@v4
+        with:
+          name: ez80-clang.exe-windows-latestRelease
+          path: ${{github.workspace}}
+      - name: Download Windows ez80-link
+        uses: actions/download-artifact@v4
+        with:
+          name: ez80-link.exe-windows-latestRelease
+          path: ${{github.workspace}}
+      - name: Package Windows Artifacts
+        run: |
+          zip ez80-clang-link_windows_nightly.zip ez80-clang.exe ez80-link.exe
+          rm ez80-clang.exe ez80-link.exe
+
       - name: Update nightly release
         uses: softprops/action-gh-release@5122b4edc95f85501a71628a57dc180a03ec7588 # latest as of 2025-12-30
         with:
@@ -437,3 +433,4 @@ jobs:
             ez80-clang-link_ubuntu_nightly.zip
             ez80-clang-link_macOS_intel_nightly.zip
             ez80-clang-link_macOS_arm_nightly.zip
+            ez80-clang-link_windows_nightly.zip
