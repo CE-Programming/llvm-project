@@ -2659,8 +2659,10 @@ bool Z80InstructionSelector::selectShift(MachineInstr &I,
   //   then (N-1) * ADD24aa (1 byte each) + final ADD16aa (2 bytes) for truncation
   //   this saves 1 byte per intermediate add vs all ADD16aa (2 bytes each)
   // for s16 with shift == 1 or in 16 bit mode, use ADD16aa
+
   if (Opc == TargetOpcode::G_SHL && Amt->Value.uge(1) && Amt->Value.ule(6) &&
       (TySize == 16 || (STI.is24Bit() && TySize == 24))) {
+
     unsigned ShiftAmt = Amt->Value.getZExtValue();
     MachineBasicBlock &MBB = *I.getParent();
     MachineBasicBlock::iterator InsertPt = I.getIterator();
@@ -2671,6 +2673,7 @@ bool Z80InstructionSelector::selectShift(MachineInstr &I,
     // carry flag from bit 15 overflow is not observable through G_SHL
     // this saves N bytes vs all ADD16aa (2 bytes each)
     if (TySize == 16 && STI.is24Bit() && ShiftAmt > 1) {
+
       // promote s16 to s24 via SUBREG_TO_REG (HL -> UHL)
       Register ExtReg = MRI.createVirtualRegister(&Z80::A24RegClass);
       BuildMI(MBB, InsertPt, DL, TII.get(TargetOpcode::SUBREG_TO_REG), ExtReg)
@@ -2692,8 +2695,11 @@ bool Z80InstructionSelector::selectShift(MachineInstr &I,
 
       // copy result from HL sub reg (lower 16 bits of UHL)
       MIB.buildCopy(DstReg, Register(Z80::HL));
-      if (!RBI.constrainGenericRegister(DstReg, Z80::A16RegClass, MRI))
+
+      const TargetRegisterClass *DstRC = MRI.getRegClassOrNull(DstReg);
+      if (!DstRC && !RBI.constrainGenericRegister(DstReg, Z80::A16RegClass, MRI)) {
         return false;
+      }
       I.eraseFromParent();
       return true;
     }
