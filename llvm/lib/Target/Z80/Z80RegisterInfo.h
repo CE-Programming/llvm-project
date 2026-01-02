@@ -84,6 +84,8 @@ public:
     return true;
   }
 
+  bool supportsBackwardScavenger() const override { return true; }
+
   bool saveScavengerRegister(MachineBasicBlock &MBB,
                              MachineBasicBlock::iterator MI,
                              MachineBasicBlock::iterator &UseMI,
@@ -118,6 +120,13 @@ public:
                       unsigned DstSubReg,
                       const TargetRegisterClass *NewRC,
                       LiveIntervals &LIS) const override;
+
+
+  bool getRegAllocationHints(Register VirtReg, ArrayRef<MCPhysReg> Order,
+                             SmallVectorImpl<MCPhysReg> &Hints,
+                             const MachineFunction &MF,
+                             const VirtRegMap *VRM = nullptr,
+                             const LiveRegMatrix *Matrix = nullptr) const override;
 };
 } // End llvm namespace
 
