@@ -1468,14 +1468,21 @@ void PEI::replaceFrameIndicesBackward(MachineBasicBlock *BB,
     LocalRS->enterBasicBlockEnd(*BB);
 
   for (MachineInstr &MI : make_early_inc_range(reverse(*BB))) {
+    // Z80-FORK: Fix for llvm/llvm-project#174251 - must call backward(MI)
+    // before frame instruction check to avoid dangling MBBI when frame
+    // instructions are erased.
+    if (LocalRS)
+      LocalRS->backward(MI);
+
     if (TII.isFrameInstr(MI)) {
+      // Z80-FORK: Step past the frame instruction before erasing it.
+      if (LocalRS)
+        LocalRS->backward();
       TFI.eliminateCallFramePseudoInstr(MF, *BB, &MI);
       continue;
     }
 
-    // Step backwards to get the liveness state at (immedately after) MI.
-    if (LocalRS)
-      LocalRS->backward(MI);
+
 
     for (unsigned i = 0; i != MI.getNumOperands(); ++i) {
       if (!MI.getOperand(i).isFI())
