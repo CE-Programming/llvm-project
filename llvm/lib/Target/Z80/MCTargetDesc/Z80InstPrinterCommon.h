@@ -43,7 +43,7 @@ public:
   void printIndirectOffset(const MCInst *MI, unsigned OpNo, raw_ostream &OS);
 
 private:
-  bool PrintZeroOffset, AddNegativeOffset;
+  bool AddNegativeOffset;
 };
 } // namespace llvm
 

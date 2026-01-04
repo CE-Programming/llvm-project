@@ -25,11 +25,6 @@ using namespace llvm;
 
 #define DEBUG_TYPE "asm-printer"
 
-static cl::opt<bool> PrintZeroOffset(
-    "z80-print-zero-offset",
-    cl::desc("Print ix + 0 instead of ix"),
-    cl::init(false),
-    cl::Hidden);
 static cl::opt<bool> AddNegativeOffset(
     "z80-add-negative-offset",
     cl::desc("Print ix + -1 instead of ix - 1"),
@@ -39,18 +34,9 @@ static cl::opt<bool> AddNegativeOffset(
 Z80InstPrinterCommon::Z80InstPrinterCommon(const MCAsmInfo &MAI,
                                            const MCInstrInfo &MII,
                                            const MCRegisterInfo &MRI)
-    : MCInstPrinter(MAI, MII, MRI), PrintZeroOffset(::PrintZeroOffset),
-      AddNegativeOffset(::AddNegativeOffset) {}
+    : MCInstPrinter(MAI, MII, MRI), AddNegativeOffset(::AddNegativeOffset) {}
 
 bool Z80InstPrinterCommon::applyTargetSpecificCLOption(StringRef Opt) {
-  if (Opt == "print-zero-offset") {
-    PrintZeroOffset = true;
-    return true;
-  }
-  if (Opt == "no-print-zero-offset") {
-    PrintZeroOffset = false;
-    return true;
-  }
   if (Opt == "add-negative-offset") {
     AddNegativeOffset = true;
     return true;
@@ -137,8 +123,7 @@ void Z80InstPrinterCommon::printOffset(const MCInst *MI, unsigned Op,
   printOperand(MI, Op, OS);
   auto Offset = MI->getOperand(Op + 1).getImm();
   assert(isInt<8>(Offset) && "Offset out of range!");
-  if (Offset || PrintZeroOffset)
-    OS << ' ' << (Offset >= 0 || AddNegativeOffset ? '+' : '-') << ' '
+  OS << ' ' << (Offset >= 0 || AddNegativeOffset ? '+' : '-') << ' '
        << formatImm(AddNegativeOffset ? Offset : std::abs(Offset));
 }
 
