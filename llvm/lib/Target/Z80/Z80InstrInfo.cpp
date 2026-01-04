@@ -1195,7 +1195,33 @@ bool Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
   LLVM_DEBUG(dbgs() << "Z80FrameIndex: Offset " << NewOffset << " not legal for "
                     << TRI.getName(BaseReg) << ", RS=" << (RS ? "yes" : "no") << "\n");
 
-  bool SaveFlags = RS && RS->isRegUsed(Z80::F);
+  // determine if we need to preserve flags (Z80::F) around flag clobbering
+  // instructions like ADD. the RegScavenger's isRegUsed() is unreliable during
+  // backward scavenging because its LiveUnits can become stale after skipTo()
+  // in pei::replaceFrameIndicesBackward. we work around this by forward scanning
+  // from the current instruction to find if flags are actually used.
+  // see: https://github.com/llvm/llvm-project/issues/174251
+  auto isFlagLiveForward = [&]() -> bool {
+    if (RS && RS->isRegUsed(Z80::F))
+      return true;
+
+    MachineBasicBlock::iterator ScanStart = II;
+    ++ScanStart;
+    for (MachineBasicBlock::iterator I = ScanStart; I != MBB.end(); ++I) {
+      if (I->definesRegister(Z80::F, &TRI))
+        return false;
+      if (I->readsRegister(Z80::F, &TRI))
+        return true;
+    }
+
+    for (MachineBasicBlock *Succ : MBB.successors())
+      if (Succ->isLiveIn(Z80::F))
+        return true;
+
+    return false;
+  };
+
+  bool SaveFlags = RS && isFlagLiveForward();
   const TargetRegisterClass *OffsetRC =
       Is24Bit ? &Z80::O24RegClass : &Z80::O16RegClass;
   LLVM_DEBUG({
