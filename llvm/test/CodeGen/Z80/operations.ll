@@ -1427,7 +1427,7 @@ define i48 @add.i48(i48, i48) {
 ; EZ80-NEXT:    adc hl, bc
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop de
-; EZ80-NEXT:    lea hl, iy
+; EZ80-NEXT:    lea hl, iy + 0
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   add i48 %0, %1
@@ -1713,7 +1713,7 @@ define i48 @sub.i48(i48, i48) {
 ; EZ80-NEXT:    sbc hl, bc
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop bc
-; EZ80-NEXT:    lea hl, iy
+; EZ80-NEXT:    lea hl, iy + 0
 ; EZ80-NEXT:    sbc hl, de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop de
@@ -5336,7 +5336,7 @@ define i64 @sext.i32.i64(i32) {
 ; EZ80-NEXT:    sbc.sis hl, hl
 ; EZ80-NEXT:    ld c, l
 ; EZ80-NEXT:    ld b, h
-; EZ80-NEXT:    lea hl, iy
+; EZ80-NEXT:    lea hl, iy + 0
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret

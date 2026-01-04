@@ -93,11 +93,11 @@ define i24 @load.p3i24(i24 addrspace(3)*) {
 ; EZ80-NEXT:    add ix, sp
 ; EZ80-NEXT:    dec sp
 ; EZ80-NEXT:    ld iy, (ix + 6)
-; EZ80-NEXT:    lea bc, iy
+; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    in a, (bc)
 ; EZ80-NEXT:    lea.sis hl, iy + 2
 ; EZ80-NEXT:    inc.sis iy
-; EZ80-NEXT:    lea bc, iy
+; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    in e, (bc)
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop bc
@@ -122,11 +122,11 @@ define i24 @load.p3i24.1() {
 ; EZ80-NEXT:    dec sp
 ; EZ80-NEXT:    ld iyl, 1
 ; EZ80-NEXT:    ld iyh, 0
-; EZ80-NEXT:    lea bc, iy
+; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    in a, (bc)
 ; EZ80-NEXT:    lea.sis hl, iy + 2
 ; EZ80-NEXT:    inc.sis iy
-; EZ80-NEXT:    lea bc, iy
+; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    in e, (bc)
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop bc
@@ -178,11 +178,11 @@ define i24 @load.p4i24(i24 addrspace(4)*) {
 ; EZ80-NEXT:    add ix, sp
 ; EZ80-NEXT:    dec sp
 ; EZ80-NEXT:    ld iy, (ix + 6)
-; EZ80-NEXT:    lea bc, iy
+; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    in a, (bc)
 ; EZ80-NEXT:    lea hl, iy + 2
 ; EZ80-NEXT:    inc iy
-; EZ80-NEXT:    lea bc, iy
+; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    in e, (bc)
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop bc
@@ -206,7 +206,7 @@ define i32 @load.p4i32(i32 addrspace(4)*) {
 ; EZ80-NEXT:    add ix, sp
 ; EZ80-NEXT:    dec sp
 ; EZ80-NEXT:    ld iy, (ix + 6)
-; EZ80-NEXT:    lea bc, iy
+; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    in a, (bc)
 ; EZ80-NEXT:    inc bc
 ; EZ80-NEXT:    in d, (bc)
@@ -234,7 +234,7 @@ define i64 @load.p4i64(i64 addrspace(4)*) {
 ; EZ80-NEXT:    lea hl, ix - 6
 ; EZ80-NEXT:    ld sp, hl
 ; EZ80-NEXT:    ld iy, (ix + 6)
-; EZ80-NEXT:    lea bc, iy
+; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    in a, (bc)
 ; EZ80-NEXT:    ld (ix - 3), a
 ; EZ80-NEXT:    inc bc
@@ -318,11 +318,11 @@ define i24 @load.p4i24.1() {
 ; EZ80-NEXT:    call __iand
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop iy
-; EZ80-NEXT:    lea bc, iy
+; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    in a, (bc)
 ; EZ80-NEXT:    lea hl, iy + 2
 ; EZ80-NEXT:    inc iy
-; EZ80-NEXT:    lea bc, iy
+; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    in e, (bc)
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop bc
@@ -351,7 +351,7 @@ define i32 @load.p4i32.1() {
 ; EZ80-NEXT:    call __iand
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop iy
-; EZ80-NEXT:    lea bc, iy
+; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    in a, (bc)
 ; EZ80-NEXT:    inc bc
 ; EZ80-NEXT:    in d, (bc)
@@ -384,7 +384,7 @@ define i64 @load.p4i64.1() {
 ; EZ80-NEXT:    call __iand
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop iy
-; EZ80-NEXT:    lea bc, iy
+; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    in a, (bc)
 ; EZ80-NEXT:    ld (ix - 3), a
 ; EZ80-NEXT:    inc bc
@@ -505,11 +505,11 @@ define void @store.p3i24(i24, i24 addrspace(3)*) {
 ; EZ80-NEXT:    ld a, (ix - 1)
 ; EZ80-NEXT:    ld e, h
 ; EZ80-NEXT:    ; kill: def $l killed $l killed $uhl
-; EZ80-NEXT:    lea bc, iy
+; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    out (bc), l
 ; EZ80-NEXT:    lea.sis hl, iy + 2
 ; EZ80-NEXT:    inc.sis iy
-; EZ80-NEXT:    lea bc, iy
+; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    out (bc), e
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop bc
@@ -535,11 +535,11 @@ define void @store.p3i24.1(i24) {
 ; EZ80-NEXT:    ld a, (ix - 1)
 ; EZ80-NEXT:    ld e, h
 ; EZ80-NEXT:    ; kill: def $l killed $l killed $uhl
-; EZ80-NEXT:    lea bc, iy
+; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    out (bc), l
 ; EZ80-NEXT:    lea.sis hl, iy + 2
 ; EZ80-NEXT:    inc.sis iy
-; EZ80-NEXT:    lea bc, iy
+; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    out (bc), e
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop bc
@@ -594,11 +594,11 @@ define void @store.p4i24(i24, i24 addrspace(4)*) {
 ; EZ80-NEXT:    ld a, (ix - 1)
 ; EZ80-NEXT:    ld e, h
 ; EZ80-NEXT:    ; kill: def $l killed $l killed $uhl
-; EZ80-NEXT:    lea bc, iy
+; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    out (bc), l
 ; EZ80-NEXT:    lea hl, iy + 2
 ; EZ80-NEXT:    inc iy
-; EZ80-NEXT:    lea bc, iy
+; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    out (bc), e
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop bc
@@ -624,7 +624,7 @@ define void @store.p4i32(i32, i32 addrspace(4)*) {
 ; EZ80-NEXT:    ld e, (ix - 1)
 ; EZ80-NEXT:    ld d, h
 ; EZ80-NEXT:    ; kill: def $l killed $l killed $uhl
-; EZ80-NEXT:    lea bc, iy
+; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    out (bc), l
 ; EZ80-NEXT:    inc bc
 ; EZ80-NEXT:    out (bc), d
@@ -662,7 +662,7 @@ define void @store.p4i64(i64, i64 addrspace(4)*) {
 ; EZ80-NEXT:    ld l, (ix - 1)
 ; EZ80-NEXT:    ld h, b
 ; EZ80-NEXT:    ld a, c
-; EZ80-NEXT:    lea bc, iy
+; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    out (bc), a
 ; EZ80-NEXT:    inc bc
 ; EZ80-NEXT:    out (bc), h
@@ -748,11 +748,11 @@ define void @store.p4i24.1(i24) {
 ; EZ80-NEXT:    ld (ix - 4), a
 ; EZ80-NEXT:    ld a, d
 ; EZ80-NEXT:    ld l, e
-; EZ80-NEXT:    lea bc, iy
+; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    out (bc), l
 ; EZ80-NEXT:    lea hl, iy + 2
 ; EZ80-NEXT:    inc iy
-; EZ80-NEXT:    lea bc, iy
+; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    out (bc), a
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop bc
@@ -784,7 +784,7 @@ define void @store.p4i32.1(i32) {
 ; EZ80-NEXT:    ld l, (ix - 1)
 ; EZ80-NEXT:    ld h, d
 ; EZ80-NEXT:    ; kill: def $e killed $e killed $ude
-; EZ80-NEXT:    lea bc, iy
+; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    out (bc), e
 ; EZ80-NEXT:    inc bc
 ; EZ80-NEXT:    out (bc), h
@@ -827,7 +827,7 @@ define void @store.p4i64.1(i64) {
 ; EZ80-NEXT:    ld e, (ix - 1)
 ; EZ80-NEXT:    ld d, b
 ; EZ80-NEXT:    ld a, c
-; EZ80-NEXT:    lea bc, iy
+; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    out (bc), a
 ; EZ80-NEXT:    inc bc
 ; EZ80-NEXT:    out (bc), d

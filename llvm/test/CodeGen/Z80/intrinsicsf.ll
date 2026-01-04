@@ -784,7 +784,7 @@ define float @powi.f32.i64(float, i64) {
 ; EZ80-CODE16-NEXT:    ld bc, (ix + 12)
 ; EZ80-CODE16-NEXT:    ld hl, (ix + 14)
 ; EZ80-CODE16-NEXT:    push hl
-; EZ80-CODE16-NEXT:    lea hl, iy
+; EZ80-CODE16-NEXT:    lea hl, iy + 0
 ; EZ80-CODE16-NEXT:    call __lltof
 ; EZ80-CODE16-NEXT:    pop bc
 ; EZ80-CODE16-NEXT:    push de
@@ -4649,7 +4649,7 @@ define float @fmuladd.f32(float, float, float) {
 ; EZ80-NEXT:    ld a, (ix + 9)
 ; EZ80-NEXT:    ld e, (ix + 15)
 ; EZ80-NEXT:    call __fmul
-; EZ80-NEXT:    lea hl, iy
+; EZ80-NEXT:    lea hl, iy + 0
 ; EZ80-NEXT:    ld e, d
 ; EZ80-NEXT:    call __fadd
 ; EZ80-NEXT:    push bc
