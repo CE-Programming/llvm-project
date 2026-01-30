@@ -73,6 +73,8 @@ jobs:
 
       - name: Install sccache
         uses: mozilla-actions/sccache-action@v0.0.9
+        with:
+          version: "v0.12.0"
       - name: Configure sccache
         run: |
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV SCCACHE_GHA_ENABLED=true
@@ -235,6 +237,8 @@ jobs:
 
       - name: Install sccache
         uses: mozilla-actions/sccache-action@v0.0.9
+        with:
+          version: "v0.12.0"
       - name: Configure sccache
         run: |
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV SCCACHE_GHA_ENABLED=true
