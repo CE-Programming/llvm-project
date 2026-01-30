@@ -43,6 +43,7 @@ Z80MCAsmInfoELF::Z80MCAsmInfoELF(const Triple &T) {
   AssemblerDialect = !Is16Bit;
   HasFunctionAlignment = false;
   ExceptionsType = ExceptionHandling::SjLj;
+  SupportsDebugInformation = SupportsCFI = true;
 
   if (Z80GasStyle) {
     Code16Directive = ".assume\tADL = 0";
@@ -88,7 +89,6 @@ Z80MCAsmInfoELF::Z80MCAsmInfoELF(const Triple &T) {
     WeakDirective = "\tweak\t";
     UseLogicalShr = false;
     HasSingleParameterDotFile = false;
-    SupportsDebugInformation = SupportsCFI = true;
     DwarfFileDirective = "\tfile\t";
     DwarfLocDirective = "\tloc\t";
     DwarfCFIDirectivePrefix = "\tcfi_";

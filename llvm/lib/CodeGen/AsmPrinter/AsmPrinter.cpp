@@ -2385,8 +2385,6 @@ bool AsmPrinter::doFinalization(Module &M) {
     }
   }
 
-  OutStreamer->finish();
-
   // Allow the target to emit any magic that it wants at the end of the file,
   // after everything else has gone out.
   emitEndOfAsmFile(M);
