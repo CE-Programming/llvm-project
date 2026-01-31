@@ -1747,36 +1747,96 @@ Z80LegalizerInfo::legalizeMergeValues(LegalizerHelper &Helper,
                                       MachineInstr &MI) const {
   // this handles G_MERGE_VALUES with s1 source operands
   // example: %dst:_(s8) = G_MERGE_VALUES %0:_(s1), %1:_(s1), ...
-  // theyre expanded  into zero extends, shifts, and ORs
-  //   %ext0 = G_ZEXT %0 -> s8
-  //   %ext1 = G_ZEXT %1 -> s8
-  //   %shl1 = G_SHL %ext1, 1
-  //   %or0 = G_OR %ext0, %shl1
+  // they're expanded into zero extends, shifts, and adds,
+  // in a way that minimizes the total number of bits shifted
+  //   %ext7 = G_ANYEXT %7 -> s8
+  //   %shl6 = G_SHL %ext7, 1
+  //   %ext6 = G_ZEXT %6 -> s8
+  //   %add6 = G_ADD %shl6, %ext6
+  //   %shl5 = G_SHL %add6, 1
   //   ... and so on
+  // any constant operands are skipped during this process and
+  // added at the end
   MachineIRBuilder &MIRBuilder = Helper.MIRBuilder;
   MachineRegisterInfo &MRI = *MIRBuilder.getMRI();
 
   Register DstReg = MI.getOperand(0).getReg();
   LLT DstTy = MRI.getType(DstReg);
 
-  // start with the first source, zero extended to dst type
-  Register Src0 = MI.getOperand(1).getReg();
-  Register Result = MIRBuilder.buildZExt(DstTy, Src0).getReg(0);
+  // iterate sources in reverse to propagate const/undef
+  bool AllUndef = true;
+  unsigned I, BitCount = MI.getNumOperands() - 1;
+  auto ConstantBits = APInt::getZero(BitCount);
+  for (I = BitCount; I > 0; I--) {
+    MachineOperand SrcOperand = MI.getOperand(I);
+    if (SrcOperand.isUndef())
+      continue;
+    if (auto ConstSrc =
+            getIConstantVRegValWithLookThrough(SrcOperand.getReg(), MRI)) {
+      AllUndef = false;
+      if (!ConstSrc->Value.isZero())
+        ConstantBits.setBit(I - 1);
+    } else {
+      break;
+    }
+  }
 
-  // for each subsequent source, zext it, shift it, and OR into result
-  for (unsigned I = 2, E = MI.getNumOperands(); I < E; ++I) {
+  MachineInstrBuilder Result;
+  if (I == 0) {
+    // if no non-constant register was found, set the result directly
+    if (AllUndef)
+      Result = MIRBuilder.buildUndef(DstTy);
+    else
+      Result = MIRBuilder.buildConstant(DstTy, ConstantBits);
+  } else {
+    // extend the highest non-constant register
     Register SrcReg = MI.getOperand(I).getReg();
-    unsigned ShiftAmt = I - 1;
+    if (AllUndef)
+      Result = MIRBuilder.buildAnyExt(DstTy, SrcReg);
+    else
+      Result = MIRBuilder.buildZExt(DstTy, SrcReg);
 
-    // zero extend the s1 to the destination type
-    auto ZExt = MIRBuilder.buildZExt(DstTy, SrcReg);
+    // for the remaining registers, shift the result left and add them in
+    // possible future improvement: fold to carry flag and rotate left
+    unsigned ShiftAmt = 0;
+    while (--I > 0) {
+      ShiftAmt++;
+      MachineOperand SrcOperand = MI.getOperand(I);
+      if (SrcOperand.isUndef())
+        continue;
+      Register SrcReg = SrcOperand.getReg();
+      if (auto ConstSrc = getIConstantVRegValWithLookThrough(SrcReg, MRI)) {
+        if (!ConstSrc->Value.isZero())
+          ConstantBits.setBit(I - 1);
+        continue;
+      }
 
-    // shift left by the bit position
-    auto ShiftCst = MIRBuilder.buildConstant(DstTy, ShiftAmt);
-    auto Shifted = MIRBuilder.buildShl(DstTy, ZExt, ShiftCst);
+      // shift left by the number of iterations since the last shift
+      auto ShiftCst = MIRBuilder.buildConstant(DstTy, ShiftAmt);
+      Result = MIRBuilder.buildShl(DstTy, Result, ShiftCst);
+      ShiftAmt = 0;
 
-    // OR into the accumulated result
-    Result = MIRBuilder.buildOr(DstTy, Result, Shifted).getReg(0);
+      // zero extend the s1 to the destination type
+      auto ZExt = MIRBuilder.buildZExt(DstTy, SrcReg);
+
+      // add into the accumulated result
+      Result = MIRBuilder.buildAdd(
+          DstTy, Result, ZExt, MachineInstr::NoUWrap | MachineInstr::NoSWrap);
+    }
+
+    // do any leftover shift
+    if (ShiftAmt) {
+      auto ShiftCst = MIRBuilder.buildConstant(DstTy, ShiftAmt);
+      Result = MIRBuilder.buildShl(DstTy, Result, ShiftCst);
+    }
+
+    // finally, combine with constant bits
+    if (!ConstantBits.isZero()) {
+      auto Constant = MIRBuilder.buildConstant(DstTy, ConstantBits);
+      Result =
+          MIRBuilder.buildAdd(DstTy, Result, Constant,
+                              MachineInstr::NoUWrap | MachineInstr::NoSWrap);
+    }
   }
 
   MIRBuilder.buildCopy(DstReg, Result);
