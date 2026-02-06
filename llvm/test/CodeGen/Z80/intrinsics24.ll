@@ -291,32 +291,29 @@ define i24 @fshl.i24(i24, i24, i24) {
 ; EZ80-NEXT:    push ix
 ; EZ80-NEXT:    ld ix, 0
 ; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld iy, (ix + 6)
-; EZ80-NEXT:    ld de, (ix + 12)
-; EZ80-NEXT:    ld bc, 23
-; EZ80-NEXT:    push de
-; EZ80-NEXT:    pop hl
-; EZ80-NEXT:    call __iand
+; EZ80-NEXT:    ld de, (ix + 6)
+; EZ80-NEXT:    ld hl, (ix + 12)
+; EZ80-NEXT:    ld iy, 23
+; EZ80-NEXT:    ld bc, 24
+; EZ80-NEXT:    call __iremu
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop bc
-; EZ80-NEXT:    lea hl, iy + 0
+; EZ80-NEXT:    ld a, iyl
+; EZ80-NEXT:    sub a, l
+; EZ80-NEXT:    ld iyl, a
+; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ; kill: def $c killed $c killed $ubc
 ; EZ80-NEXT:    call __ishl
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop iy
-; EZ80-NEXT:    or a, a
-; EZ80-NEXT:    sbc hl, hl
-; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:    ld bc, 23
-; EZ80-NEXT:    call __iand
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop bc
+; EZ80-NEXT:    pop de
+; EZ80-NEXT:    ld c, 1
 ; EZ80-NEXT:    ld hl, (ix + 9)
-; EZ80-NEXT:    ; kill: def $c killed $c killed $ubc
+; EZ80-NEXT:    call __ishru
+; EZ80-NEXT:    ld c, iyl
 ; EZ80-NEXT:    call __ishru
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop bc
-; EZ80-NEXT:    lea hl, iy + 0
+; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    call __ior
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
@@ -331,29 +328,24 @@ define i24 @fshr.i24(i24, i24, i24) {
 ; EZ80-NEXT:    push ix
 ; EZ80-NEXT:    ld ix, 0
 ; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld iy, (ix + 9)
-; EZ80-NEXT:    ld de, (ix + 12)
-; EZ80-NEXT:    ld bc, 23
-; EZ80-NEXT:    push de
-; EZ80-NEXT:    pop hl
-; EZ80-NEXT:    call __iand
+; EZ80-NEXT:    ld iy, (ix + 6)
+; EZ80-NEXT:    ld hl, (ix + 12)
+; EZ80-NEXT:    ld bc, 24
+; EZ80-NEXT:    call __iremu
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop bc
+; EZ80-NEXT:    pop de
+; EZ80-NEXT:    dec bc
+; EZ80-NEXT:    ld a, c
+; EZ80-NEXT:    sub a, l
+; EZ80-NEXT:    ld c, a
+; EZ80-NEXT:    add iy, iy
 ; EZ80-NEXT:    lea hl, iy + 0
-; EZ80-NEXT:    ; kill: def $c killed $c killed $ubc
-; EZ80-NEXT:    call __ishru
+; EZ80-NEXT:    call __ishl
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop iy
-; EZ80-NEXT:    or a, a
-; EZ80-NEXT:    sbc hl, hl
-; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:    ld bc, 23
-; EZ80-NEXT:    call __iand
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop bc
-; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ; kill: def $c killed $c killed $ubc
-; EZ80-NEXT:    call __ishl
+; EZ80-NEXT:    ld hl, (ix + 9)
+; EZ80-NEXT:    ld c, e
+; EZ80-NEXT:    call __ishru
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop bc
 ; EZ80-NEXT:    lea hl, iy + 0
