@@ -359,6 +359,9 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
   getActionDefinitionsBuilder(G_FCMP)
       .customForCartesianProduct({s1}, {s32, s64});
 
+  getActionDefinitionsBuilder(G_IS_FPCLASS)
+      .lowerForCartesianProduct({s1}, {s32, s64});
+
   getActionDefinitionsBuilder(G_BRCOND)
       .legalFor({s1});
       
@@ -924,13 +927,94 @@ Z80LegalizerInfo::legalizeFunnelShift(LegalizerHelper &Helper,
 
   LLT Ty = MRI.getType(DstReg);
   unsigned BW = Ty.getSizeInBits();
+  LLT ShTy = MRI.getType(AmtReg);
   // Amt & (BW - 1) is only equivalent to modulo when
-  // bw is a power of two. for i24/i48, defer to the generic lowering path so
-  // shift amounts are reduced correctly
+  // bw is a power of two
   if ((BW & (BW - 1)) != 0) {
-    if (Opc == G_ROTR || Opc == G_ROTL)
-      return Helper.lowerRotate(MI);
-    return Helper.lowerFunnelShift(MI);
+    Register ShAmtReg;
+    if (auto AmtC = getIConstantVRegValWithLookThrough(AmtReg, MRI)) {
+      ShAmtReg = MIRBuilder.buildConstant(ShTy, AmtC->Value.urem(BW)).getReg(0);
+    } else {
+      MachineInstr *AmtDef = MRI.getVRegDef(AmtReg);
+      if (!AmtDef) {
+        if (Opc == G_ROTR || Opc == G_ROTL)
+          return Helper.lowerRotate(MI);
+        return Helper.lowerFunnelShift(MI);
+      }
+      unsigned AmtOpc = AmtDef->getOpcode();
+      if (AmtOpc != G_UREM && AmtOpc != G_SREM) {
+        if (Opc == G_ROTR || Opc == G_ROTL)
+          return Helper.lowerRotate(MI);
+        return Helper.lowerFunnelShift(MI);
+      }
+
+      auto DivC = getIConstantVRegValWithLookThrough(AmtDef->getOperand(2).getReg(),
+                                                     MRI);
+      if (!DivC || DivC->Value != BW) {
+        if (Opc == G_ROTR || Opc == G_ROTL)
+          return Helper.lowerRotate(MI);
+        return Helper.lowerFunnelShift(MI);
+      }
+
+      if (AmtOpc == G_UREM) {
+        ShAmtReg = AmtReg;
+      } else {
+        auto Zero = MIRBuilder.buildConstant(ShTy, 0);
+        auto BWConst = MIRBuilder.buildConstant(ShTy, BW);
+        auto IsNeg =
+            MIRBuilder.buildICmp(CmpInst::ICMP_SLT, LLT::scalar(1), AmtReg, Zero);
+        auto AddBW = MIRBuilder.buildAdd(ShTy, AmtReg, BWConst);
+        ShAmtReg = MIRBuilder.buildSelect(ShTy, IsNeg, AddBW, AmtReg).getReg(0);
+      }
+    }
+
+    bool IsFSHL = Opc == G_FSHL || Opc == G_ROTL;
+    Register XReg = MI.getOperand(1).getReg();
+    Register YReg = MI.getOperand(MI.getNumExplicitOperands() - 2).getReg();
+
+    if (auto ShAmtC = getIConstantVRegValWithLookThrough(ShAmtReg, MRI)) {
+      unsigned C = ShAmtC->Value.urem(BW);
+      if (C == 0) {
+        MIRBuilder.buildCopy(DstReg, IsFSHL ? XReg : YReg);
+        MI.eraseFromParent();
+        return LegalizerHelper::Legalized;
+      }
+
+      auto ShC = MIRBuilder.buildConstant(ShTy, C);
+      auto InvShC = MIRBuilder.buildConstant(ShTy, BW - C);
+      Register ShXReg, ShYReg;
+      if (IsFSHL) {
+        ShXReg = MIRBuilder.buildShl(Ty, XReg, ShC).getReg(0);
+        ShYReg = MIRBuilder.buildLShr(Ty, YReg, InvShC).getReg(0);
+      } else {
+        ShXReg = MIRBuilder.buildShl(Ty, XReg, InvShC).getReg(0);
+        ShYReg = MIRBuilder.buildLShr(Ty, YReg, ShC).getReg(0);
+      }
+      MIRBuilder.buildOr(DstReg, ShXReg, ShYReg);
+      MI.eraseFromParent();
+      return LegalizerHelper::Legalized;
+    }
+
+    // fshl: (X << C) | (Y >> 1 >> ((BW - 1) - C))
+    // fshr: (X << 1 << ((BW - 1) - C)) | (Y >> C)
+    auto BWMinus1 = MIRBuilder.buildConstant(ShTy, BW - 1);
+    auto InvShAmtReg = MIRBuilder.buildSub(ShTy, BWMinus1, ShAmtReg);
+    auto One = MIRBuilder.buildConstant(ShTy, 1);
+
+    Register ShXReg, ShYReg;
+    if (IsFSHL) {
+      ShXReg = MIRBuilder.buildShl(Ty, XReg, ShAmtReg).getReg(0);
+      auto ShY1Reg = MIRBuilder.buildLShr(Ty, YReg, One);
+      ShYReg = MIRBuilder.buildLShr(Ty, ShY1Reg, InvShAmtReg).getReg(0);
+    } else {
+      auto ShX1Reg = MIRBuilder.buildShl(Ty, XReg, One);
+      ShXReg = MIRBuilder.buildShl(Ty, ShX1Reg, InvShAmtReg).getReg(0);
+      ShYReg = MIRBuilder.buildLShr(Ty, YReg, ShAmtReg).getReg(0);
+    }
+
+    MIRBuilder.buildOr(DstReg, ShXReg, ShYReg);
+    MI.eraseFromParent();
+    return LegalizerHelper::Legalized;
   }
   if (Ty == LLT::scalar(8))
     if (auto Amt = getIConstantVRegValWithLookThrough(AmtReg, MRI))
