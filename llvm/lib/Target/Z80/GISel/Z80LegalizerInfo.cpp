@@ -923,6 +923,15 @@ Z80LegalizerInfo::legalizeFunnelShift(LegalizerHelper &Helper,
   Register AmtReg = MI.getOperand(MI.getNumExplicitOperands() - 1).getReg();
 
   LLT Ty = MRI.getType(DstReg);
+  unsigned BW = Ty.getSizeInBits();
+  // Amt & (BW - 1) is only equivalent to modulo when
+  // bw is a power of two. for i24/i48, defer to the generic lowering path so
+  // shift amounts are reduced correctly
+  if ((BW & (BW - 1)) != 0) {
+    if (Opc == G_ROTR || Opc == G_ROTL)
+      return Helper.lowerRotate(MI);
+    return Helper.lowerFunnelShift(MI);
+  }
   if (Ty == LLT::scalar(8))
     if (auto Amt = getIConstantVRegValWithLookThrough(AmtReg, MRI))
       return LegalizerHelper::AlreadyLegal;
