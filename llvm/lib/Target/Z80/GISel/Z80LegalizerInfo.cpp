@@ -328,9 +328,9 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
 
   getActionDefinitionsBuilder(G_FCOPYSIGN).libcallFor({{s32, s32}, {s64, s64}});
 
-  getActionDefinitionsBuilder(G_FFREXP).customFor({{s32, s24}});
+  getActionDefinitionsBuilder(G_FFREXP).customFor({{s32, s24}, {s64, s24}});
 
-  getActionDefinitionsBuilder(G_FLDEXP).customFor({{s32, s24}});
+  getActionDefinitionsBuilder(G_FLDEXP).customFor({{s32, s24}, {s64, s24}});
 
   getActionDefinitionsBuilder({G_LOAD, G_STORE})
       .legalForCartesianProduct(LegalTypes, {p[0]})
@@ -1441,11 +1441,21 @@ Z80LegalizerInfo::legalizeFFrexp(LegalizerHelper &Helper,
 
   LLT MantTy = MRI.getType(DstMantReg);
   LLT ExpTy = MRI.getType(DstExpReg);
-  if (MantTy != LLT::scalar(32) || ExpTy != LLT::scalar(24))
+  if (ExpTy != LLT::scalar(24))
     return LegalizerHelper::UnableToLegalize;
 
   LLVMContext &Ctx = MIRBuilder.getMF().getFunction().getContext();
-  Type *MantIRTy = Type::getFloatTy(Ctx);
+  Type *MantIRTy = nullptr;
+  RTLIB::Libcall Libcall;
+  if (MantTy == LLT::scalar(32)) {
+    MantIRTy = Type::getFloatTy(Ctx);
+    Libcall = RTLIB::FREXP_F32;
+  } else if (MantTy == LLT::scalar(64)) {
+    MantIRTy = Type::getDoubleTy(Ctx);
+    Libcall = RTLIB::FREXP_F64;
+  } else {
+    return LegalizerHelper::UnableToLegalize;
+  }
   Type *PtrIRTy = PointerType::get(Ctx, 0);
 
   MachineFunction &MF = MIRBuilder.getMF();
@@ -1457,9 +1467,9 @@ Z80LegalizerInfo::legalizeFFrexp(LegalizerHelper &Helper,
           .buildFrameIndex(LLT::pointer(0, TM.getPointerSizeInBits(0)), ExpFI)
           .getReg(0);
 
-  auto CallResult = createLibcall(
-      MIRBuilder, RTLIB::FREXP_F32, {DstMantReg, MantIRTy, 0},
-      {{SrcReg, MantIRTy, 0}, {ExpAddr, PtrIRTy, 1}});
+  auto CallResult =
+      createLibcall(MIRBuilder, Libcall, {DstMantReg, MantIRTy, 0},
+                    {{SrcReg, MantIRTy, 0}, {ExpAddr, PtrIRTy, 1}});
   if (CallResult != LegalizerHelper::Legalized)
     return CallResult;
 
@@ -1485,16 +1495,26 @@ Z80LegalizerInfo::legalizeFLdexp(LegalizerHelper &Helper,
 
   LLT DstTy = MRI.getType(DstReg);
   LLT ExpTy = MRI.getType(ExpReg);
-  if (DstTy != LLT::scalar(32) || ExpTy != LLT::scalar(24))
+  if (ExpTy != LLT::scalar(24))
     return LegalizerHelper::UnableToLegalize;
 
   LLVMContext &Ctx = MIRBuilder.getMF().getFunction().getContext();
-  Type *FloatTy = Type::getFloatTy(Ctx);
+  Type *FloatTy = nullptr;
+  RTLIB::Libcall Libcall;
+  if (DstTy == LLT::scalar(32)) {
+    FloatTy = Type::getFloatTy(Ctx);
+    Libcall = RTLIB::LDEXP_F32;
+  } else if (DstTy == LLT::scalar(64)) {
+    FloatTy = Type::getDoubleTy(Ctx);
+    Libcall = RTLIB::LDEXP_F64;
+  } else {
+    return LegalizerHelper::UnableToLegalize;
+  }
   Type *ExpIRTy = IntegerType::get(Ctx, 24);
 
-  auto CallResult = createLibcall(
-      MIRBuilder, RTLIB::LDEXP_F32, {DstReg, FloatTy, 0},
-      {{SrcReg, FloatTy, 0}, {ExpReg, ExpIRTy, 1}});
+  auto CallResult =
+      createLibcall(MIRBuilder, Libcall, {DstReg, FloatTy, 0},
+                    {{SrcReg, FloatTy, 0}, {ExpReg, ExpIRTy, 1}});
   if (CallResult != LegalizerHelper::Legalized)
     return CallResult;
 
