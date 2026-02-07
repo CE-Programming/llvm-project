@@ -1813,28 +1813,56 @@ bool Z80InstructionSelector::selectExtract(MachineInstr &I,
     I.setDesc(TII.get(TargetOpcode::EXTRACT_SUBREG));
     I.getOperand(2).setImm(SubIdx);
   } else if (Offset % 8 == 0) {
+    Register WideDstReg = DstReg;
+    const TargetRegisterClass *WideDstRC = DstRC;
+    Register WideSrcReg = SrcReg;
+    const TargetRegisterClass *WideSrcRC = SrcRC;
     unsigned Opc;
     MachineIRBuilder MIB(I);
     int FI = MF.getFrameInfo().CreateStackObject(
         TRI.getSpillSize(*SrcRC), TRI.getSpillAlign(*SrcRC), false);
-    if (SrcRC == &Z80::R8RegClass)
+    if (STI.is24Bit() && SrcRC == &Z80::R16RegClass) {
+      WideSrcRC = &Z80::R24RegClass;
+      if (SrcReg.isPhysical())
+        WideSrcReg = TRI.getMatchingSuperReg(SrcReg, Z80::sub_short,
+                                             WideSrcRC);
+      else
+        WideSrcReg = createGenericVirtualRegister(MRI, LLT::scalar(24));
+      if (!select(*MIB.buildAnyExt(WideSrcReg, SrcReg)) ||
+          !RBI.constrainGenericRegister(WideSrcReg, *WideSrcRC, MRI))
+        return false;
+    }
+    if (WideSrcRC == &Z80::R8RegClass)
       Opc = Z80::LD8or;
-    else if (SrcRC == &Z80::R16RegClass)
-      Opc = Z80::LD16or;
-    else if (SrcRC == &Z80::R24RegClass)
+    else if (WideSrcRC == &Z80::R16RegClass)
+      Opc = STI.has16BitEZ80Ops() ? Z80::LD16or : Z80::LD88or;
+    else if (WideSrcRC == &Z80::R24RegClass)
       Opc = Z80::LD24or;
     else
       return false;
-    MIB.buildInstr(Opc).addFrameIndex(FI).addImm(0).addReg(SrcReg);
-    if (DstRC == &Z80::R8RegClass)
+    MIB.buildInstr(Opc).addFrameIndex(FI).addImm(0).addReg(WideSrcReg);
+    if (STI.is24Bit() && DstRC == &Z80::R16RegClass) {
+      WideDstRC = &Z80::R24RegClass;
+      if (DstReg.isPhysical())
+        WideDstReg = TRI.getMatchingSuperReg(DstReg, Z80::sub_short,
+                                             WideDstRC);
+      else
+        WideDstReg = createGenericVirtualRegister(MRI, LLT::scalar(24));
+    }
+    if (WideDstRC == &Z80::R8RegClass)
       Opc = Z80::LD8ro;
-    else if (DstRC == &Z80::R16RegClass)
-      Opc = Z80::LD16ro;
-    else if (DstRC == &Z80::R24RegClass)
+    else if (WideDstRC == &Z80::R16RegClass)
+      Opc = STI.has16BitEZ80Ops() ? Z80::LD16ro : Z80::LD88ro;
+    else if (WideDstRC == &Z80::R24RegClass)
       Opc = Z80::LD24ro;
     else
       return false;
-    MIB.buildInstr(Opc, {DstReg}, {}).addFrameIndex(FI).addImm(Offset / 8);
+    MIB.buildInstr(Opc, {WideDstReg}, {}).addFrameIndex(FI).addImm(Offset / 8);
+    if (WideDstReg != DstReg) {
+      if (!select(*MIB.buildTrunc(DstReg, WideDstReg)) ||
+          !RBI.constrainGenericRegister(WideDstReg, *WideDstRC, MRI))
+        return false;
+    }
     I.eraseFromParent();
   } else
     return false;
@@ -2016,37 +2044,65 @@ bool Z80InstructionSelector::selectInsert(MachineInstr &I,
     I.tieOperands(0, 1);
     I.getOperand(3).setImm(SubIdx);
   } else if (Offset % 8 == 0) {
+    Register WideDstReg = DstReg;
+    const TargetRegisterClass *WideDstRC = DstRC;
+    Register WideSrcReg = SrcReg;
+    const TargetRegisterClass *WideSrcRC = SrcRC;
     unsigned Opc;
     MachineIRBuilder MIB(I);
     int FI = MF.getFrameInfo().CreateStackObject(
         TRI.getSpillSize(*SrcRC), TRI.getSpillAlign(*SrcRC), false);
-    if (SrcRC == &Z80::R8RegClass)
+    if (STI.is24Bit() && SrcRC == &Z80::R16RegClass) {
+      WideSrcRC = &Z80::R24RegClass;
+      if (SrcReg.isPhysical())
+        WideSrcReg = TRI.getMatchingSuperReg(SrcReg, Z80::sub_short,
+                                             WideSrcRC);
+      else
+        WideSrcReg = createGenericVirtualRegister(MRI, LLT::scalar(24));
+      if (!select(*MIB.buildAnyExt(WideSrcReg, SrcReg)) ||
+          !RBI.constrainGenericRegister(WideSrcReg, *WideSrcRC, MRI))
+        return false;
+    }
+    if (WideSrcRC == &Z80::R8RegClass)
       Opc = Z80::LD8or;
-    else if (SrcRC == &Z80::R16RegClass)
-      Opc = Z80::LD16or;
-    else if (SrcRC == &Z80::R24RegClass)
+    else if (WideSrcRC == &Z80::R16RegClass)
+      Opc = STI.has16BitEZ80Ops() ? Z80::LD16or : Z80::LD88or;
+    else if (WideSrcRC == &Z80::R24RegClass)
       Opc = Z80::LD24or;
     else
       return false;
-    MIB.buildInstr(Opc).addFrameIndex(FI).addImm(0).addReg(SrcReg);
+    MIB.buildInstr(Opc).addFrameIndex(FI).addImm(0).addReg(WideSrcReg);
     if (InsertRC == &Z80::R8RegClass)
       Opc = Z80::LD8or;
     else if (InsertRC == &Z80::R16RegClass)
-      Opc = Z80::LD16or;
+      Opc = STI.has16BitEZ80Ops() ? Z80::LD16or : Z80::LD88or;
     else if (InsertRC == &Z80::R24RegClass)
       Opc = Z80::LD24or;
     else
       return false;
     MIB.buildInstr(Opc).addFrameIndex(FI).addImm(Offset / 8).addReg(InsertReg);
-    if (DstRC == &Z80::R8RegClass)
+    if (STI.is24Bit() && DstRC == &Z80::R16RegClass) {
+      WideDstRC = &Z80::R24RegClass;
+      if (DstReg.isPhysical())
+        WideDstReg = TRI.getMatchingSuperReg(DstReg, Z80::sub_short,
+                                             WideDstRC);
+      else
+        WideDstReg = createGenericVirtualRegister(MRI, LLT::scalar(24));
+    }
+    if (WideDstRC == &Z80::R8RegClass)
       Opc = Z80::LD8ro;
-    else if (DstRC == &Z80::R16RegClass)
-      Opc = Z80::LD16ro;
-    else if (DstRC == &Z80::R24RegClass)
+    else if (WideDstRC == &Z80::R16RegClass)
+      Opc = STI.has16BitEZ80Ops() ? Z80::LD16ro : Z80::LD88ro;
+    else if (WideDstRC == &Z80::R24RegClass)
       Opc = Z80::LD24ro;
     else
       return false;
-    MIB.buildInstr(Opc, {DstReg}, {}).addFrameIndex(FI).addImm(0);
+    MIB.buildInstr(Opc, {WideDstReg}, {}).addFrameIndex(FI).addImm(0);
+    if (WideDstReg != DstReg) {
+      if (!select(*MIB.buildTrunc(DstReg, WideDstReg)) ||
+          !RBI.constrainGenericRegister(WideDstReg, *WideDstRC, MRI))
+        return false;
+    }
     I.eraseFromParent();
   } else
     return false;
