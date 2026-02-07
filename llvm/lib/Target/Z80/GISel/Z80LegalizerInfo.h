@@ -72,6 +72,10 @@ private:
   legalizeMultiplyWithOverflow(LegalizerHelper &Helper, MachineInstr &MI) const;
   LegalizerHelper::LegalizeResult legalizeFCanonicalize(LegalizerHelper &Helper,
                                                         MachineInstr &MI) const;
+  LegalizerHelper::LegalizeResult legalizeFFrexp(LegalizerHelper &Helper,
+                                                 MachineInstr &MI) const;
+  LegalizerHelper::LegalizeResult legalizeFLdexp(LegalizerHelper &Helper,
+                                                 MachineInstr &MI) const;
   LegalizerHelper::LegalizeResult legalizeCtz(LegalizerHelper &Helper,
                                               MachineInstr &MI) const;
   LegalizerHelper::LegalizeResult

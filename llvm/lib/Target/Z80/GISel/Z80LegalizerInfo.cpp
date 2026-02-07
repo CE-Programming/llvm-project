@@ -328,6 +328,10 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
 
   getActionDefinitionsBuilder(G_FCOPYSIGN).libcallFor({{s32, s32}, {s64, s64}});
 
+  getActionDefinitionsBuilder(G_FFREXP).customFor({{s32, s24}});
+
+  getActionDefinitionsBuilder(G_FLDEXP).customFor({{s32, s24}});
+
   getActionDefinitionsBuilder({G_LOAD, G_STORE})
       .legalForCartesianProduct(LegalTypes, {p[0]})
       .legalForCartesianProduct(LegalTypesOther, {p[1]})
@@ -459,6 +463,10 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeCustomMaybeLegal(
     return legalizeFixedDivide(Helper, MI);
   case G_FCANONICALIZE:
     return legalizeFCanonicalize(Helper, MI);
+  case G_FFREXP:
+    return legalizeFFrexp(Helper, MI);
+  case G_FLDEXP:
+    return legalizeFLdexp(Helper, MI);
   case G_CTLZ:
   case G_CTTZ:
     return legalizeCtz(Helper, MI);
@@ -1417,6 +1425,80 @@ Z80LegalizerInfo::legalizeFCanonicalize(LegalizerHelper &Helper,
   Helper.Observer.changingInstr(MI);
   MI.setDesc(Helper.MIRBuilder.getTII().get(COPY));
   Helper.Observer.changedInstr(MI);
+  return LegalizerHelper::Legalized;
+}
+
+LegalizerHelper::LegalizeResult
+Z80LegalizerInfo::legalizeFFrexp(LegalizerHelper &Helper,
+                                 MachineInstr &MI) const {
+  assert(MI.getOpcode() == G_FFREXP && "Unexpected opcode");
+  MachineIRBuilder &MIRBuilder = Helper.MIRBuilder;
+  MachineRegisterInfo &MRI = *MIRBuilder.getMRI();
+
+  Register DstMantReg = MI.getOperand(0).getReg();
+  Register DstExpReg = MI.getOperand(1).getReg();
+  Register SrcReg = MI.getOperand(2).getReg();
+
+  LLT MantTy = MRI.getType(DstMantReg);
+  LLT ExpTy = MRI.getType(DstExpReg);
+  if (MantTy != LLT::scalar(32) || ExpTy != LLT::scalar(24))
+    return LegalizerHelper::UnableToLegalize;
+
+  LLVMContext &Ctx = MIRBuilder.getMF().getFunction().getContext();
+  Type *MantIRTy = Type::getFloatTy(Ctx);
+  Type *PtrIRTy = PointerType::get(Ctx, 0);
+
+  MachineFunction &MF = MIRBuilder.getMF();
+  MachineFrameInfo &MFI = MF.getFrameInfo();
+  int ExpFI = MFI.CreateStackObject(/*Size=*/3, Align(1),
+                                    /*IsSpillSlot=*/false);
+  Register ExpAddr =
+      MIRBuilder
+          .buildFrameIndex(LLT::pointer(0, TM.getPointerSizeInBits(0)), ExpFI)
+          .getReg(0);
+
+  auto CallResult = createLibcall(
+      MIRBuilder, RTLIB::FREXP_F32, {DstMantReg, MantIRTy, 0},
+      {{SrcReg, MantIRTy, 0}, {ExpAddr, PtrIRTy, 1}});
+  if (CallResult != LegalizerHelper::Legalized)
+    return CallResult;
+
+  MachinePointerInfo MPO = MachinePointerInfo::getFixedStack(MF, ExpFI);
+  auto *MMO = MF.getMachineMemOperand(MPO, MachineMemOperand::MOLoad, 3,
+                                      Align(1));
+  MIRBuilder.buildLoad(DstExpReg, ExpAddr, *MMO);
+
+  MI.eraseFromParent();
+  return LegalizerHelper::Legalized;
+}
+
+LegalizerHelper::LegalizeResult
+Z80LegalizerInfo::legalizeFLdexp(LegalizerHelper &Helper,
+                                 MachineInstr &MI) const {
+  assert(MI.getOpcode() == G_FLDEXP && "Unexpected opcode");
+  MachineIRBuilder &MIRBuilder = Helper.MIRBuilder;
+  MachineRegisterInfo &MRI = *MIRBuilder.getMRI();
+
+  Register DstReg = MI.getOperand(0).getReg();
+  Register SrcReg = MI.getOperand(1).getReg();
+  Register ExpReg = MI.getOperand(2).getReg();
+
+  LLT DstTy = MRI.getType(DstReg);
+  LLT ExpTy = MRI.getType(ExpReg);
+  if (DstTy != LLT::scalar(32) || ExpTy != LLT::scalar(24))
+    return LegalizerHelper::UnableToLegalize;
+
+  LLVMContext &Ctx = MIRBuilder.getMF().getFunction().getContext();
+  Type *FloatTy = Type::getFloatTy(Ctx);
+  Type *ExpIRTy = IntegerType::get(Ctx, 24);
+
+  auto CallResult = createLibcall(
+      MIRBuilder, RTLIB::LDEXP_F32, {DstReg, FloatTy, 0},
+      {{SrcReg, FloatTy, 0}, {ExpReg, ExpIRTy, 1}});
+  if (CallResult != LegalizerHelper::Legalized)
+    return CallResult;
+
+  MI.eraseFromParent();
   return LegalizerHelper::Legalized;
 }
 
