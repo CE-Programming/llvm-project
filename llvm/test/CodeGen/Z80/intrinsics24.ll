@@ -364,7 +364,7 @@ define i1 @sadd.with.overflow.i24(i24, i24) {
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
 ; EZ80-NEXT:    ld de, (iy + 6)
-; EZ80-NEXT:    add hl, de
+; EZ80-NEXT:    adc hl, de
 ; EZ80-NEXT:    jp pe, BB15_2
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld a, 0
@@ -436,30 +436,31 @@ declare i24 @llvm.sadd.sat.i24(i24, i24)
 define i24 @sadd.sat.i24(i24, i24) {
 ; EZ80-LABEL: sadd.sat.i24:
 ; EZ80:       ; %bb.0:
-; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld ix, 0
-; EZ80-NEXT:    add ix, sp
+; EZ80-NEXT:    ld iy, 0
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 3)
+; EZ80-NEXT:    ld de, (iy + 6)
+; EZ80-NEXT:    adc hl, de
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    ld iy, (ix + 6)
-; EZ80-NEXT:    ld de, (ix + 9)
-; EZ80-NEXT:    ld (ix - 3), iy
-; EZ80-NEXT:    add iy, de
-; EZ80-NEXT:    lea de, iy + 0
+; EZ80-NEXT:    pop de
+; EZ80-NEXT:    jp pe, BB19_2
+; EZ80-NEXT:  ; %bb.1:
+; EZ80-NEXT:    ld a, 0
+; EZ80-NEXT:    jr BB19_3
+; EZ80-NEXT:  BB19_2:
+; EZ80-NEXT:    ld a, -1
+; EZ80-NEXT:  BB19_3:
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    pop hl
 ; EZ80-NEXT:    add hl, hl
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ld bc, -8388608
 ; EZ80-NEXT:    add hl, bc
-; EZ80-NEXT:    ld iy, (ix - 3)
-; EZ80-NEXT:    ld bc, (ix + 9)
-; EZ80-NEXT:    add iy, bc
-; EZ80-NEXT:    jp pe, BB19_2
-; EZ80-NEXT:  ; %bb.1:
+; EZ80-NEXT:    bit 0, a
+; EZ80-NEXT:    jr nz, BB19_5
+; EZ80-NEXT:  ; %bb.4:
 ; EZ80-NEXT:    ex de, hl
-; EZ80-NEXT:  BB19_2:
-; EZ80-NEXT:    ld sp, ix
-; EZ80-NEXT:    pop ix
+; EZ80-NEXT:  BB19_5:
 ; EZ80-NEXT:    ret
   call i24 @llvm.sadd.sat.i24(i24 %0, i24 %1)
   ret i24 %3
@@ -473,16 +474,14 @@ define i24 @uadd.sat.i24(i24, i24) {
 ; EZ80-NEXT:    ld ix, 0
 ; EZ80-NEXT:    add ix, sp
 ; EZ80-NEXT:    ld iy, (ix + 6)
-; EZ80-NEXT:    ld bc, (ix + 9)
-; EZ80-NEXT:    lea hl, iy + 0
-; EZ80-NEXT:    add hl, bc
-; EZ80-NEXT:    ld de, -1
-; EZ80-NEXT:    add iy, bc
+; EZ80-NEXT:    ld de, (ix + 9)
+; EZ80-NEXT:    scf
+; EZ80-NEXT:    sbc hl, hl
+; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    jr c, BB20_2
 ; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    ex de, hl
+; EZ80-NEXT:    lea hl, iy + 0
 ; EZ80-NEXT:  BB20_2:
-; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   call i24 @llvm.uadd.sat.i24(i24 %0, i24 %1)
@@ -493,31 +492,31 @@ declare i24 @llvm.ssub.sat.i24(i24, i24)
 define i24 @ssub.sat.i24(i24, i24) {
 ; EZ80-LABEL: ssub.sat.i24:
 ; EZ80:       ; %bb.0:
-; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld ix, 0
-; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld de, (ix + 9)
+; EZ80-NEXT:    ld iy, 0
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 3)
+; EZ80-NEXT:    ld de, (iy + 6)
 ; EZ80-NEXT:    sbc hl, de
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop bc
-; EZ80-NEXT:    add hl, hl
-; EZ80-NEXT:    sbc hl, hl
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop iy
-; EZ80-NEXT:    ld de, -8388608
-; EZ80-NEXT:    add iy, de
-; EZ80-NEXT:    or a, a
-; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld de, (ix + 9)
-; EZ80-NEXT:    sbc hl, de
+; EZ80-NEXT:    pop de
 ; EZ80-NEXT:    jp pe, BB21_2
 ; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    push bc
-; EZ80-NEXT:    pop iy
+; EZ80-NEXT:    ld a, 0
+; EZ80-NEXT:    jr BB21_3
 ; EZ80-NEXT:  BB21_2:
-; EZ80-NEXT:    lea hl, iy + 0
-; EZ80-NEXT:    pop ix
+; EZ80-NEXT:    ld a, -1
+; EZ80-NEXT:  BB21_3:
+; EZ80-NEXT:    push de
+; EZ80-NEXT:    pop hl
+; EZ80-NEXT:    add hl, hl
+; EZ80-NEXT:    sbc hl, hl
+; EZ80-NEXT:    ld bc, -8388608
+; EZ80-NEXT:    add hl, bc
+; EZ80-NEXT:    bit 0, a
+; EZ80-NEXT:    jr nz, BB21_5
+; EZ80-NEXT:  ; %bb.4:
+; EZ80-NEXT:    ex de, hl
+; EZ80-NEXT:  BB21_5:
 ; EZ80-NEXT:    ret
   call i24 @llvm.ssub.sat.i24(i24 %0, i24 %1)
   ret i24 %3
@@ -527,27 +526,18 @@ declare i24 @llvm.usub.sat.i24(i24, i24)
 define i24 @usub.sat.i24(i24, i24) {
 ; EZ80-LABEL: usub.sat.i24:
 ; EZ80:       ; %bb.0:
-; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld ix, 0
-; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    ld iy, (ix + 6)
-; EZ80-NEXT:    ld de, (ix + 9)
-; EZ80-NEXT:    lea hl, iy + 0
-; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:    ld (ix - 3), hl
+; EZ80-NEXT:    ld iy, 0
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 3)
+; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    ld de, 0
 ; EZ80-NEXT:    or a, a
-; EZ80-NEXT:    lea hl, iy + 0
-; EZ80-NEXT:    ld bc, (ix + 9)
 ; EZ80-NEXT:    sbc hl, bc
 ; EZ80-NEXT:    jr c, BB22_2
 ; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    ld de, (ix - 3)
+; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:  BB22_2:
 ; EZ80-NEXT:    ex de, hl
-; EZ80-NEXT:    ld sp, ix
-; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   call i24 @llvm.usub.sat.i24(i24 %0, i24 %1)
   ret i24 %3
