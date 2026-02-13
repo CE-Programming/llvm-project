@@ -2051,6 +2051,9 @@ bool IRTranslator::translateKnownIntrinsic(const CallInst &CI, Intrinsic::ID ID,
                                                 ListSize, Align(1)));
     return true;
   }
+  // Z80-FORK: We don't want to generate any debug info for dbg.value or dbg_assign, backported-ish from v19
+  case Intrinsic::dbg_assign:
+    [[fallthrough]];
   case Intrinsic::dbg_value: {
     // This form of DBG_VALUE is target-independent.
     const DbgValueInst &DI = cast<DbgValueInst>(CI);

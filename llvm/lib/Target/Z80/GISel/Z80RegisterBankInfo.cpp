@@ -130,7 +130,7 @@ Z80RegisterBankInfo::getRegBankFromRegClass(const TargetRegisterClass &RC,
   unsigned NumOperands = MI.getNumOperands();
 	  for (unsigned Idx = 0; Idx < NumOperands; ++Idx) {
 	    auto &MO = MI.getOperand(Idx);
-	    if (!MO.isReg())
+	    if (!MO.isReg() || !MO.getReg())
 	      OpRegBankIdx[Idx] = PMI_None;
 	    else
 	      OpRegBankIdx[Idx] =
@@ -146,6 +146,8 @@ Z80RegisterBankInfo::getRegBankFromRegClass(const TargetRegisterClass &RC,
   unsigned NumOperands = MI.getNumOperands();
   for (unsigned Idx = 0; Idx < NumOperands; ++Idx) {
     if (!MI.getOperand(Idx).isReg())
+      continue;
+    if (!MI.getOperand(Idx).getReg())
       continue;
 
     auto Mapping = getValueMapping(OpRegBankIdx[Idx], 1);
