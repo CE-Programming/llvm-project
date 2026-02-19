@@ -191,6 +191,13 @@ class Z80MachineLateOptimization : public MachineFunctionPass {
     return MO.isReg() && isKnownSpecificImm(MO.getReg(), Val);
   }
 
+  // fold recurring indexed counter idioms emitted after RA
+  // 1. LD8ro + INC8r/DEC8r + LD8or -> INC8o/DEC8o
+  // 2. forward an indexed byte load from a compare predecessor into a
+  //    successor reload via COPY, when both access the same stack slot
+  bool foldIndexedCounterPeepholes(MachineFunction &MF,
+                                   const TargetInstrInfo &TII);
+
   void debug(const MachineInstr &MI);
 
   std::tuple<uint8_t, uint8_t, MCRegister, RegVal>
@@ -447,11 +454,300 @@ Z80MachineLateOptimization::getKnownFlags(const MachineInstr &MI,
   return {};
 }
 
+bool Z80MachineLateOptimization::foldIndexedCounterPeepholes(
+    MachineFunction &MF, const TargetInstrInfo &TII) {
+  bool Changed = false;
+
+  auto sameIndexedOff = [](const MachineInstr &LoadMI,
+                           const MachineInstr &StoreMI) {
+    return LoadMI.getOperand(1).isReg() && StoreMI.getOperand(0).isReg() &&
+           LoadMI.getOperand(1).getReg() == StoreMI.getOperand(0).getReg() &&
+           LoadMI.getOperand(2).isImm() && StoreMI.getOperand(1).isImm() &&
+           LoadMI.getOperand(2).getImm() == StoreMI.getOperand(1).getImm();
+  };
+
+  for (MachineBasicBlock &MBB : MF) {
+    for (MachineBasicBlock::iterator I = MBB.begin(), E = MBB.end(); I != E;) {
+      if (I->isDebugInstr()) {
+        ++I;
+        continue;
+      }
+      MachineInstr &LoadMI = *I;
+      bool Is8BitReload = LoadMI.getOpcode() == Z80::LD8ro;
+      bool IsWideReload = LoadMI.getOpcode() == Z80::LD88ro ||
+                          LoadMI.getOpcode() == Z80::LD16ro ||
+                          LoadMI.getOpcode() == Z80::LD24ro;
+      if (!Is8BitReload && !IsWideReload) {
+        ++I;
+        continue;
+      }
+
+      MachineBasicBlock::iterator IncI = std::next(I);
+      while (IncI != E && IncI->isDebugInstr())
+        ++IncI;
+      if (IncI == E) {
+        ++I;
+        continue;
+      }
+      MachineInstr &IncMI = *IncI;
+      unsigned NewOpc = Z80::INSTRUCTION_LIST_END;
+      if (IncMI.getOpcode() == Z80::INC8r)
+        NewOpc = Z80::INC8o;
+      else if (IncMI.getOpcode() == Z80::DEC8r)
+        NewOpc = Z80::DEC8o;
+      else {
+        ++I;
+        continue;
+      }
+
+      MachineBasicBlock::iterator StoreI = std::next(IncI);
+      while (StoreI != E && StoreI->isDebugInstr())
+        ++StoreI;
+      if (StoreI == E) {
+        ++I;
+        continue;
+      }
+      MachineInstr &StoreMI = *StoreI;
+      if (!LoadMI.getOperand(0).isReg() || !IncMI.getOperand(0).isReg() ||
+          !sameIndexedOff(LoadMI, StoreMI)) {
+        ++I;
+        continue;
+      }
+
+      bool IsMatching8BitStore =
+          Is8BitReload && StoreMI.getOpcode() == Z80::LD8or &&
+          StoreMI.getOperand(2).isReg() && StoreMI.getOperand(2).isKill() &&
+          StoreMI.getOperand(2).getReg() == LoadMI.getOperand(0).getReg() &&
+          StoreMI.getOperand(2).getReg() == IncMI.getOperand(0).getReg();
+      bool IsMatchingWideStore =
+          IsWideReload &&
+          (StoreMI.getOpcode() == Z80::LD88or || StoreMI.getOpcode() == Z80::LD16or ||
+           StoreMI.getOpcode() == Z80::LD24or) &&
+          StoreMI.getOperand(2).isReg() && StoreMI.getOperand(2).isKill() &&
+          (LoadMI.getOperand(0).getReg() == Z80::HL ||
+           LoadMI.getOperand(0).getReg() == Z80::UHL) &&
+          StoreMI.getOperand(2).getReg() == LoadMI.getOperand(0).getReg() &&
+          IncMI.getOperand(0).getReg() == Z80::L;
+      if (!IsMatching8BitStore && !IsMatchingWideStore) {
+        ++I;
+        continue;
+      }
+
+      LLVM_DEBUG(dbgs() << "folding indexed load/inc/store counter update in "
+                        << MF.getName() << ":\n";
+                 LoadMI.dump(); IncMI.dump(); StoreMI.dump());
+
+      MachineInstrBuilder NewMI =
+          BuildMI(MBB, I, LoadMI.getDebugLoc(), TII.get(NewOpc));
+      NewMI.add(LoadMI.getOperand(1));
+      NewMI.add(LoadMI.getOperand(2));
+
+      MachineBasicBlock::iterator NextI = std::next(StoreI);
+      LoadMI.eraseFromParent();
+      IncMI.eraseFromParent();
+      StoreMI.eraseFromParent();
+      I = NextI;
+      Changed = true;
+    }
+  }
+
+  for (MachineBasicBlock &MBB : MF) {
+    MachineBasicBlock *Pred = MBB.getSinglePredecessor();
+    if (!Pred || !Pred->isLayoutSuccessor(&MBB))
+      continue;
+
+    auto FirstI = MBB.begin();
+    while (FirstI != MBB.end() && FirstI->isDebugInstr())
+      ++FirstI;
+    if (FirstI == MBB.end())
+      continue;
+    MachineInstr &ReloadMI = *FirstI;
+    if (ReloadMI.getOpcode() != Z80::LD8ro ||
+        !ReloadMI.getOperand(0).isReg() ||
+        ReloadMI.getOperand(0).getReg() != Z80::E ||
+        !ReloadMI.getOperand(1).isReg() ||
+        ReloadMI.getOperand(1).getReg() != Z80::UIX ||
+        !ReloadMI.getOperand(2).isImm())
+      continue;
+    int64_t ReloadOff = ReloadMI.getOperand(2).getImm();
+
+    MachineBasicBlock::iterator BrI = Pred->getLastNonDebugInstr();
+    if (BrI == Pred->end())
+      continue;
+    MachineInstr &BrMI = *BrI;
+    if (BrMI.getOpcode() != Z80::JQCC)
+      continue;
+
+    MachineBasicBlock::iterator CPI = BrI;
+    do {
+      if (CPI == Pred->begin()) {
+        CPI = Pred->end();
+        break;
+      }
+      --CPI;
+    } while (CPI->isDebugInstr());
+    if (CPI == Pred->end())
+      continue;
+    MachineInstr &CPMI = *CPI;
+    if (CPMI.getOpcode() != Z80::CP8ai || !CPMI.readsRegister(Z80::A, TRI) ||
+        CPMI.modifiesRegister(Z80::A, TRI))
+      continue;
+
+    MachineBasicBlock::iterator LoadI = CPI;
+    do {
+      if (LoadI == Pred->begin()) {
+        LoadI = Pred->end();
+        break;
+      }
+      --LoadI;
+    } while (LoadI->isDebugInstr());
+    if (LoadI == Pred->end())
+      continue;
+    MachineInstr &PredLoadMI = *LoadI;
+    if (PredLoadMI.getOpcode() != Z80::LD8ro ||
+        !PredLoadMI.getOperand(0).isReg() ||
+        PredLoadMI.getOperand(0).getReg() != Z80::A ||
+        !PredLoadMI.getOperand(1).isReg() ||
+        PredLoadMI.getOperand(1).getReg() != Z80::UIX ||
+        !PredLoadMI.getOperand(2).isImm() ||
+        PredLoadMI.getOperand(2).getImm() != ReloadOff)
+      continue;
+
+    LLVM_DEBUG(dbgs() << "forwarding indexed counter reload through A in "
+                      << MF.getName() << ":\n";
+               PredLoadMI.dump(); ReloadMI.dump());
+
+    ReloadMI.dropMemRefs(MF);
+    ReloadMI.removeOperand(2); // displacement
+    ReloadMI.setDesc(TII.get(TargetOpcode::COPY));
+    MachineOperand &SrcMO = ReloadMI.getOperand(1);
+    SrcMO.ChangeToRegister(Z80::A, /*isDef=*/false, /*isImp=*/false,
+                           /*isKill=*/false);
+    Changed = true;
+  }
+
+  // if a compare predecessor already loaded the same indexed byte/word into HL
+  // forward it into a successor body that immediately reloads before push
+  for (MachineBasicBlock &MBB : MF) {
+    MachineBasicBlock *Pred = MBB.getSinglePredecessor();
+    if (!Pred || !Pred->isLayoutSuccessor(&MBB))
+      continue;
+
+    MachineBasicBlock::iterator BrI = Pred->getLastNonDebugInstr();
+    if (BrI == Pred->end() || BrI->getOpcode() != Z80::JQCC)
+      continue;
+
+    MachineBasicBlock::iterator CPI = BrI;
+    do {
+      if (CPI == Pred->begin()) {
+        CPI = Pred->end();
+        break;
+      }
+      --CPI;
+    } while (CPI->isDebugInstr());
+    if (CPI == Pred->end() || CPI->getOpcode() != Z80::CP8ai)
+      continue;
+
+    MachineInstr *LowByteCopyMI = nullptr;
+    MachineBasicBlock::iterator PredLoadI = CPI;
+    do {
+      if (PredLoadI == Pred->begin()) {
+        PredLoadI = Pred->end();
+        break;
+      }
+      --PredLoadI;
+    } while (PredLoadI->isDebugInstr());
+    if (PredLoadI == Pred->end())
+      continue;
+    if (PredLoadI->getOpcode() == TargetOpcode::COPY &&
+        PredLoadI->getOperand(0).isReg() &&
+        PredLoadI->getOperand(0).getReg() == Z80::A &&
+        PredLoadI->getOperand(1).isReg() &&
+        PredLoadI->getOperand(1).getReg() == Z80::L) {
+      LowByteCopyMI = &*PredLoadI;
+      do {
+        if (PredLoadI == Pred->begin()) {
+          PredLoadI = Pred->end();
+          break;
+        }
+        --PredLoadI;
+      } while (PredLoadI->isDebugInstr());
+      if (PredLoadI == Pred->end())
+        continue;
+    }
+    MachineInstr &PredLoadMI = *PredLoadI;
+    if ((PredLoadMI.getOpcode() != Z80::LD88ro &&
+         PredLoadMI.getOpcode() != Z80::LD16ro &&
+         PredLoadMI.getOpcode() != Z80::LD24ro) ||
+        !PredLoadMI.getOperand(0).isReg() ||
+        (PredLoadMI.getOperand(0).getReg() != Z80::HL &&
+         PredLoadMI.getOperand(0).getReg() != Z80::UHL) ||
+        !PredLoadMI.getOperand(1).isReg() ||
+        PredLoadMI.getOperand(1).getReg() != Z80::UIX ||
+        !PredLoadMI.getOperand(2).isImm())
+      continue;
+    MCRegister WideReg = PredLoadMI.getOperand(0).getReg();
+
+    bool HLClobberedInPred = false;
+    for (auto I = std::next(PredLoadI); I != BrI; ++I) {
+      if (I->isDebugInstr())
+        continue;
+      if (I->modifiesRegister(WideReg, TRI)) {
+        HLClobberedInPred = true;
+        break;
+      }
+    }
+    if (HLClobberedInPred)
+      continue;
+
+    MachineBasicBlock::iterator ReloadI = MBB.end();
+    for (auto I = MBB.begin(), E = MBB.end(); I != E; ++I) {
+      if (I->isDebugInstr())
+        continue;
+      if ((I->getOpcode() == Z80::LD88ro || I->getOpcode() == Z80::LD16ro ||
+           I->getOpcode() == Z80::LD24ro) &&
+          I->getOperand(0).isReg() && I->getOperand(0).getReg() == WideReg &&
+          I->getOperand(1).isReg() && I->getOperand(1).getReg() == Z80::UIX &&
+          I->getOperand(2).isImm() &&
+          I->getOperand(2).getImm() == PredLoadMI.getOperand(2).getImm()) {
+        auto NextI = std::next(I);
+        while (NextI != E && NextI->isDebugInstr())
+          ++NextI;
+        if (NextI != E && NextI->getOpcode() == Z80::PUSH24r &&
+            NextI->getOperand(0).isReg() &&
+            NextI->getOperand(0).getReg() == WideReg) {
+          ReloadI = I;
+        }
+        break;
+      }
+      if (I->modifiesRegister(WideReg, TRI))
+        break;
+    }
+    if (ReloadI == MBB.end())
+      continue;
+
+    LLVM_DEBUG(dbgs() << "forwarding indexed HL reload into push in "
+                      << MF.getName() << ":\n";
+               PredLoadMI.dump(); ReloadI->dump());
+
+    if (LowByteCopyMI && LowByteCopyMI->killsRegister(WideReg, TRI))
+      LowByteCopyMI->clearRegisterKills(WideReg, TRI);
+
+    ReloadI->eraseFromParent();
+    Changed = true;
+  }
+
+  return Changed;
+}
+
 bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
   bool Changed = false;
   TRI = MF.getSubtarget().getRegisterInfo();
   const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
   MachineRegisterInfo &MRI = MF.getRegInfo();
+
+  Changed |= foldIndexedCounterPeepholes(MF, TII);
+
   LivePhysRegs LiveUnits(*TRI);
   for (MachineBasicBlock &MBB : MF) {
     LiveUnits.clear();
