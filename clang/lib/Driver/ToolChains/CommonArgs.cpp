@@ -19,6 +19,7 @@
 #include "Arch/SystemZ.h"
 #include "Arch/VE.h"
 #include "Arch/X86.h"
+#include "Arch/Z80.h"
 #include "HIPAMD.h"
 #include "Hexagon.h"
 #include "MSP430.h"
@@ -114,6 +115,8 @@ static bool useFramePointerForTargetByDefault(const llvm::opt::ArgList &Args,
   case llvm::Triple::csky:
   case llvm::Triple::loongarch32:
   case llvm::Triple::loongarch64:
+  case llvm::Triple::z80:
+  case llvm::Triple::ez80:
     return !clang::driver::tools::areOptimizationsEnabled(Args);
   default:
     break;

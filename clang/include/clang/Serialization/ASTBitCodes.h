@@ -1092,6 +1092,13 @@ enum PredefinedTypeIDs {
 // \brief WebAssembly reference types with auto numeration
 #define WASM_TYPE(Name, Id, SingletonId) PREDEF_TYPE_##Id##_ID,
 #include "clang/Basic/WebAssemblyReferenceTypes.def"
+  // Z80-FORK: 48-bit integer types for Z80
+  /// The '__uint48_t' type
+  PREDEF_TYPE_UINT48_ID,
+
+  /// The '__int48_t' type
+  PREDEF_TYPE_INT48_ID,
+
   // Sentinel value. Considered a predefined type but not useable as one.
   PREDEF_TYPE_LAST_ID
 };
@@ -1101,7 +1108,7 @@ enum PredefinedTypeIDs {
 ///
 /// Type IDs for non-predefined types will start at
 /// NUM_PREDEF_TYPE_IDs.
-const unsigned NUM_PREDEF_TYPE_IDS = 502;
+const unsigned NUM_PREDEF_TYPE_IDS = 504;
 
 // Ensure we do not overrun the predefined types we reserved
 // in the enum PredefinedTypeIDs above.
@@ -1218,13 +1225,19 @@ enum PredefinedDeclIDs {
 
   /// The internal '__type_pack_element' template.
   PREDEF_DECL_TYPE_PACK_ELEMENT_ID = 17,
+
+  /// The signed 48-bit integer type.
+  PREDEF_DECL_INT_48_ID = 18,
+
+  /// The unsigned 48-bit integer type.
+  PREDEF_DECL_UNSIGNED_INT_48_ID = 19,
 };
 
 /// The number of declaration IDs that are predefined.
 ///
 /// For more information about predefined declarations, see the
 /// \c PredefinedDeclIDs type and the PREDEF_DECL_*_ID constants.
-const unsigned int NUM_PREDEF_DECL_IDS = 18;
+const unsigned int NUM_PREDEF_DECL_IDS = 20;
 
 /// Record of updates for a declaration that was modified after
 /// being deserialized. This can occur within DECLTYPES_BLOCK_ID.

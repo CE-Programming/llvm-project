@@ -78,6 +78,18 @@ inline std::optional<int64_t> matchConstant(Register Reg,
   return getIConstantVRegSExtVal(Reg, MRI);
 }
 
+template <>
+inline std::optional<ValueAndVReg> matchConstant(Register Reg,
+                                                 const MachineRegisterInfo &MRI) {
+  return getIConstantVRegValWithLookThrough(Reg, MRI);
+}
+
+template <>
+inline std::optional<FPValueAndVReg> matchConstant(
+    Register Reg, const MachineRegisterInfo &MRI) {
+  return getFConstantVRegValWithLookThrough(Reg, MRI);
+}
+
 template <typename ConstT> struct ConstantMatch {
   ConstT &CR;
   ConstantMatch(ConstT &C) : CR(C) {}

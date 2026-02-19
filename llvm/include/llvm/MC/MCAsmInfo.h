@@ -55,12 +55,20 @@ enum LCOMMType { NoAlignment, ByteAlignment, Log2Alignment };
 /// properties and features specific to the target.
 class MCAsmInfo {
 public:
+  /// Assembly number literal syntax types.
+  enum AsmNumberLiteralSyntax {
+    ANLS_PlainDecimal,  /// Decimal constant, e.g., `83`.
+    ANLS_PrefixedOctal, /// Octal constant prefixed with 0, e.g., `0123`.
+    ANLS_SuffixedOctal, /// Octal constant suffixed with o, e.g., `123o`.
+  };
   /// Assembly character literal syntax types.
   enum AsmCharLiteralSyntax {
     ACLS_Unknown, /// Unknown; character literals not used by LLVM for this
                   /// target.
     ACLS_SingleQuotePrefix, /// The desired character is prefixed by a single
                             /// quote, e.g., `'A`.
+    ACLS_SingleQuotes,      /// The desired character is surrounded by single
+                            /// quotes, e.g., `'A'`.
   };
 
 protected:
@@ -183,9 +191,10 @@ protected:
   const char *InlineAsmEnd;
 
   /// These are assembly directives that tells the assembler to interpret the
-  /// following instructions differently.  Defaults to ".code16", ".code32",
-  /// ".code64".
+  /// following instructions differently.  Defaults to ".code16", ".code24",
+  /// ".code32", ".code64".
   const char *Code16Directive;
+  const char *Code24Directive;
   const char *Code32Directive;
   const char *Code64Directive;
 
@@ -256,6 +265,10 @@ protected:
   /// used to emit these bytes. Defaults to true.
   bool ZeroDirectiveSupportsNonZeroValue = true;
 
+  /// This should be set to the separator used in block directives between
+  /// the number of bytes and the fill value.  Defaults to ", ".
+  const char *BlockSeparator;
+
   /// This directive allows emission of an ascii string with the standard C
   /// escape characters embedded into it.  If a target doesn't support this, it
   /// can be set to null. Defaults to "\t.ascii\t"
@@ -276,6 +289,10 @@ protected:
   /// support this, it can be set to null. Defaults to null.
   const char *PlainStringDirective = nullptr;
 
+  /// Form used for number literals in the assembly syntax. Defaults to
+  /// ANLS_PlainDecimal.
+  AsmNumberLiteralSyntax NumberLiteralSyntax = ANLS_PlainDecimal;
+
   /// Form used for character literals in the assembly syntax.  Useful for
   /// producing strings as byte lists.  If a target does not use or support
   /// this, it shall be set to ACLS_Unknown.  Defaults to ACLS_Unknown.
@@ -284,11 +301,15 @@ protected:
   /// These directives are used to output some unit of integer data to the
   /// current section.  If a data directive is set to null, smaller data
   /// directives will be used to emit the large sizes.  Defaults to "\t.byte\t",
-  /// "\t.short\t", "\t.long\t", "\t.quad\t"
+  /// "\t.short\t", nullptr, "\t.long\t", "\t.quad\t"
   const char *Data8bitsDirective;
   const char *Data16bitsDirective;
+  const char *Data24bitsDirective;
   const char *Data32bitsDirective;
   const char *Data64bitsDirective;
+
+  const char *DataULEB128Directive;
+  const char *DataSLEB128Directive;
 
   /// True if data directives support signed values
   bool SupportsSignedData = true;
@@ -310,6 +331,10 @@ protected:
   const char *DTPRel64Directive = nullptr;
   const char *TPRel32Directive = nullptr;
   const char *TPRel64Directive = nullptr;
+
+  const char *SectionDirective;
+
+  bool AlwaysChangeSection = false;
 
   /// This is true if this target uses "Sun Style" syntax for section switching
   /// ("#alloc,#write" etc) instead of the normal ELF syntax (,"a,w") in
@@ -340,6 +365,15 @@ protected:
   /// This is the directive used to declare a global entity. Defaults to
   /// ".globl".
   const char *GlobalDirective;
+
+  /// This is the directive used to declare a local entity. Defaults to
+  /// nothing.
+  const char *LGloblDirective = nullptr;
+
+  /// This is the directive used to assign a symbol. Defaults to ".set " and
+  /// ", ".
+  const char *SetDirective;
+  const char *SetSeparator;
 
   /// True if the expression
   ///   .long f - g
@@ -381,6 +415,15 @@ protected:
   /// to false.
   bool HasPairedDoubleQuoteStringConstants = false;
 
+  /// In string constants, `\"` is represented as `"\\\""`.
+  bool HasBackslashEscapesInStringConstants = true;
+
+  /// Non print characters are always escaped.
+  bool StringConstantsEscapeNonPrint = true;
+
+  /// Characters that always need to be escaped in string constants.
+  StringRef StringConstantsRequiredEscapes = "\\\"";
+
   // True if the target allows .align directives on functions. This is true for
   // most targets, so defaults to true.
   bool HasFunctionAlignment = true;
@@ -399,7 +442,7 @@ protected:
 
   /// True if the target has a .ident directive, this is true for ELF targets.
   /// Defaults to false.
-  bool HasIdentDirective = false;
+  const char *IdentDirective = nullptr;
 
   /// True if this target supports the MachO .no_dead_strip directive.  Defaults
   /// to false.
@@ -453,6 +496,10 @@ protected:
   /// false.
   bool SupportsDebugInformation = false;
 
+  /// True if target supports emission of CFI debugging information.  Defaults
+  /// to false.
+  bool SupportsCFI = false;
+
   /// Exception handling format for the target.  Defaults to None.
   ExceptionHandling ExceptionsType = ExceptionHandling::None;
 
@@ -498,6 +545,15 @@ protected:
   /// True if the target supports flags in ".loc" directive, false if only
   /// location is allowed.
   bool SupportsExtendedDwarfLocDirective = true;
+
+  /// Dwarf ".file" directive.
+  const char *DwarfFileDirective = nullptr;
+
+  /// Dwarf ".loc" directive.
+  const char *DwarfLocDirective = nullptr;
+
+  /// Dwarf ".cfi_" directive prefix.
+  const char *DwarfCFIDirectivePrefix = nullptr;
 
   //===--- Prologue State ----------------------------------------------===//
 
@@ -570,8 +626,11 @@ public:
 
   const char *getData8bitsDirective() const { return Data8bitsDirective; }
   const char *getData16bitsDirective() const { return Data16bitsDirective; }
+  const char *getData24bitsDirective() const { return Data24bitsDirective; }
   const char *getData32bitsDirective() const { return Data32bitsDirective; }
   const char *getData64bitsDirective() const { return Data64bitsDirective; }
+  const char *getDataULEB128Directive() const { return DataULEB128Directive; }
+  const char *getDataSLEB128Directive() const { return DataSLEB128Directive; }
   bool supportsSignedData() const { return SupportsSignedData; }
   const char *getGPRel64Directive() const { return GPRel64Directive; }
   const char *getGPRel32Directive() const { return GPRel32Directive; }
@@ -608,6 +667,8 @@ public:
   /// syntactically correct.
   virtual bool isValidUnquotedName(StringRef Name) const;
 
+  const char *getSectionDirective() const { return SectionDirective; }
+
   /// Return true if the .section directive should be omitted when
   /// emitting \p SectionName.  For example:
   ///
@@ -616,6 +677,8 @@ public:
   /// returns false => .section .text,#alloc,#execinstr
   /// returns true  => .text
   virtual bool shouldOmitSectionDirective(StringRef SectionName) const;
+
+  bool shouldAlwaysChangeSection() const { return AlwaysChangeSection; }
 
   bool usesSunStyleELFSectionSwitchSyntax() const {
     return SunStyleELFSectionSwitchSyntax;
@@ -684,6 +747,7 @@ public:
   const char *getInlineAsmStart() const { return InlineAsmStart; }
   const char *getInlineAsmEnd() const { return InlineAsmEnd; }
   const char *getCode16Directive() const { return Code16Directive; }
+  const char *getCode24Directive() const { return Code24Directive; }
   const char *getCode32Directive() const { return Code32Directive; }
   const char *getCode64Directive() const { return Code64Directive; }
   unsigned getAssemblerDialect() const { return AssemblerDialect; }
@@ -720,16 +784,25 @@ public:
   bool doesZeroDirectiveSupportNonZeroValue() const {
     return ZeroDirectiveSupportsNonZeroValue;
   }
+  virtual const char *getBlockDirective(int64_t Size) const { return nullptr; }
+  const char *getBlockSeparator() const { return BlockSeparator; }
   const char *getAsciiDirective() const { return AsciiDirective; }
   const char *getAscizDirective() const { return AscizDirective; }
   const char *getByteListDirective() const { return ByteListDirective; }
   const char *getPlainStringDirective() const { return PlainStringDirective; }
+  AsmNumberLiteralSyntax numberLiteralSyntax() const {
+    return NumberLiteralSyntax;
+  }
   AsmCharLiteralSyntax characterLiteralSyntax() const {
     return CharacterLiteralSyntax;
   }
   bool getAlignmentIsInBytes() const { return AlignmentIsInBytes; }
   unsigned getTextAlignFillValue() const { return TextAlignFillValue; }
+
   const char *getGlobalDirective() const { return GlobalDirective; }
+  const char *getLGloblDirective() const { return LGloblDirective; }
+  const char *getSetDirective() const { return SetDirective; }
+  const char *getSetSeparator() const { return SetSeparator; }
 
   bool doesSetDirectiveSuppressReloc() const {
     return SetDirectiveSuppressesReloc;
@@ -751,11 +824,20 @@ public:
   bool hasPairedDoubleQuoteStringConstants() const {
     return HasPairedDoubleQuoteStringConstants;
   }
+  bool hasBackslashEscapesInStringConstants() const {
+    return HasBackslashEscapesInStringConstants;
+  }
+  bool getStringConstantsEscapeNonPrint() const {
+    return StringConstantsEscapeNonPrint;
+  }
+  StringRef getStringConstantsRequiredEscapes() const {
+    return StringConstantsRequiredEscapes;
+  }
   bool hasFunctionAlignment() const { return HasFunctionAlignment; }
   bool hasDotTypeDotSizeDirective() const { return HasDotTypeDotSizeDirective; }
   bool hasSingleParameterDotFile() const { return HasSingleParameterDotFile; }
   bool hasFourStringsDotFile() const { return HasFourStringsDotFile; }
-  bool hasIdentDirective() const { return HasIdentDirective; }
+  const char *getIdentDirective() const { return IdentDirective; }
   bool hasNoDeadStrip() const { return HasNoDeadStrip; }
   bool hasAltEntry() const { return HasAltEntry; }
   const char *getWeakDirective() const { return WeakDirective; }
@@ -798,7 +880,7 @@ public:
   /// Returns true if the exception handling method for the platform uses call
   /// frame information to unwind.
   bool usesCFIForEH() const {
-    return (ExceptionsType == ExceptionHandling::DwarfCFI ||
+    return (SupportsCFI || ExceptionsType == ExceptionHandling::DwarfCFI ||
             ExceptionsType == ExceptionHandling::ARM ||
             ExceptionsType == ExceptionHandling::ZOS || usesWindowsCFI());
   }
@@ -821,6 +903,11 @@ public:
   }
   bool supportsExtendedDwarfLocDirective() const {
     return SupportsExtendedDwarfLocDirective;
+  }
+  const char *getDwarfFileDirective() const { return DwarfFileDirective; }
+  const char *getDwarfLocDirective() const { return DwarfLocDirective; }
+  const char *getDwarfCFIDirectivePrefix() const {
+    return DwarfCFIDirectivePrefix;
   }
 
   bool usesDwarfFileAndLocDirectives() const {
@@ -890,6 +977,9 @@ public:
   bool hasMipsExpressions() const { return HasMipsExpressions; }
   bool needsFunctionDescriptors() const { return NeedsFunctionDescriptors; }
   bool shouldUseMotorolaIntegers() const { return UseMotorolaIntegers; }
+
+  virtual const char *getUnaryOperator(unsigned Opc) const;
+  virtual const char *getBinaryOperator(unsigned Opc) const;
 };
 
 } // end namespace llvm

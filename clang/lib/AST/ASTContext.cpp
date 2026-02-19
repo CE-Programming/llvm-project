@@ -1166,6 +1166,18 @@ TypedefDecl *ASTContext::buildImplicitTypedef(QualType T,
   return NewDecl;
 }
 
+TypedefDecl *ASTContext::getInt48Decl() const {
+  if (!Int48Decl)
+    Int48Decl = buildImplicitTypedef(Int48Ty, "__int48_t");
+  return Int48Decl;
+}
+
+TypedefDecl *ASTContext::getUInt48Decl() const {
+  if (!UInt48Decl)
+    UInt48Decl = buildImplicitTypedef(UnsignedInt48Ty, "__uint48_t");
+  return UInt48Decl;
+}
+
 TypedefDecl *ASTContext::getInt128Decl() const {
   if (!Int128Decl)
     Int128Decl = buildImplicitTypedef(Int128Ty, "__int128_t");
@@ -1259,6 +1271,10 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
   InitBuiltinType(SatUnsignedShortFractTy, BuiltinType::SatUShortFract);
   InitBuiltinType(SatUnsignedFractTy,      BuiltinType::SatUFract);
   InitBuiltinType(SatUnsignedLongFractTy,  BuiltinType::SatULongFract);
+
+  // eZ80 extension, 48-bit integers.
+  InitBuiltinType(Int48Ty,             BuiltinType::Int48);
+  InitBuiltinType(UnsignedInt48Ty,     BuiltinType::UInt48);
 
   // GNU extension, 128-bit integers.
   InitBuiltinType(Int128Ty,            BuiltinType::Int128);
@@ -2014,6 +2030,11 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     case BuiltinType::Long:
       Width = Target->getLongWidth();
       Align = Target->getLongAlign();
+      break;
+    case BuiltinType::UInt48:
+    case BuiltinType::Int48:
+      Width = 48;
+      Align = 8; // int48_t is 8-bit aligned on all (e)Z80 targets.
       break;
     case BuiltinType::ULongLong:
     case BuiltinType::LongLong:
@@ -7052,28 +7073,33 @@ unsigned ASTContext::getIntegerRank(const Type *T) const {
 
   switch (cast<BuiltinType>(T)->getKind()) {
   default: llvm_unreachable("getIntegerRank(): not a built-in integer");
+  // Standard Integer Types
   case BuiltinType::Bool:
-    return 1 + (getIntWidth(BoolTy) << 3);
+    return 1 + (1 << 3) + (getIntWidth(BoolTy) << 4);
   case BuiltinType::Char_S:
   case BuiltinType::Char_U:
   case BuiltinType::SChar:
   case BuiltinType::UChar:
-    return 2 + (getIntWidth(CharTy) << 3);
+    return 2 + (1 << 3) + (getIntWidth(CharTy) << 4);
   case BuiltinType::Short:
   case BuiltinType::UShort:
-    return 3 + (getIntWidth(ShortTy) << 3);
+    return 3 + (1 << 3) + (getIntWidth(ShortTy) << 4);
   case BuiltinType::Int:
   case BuiltinType::UInt:
-    return 4 + (getIntWidth(IntTy) << 3);
+    return 4 + (1 << 3) + (getIntWidth(IntTy) << 4);
   case BuiltinType::Long:
   case BuiltinType::ULong:
-    return 5 + (getIntWidth(LongTy) << 3);
+    return 5 + (1 << 3) + (getIntWidth(LongTy) << 4);
   case BuiltinType::LongLong:
   case BuiltinType::ULongLong:
-    return 6 + (getIntWidth(LongLongTy) << 3);
+    return 6 + (1 << 3) + (getIntWidth(LongLongTy) << 4);
+  // Extended Integer Types
+  case BuiltinType::Int48:
+  case BuiltinType::UInt48:
+    return 1 + (getIntWidth(Int48Ty) << 4);
   case BuiltinType::Int128:
   case BuiltinType::UInt128:
-    return 7 + (getIntWidth(Int128Ty) << 3);
+    return 2 + (getIntWidth(Int128Ty) << 4);
 
   // "The ranks of char8_t, char16_t, char32_t, and wchar_t equal the ranks of
   // their underlying types" [c++20 conv.rank]
@@ -8033,6 +8059,8 @@ static char getObjCEncodingForPrimitiveType(const ASTContext *C,
     case BuiltinType::SatUShortFract:
     case BuiltinType::SatUFract:
     case BuiltinType::SatULongFract:
+    case BuiltinType::UInt48:
+    case BuiltinType::Int48:
       // FIXME: potentially need @encodes for these!
       return ' ';
 
@@ -10362,6 +10390,8 @@ QualType ASTContext::mergeFunctionTypes(QualType lhs, QualType rhs,
     return {};
   if (lbaseInfo.getNoCfCheck() != rbaseInfo.getNoCfCheck())
     return {};
+  if (lbaseInfo.getTIFlags() != rbaseInfo.getTIFlags())
+    return {};
 
   // When merging declarations, it's common for supplemental information like
   // attributes to only be present in one of the declarations, and we generally
@@ -11048,6 +11078,8 @@ QualType ASTContext::getCorrespondingUnsignedType(QualType T) const {
     return UnsignedIntTy;
   case BuiltinType::Long:
     return UnsignedLongTy;
+  case BuiltinType::Int48:
+    return UnsignedInt48Ty;
   case BuiltinType::LongLong:
     return UnsignedLongLongTy;
   case BuiltinType::Int128:
@@ -12101,8 +12133,12 @@ QualType ASTContext::getIntTypeForBitwidth(unsigned DestWidth,
                                            unsigned Signed) const {
   TargetInfo::IntType Ty = getTargetInfo().getIntTypeByWidth(DestWidth, Signed);
   CanQualType QualTy = getFromTargetType(Ty);
-  if (!QualTy && DestWidth == 128)
-    return Signed ? Int128Ty : UnsignedInt128Ty;
+  if (!QualTy) {
+    if (DestWidth == 128)
+      return Signed ? Int128Ty : UnsignedInt128Ty;
+    if (DestWidth == 48)
+      return Signed ? Int48Ty : UnsignedInt48Ty;
+  }
   return QualTy;
 }
 

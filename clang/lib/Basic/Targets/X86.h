@@ -748,6 +748,17 @@ public:
     // x86-64 has atomics up to 16 bytes.
     MaxAtomicPromoteWidth = 128;
     MaxAtomicInlineWidth = 64;
+
+    if (Opts.TestEZ80Hack) {
+      // ez80 debug hack
+      IntWidth = 24;
+      LongWidth = LongAlign = 32;
+      SizeType = UnsignedLongLong;
+      PtrDiffType = SignedLongLong;
+      IntPtrType = SignedLongLong;
+      IntMaxType = SignedLongLong;
+      Int64Type = SignedLongLong;
+    }
   }
 
   BuiltinVaListKind getBuiltinVaListKind() const override {

@@ -1427,6 +1427,25 @@ void FrameEmitterImpl::emitCFIInstruction(const MCCFIInstruction &Instr) {
     }
     return;
   }
+  case MCCFIInstruction::OpValOffset: {
+    unsigned Reg = Instr.getRegister();
+    if (!IsEH)
+      Reg = MRI->getDwarfRegNumFromDwarfEHRegNum(Reg);
+
+    int Offset = Instr.getOffset();
+    Offset = Offset / dataAlignmentFactor;
+
+    if (Offset < 0) {
+      Streamer.emitInt8(dwarf::DW_CFA_val_offset_sf);
+      Streamer.emitULEB128IntValue(Reg);
+      Streamer.emitSLEB128IntValue(Offset);
+    } else {
+      Streamer.emitInt8(dwarf::DW_CFA_val_offset);
+      Streamer.emitULEB128IntValue(Reg);
+      Streamer.emitULEB128IntValue(Offset);
+    }
+    return;
+  }
   case MCCFIInstruction::OpRememberState:
     Streamer.emitInt8(dwarf::DW_CFA_remember_state);
     return;

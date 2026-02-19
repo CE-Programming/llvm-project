@@ -1,0 +1,33 @@
+//===--- BuiltinsZ80.def - Z80 Builtin function database --------*- C++ -*-===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the Z80-specific builtin function database.  Users of
+// this file must define the BUILTIN macro to make use of this information.
+//
+//===----------------------------------------------------------------------===//
+
+// The format of this database matches clang/Basic/Builtins.def.
+
+// FIXME: Ideally we would be able to pull this information from what
+// LLVM already knows about X86 builtins. We need to match the LLVM
+// definition anyway, since code generation will lower to the
+// intrinsic if one exists.
+
+#if defined(BUILTIN) && !defined(TARGET_BUILTIN)
+#   define TARGET_BUILTIN(ID, TYPE, ATTRS, FEATURE) BUILTIN(ID, TYPE, ATTRS)
+#endif
+
+#if defined(BUILTIN) && !defined(TARGET_HEADER_BUILTIN)
+#  define TARGET_HEADER_BUILTIN(ID, TYPE, ATTRS, HEADER, LANG, FEATURE) BUILTIN(ID, TYPE, ATTRS)
+#endif
+
+BUILTIN(__builtin_bitreverse24, "UiUi", "nc")
+
+#undef BUILTIN
+#undef TARGET_BUILTIN
+#undef TARGET_HEADER_BUILTIN

@@ -374,6 +374,24 @@ namespace llvm {
     /// 8-bit byte.
     bool isByteSized() const { return getSizeInBits().isKnownMultipleOf(8); }
 
+    // Z80-FORK: Return true if the size in bits is a power of 2.
+    bool isPow2Size() const {
+      TypeSize Size = getSizeInBits();
+      return Size.isScalable() ? false : isPowerOf2_64(Size.getFixedValue());
+    }
+
+    // Z80-FORK: Return the number of parts with PartBits bits that make up
+    // this VT.
+    unsigned getNumParts(unsigned PartBits) const {
+      return divideCeil(getSizeInBits().getFixedValue(), PartBits);
+    }
+
+    // Z80-FORK: Return the number of parts of type PartVT that make up
+    // this VT.
+    unsigned getNumParts(MVT PartVT) const {
+      return getNumParts(PartVT.getFixedSizeInBits());
+    }
+
     /// Return true if we know at compile time this has more bits than VT.
     bool knownBitsGT(MVT VT) const {
       return TypeSize::isKnownGT(getSizeInBits(), VT.getSizeInBits());

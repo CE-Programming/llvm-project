@@ -49,19 +49,30 @@ MCAsmInfo::MCAsmInfo() {
   InlineAsmStart = "APP";
   InlineAsmEnd = "NO_APP";
   Code16Directive = ".code16";
+  Code24Directive = ".code24";
   Code32Directive = ".code32";
   Code64Directive = ".code64";
   ZeroDirective = "\t.zero\t";
+  BlockSeparator = ", ";
   AsciiDirective = "\t.ascii\t";
   AscizDirective = "\t.asciz\t";
   Data8bitsDirective = "\t.byte\t";
+  Data24bitsDirective = nullptr;
   Data16bitsDirective = "\t.short\t";
   Data32bitsDirective = "\t.long\t";
   Data64bitsDirective = "\t.quad\t";
+  DataULEB128Directive = "\t.uleb128 ";
+  DataSLEB128Directive = "\t.sleb128 ";
+  SectionDirective = "\t.section\t";
   GlobalDirective = "\t.globl\t";
+  SetDirective = ".set ";
+  SetSeparator = ", ";
   WeakDirective = "\t.weak\t";
   if (DwarfExtendedLoc != Default)
     SupportsExtendedDwarfLocDirective = DwarfExtendedLoc == Enable;
+  DwarfFileDirective = "\t.file\t";
+  DwarfLocDirective = "\t.loc\t";
+  DwarfCFIDirectivePrefix = "\t.cfi_";
   if (UseLEB128Directives != cl::BOU_UNSET)
     HasLEB128Directives = UseLEB128Directives == cl::BOU_TRUE;
   UseIntegratedAssembler = true;
@@ -127,4 +138,40 @@ bool MCAsmInfo::shouldOmitSectionDirective(StringRef SectionName) const {
   // FIXME: Does .section .bss/.data/.text work everywhere??
   return SectionName == ".text" || SectionName == ".data" ||
         (SectionName == ".bss" && !usesELFSectionDirectiveForBSS());
+}
+
+const char *MCAsmInfo::getUnaryOperator(unsigned Opc) const {
+  switch (Opc) {
+  default: llvm_unreachable("unknown opcode");
+  case MCUnaryExpr::LNot:  return "!";
+  case MCUnaryExpr::Minus: return "-";
+  case MCUnaryExpr::Not:   return "~";
+  case MCUnaryExpr::Plus:  return "+";
+  }
+}
+
+const char *MCAsmInfo::getBinaryOperator(unsigned Opc) const {
+  switch (Opc) {
+  default: llvm_unreachable("unknown opcode");
+  case MCBinaryExpr::Add:   return  "+";
+  case MCBinaryExpr::AShr:  return ">>";
+  case MCBinaryExpr::And:   return  "&";
+  case MCBinaryExpr::Div:   return  "/";
+  case MCBinaryExpr::EQ:    return "==";
+  case MCBinaryExpr::GT:    return  ">";
+  case MCBinaryExpr::GTE:   return ">=";
+  case MCBinaryExpr::LAnd:  return "&&";
+  case MCBinaryExpr::LOr:   return "||";
+  case MCBinaryExpr::LShr:  return ">>";
+  case MCBinaryExpr::LT:    return  "<";
+  case MCBinaryExpr::LTE:   return "<=";
+  case MCBinaryExpr::Mod:   return  "%";
+  case MCBinaryExpr::Mul:   return  "*";
+  case MCBinaryExpr::NE:    return "!=";
+  case MCBinaryExpr::Or:    return  "|";
+  case MCBinaryExpr::OrNot: return  "!";
+  case MCBinaryExpr::Shl:   return "<<";
+  case MCBinaryExpr::Sub:   return  "-";
+  case MCBinaryExpr::Xor:   return  "^";
+  }
 }

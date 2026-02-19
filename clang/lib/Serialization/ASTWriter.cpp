@@ -4762,6 +4762,8 @@ ASTFileSignature ASTWriter::WriteASTCore(Sema &SemaRef, StringRef isysroot,
   RegisterPredefDecl(Context.ObjCClassDecl, PREDEF_DECL_OBJC_CLASS_ID);
   RegisterPredefDecl(Context.ObjCProtocolClassDecl,
                      PREDEF_DECL_OBJC_PROTOCOL_ID);
+  RegisterPredefDecl(Context.Int48Decl, PREDEF_DECL_INT_48_ID);
+  RegisterPredefDecl(Context.UInt48Decl, PREDEF_DECL_UNSIGNED_INT_48_ID);
   RegisterPredefDecl(Context.Int128Decl, PREDEF_DECL_INT_128_ID);
   RegisterPredefDecl(Context.UInt128Decl, PREDEF_DECL_UNSIGNED_INT_128_ID);
   RegisterPredefDecl(Context.ObjCInstanceTypeDecl,

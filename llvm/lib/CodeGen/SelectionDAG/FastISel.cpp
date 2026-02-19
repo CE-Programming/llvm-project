@@ -1393,6 +1393,13 @@ bool FastISel::selectIntrinsicCall(const IntrinsicInst *II) {
 
     return true;
   }
+  case Intrinsic::dbg_assign:
+    // A dbg.assign is a dbg.value with more information, typically produced
+    // during optimisation. If one reaches fastisel then something odd has
+    // happened (such as an optimised function being always-inlined into an
+    // optnone function). We will not be using the extra information in the
+    // dbg.assign in that case, just use its dbg.value fields.
+    [[fallthrough]];
   case Intrinsic::dbg_value: {
     // This form of DBG_VALUE is target-independent.
     const DbgValueInst *DI = cast<DbgValueInst>(II);

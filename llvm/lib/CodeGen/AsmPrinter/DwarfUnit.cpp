@@ -1766,12 +1766,10 @@ void DwarfUnit::emitCommonHeader(bool UseOffsets, dwarf::UnitType UT) {
   // start of the section. Use a relocatable offset where needed to ensure
   // linking doesn't invalidate that offset.
   Asm->OutStreamer->AddComment("Offset Into Abbrev. Section");
-  const TargetLoweringObjectFile &TLOF = Asm->getObjFileLowering();
   if (UseOffsets)
     Asm->emitDwarfLengthOrOffset(0);
   else
-    Asm->emitDwarfSymbolReference(
-        TLOF.getDwarfAbbrevSection()->getBeginSymbol(), false);
+    Asm->emitDwarfSymbolReference(DU->getAbbrevStartSym(), false);
 
   if (Version <= 4) {
     Asm->OutStreamer->AddComment("Address Size (in bytes)");

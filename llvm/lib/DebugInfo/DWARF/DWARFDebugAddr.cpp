@@ -147,23 +147,9 @@ void DWARFDebugAddrTable::dump(raw_ostream &OS, DIDumpOptions DumpOpts) const {
   }
 
   if (Addrs.size() > 0) {
-    const char *AddrFmt;
-    switch (AddrSize) {
-    case 2:
-      AddrFmt = "0x%4.4" PRIx64 "\n";
-      break;
-    case 4:
-      AddrFmt = "0x%8.8" PRIx64 "\n";
-      break;
-    case 8:
-      AddrFmt = "0x%16.16" PRIx64 "\n";
-      break;
-    default:
-      llvm_unreachable("unsupported address size");
-    }
     OS << "Addrs: [\n";
     for (uint64_t Addr : Addrs)
-      OS << format(AddrFmt, Addr);
+      OS << format("0x%0*" PRIx64 "\n", 2 * AddrSize, Addr);
     OS << "]\n";
   }
 }

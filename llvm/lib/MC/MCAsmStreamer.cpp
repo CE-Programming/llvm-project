@@ -570,6 +570,7 @@ void MCAsmStreamer::emitAssemblerFlag(MCAssemblerFlag Flag) {
   case MCAF_SyntaxUnified:         OS << "\t.syntax unified"; break;
   case MCAF_SubsectionsViaSymbols: OS << ".subsections_via_symbols"; break;
   case MCAF_Code16:                OS << '\t'<< MAI->getCode16Directive();break;
+  case MCAF_Code24:                OS << '\t'<< MAI->getCode24Directive();break;
   case MCAF_Code32:                OS << '\t'<< MAI->getCode32Directive();break;
   case MCAF_Code64:                OS << '\t'<< MAI->getCode64Directive();break;
   }
@@ -677,9 +678,9 @@ void MCAsmStreamer::emitAssignment(MCSymbol *Symbol, const MCExpr *Value) {
     if (E->inlineAssignedExpr())
       EmitSet = false;
   if (EmitSet) {
-    OS << ".set ";
+    OS << MAI->getSetDirective();
     Symbol->print(OS, MAI);
-    OS << ", ";
+    OS << MAI->getSetSeparator();
     Value->print(OS, MAI);
 
     EmitEOL();
@@ -736,7 +737,9 @@ bool MCAsmStreamer::emitSymbolAttribute(MCSymbol *Symbol,
   case MCSA_Global: // .globl/.global
     OS << MAI->getGlobalDirective();
     break;
-  case MCSA_LGlobal:        OS << "\t.lglobl\t";          break;
+  case MCSA_LGlobal: // .lglobl
+    OS << MAI->getLGloblDirective();
+    break;
   case MCSA_Hidden:         OS << "\t.hidden\t";          break;
   case MCSA_IndirectSymbol: OS << "\t.indirect_symbol\t"; break;
   case MCSA_Internal:       OS << "\t.internal\t";        break;
@@ -1138,24 +1141,42 @@ static inline bool isPrintableString(StringRef Data) {
 }
 
 static inline char toOctal(int X) { return (X&7)+'0'; }
+static inline void PrintOctal(unsigned char C, raw_ostream &OS) {
+  OS << toOctal(C >> 6);
+  OS << toOctal(C >> 3);
+  OS << toOctal(C >> 0);
+}
+
+static void PrintNumberLiteral(unsigned char C, raw_ostream &OS,
+                               MCAsmInfo::AsmNumberLiteralSyntax ANLS) {
+  switch (ANLS) {
+  case MCAsmInfo::ANLS_PlainDecimal:
+    OS << (unsigned)C;
+    return;
+  case MCAsmInfo::ANLS_PrefixedOctal:
+    OS << '0';
+    PrintOctal(C, OS);
+    return;
+  case MCAsmInfo::ANLS_SuffixedOctal:
+    PrintOctal(C, OS);
+    OS << 'o';
+    return;
+  }
+  llvm_unreachable("Invalid AsmOctalLiteralSyntax value!");
+}
 
 static void PrintByteList(StringRef Data, raw_ostream &OS,
+                          MCAsmInfo::AsmNumberLiteralSyntax ANLS,
                           MCAsmInfo::AsmCharLiteralSyntax ACLS) {
   assert(!Data.empty() && "Cannot generate an empty list.");
-  const auto printCharacterInOctal = [&OS](unsigned char C) {
-    OS << '0';
-    OS << toOctal(C >> 6);
-    OS << toOctal(C >> 3);
-    OS << toOctal(C >> 0);
-  };
-  const auto printOneCharacterFor = [printCharacterInOctal](
-                                        auto printOnePrintingCharacter) {
-    return [printCharacterInOctal, printOnePrintingCharacter](unsigned char C) {
+  const auto printOneCharacterFor = [&OS,
+                                     ANLS](auto printOnePrintingCharacter) {
+    return [&OS, ANLS, printOnePrintingCharacter](unsigned char C) {
       if (isPrint(C)) {
         printOnePrintingCharacter(static_cast<char>(C));
         return;
       }
-      printCharacterInOctal(C);
+      PrintNumberLiteral(C, OS, ANLS);
     };
   };
   const auto printCharacterList = [Data, &OS](const auto &printOneCharacter) {
@@ -1168,7 +1189,8 @@ static void PrintByteList(StringRef Data, raw_ostream &OS,
   };
   switch (ACLS) {
   case MCAsmInfo::ACLS_Unknown:
-    printCharacterList(printCharacterInOctal);
+    printCharacterList(
+        [&OS, ANLS](unsigned char C) { PrintNumberLiteral(C, OS, ANLS); });
     return;
   case MCAsmInfo::ACLS_SingleQuotePrefix:
     printCharacterList(printOneCharacterFor([&OS](char C) {
@@ -1176,59 +1198,87 @@ static void PrintByteList(StringRef Data, raw_ostream &OS,
       OS << StringRef(AsmCharLitBuf, sizeof(AsmCharLitBuf));
     }));
     return;
+  case MCAsmInfo::ACLS_SingleQuotes:
+    printCharacterList(printOneCharacterFor([&OS](char C) {
+      const char AsmCharLitBuf[4] = {'\'', C, '\'', '\''};
+      OS << StringRef(AsmCharLitBuf, sizeof(AsmCharLitBuf) - (C != '\''));
+    }));
+    return;
   }
   llvm_unreachable("Invalid AsmCharLiteralSyntax value!");
 }
 
 void MCAsmStreamer::PrintQuotedString(StringRef Data, raw_ostream &OS) const {
-  OS << '"';
-
-  if (MAI->hasPairedDoubleQuoteStringConstants()) {
-    for (unsigned char C : Data) {
-      if (C == '"')
-        OS << "\"\"";
-      else
-        OS << (char)C;
+  char Delimiter = '"';
+  bool NeedComma = false, InString = false;
+  const auto insideString = [&]() -> raw_ostream & {
+    if (!InString) {
+      if (NeedComma)
+        OS << ", ";
+      OS << Delimiter;
     }
-  } else {
-    for (unsigned char C : Data) {
-      if (C == '"' || C == '\\') {
-        OS << '\\' << (char)C;
-        continue;
-      }
-
-      if (isPrint((unsigned char)C)) {
-        OS << (char)C;
-        continue;
-      }
-
+    NeedComma = InString = true;
+    return OS;
+  };
+  const auto outsideString = [&]() -> raw_ostream & {
+    if (InString)
+      OS << Delimiter;
+    InString = false;
+    if (NeedComma)
+      OS << ", ";
+    NeedComma = true;
+    return OS;
+  };
+  for (char C : Data) {
+    if (MAI->hasPairedDoubleQuoteStringConstants() && C == Delimiter) {
+      insideString() << C << C;
+      continue;
+    }
+    bool IsPrint = isPrint((unsigned char)C);
+    if ((!MAI->getStringConstantsEscapeNonPrint() || IsPrint) &&
+        !MAI->getStringConstantsRequiredEscapes().contains(C)) {
+      insideString() << C;
+      continue;
+    }
+    if (MAI->hasBackslashEscapesInStringConstants()) {
       switch (C) {
       case '\b':
-        OS << "\\b";
-        break;
+        insideString() << "\\b";
+        continue;
       case '\f':
-        OS << "\\f";
-        break;
+        insideString() << "\\f";
+        continue;
       case '\n':
-        OS << "\\n";
-        break;
+        insideString() << "\\n";
+        continue;
       case '\r':
-        OS << "\\r";
-        break;
+        insideString() << "\\r";
+        continue;
       case '\t':
-        OS << "\\t";
-        break;
+        insideString() << "\\t";
+        continue;
+      // Z80-FORK: octal escape quotes for some reason
+      case '\"':
+        insideString() << '\\';
+        PrintOctal('\"', OS);
+        continue;
       default:
-        OS << '\\';
-        OS << toOctal(C >> 6);
-        OS << toOctal(C >> 3);
-        OS << toOctal(C >> 0);
-        break;
+        if (!IsPrint) {
+          // Z80-FORK: emit non-printable characters as \OOO octal escapes inside the string
+          insideString() << '\\';
+          PrintOctal(C, OS);
+          continue;
+        }
+        insideString() << '\\' << C;
+        continue;
       }
     }
+    PrintNumberLiteral(C, outsideString(), MAI->numberLiteralSyntax());
   }
-
-  OS << '"';
+  if (!NeedComma)
+    OS << Delimiter << Delimiter;
+  else if (InString)
+    OS << Delimiter;
 }
 
 void MCAsmStreamer::emitBytes(StringRef Data) {
@@ -1262,7 +1312,8 @@ void MCAsmStreamer::emitBytes(StringRef Data) {
       }
     } else if (MAI->getByteListDirective()) {
       OS << MAI->getByteListDirective();
-      PrintByteList(Data, OS, MAI->characterLiteralSyntax());
+      PrintByteList(Data, OS, MAI->numberLiteralSyntax(),
+                    MAI->characterLiteralSyntax());
       EmitEOL();
       return true;
     } else {
@@ -1327,6 +1378,7 @@ void MCAsmStreamer::emitValueImpl(const MCExpr *Value, unsigned Size,
   default: break;
   case 1: Directive = MAI->getData8bitsDirective();  break;
   case 2: Directive = MAI->getData16bitsDirective(); break;
+  case 3: Directive = MAI->getData24bitsDirective(); break;
   case 4: Directive = MAI->getData32bitsDirective(); break;
   case 8: Directive = MAI->getData64bitsDirective(); break;
   }
@@ -1381,7 +1433,7 @@ void MCAsmStreamer::emitULEB128Value(const MCExpr *Value) {
     emitULEB128IntValue(IntValue);
     return;
   }
-  OS << "\t.uleb128 ";
+  OS << MAI->getDataULEB128Directive();
   Value->print(OS, MAI);
   EmitEOL();
 }
@@ -1392,7 +1444,7 @@ void MCAsmStreamer::emitSLEB128Value(const MCExpr *Value) {
     emitSLEB128IntValue(IntValue);
     return;
   }
-  OS << "\t.sleb128 ";
+  OS << MAI->getDataSLEB128Directive();
   Value->print(OS, MAI);
   EmitEOL();
 }
@@ -1463,6 +1515,14 @@ void MCAsmStreamer::emitFill(const MCExpr &NumBytes, uint64_t FillValue,
         EmitEOL();
       }
     }
+    return;
+  }
+
+  if (const char *BlockDirective = MAI->getBlockDirective(1)) {
+    OS << BlockDirective;
+    NumBytes.print(OS, MAI);
+    OS << MAI->getBlockSeparator() << FillValue;
+    EmitEOL();
     return;
   }
 
@@ -1622,7 +1682,7 @@ void MCAsmStreamer::printDwarfFileDirective(
     }
   }
 
-  OS << "\t.file\t" << FileNo << ' ';
+  OS << MAI->getDwarfFileDirective() << FileNo << ' ';
   if (!Directory.empty()) {
     PrintQuotedString(Directory, OS);
     OS << ' ';
@@ -1712,7 +1772,7 @@ void MCAsmStreamer::emitDwarfLocDirective(unsigned FileNo, unsigned Line,
     return;
   }
 
-  OS << "\t.loc\t" << FileNo << " " << Line << " " << Column;
+  OS << MAI->getDwarfLocDirective() << FileNo << " " << Line << " " << Column;
   if (MAI->supportsExtendedDwarfLocDirective()) {
     if (Flags & DWARF2_FLAG_BASIC_BLOCK)
       OS << " basic_block";
@@ -1912,15 +1972,15 @@ void MCAsmStreamer::emitCVFPOData(const MCSymbol *ProcSym, SMLoc L) {
 }
 
 void MCAsmStreamer::emitIdent(StringRef IdentString) {
-  assert(MAI->hasIdentDirective() && ".ident directive not supported");
-  OS << "\t.ident\t";
+  assert(MAI->getIdentDirective() && ".ident directive not supported");
+  OS << MAI->getIdentDirective();
   PrintQuotedString(IdentString, OS);
   EmitEOL();
 }
 
 void MCAsmStreamer::emitCFISections(bool EH, bool Debug) {
   MCStreamer::emitCFISections(EH, Debug);
-  OS << "\t.cfi_sections ";
+  OS << MAI->getDwarfCFIDirectivePrefix() << "sections ";
   if (EH) {
     OS << ".eh_frame";
     if (Debug)
@@ -1933,7 +1993,7 @@ void MCAsmStreamer::emitCFISections(bool EH, bool Debug) {
 }
 
 void MCAsmStreamer::emitCFIStartProcImpl(MCDwarfFrameInfo &Frame) {
-  OS << "\t.cfi_startproc";
+  OS << MAI->getDwarfCFIDirectivePrefix() << "startproc";
   if (Frame.IsSimple)
     OS << " simple";
   EmitEOL();
@@ -1941,7 +2001,7 @@ void MCAsmStreamer::emitCFIStartProcImpl(MCDwarfFrameInfo &Frame) {
 
 void MCAsmStreamer::emitCFIEndProcImpl(MCDwarfFrameInfo &Frame) {
   MCStreamer::emitCFIEndProcImpl(Frame);
-  OS << "\t.cfi_endproc";
+  OS << MAI->getDwarfCFIDirectivePrefix() << "endproc";
   EmitEOL();
 }
 
@@ -1984,8 +2044,9 @@ void MCAsmStreamer::emitCFILLVMDefAspaceCfa(int64_t Register, int64_t Offset,
   EmitEOL();
 }
 
-static void PrintCFIEscape(llvm::formatted_raw_ostream &OS, StringRef Values) {
-  OS << "\t.cfi_escape ";
+static void PrintCFIEscape(llvm::formatted_raw_ostream &OS, StringRef Values,
+                           const MCAsmInfo *MAI) {
+  OS << MAI->getDwarfCFIDirectivePrefix() << "escape ";
   if (!Values.empty()) {
     size_t e = Values.size() - 1;
     for (size_t i = 0; i < e; ++i)
@@ -1996,7 +2057,7 @@ static void PrintCFIEscape(llvm::formatted_raw_ostream &OS, StringRef Values) {
 
 void MCAsmStreamer::emitCFIEscape(StringRef Values, SMLoc Loc) {
   MCStreamer::emitCFIEscape(Values, Loc);
-  PrintCFIEscape(OS, Values);
+  PrintCFIEscape(OS, Values, MAI);
   EmitEOL();
 }
 
@@ -2006,7 +2067,7 @@ void MCAsmStreamer::emitCFIGnuArgsSize(int64_t Size, SMLoc Loc) {
   uint8_t Buffer[16] = { dwarf::DW_CFA_GNU_args_size };
   unsigned Len = encodeULEB128(Size, Buffer + 1) + 1;
 
-  PrintCFIEscape(OS, StringRef((const char *)&Buffer[0], Len));
+  PrintCFIEscape(OS, StringRef((const char *)&Buffer[0], Len), MAI);
   EmitEOL();
 }
 

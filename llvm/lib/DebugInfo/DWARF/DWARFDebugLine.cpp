@@ -925,7 +925,8 @@ Error DWARFDebugLine::LineTable::parse(
           // address size. If the size is unsupported, give up trying to read
           // the address and continue to the next opcode.
           if (OpcodeAddressSize != 1 && OpcodeAddressSize != 2 &&
-              OpcodeAddressSize != 4 && OpcodeAddressSize != 8) {
+              OpcodeAddressSize != 3 && OpcodeAddressSize != 4 &&
+              OpcodeAddressSize != 8) {
             RecoverableErrorHandler(createStringError(
                 errc::invalid_argument,
                 "address size 0x%2.2" PRIx64

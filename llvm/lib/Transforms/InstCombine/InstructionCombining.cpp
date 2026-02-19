@@ -238,7 +238,7 @@ bool InstCombinerImpl::shouldChangeType(unsigned FromWidth,
   if (!FromLegal && !ToLegal && ToWidth > FromWidth)
     return false;
 
-  return true;
+  return ToLegal; // FIXME jacobly: change to true when backend supports illegal types
 }
 
 /// Return true if it is desirable to convert a computation from 'From' to 'To'.

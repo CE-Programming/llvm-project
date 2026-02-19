@@ -557,6 +557,17 @@ void MCStreamer::emitCFIOffset(int64_t Register, int64_t Offset, SMLoc Loc) {
   CurFrame->Instructions.push_back(Instruction);
 }
 
+// Z80-FORK: Support for .cfi_val_offset directive
+void MCStreamer::emitCFIValOffset(int64_t Register, int64_t Offset, SMLoc Loc) {
+  MCSymbol *Label = emitCFILabel();
+  MCCFIInstruction Instruction =
+      MCCFIInstruction::createValOffset(Label, Register, Offset, Loc);
+  MCDwarfFrameInfo *CurFrame = getCurrentDwarfFrameInfo();
+  if (!CurFrame)
+    return;
+  CurFrame->Instructions.push_back(Instruction);
+}
+
 void MCStreamer::emitCFIRelOffset(int64_t Register, int64_t Offset, SMLoc Loc) {
   MCSymbol *Label = emitCFILabel();
   MCCFIInstruction Instruction =
@@ -1252,7 +1263,8 @@ void MCStreamer::switchSection(MCSection *Section, const MCExpr *Subsection) {
     MCSymbol *Sym = Section->getBeginSymbol();
     if (Sym && !Sym->isInSection())
       emitLabel(Sym);
-  }
+  } else if (Context.getAsmInfo()->shouldAlwaysChangeSection())
+    changeSection(Section, Subsection);
 }
 
 MCSymbol *MCStreamer::endSection(MCSection *Section) {

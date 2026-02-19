@@ -7907,6 +7907,44 @@ static void handleRISCVInterruptAttr(Sema &S, Decl *D,
   D->addAttr(::new (S.Context) RISCVInterruptAttr(S.Context, AL, Kind));
 }
 
+static void handleZ80InterruptAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+  if (!isFunctionOrMethod(D)) {
+    S.Diag(D->getLocation(), diag::warn_attribute_wrong_decl_type)
+        << "'interrupt'" << ExpectedFunction;
+    return;
+  }
+
+  if (hasFunctionProto(D) && getFunctionOrMethodNumParams(D) != 0) {
+    S.Diag(D->getLocation(), diag::warn_interrupt_attribute_invalid)
+        << /*Z80*/ 3 << 0;
+    return;
+  }
+
+  if (!getFunctionOrMethodResultType(D)->isVoidType()) {
+    S.Diag(D->getLocation(), diag::warn_interrupt_attribute_invalid)
+        << /*Z80*/ 3 << 1;
+    return;
+  }
+
+  // The attribute takes an optional string argument.
+  if (!AL.checkAtMostNumArgs(S, 1))
+    return;
+
+  StringRef Str;
+  SourceLocation ArgLoc;
+  if (AL.getNumArgs() && !S.checkStringLiteralArgumentAttr(AL, 0, Str, &ArgLoc))
+    return;
+
+  AnyZ80InterruptAttr::InterruptType Kind;
+  if (!AnyZ80InterruptAttr::ConvertStrToInterruptType(Str, Kind)) {
+    S.Diag(AL.getLoc(), diag::warn_attribute_type_not_supported)
+        << AL << ("\"" + Str + "\"").str() << ArgLoc;
+    Kind = AnyZ80InterruptAttr::InterruptType::Generic;
+  }
+
+  D->addAttr(::new (S.Context) AnyZ80InterruptAttr(S.Context, AL, Kind));
+}
+
 static void handleInterruptAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   // Dispatch the interrupt attribute based on the current target.
   switch (S.Context.getTargetInfo().getTriple().getArch()) {
@@ -7930,6 +7968,10 @@ static void handleInterruptAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   case llvm::Triple::riscv32:
   case llvm::Triple::riscv64:
     handleRISCVInterruptAttr(S, D, AL);
+    break;
+  case llvm::Triple::z80:
+  case llvm::Triple::ez80:
+    handleZ80InterruptAttr(S, D, AL);
     break;
   default:
     handleARMInterruptAttr(S, D, AL);
@@ -9363,6 +9405,9 @@ ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D, const ParsedAttr &AL,
     break;
   case ParsedAttr::AT_AnyX86NoCfCheck:
     handleNoCfCheckAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_AnyZ80TIFlags:
+    handleSimpleAttribute<AnyZ80TIFlagsAttr>(S, D, AL);
     break;
   case ParsedAttr::AT_NoThrow:
     if (!AL.isUsedAsTypeAttr())

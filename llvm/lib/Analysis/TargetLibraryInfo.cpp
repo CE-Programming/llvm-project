@@ -186,9 +186,9 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
   TLI.setShouldSignExtI32Return(ShouldSignExtI32Return);
 
   // Let's assume by default that the size of int is 32 bits, unless the target
-  // is a 16-bit architecture because then it most likely is 16 bits. If that
-  // isn't true for a target those defaults should be overridden below.
-  TLI.setIntSize(T.isArch16Bit() ? 16 : 32);
+  // is a 16/24-bit architecture because then it most likely is 16/24 bits. If
+  // that isn't true for a target those defaults should be overridden below.
+  TLI.setIntSize(T.isArch16Bit() ? 16 : T.isArch24Bit() ? 24 : 32);
 
   // There is really no runtime library on AMDGPU, apart from
   // __kmpc_alloc/free_shared.

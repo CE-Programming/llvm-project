@@ -153,6 +153,7 @@ static void diagnoseBadTypeAttribute(Sema &S, const ParsedAttr &attr,
   case ParsedAttr::AT_ArmInOut:                                                \
   case ParsedAttr::AT_AnyX86NoCallerSavedRegisters:                            \
   case ParsedAttr::AT_AnyX86NoCfCheck:                                         \
+  case ParsedAttr::AT_AnyZ80TIFlags:                                           \
     CALLING_CONV_ATTRS_CASELIST
 
 // Microsoft-specific type qualifiers.
@@ -1512,6 +1513,15 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
 
     break;
   }
+  case DeclSpec::TST_int48:
+    if (!S.Context.getTargetInfo().hasInt48Type())
+      S.Diag(DS.getTypeSpecTypeLoc(), diag::err_type_unsupported)
+        << "__int48";
+    if (DS.getTypeSpecSign() == TypeSpecifierSign::Unsigned)
+      Result = Context.UnsignedInt48Ty;
+    else
+      Result = Context.Int48Ty;
+    break;
   case DeclSpec::TST_int128:
     if (!S.Context.getTargetInfo().hasInt128Type() &&
         !(S.getLangOpts().SYCLIsDevice || S.getLangOpts().CUDAIsDevice ||
@@ -8063,6 +8073,20 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state, ParsedAttr &attr,
 
     FunctionType::ExtInfo EI =
       unwrapped.get()->getExtInfo().withNoCfCheck(true);
+    type = unwrapped.wrap(S, S.Context.adjustFunctionType(unwrapped.get(), EI));
+    return true;
+  }
+
+  if (attr.getKind() == ParsedAttr::AT_AnyZ80TIFlags) {
+    if (S.CheckAttrTarget(attr) || S.CheckAttrNoArgs(attr))
+      return true;
+
+    // If this is not a function type, warning will be asserted by subject
+    // check.
+    if (!unwrapped.isFunctionType())
+      return true;
+
+    FunctionType::ExtInfo EI = unwrapped.get()->getExtInfo().withTIFlags(true);
     type = unwrapped.wrap(S, S.Context.adjustFunctionType(unwrapped.get(), EI));
     return true;
   }
