@@ -1125,6 +1125,13 @@ enum PredefinedTypeIDs {
 #define AMDGPU_TYPE(Name, Id, SingletonId) PREDEF_TYPE_##Id##_ID,
 #include "clang/Basic/AMDGPUTypes.def"
 
+  // Z80-FORK: 48-bit integer types for Z80.
+  /// The '__uint48_t' type.
+  PREDEF_TYPE_UINT48_ID,
+
+  /// The '__int48_t' type.
+  PREDEF_TYPE_INT48_ID,
+
   /// The placeholder type for unresolved templates.
   PREDEF_TYPE_UNRESOLVED_TEMPLATE,
   // Sentinel value. Considered a predefined type but not useable as one.
@@ -1136,7 +1143,7 @@ enum PredefinedTypeIDs {
 ///
 /// Type IDs for non-predefined types will start at
 /// NUM_PREDEF_TYPE_IDs.
-const unsigned NUM_PREDEF_TYPE_IDS = 504;
+const unsigned NUM_PREDEF_TYPE_IDS = 506;
 
 // Ensure we do not overrun the predefined types we reserved
 // in the enum PredefinedTypeIDs above.

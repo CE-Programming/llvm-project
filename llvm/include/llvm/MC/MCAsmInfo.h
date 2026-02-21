@@ -183,9 +183,10 @@ protected:
   const char *InlineAsmEnd;
 
   /// These are assembly directives that tells the assembler to interpret the
-  /// following instructions differently.  Defaults to ".code16", ".code32",
-  /// ".code64".
+  /// following instructions differently.  Defaults to ".code16", ".code24",
+  /// ".code32", ".code64".
   const char *Code16Directive;
+  const char *Code24Directive;
   const char *Code32Directive;
   const char *Code64Directive;
 
@@ -284,9 +285,10 @@ protected:
   /// These directives are used to output some unit of integer data to the
   /// current section.  If a data directive is set to null, smaller data
   /// directives will be used to emit the large sizes.  Defaults to "\t.byte\t",
-  /// "\t.short\t", "\t.long\t", "\t.quad\t"
+  /// "\t.short\t", nullptr, "\t.long\t", "\t.quad\t"
   const char *Data8bitsDirective;
   const char *Data16bitsDirective;
+  const char *Data24bitsDirective;
   const char *Data32bitsDirective;
   const char *Data64bitsDirective;
 
@@ -320,6 +322,14 @@ protected:
   /// '.bss' one. It's used for PPC/Linux which doesn't support the '.bss'
   /// directive only.  Defaults to false.
   bool UsesELFSectionDirectiveForBSS = false;
+
+  /// This is the directive used when switching sections. Defaults to
+  /// "\t.section\t".
+  const char *SectionDirective = "\t.section\t";
+
+  /// Force emitting a section switch directive even if section+subsection
+  /// didn't change.
+  bool AlwaysChangeSection = false;
 
   bool NeedsDwarfSectionOffsetDirective = false;
 
@@ -399,7 +409,7 @@ protected:
 
   /// True if the target has a .ident directive, this is true for ELF targets.
   /// Defaults to false.
-  bool HasIdentDirective = false;
+  const char *IdentDirective = nullptr;
 
   /// True if this target supports the MachO .no_dead_strip directive.  Defaults
   /// to false.
@@ -563,6 +573,7 @@ public:
 
   const char *getData8bitsDirective() const { return Data8bitsDirective; }
   const char *getData16bitsDirective() const { return Data16bitsDirective; }
+  const char *getData24bitsDirective() const { return Data24bitsDirective; }
   const char *getData32bitsDirective() const { return Data32bitsDirective; }
   const char *getData64bitsDirective() const { return Data64bitsDirective; }
   bool supportsSignedData() const { return SupportsSignedData; }
@@ -603,6 +614,8 @@ public:
   /// returns false => .section .text,#alloc,#execinstr
   /// returns true  => .text
   virtual bool shouldOmitSectionDirective(StringRef SectionName) const;
+
+  bool shouldAlwaysChangeSection() const { return AlwaysChangeSection; }
 
   bool usesSunStyleELFSectionSwitchSyntax() const {
     return SunStyleELFSectionSwitchSyntax;
@@ -671,6 +684,7 @@ public:
   const char *getInlineAsmStart() const { return InlineAsmStart; }
   const char *getInlineAsmEnd() const { return InlineAsmEnd; }
   const char *getCode16Directive() const { return Code16Directive; }
+  const char *getCode24Directive() const { return Code24Directive; }
   const char *getCode32Directive() const { return Code32Directive; }
   const char *getCode64Directive() const { return Code64Directive; }
   unsigned getAssemblerDialect() const { return AssemblerDialect; }
@@ -717,6 +731,7 @@ public:
   bool getAlignmentIsInBytes() const { return AlignmentIsInBytes; }
   unsigned getTextAlignFillValue() const { return TextAlignFillValue; }
   const char *getGlobalDirective() const { return GlobalDirective; }
+  const char *getSectionDirective() const { return SectionDirective; }
 
   bool doesSetDirectiveSuppressReloc() const {
     return SetDirectiveSuppressesReloc;
@@ -742,7 +757,7 @@ public:
   bool hasDotTypeDotSizeDirective() const { return HasDotTypeDotSizeDirective; }
   bool hasSingleParameterDotFile() const { return HasSingleParameterDotFile; }
   bool hasFourStringsDotFile() const { return HasFourStringsDotFile; }
-  bool hasIdentDirective() const { return HasIdentDirective; }
+  const char *getIdentDirective() const { return IdentDirective; }
   bool hasNoDeadStrip() const { return HasNoDeadStrip; }
   bool hasAltEntry() const { return HasAltEntry; }
   const char *getWeakDirective() const { return WeakDirective; }
@@ -868,6 +883,9 @@ public:
   bool hasMipsExpressions() const { return HasMipsExpressions; }
   bool needsFunctionDescriptors() const { return NeedsFunctionDescriptors; }
   bool shouldUseMotorolaIntegers() const { return UseMotorolaIntegers; }
+
+  virtual const char *getUnaryOperator(unsigned Opc) const;
+  virtual const char *getBinaryOperator(unsigned Opc) const;
 };
 
 } // end namespace llvm

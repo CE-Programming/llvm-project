@@ -2993,7 +2993,7 @@ void AsmPrinter::emitXXStructorList(const DataLayout &DL, const Constant *List,
 }
 
 void AsmPrinter::emitModuleIdents(Module &M) {
-  if (!MAI->hasIdentDirective())
+  if (!MAI->getIdentDirective())
     return;
 
   if (const NamedMDNode *NMD = M.getNamedMetadata("llvm.ident")) {

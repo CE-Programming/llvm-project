@@ -314,6 +314,7 @@ enum {
   EM_COOL = 217,          // iCelero CoolEngine
   EM_NORC = 218,          // Nanoradio Optimized RISC
   EM_CSR_KALIMBA = 219,   // CSR Kalimba architecture family
+  EM_Z80 = 220,           // Zilog Z80
   EM_AMDGPU = 224,        // AMD GPU architecture
   EM_RISCV = 243,         // RISC-V
   EM_LANAI = 244,         // Lanai 32-bit processor
@@ -1016,6 +1017,23 @@ enum : unsigned {
 // ELF Relocation types for Xtensa
 enum {
 #include "ELFRelocs/Xtensa.def"
+};
+
+// Z80 specific e_flags
+enum : unsigned {
+  EF_Z80_MACH_Z80 = 0x01,
+  EF_Z80_MACH_Z180 = 0x02,
+  EF_Z80_MACH_R800 = 0x03,
+  EF_Z80_MACH_EZ80_Z80 = 0x04,
+  EF_Z80_MACH_EZ80_ADL = 0x84,
+  EF_Z80_MACH_GBZ80 = 0x05,
+  EF_Z80_MACH_Z80N = 0x06,
+  EF_Z80_MACH_MSK = 0xff,
+};
+
+// Z80 relocations.
+enum {
+#include "ELFRelocs/z80.def"
 };
 
 #undef ELF_RELOC

@@ -23,10 +23,9 @@ class SPIRVTargetLowering;
 class SPIRVInlineAsmLowering : public InlineAsmLowering {
 public:
   SPIRVInlineAsmLowering(const SPIRVTargetLowering &TLI);
-  bool
-  lowerAsmOperandForConstraint(Value *Val, StringRef Constraint,
-                               std::vector<MachineOperand> &Ops,
-                               MachineIRBuilder &MIRBuilder) const override;
+  bool lowerInputAsmOperandForConstraint(
+      GISelAsmOperandInfo &OpInfo, MachineInstrBuilder &Inst,
+      MachineIRBuilder &MIRBuilder) const override;
 };
 } // end namespace llvm
 

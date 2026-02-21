@@ -6590,6 +6590,9 @@ ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D, const ParsedAttr &AL,
   case ParsedAttr::AT_AnyX86NoCfCheck:
     handleNoCfCheckAttr(S, D, AL);
     break;
+  case ParsedAttr::AT_AnyZ80TIFlags:
+    handleSimpleAttribute<AnyZ80TIFlagsAttr>(S, D, AL);
+    break;
   case ParsedAttr::AT_NoThrow:
     if (!AL.isUsedAsTypeAttr())
       handleSimpleAttribute<NoThrowAttr>(S, D, AL);

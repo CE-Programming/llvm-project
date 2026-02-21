@@ -1015,6 +1015,8 @@ public:
   virtual void emitCFIGnuArgsSize(int64_t Size, SMLoc Loc = {});
   virtual void emitCFISignalFrame();
   virtual void emitCFIUndefined(int64_t Register, SMLoc Loc = {});
+  // Z80-FORK: Support for .cfi_val_offset directive
+  virtual void emitCFIValOffset(int64_t Register, int64_t Offset, SMLoc Loc = {});
   virtual void emitCFIRegister(int64_t Register1, int64_t Register2,
                                SMLoc Loc = {});
   virtual void emitCFIWindowSave(SMLoc Loc = {});

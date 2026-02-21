@@ -218,7 +218,8 @@ MCSymbol *MCContext::getOrCreateSymbol(const Twine &Name) {
 
   MCSymbolTableEntry &Entry = getSymbolTableEntry(NameRef);
   if (!Entry.second.Symbol) {
-    bool IsRenamable = NameRef.starts_with(MAI->getPrivateGlobalPrefix());
+    auto Prefix = MAI->getPrivateGlobalPrefix();
+    bool IsRenamable = !Prefix.empty() && NameRef.starts_with(Prefix);
     bool IsTemporary = IsRenamable && !SaveTempLabels;
     if (!Entry.second.Used) {
       Entry.second.Used = true;

@@ -50,6 +50,7 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
+#include "llvm/Support/TypeSize.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/TargetParser/Triple.h"
@@ -929,10 +930,8 @@ TargetLoweringBase::getTypeConversion(LLVMContext &Context, EVT VT) const {
     MVT NVT = TransformToType[SVT.SimpleTy];
     LegalizeTypeAction LA = ValueTypeActions.getTypeAction(SVT);
 
-    assert((LA == TypeLegal || LA == TypeSoftenFloat ||
-            LA == TypeSoftPromoteHalf ||
-            (NVT.isVector() ||
-             ValueTypeActions.getTypeAction(NVT) != TypePromoteInteger)) &&
+    assert(((LA != TypePromoteInteger && LA != TypeExpandInteger) ||
+            ValueTypeActions.getTypeAction(NVT) != TypePromoteInteger) &&
            "Promote may not follow Expand or Promote");
 
     if (LA == TypeSplitVector)
@@ -1263,22 +1262,39 @@ void TargetLoweringBase::computeRegisterProperties(
   for (; RegClassForVT[LargestIntReg] == nullptr; --LargestIntReg)
     assert(LargestIntReg != MVT::i1 && "No integer registers defined!");
 
-  // Every integer value type larger than this largest register takes twice as
-  // many registers to represent as the previous ValueType.
-  for (unsigned ExpandedReg = LargestIntReg + 1;
+  auto getFixedBits = [](MVT VT) {
+    TypeSize Bits = VT.getSizeInBits();
+    assert(!Bits.isScalable() &&
+           "ComputeRegisterProperties works on fixed sizes");
+    return Bits.getFixedValue();
+  };
+  uint64_t LargestIntBits = getFixedBits((MVT::SimpleValueType)LargestIntReg);
+  MVT LargestIntVT = (MVT::SimpleValueType)LargestIntReg;
+
+  // every integer value type larger than this largest register
+  for (unsigned HalfReg = LargestIntReg, ExpandedReg = LargestIntReg + 1;
        ExpandedReg <= MVT::LAST_INTEGER_VALUETYPE; ++ExpandedReg) {
-    NumRegistersForVT[ExpandedReg] = 2*NumRegistersForVT[ExpandedReg-1];
-    RegisterTypeForVT[ExpandedReg] = (MVT::SimpleValueType)LargestIntReg;
-    TransformToType[ExpandedReg] = (MVT::SimpleValueType)(ExpandedReg - 1);
-    ValueTypeActions.setTypeAction((MVT::SimpleValueType)ExpandedReg,
-                                   TypeExpandInteger);
+    MVT ExpandedVT = (MVT::SimpleValueType)ExpandedReg;
+    uint64_t ExpandedBits = getFixedBits(ExpandedVT);
+    NumRegistersForVT[ExpandedReg] = divideCeil(ExpandedBits, LargestIntBits);
+    RegisterTypeForVT[ExpandedReg] = LargestIntVT;
+    if (isPowerOf2_64(ExpandedBits)) {
+      TransformToType[ExpandedReg] = (MVT::SimpleValueType)HalfReg;
+      ValueTypeActions.setTypeAction(ExpandedVT, TypeExpandInteger);
+      HalfReg = ExpandedReg;
+    } else {
+      assert(ExpandedReg < MVT::LAST_INTEGER_VALUETYPE &&
+             "Expected a pow 2 type larger than any non pow 2 type");
+      TransformToType[ExpandedReg] = (MVT::SimpleValueType)(ExpandedReg + 1);
+      ValueTypeActions.setTypeAction(ExpandedVT, TypePromoteInteger);
+    }
   }
 
   // Inspect all of the ValueType's smaller than the largest integer
   // register to see which ones need promotion.
   unsigned LegalIntReg = LargestIntReg;
-  for (unsigned IntReg = LargestIntReg - 1;
-       IntReg >= (unsigned)MVT::i1; --IntReg) {
+  for (unsigned IntReg = LargestIntReg - 1; IntReg >= (unsigned)MVT::i1;
+       --IntReg) {
     MVT IVT = (MVT::SimpleValueType)IntReg;
     if (isTypeLegal(IVT)) {
       LegalIntReg = IntReg;
@@ -1461,6 +1477,7 @@ void TargetLoweringBase::computeRegisterProperties(
       if (NVT == VT) {
         // Type is already a power of 2.  The default action is to split.
         TransformToType[i] = MVT::Other;
+        ValueTypeActions.setTypeAction(VT, PreferredAction);
         if (PreferredAction == TypeScalarizeVector)
           ValueTypeActions.setTypeAction(VT, TypeScalarizeVector);
         else if (PreferredAction == TypeSplitVector)

@@ -1484,7 +1484,6 @@ void PEI::replaceFrameIndicesBackward(MachineBasicBlock *BB,
       continue;
     }
 
-    // Step backwards to get the liveness state at (immedately after) MI.
     if (LocalRS)
       LocalRS->backward(I);
 
@@ -1498,6 +1497,12 @@ void PEI::replaceFrameIndicesBackward(MachineBasicBlock *BB,
 
       // Eliminate this FrameIndex operand.
       RemovedMI = TRI.eliminateFrameIndex(MI, SPAdj, Idx, LocalRS);
+      // If MI was removed, restart scavenger tracking at block end and walk to
+      // the loop cursor. this avoids dangling iterator state in LocalRS
+      if (RemovedMI && LocalRS) {
+        LocalRS->enterBasicBlockEnd(*BB);
+        LocalRS->backward(I);
+      }
       if (RemovedMI)
         break;
     }

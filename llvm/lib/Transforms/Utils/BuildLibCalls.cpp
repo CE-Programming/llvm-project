@@ -1562,9 +1562,9 @@ Value *llvm::emitMemChr(Value *Ptr, Value *Val, Value *Len, IRBuilderBase &B,
                         const DataLayout &DL, const TargetLibraryInfo *TLI) {
   Type *VoidPtrTy = B.getPtrTy();
   Type *IntTy = getIntTy(B, TLI);
-  Type *SizeTTy = getSizeTTy(B, TLI);
+  LLVMContext &Context = B.GetInsertBlock()->getContext();
   return emitLibCall(LibFunc_memchr, VoidPtrTy,
-                     {VoidPtrTy, IntTy, SizeTTy},
+                     {VoidPtrTy, IntTy, DL.getIntPtrType(Context)},
                      {Ptr, Val, Len}, B, TLI);
 }
 
@@ -1582,9 +1582,9 @@ Value *llvm::emitMemCmp(Value *Ptr1, Value *Ptr2, Value *Len, IRBuilderBase &B,
                         const DataLayout &DL, const TargetLibraryInfo *TLI) {
   Type *VoidPtrTy = B.getPtrTy();
   Type *IntTy = getIntTy(B, TLI);
-  Type *SizeTTy = getSizeTTy(B, TLI);
+  LLVMContext &Context = B.GetInsertBlock()->getContext();
   return emitLibCall(LibFunc_memcmp, IntTy,
-                     {VoidPtrTy, VoidPtrTy, SizeTTy},
+                     {VoidPtrTy, VoidPtrTy, DL.getIntPtrType(Context)},
                      {Ptr1, Ptr2, Len}, B, TLI);
 }
 
@@ -1592,9 +1592,9 @@ Value *llvm::emitBCmp(Value *Ptr1, Value *Ptr2, Value *Len, IRBuilderBase &B,
                       const DataLayout &DL, const TargetLibraryInfo *TLI) {
   Type *VoidPtrTy = B.getPtrTy();
   Type *IntTy = getIntTy(B, TLI);
-  Type *SizeTTy = getSizeTTy(B, TLI);
+  LLVMContext &Context = B.GetInsertBlock()->getContext();
   return emitLibCall(LibFunc_bcmp, IntTy,
-                     {VoidPtrTy, VoidPtrTy, SizeTTy},
+                     {VoidPtrTy, VoidPtrTy, DL.getIntPtrType(Context)},
                      {Ptr1, Ptr2, Len}, B, TLI);
 }
 
@@ -1602,9 +1602,8 @@ Value *llvm::emitMemCCpy(Value *Ptr1, Value *Ptr2, Value *Val, Value *Len,
                          IRBuilderBase &B, const TargetLibraryInfo *TLI) {
   Type *VoidPtrTy = B.getPtrTy();
   Type *IntTy = getIntTy(B, TLI);
-  Type *SizeTTy = getSizeTTy(B, TLI);
   return emitLibCall(LibFunc_memccpy, VoidPtrTy,
-                     {VoidPtrTy, VoidPtrTy, IntTy, SizeTTy},
+                     {VoidPtrTy, VoidPtrTy, IntTy, Len->getType()},
                      {Ptr1, Ptr2, Val, Len}, B, TLI);
 }
 
@@ -1613,11 +1612,10 @@ Value *llvm::emitSNPrintf(Value *Dest, Value *Size, Value *Fmt,
                           const TargetLibraryInfo *TLI) {
   Type *CharPtrTy = B.getPtrTy();
   Type *IntTy = getIntTy(B, TLI);
-  Type *SizeTTy = getSizeTTy(B, TLI);
   SmallVector<Value *, 8> Args{Dest, Size, Fmt};
   llvm::append_range(Args, VariadicArgs);
   return emitLibCall(LibFunc_snprintf, IntTy,
-                     {CharPtrTy, SizeTTy, CharPtrTy},
+                     {CharPtrTy, Size->getType(), CharPtrTy},
                      Args, B, TLI, /*IsVaArgs=*/true);
 }
 
@@ -1672,10 +1670,9 @@ Value *llvm::emitVSNPrintf(Value *Dest, Value *Size, Value *Fmt, Value *VAList,
                            IRBuilderBase &B, const TargetLibraryInfo *TLI) {
   Type *CharPtrTy = B.getPtrTy();
   Type *IntTy = getIntTy(B, TLI);
-  Type *SizeTTy = getSizeTTy(B, TLI);
   return emitLibCall(
       LibFunc_vsnprintf, IntTy,
-      {CharPtrTy, SizeTTy, CharPtrTy, VAList->getType()},
+      {CharPtrTy, Size->getType(), CharPtrTy, VAList->getType()},
       {Dest, Size, Fmt, VAList}, B, TLI);
 }
 
@@ -1856,6 +1853,7 @@ Value *llvm::emitFPutC(Value *Char, Value *File, IRBuilderBase &B,
                                         IntTy, File->getType());
   if (File->getType()->isPointerTy())
     inferNonMandatoryLibFuncAttrs(M, FPutcName, *TLI);
+  Char = B.CreateIntCast(Char, IntTy, /*isSigned=*/true, "chari");
   CallInst *CI = B.CreateCall(F, {Char, File}, FPutcName);
 
   if (const Function *Fn =

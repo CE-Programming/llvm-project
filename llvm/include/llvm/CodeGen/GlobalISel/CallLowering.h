@@ -21,6 +21,7 @@
 #include "llvm/CodeGen/TargetCallingConv.h"
 #include "llvm/CodeGenTypes/LowLevelType.h"
 #include "llvm/CodeGenTypes/MachineValueType.h"
+#include "llvm/IR/Attributes.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
@@ -30,7 +31,6 @@
 
 namespace llvm {
 
-class AttributeList;
 class CallBase;
 class DataLayout;
 class Function;
@@ -105,6 +105,9 @@ public:
   };
 
   struct CallLoweringInfo {
+    /// Attributes attached to the call.
+    AttributeList CallAttributes;
+
     /// Calling convention to be used for the call.
     CallingConv::ID CallConv = CallingConv::C;
 
@@ -324,6 +327,8 @@ public:
     /// to at most MaxSize bits. If MaxSizeBits is 0 then no maximum is set.
     Register extendRegister(Register ValReg, const CCValAssign &VA,
                             unsigned MaxSizeBits = 0);
+
+    virtual bool finalize(CCState &State) { return true; }
   };
 
   /// Base class for ValueHandlers used for arguments coming into the current

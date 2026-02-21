@@ -96,7 +96,7 @@ AArch64MCAsmInfoELF::AArch64MCAsmInfoELF(const Triple &T) {
   // Exceptions handling
   ExceptionsType = ExceptionHandling::DwarfCFI;
 
-  HasIdentDirective = true;
+  IdentDirective = "\t.ident\t";
 }
 
 AArch64MCAsmInfoMicrosoftCOFF::AArch64MCAsmInfoMicrosoftCOFF() {
