@@ -169,6 +169,15 @@ Z80PreLegalizerCombiner::Z80PreLegalizerCombiner(bool IsOptNone)
     : MachineFunctionPass(ID), IsOptNone(IsOptNone) {
   initializeZ80PreLegalizerCombinerPass(*PassRegistry::getPassRegistry());
 
+  // FIXME: On Z80/eZ80, the generic sdiv_by_pow2 pre-legalizer combine can
+  // regress signed i24 arithmetic used in layout-heavy code (for example
+  // libtexce matrix sizing paths), producing incorrect rendering. Keep it
+  // disabled by default for this target until we have a target-aware variant.
+  // This remains overridable via
+  // -z80prelegalizercombiner-(only-)enable/disable-rule.
+  if (!RuleConfig.setRuleDisabled("sdiv_by_pow2"))
+    report_fatal_error("Invalid rule identifier");
+
   if (!RuleConfig.parseCommandLineOption())
     report_fatal_error("Invalid rule identifier");
 }

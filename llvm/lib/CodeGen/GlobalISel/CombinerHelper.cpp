@@ -2830,7 +2830,8 @@ bool CombinerHelper::matchConstantSelectCmp(MachineInstr &MI, unsigned &OpIdx) {
   if (!Cst)
     return false;
   OpIdx = Cst->isZero() ? 3 : 2;
-  return true;
+  return canReplaceReg(MI.getOperand(0).getReg(), MI.getOperand(OpIdx).getReg(),
+                       MRI);
 }
 
 void CombinerHelper::eraseInst(MachineInstr &MI) { MI.eraseFromParent(); }

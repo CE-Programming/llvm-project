@@ -22,10 +22,28 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
+#include "llvm/ADT/Statistic.h"
 
 #define DEBUG_TYPE "z80-machine-late-opt"
 
 using namespace llvm;
+
+STATISTIC(NumPushPopPairsSeen,
+          "Number of PUSH16/24r instructions inspected");
+STATISTIC(NumPushPopAdjacentPairs,
+          "Number of adjacent PUSH16/24r + POP16/24r pairs seen");
+STATISTIC(NumPushPopDEHLCandidates,
+          "Number of DE/HL exchange-eligible PUSH/POP pairs seen");
+STATISTIC(NumPushPopRejectedSrcLive,
+          "Number of DE/HL PUSH/POP pairs rejected because source stays live");
+STATISTIC(NumPushPopExchangeFolds,
+          "Number of PUSH/POP DE<->HL copies folded into EX");
+STATISTIC(NumCopyExchangeCandidates,
+          "Number of DE<->HL COPY instructions considered for EX folding");
+STATISTIC(NumCopyExchangeRejectedSrcLive,
+          "Number of DE<->HL COPY instructions rejected because source is live");
+STATISTIC(NumCopyExchangeFolds,
+          "Number of DE<->HL COPY instructions folded into EX");
 
 namespace {
 class RegVal {
@@ -197,6 +215,9 @@ class Z80MachineLateOptimization : public MachineFunctionPass {
   //    successor reload via COPY, when both access the same stack slot
   bool foldIndexedCounterPeepholes(MachineFunction &MF,
                                    const TargetInstrInfo &TII);
+  bool foldCopyExchangeCopies(MachineFunction &MF, const TargetInstrInfo &TII);
+  bool foldPushPopExchangeCopies(MachineFunction &MF,
+                                 const TargetInstrInfo &TII);
 
   void debug(const MachineInstr &MI);
 
@@ -229,6 +250,39 @@ public:
   bool runOnMachineFunction(MachineFunction &MF) override;
 };
 } // end anonymous namespace
+
+static bool isDEHLExchangePair(Register RegA, Register RegB,
+                               const TargetRegisterInfo &TRI) {
+  bool HasDE = false, HasHL = false;
+  for (Register Reg : {RegA, RegB}) {
+    if (TRI.isSubRegisterEq(Z80::UDE, Reg))
+      HasDE = true;
+    else if (TRI.isSubRegisterEq(Z80::UHL, Reg))
+      HasHL = true;
+  }
+  return HasDE && HasHL;
+}
+
+static bool is16DEHLReg(Register Reg) {
+  return Reg == Z80::DE || Reg == Z80::HL;
+}
+
+static bool is24DEHLReg(Register Reg) {
+  return Reg == Z80::UDE || Reg == Z80::UHL;
+}
+
+static bool isPhysRegLiveAt(const MachineBasicBlock &MBB,
+                            MachineBasicBlock::const_iterator Pos,
+                            MCPhysReg Reg, const TargetRegisterInfo &TRI,
+                            const MachineRegisterInfo &MRI) {
+  LivePhysRegs Live(TRI);
+  Live.addLiveOuts(MBB);
+  for (auto I = MBB.end(); I != Pos;) {
+    --I;
+    Live.stepBackward(*I);
+  }
+  return !Live.available(MRI, Reg);
+}
 
 Z80MachineLateOptimization::KnownFlags const
     Z80MachineLateOptimization::KnownFlags::PreserveDocumented{
@@ -740,12 +794,150 @@ bool Z80MachineLateOptimization::foldIndexedCounterPeepholes(
   return Changed;
 }
 
+bool Z80MachineLateOptimization::foldCopyExchangeCopies(
+    MachineFunction &MF, const TargetInstrInfo &TII) {
+  bool Changed = false;
+  const MachineRegisterInfo &MRI = MF.getRegInfo();
+
+  for (MachineBasicBlock &MBB : MF) {
+    for (MachineBasicBlock::iterator I = MBB.begin(); I != MBB.end();) {
+      MachineInstr &MI = *I;
+      if (!MI.isCopy()) {
+        ++I;
+        continue;
+      }
+      if (MI.getNumOperands() != 2) {
+        ++I;
+        continue;
+      }
+      if (!MI.getOperand(0).isReg() || !MI.getOperand(1).isReg()) {
+        ++I;
+        continue;
+      }
+
+      Register DstReg = MI.getOperand(0).getReg();
+      Register SrcReg = MI.getOperand(1).getReg();
+
+      bool Is16BitCopy = is16DEHLReg(DstReg) && is16DEHLReg(SrcReg);
+      bool Is24BitCopy = is24DEHLReg(DstReg) && is24DEHLReg(SrcReg);
+      if ((!Is16BitCopy && !Is24BitCopy) || DstReg == SrcReg) {
+        ++I;
+        continue;
+      }
+      ++NumCopyExchangeCandidates;
+
+      if (isPhysRegLiveAt(MBB, std::next(I), SrcReg, *TRI, MRI)) {
+        ++NumCopyExchangeRejectedSrcLive;
+        ++I;
+        continue;
+      }
+
+      unsigned ExOpc = Is24BitCopy ? Z80::EX24DE : Z80::EX16DE;
+      LLVM_DEBUG(dbgs() << "Folding DE/HL copy into EX in " << MF.getName()
+                        << ":\n";
+                 MI.dump());
+
+      MachineInstrBuilder ExMIB =
+          BuildMI(MBB, I, MI.getDebugLoc(), TII.get(ExOpc));
+
+      if (MachineOperand *SrcUse =
+              ExMIB->findRegisterUseOperand(SrcReg, nullptr))
+        SrcUse->setIsKill();
+      if (MachineOperand *DstUse =
+              ExMIB->findRegisterUseOperand(DstReg, nullptr))
+        DstUse->setIsUndef();
+      if (MachineOperand *SrcDef = ExMIB->findRegisterDefOperand(
+              SrcReg, /*TRI=*/nullptr, /*isDead=*/false, /*Overlap=*/false))
+        SrcDef->setIsDead();
+
+      I = MBB.erase(I);
+      ++NumCopyExchangeFolds;
+      Changed = true;
+    }
+  }
+
+  return Changed;
+}
+
+bool Z80MachineLateOptimization::foldPushPopExchangeCopies(
+    MachineFunction &MF, const TargetInstrInfo &TII) {
+  bool Changed = false;
+  const MachineRegisterInfo &MRI = MF.getRegInfo();
+
+  for (MachineBasicBlock &MBB : MF) {
+    for (MachineBasicBlock::iterator I = MBB.begin(); I != MBB.end();) {
+      MachineInstr &PushMI = *I;
+      bool Is24BitPush = PushMI.getOpcode() == Z80::PUSH24r;
+      if (!Is24BitPush && PushMI.getOpcode() != Z80::PUSH16r) {
+        ++I;
+        continue;
+      }
+      ++NumPushPopPairsSeen;
+
+      MachineBasicBlock::iterator PopI = std::next(I);
+      while (PopI != MBB.end() && PopI->isDebugInstr())
+        ++PopI;
+      if (PopI == MBB.end()) {
+        ++I;
+        continue;
+      }
+
+      unsigned ExpectedPopOpc = Is24BitPush ? Z80::POP24r : Z80::POP16r;
+      if (PopI->getOpcode() != ExpectedPopOpc) {
+        ++I;
+        continue;
+      }
+      ++NumPushPopAdjacentPairs;
+
+      Register SrcReg = PushMI.getOperand(0).getReg();
+      Register DstReg = PopI->getOperand(0).getReg();
+      if (!isDEHLExchangePair(SrcReg, DstReg, *TRI)) {
+        ++I;
+        continue;
+      }
+      ++NumPushPopDEHLCandidates;
+
+      if (isPhysRegLiveAt(MBB, std::next(PopI), SrcReg, *TRI, MRI)) {
+        ++NumPushPopRejectedSrcLive;
+        ++I;
+        continue;
+      }
+
+      LLVM_DEBUG(dbgs() << "Folding push/pop copy into EX in " << MF.getName()
+                        << ":\n";
+                 PushMI.dump(); PopI->dump());
+
+      unsigned ExOpc = Is24BitPush ? Z80::EX24DE : Z80::EX16DE;
+      MachineInstrBuilder ExMIB = BuildMI(MBB, I, PushMI.getDebugLoc(),
+                                          TII.get(ExOpc));
+      if (MachineOperand *SrcUse =
+              ExMIB->findRegisterUseOperand(SrcReg, nullptr))
+        SrcUse->setIsKill();
+      if (MachineOperand *DstUse =
+              ExMIB->findRegisterUseOperand(DstReg, nullptr))
+        DstUse->setIsUndef();
+      if (MachineOperand *SrcDef = ExMIB->findRegisterDefOperand(
+              SrcReg, /*TRI=*/nullptr, /*isDead=*/false, /*Overlap=*/false))
+        SrcDef->setIsDead();
+
+      PopI->eraseFromParent();
+      I = MBB.erase(I);
+      ++NumPushPopExchangeFolds;
+      Changed = true;
+    }
+  }
+
+  return Changed;
+}
+
 bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
   bool Changed = false;
   TRI = MF.getSubtarget().getRegisterInfo();
   const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
   MachineRegisterInfo &MRI = MF.getRegInfo();
 
+  Changed |= foldCopyExchangeCopies(MF, TII);
+  Changed |= foldPushPopExchangeCopies(MF, TII);
   Changed |= foldIndexedCounterPeepholes(MF, TII);
 
   LivePhysRegs LiveUnits(*TRI);
