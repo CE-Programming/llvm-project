@@ -25,7 +25,9 @@
 #include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineJumpTableInfo.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 using namespace MIPatternMatch;
@@ -33,6 +35,15 @@ using namespace MIPatternMatch;
 #define DEBUG_TYPE "Z80-isel"
 
 namespace {
+
+static cl::opt<unsigned>
+    Z80TrapRstVector("z80-trap-rst-vector", cl::Hidden, cl::init(0),
+                     cl::desc("RST vector for G_TRAP/G_DEBUGTRAP lowering "
+                              "(valid: 0, 8, ..., 56)"));
+
+static bool isValidTrapRstVector(unsigned Vector) {
+  return Vector <= 0x38 && (Vector & 0x7) == 0;
+}
 
 #define GET_GLOBALISEL_PREDICATE_BITSET
 #include "Z80GenGlobalISel.inc"
@@ -70,6 +81,7 @@ private:
                              MachineFunction &MF) const;
   bool selectMask(MachineInstr &I, MachineRegisterInfo &MRI,
                   MachineFunction &MF) const;
+  bool selectTrap(MachineInstr &I) const;
 
   bool selectCopy(MachineInstr &I, MachineRegisterInfo &MRI) const;
   bool selectExtract(MachineInstr &I, MachineRegisterInfo &MRI,
@@ -327,6 +339,24 @@ bool Z80InstructionSelector::selectCopy(MachineInstr &I,
   return true;
 }
 
+bool Z80InstructionSelector::selectTrap(MachineInstr &I) const {
+  assert((I.getOpcode() == TargetOpcode::G_TRAP ||
+          I.getOpcode() == TargetOpcode::G_DEBUGTRAP ||
+          I.getOpcode() == TargetOpcode::G_UBSANTRAP) &&
+         "unexpected instruction");
+
+  if (!isValidTrapRstVector(Z80TrapRstVector))
+    report_fatal_error(
+        "invalid -z80-trap-rst-vector value, expected one of "
+        "{0,8,16,24,32,40,48,56}");
+
+  MachineIRBuilder MIB(I);
+  MIB.buildInstr(STI.is24Bit() ? Z80::RST24 : Z80::RST16)
+      .addImm(Z80TrapRstVector);
+  I.eraseFromParent();
+  return true;
+}
+
 bool Z80InstructionSelector::select(MachineInstr &I) const {
   assert(I.getParent() && "Instruction should be in a basic block!");
   assert(I.getMF() && "Instruction should be in a function!");
@@ -462,6 +492,10 @@ bool Z80InstructionSelector::select(MachineInstr &I) const {
   case TargetOpcode::G_IMPLICIT_DEF:
   case TargetOpcode::G_PHI:
     return selectImplicitDefOrPHI(I, MRI);
+  case TargetOpcode::G_TRAP:
+  case TargetOpcode::G_DEBUGTRAP:
+  case TargetOpcode::G_UBSANTRAP:
+    return selectTrap(I);
   default:
     return false;
   }
@@ -605,7 +639,8 @@ bool Z80InstructionSelector::selectSExt(MachineInstr &I,
           return false;
         auto Fill8 = MIB.buildCopy(LLT::scalar(8), Fill24.getReg(0));
         Fill8->getOperand(1).setSubReg(Z80::sub_low);
-        if (!constrainSelectedInstRegOperands(*Fill8, TII, TRI, RBI))
+        if (!RBI.constrainGenericRegister(Fill8.getReg(0), Z80::R8RegClass,
+                                          MRI))
           return false;
         auto SeqI = MIB.buildInstr(TargetOpcode::REG_SEQUENCE, {DstReg},
                                    {Fill24.getReg(0), int64_t(Z80::sub_low24),
@@ -681,7 +716,8 @@ bool Z80InstructionSelector::selectSExt(MachineInstr &I,
           return false;
         auto Fill16 = MIB.buildCopy(LLT::scalar(16), Fill24.getReg(0));
         Fill16->getOperand(1).setSubReg(Z80::sub_short);
-        if (!constrainSelectedInstRegOperands(*Fill16, TII, TRI, RBI))
+        if (!RBI.constrainGenericRegister(Fill16.getReg(0), Z80::R16RegClass,
+                                          MRI))
           return false;
         auto SeqI =
             MIB.buildInstr(TargetOpcode::REG_SEQUENCE, {DstReg},
@@ -1109,7 +1145,8 @@ bool Z80InstructionSelector::selectSExt(MachineInstr &I,
   if (SrcSize == 16) {
     auto CopyHigh = MIB.buildCopy(LLT::scalar(8), SrcReg);
     CopyHigh->getOperand(1).setSubReg(Z80::sub_high);
-    if (!constrainSelectedInstRegOperands(*CopyHigh, TII, TRI, RBI))
+    if (!RBI.constrainGenericRegister(CopyHigh.getReg(0), Z80::R8RegClass,
+                                      MRI))
       return false;
     SignSrc = CopyHigh.getReg(0);
   } else {
