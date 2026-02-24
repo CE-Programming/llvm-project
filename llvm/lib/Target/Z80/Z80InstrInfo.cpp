@@ -1552,13 +1552,34 @@ bool Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
   }
 
   LLVM_DEBUG(dbgs() << "  Fallback: push/adjust/pop BaseReg path\n");
+  int64_t FinalDisp = 0;
+  bool KeepFinalDisp = false;
   applySPAdjust(
       *BuildMI(MBB, II, DL, get(Is24Bit ? Z80::PUSH24r : Z80::PUSH16r))
            .addReg(BaseReg));
+
+  if (HasLEA && RS && !isInt<8>(NewOffset) && Opc != Z80::PEA24o &&
+      Opc != Z80::PEA16o) {
+    int64_t Bias = 0;
+    if (NewOffset > 127 && NewOffset <= 254)
+      Bias = 127;
+    else if (NewOffset < -128 && NewOffset >= -256)
+      Bias = -128;
+
+    if (Bias) {
+      FinalDisp = NewOffset - Bias;
+      assert(isInt<8>(FinalDisp) && "biased frame offset should fit in i8");
+      LLVM_DEBUG(dbgs() << "  Using biased LEA fallback: bias=" << Bias
+                        << ", final_disp=" << FinalDisp << "\n");
+      emitChunkedLEAAdjust(BaseReg, Bias);
+      KeepFinalDisp = true;
+    }
+  }
+
   // prefer lea for the base-reg push/adjust/pop fallback. it doesnt clobber
   // flags and avoids consuming a scratch/offset register (which can otherwise
   // lead to spill/kill ordering issues under PEI+RegScavenger)
-  if (HasLEA) {
+  if (!KeepFinalDisp && HasLEA) {
     if (!isInt<8>(NewOffset) && RS) {
       // under PEI and RegScavenger, spilling a live offset temp (push/pop) tends to
       // destroy code size. if we cant get a truly unused offset reg, adjust
@@ -1664,7 +1685,7 @@ bool Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
         }
       }
     }
-  } else {
+  } else if (!KeepFinalDisp) {
     std::tie(OffsetReg, SpillOffsetReg) =
         selectOffsetTemp(/*Exclude0=*/BaseReg, /*Exclude1=*/Register());
     if (SpillOffsetReg && OffsetReg.isPhysical() && !miDefinesPhys(OffsetReg))
@@ -1702,7 +1723,8 @@ bool Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
     return true;
   } else {
     MI.getOperand(FIOperandNum).ChangeToRegister(BaseReg, false);
-    MI.getOperand(FIOperandNum + 1).ChangeToImmediate(0);
+    MI.getOperand(FIOperandNum + 1).ChangeToImmediate(KeepFinalDisp ? FinalDisp
+                                                                     : 0);
     if (Is24Bit)
       canonicalizePhysRegsTo24Bit(MI, TRI);
     applySPAdjust(
