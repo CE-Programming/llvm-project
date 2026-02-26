@@ -66,6 +66,7 @@ public:
   bool hasReservedCallFrame(const MachineFunction &MF) const override;
   bool needsFrameIndexResolution(const MachineFunction &MF) const override;
   unsigned getSlotSize() const { return SlotSize; }
+  int64_t ensureFramePointerBias(MachineFunction &MF) const;
 
   enum StackAdjustmentMethod {
     SAM_None,

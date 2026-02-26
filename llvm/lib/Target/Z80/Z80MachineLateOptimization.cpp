@@ -38,6 +38,18 @@ STATISTIC(NumPushPopRejectedSrcLive,
           "Number of DE/HL PUSH/POP pairs rejected because source stays live");
 STATISTIC(NumPushPopExchangeFolds,
           "Number of PUSH/POP DE<->HL copies folded into EX");
+STATISTIC(NumPushPopPopCandidates,
+          "Number of PUSH/POP/POP stack-shuffle candidates seen");
+STATISTIC(NumPushPopPopRejectedSameRegs,
+          "Number of PUSH/POP/POP candidates rejected due to same src/mid reg");
+STATISTIC(NumPushPopPopRejectedUnsupportedSrc,
+          "Number of PUSH/POP/POP candidates rejected due to unsupported EX (SP),reg src");
+STATISTIC(NumPushPopPopFolds,
+          "Number of PUSH/POP/POP stack shuffles folded into EX (SP),reg + POP");
+STATISTIC(NumPushPopPopLongCandidates,
+          "Number of long PUSH/POP/POP.../PUSH/POP stack-shuffle candidates seen");
+STATISTIC(NumPushPopPopLongFolds,
+          "Number of long PUSH/POP/POP.../PUSH/POP stack-shuffles folded");
 STATISTIC(NumCopyExchangeCandidates,
           "Number of DE<->HL COPY instructions considered for EX folding");
 STATISTIC(NumCopyExchangeRejectedSrcLive,
@@ -215,7 +227,16 @@ class Z80MachineLateOptimization : public MachineFunctionPass {
   //    successor reload via COPY, when both access the same stack slot
   bool foldIndexedCounterPeepholes(MachineFunction &MF,
                                    const TargetInstrInfo &TII);
+  // fold compare to zero helpers when addend is already known:
+  //   ADDxxao dst, src ; OR A,A ; SBCxxao src
+  // -> OR A,A ; ADCxxao src when src == 0
+  // -> SCF    ; ADCxxao src when src == -1
+  // guarded to cases where the next consumer is Z/NZ conditional
+  bool foldZeroCompareKnownHelper(MachineFunction &MF,
+                                  const TargetInstrInfo &TII);
   bool foldCopyExchangeCopies(MachineFunction &MF, const TargetInstrInfo &TII);
+  bool foldPushPopPopStackShuffles(MachineFunction &MF,
+                                   const TargetInstrInfo &TII);
   bool foldPushPopExchangeCopies(MachineFunction &MF,
                                  const TargetInstrInfo &TII);
 
@@ -271,6 +292,15 @@ static bool is24DEHLReg(Register Reg) {
   return Reg == Z80::UDE || Reg == Z80::UHL;
 }
 
+static bool isHLStackReg(Register Reg) {
+  return Reg == Z80::HL || Reg == Z80::UHL;
+}
+
+static bool isBCDEStackReg(Register Reg) {
+  return Reg == Z80::BC || Reg == Z80::DE || Reg == Z80::UBC ||
+         Reg == Z80::UDE;
+}
+
 static bool isPhysRegLiveAt(const MachineBasicBlock &MBB,
                             MachineBasicBlock::const_iterator Pos,
                             MCPhysReg Reg, const TargetRegisterInfo &TRI,
@@ -282,6 +312,38 @@ static bool isPhysRegLiveAt(const MachineBasicBlock &MBB,
     Live.stepBackward(*I);
   }
   return !Live.available(MRI, Reg);
+}
+
+static bool isZOrNZConditionalUse(const MachineInstr &MI) {
+  int CCIdx = -1;
+  switch (MI.getOpcode()) {
+  default:
+    return false;
+  case Z80::CALL16CC:
+  case Z80::CALL24CC:
+  case Z80::TCRETURN16CC:
+  case Z80::TCRETURN24CC:
+  case Z80::JQCC:
+  case Z80::JRCC:
+  case Z80::JP16CC:
+  case Z80::JP24CC:
+    CCIdx = 1;
+    break;
+  case Z80::RET16CC:
+  case Z80::RET24CC:
+    CCIdx = 0;
+    break;
+  }
+
+  if (CCIdx < 0 || MI.getNumExplicitOperands() <= static_cast<unsigned>(CCIdx))
+    return false;
+  const MachineOperand &CCMO = MI.getOperand(CCIdx);
+  if (!CCMO.isImm())
+    return false;
+
+  int64_t CC = CCMO.getImm();
+  // in Z80InstrInfo.td condition code immediates are NZ = 0, Z = 1
+  return CC == 0 || CC == 1;
 }
 
 Z80MachineLateOptimization::KnownFlags const
@@ -794,6 +856,111 @@ bool Z80MachineLateOptimization::foldIndexedCounterPeepholes(
   return Changed;
 }
 
+bool Z80MachineLateOptimization::foldZeroCompareKnownHelper(
+    MachineFunction &MF, const TargetInstrInfo &TII) {
+  bool Changed = false;
+
+  for (MachineBasicBlock &MBB : MF) {
+    auto MBBEnd = MBB.end();
+    auto nextNonDebug = [&](MachineBasicBlock::iterator It) {
+      while (It != MBBEnd && It->isDebugInstr())
+        ++It;
+      return It;
+    };
+    auto prevNonDebug = [&](MachineBasicBlock::iterator It) {
+      while (It != MBB.begin()) {
+        --It;
+        if (!It->isDebugInstr())
+          return It;
+      }
+      return MBB.end();
+    };
+
+    for (MachineBasicBlock::iterator I = MBB.begin(); I != MBBEnd;) {
+      if (I->isDebugInstr()) {
+        ++I;
+        continue;
+      }
+
+      unsigned AddOpc = I->getOpcode();
+      bool Is24 = false;
+      switch (AddOpc) {
+      default:
+        ++I;
+        continue;
+      case Z80::ADD16ao:
+        Is24 = false;
+        break;
+      case Z80::ADD24ao:
+        Is24 = true;
+        break;
+      }
+
+      if (I->getNumOperands() < 3 || !I->getOperand(2).isReg() ||
+          I->getOperand(2).isUndef()) {
+        ++I;
+        continue;
+      }
+      Register SrcReg = I->getOperand(2).getReg();
+
+      MachineBasicBlock::iterator LoadI = prevNonDebug(I);
+      if (LoadI == MBB.end() || LoadI->getOpcode() != (Is24 ? Z80::LD24ri : Z80::LD16ri) ||
+          LoadI->getNumOperands() < 2 || !LoadI->getOperand(0).isReg() ||
+          !LoadI->getOperand(1).isImm() || LoadI->getOperand(0).getReg() != SrcReg) {
+        ++I;
+        continue;
+      }
+
+      int64_t SrcImm = LoadI->getOperand(1).getImm();
+      bool SrcIsZero = SrcImm == 0;
+      bool SrcIsMinusOne = SrcImm == -1;
+      if (!SrcIsZero && !SrcIsMinusOne) {
+        ++I;
+        continue;
+      }
+
+      MachineBasicBlock::iterator OrI = nextNonDebug(std::next(I));
+      if (OrI == MBBEnd || OrI->getOpcode() != Z80::OR8ar ||
+          OrI->getNumOperands() < 1 || !OrI->getOperand(0).isReg() ||
+          OrI->getOperand(0).getReg() != Z80::A) {
+        ++I;
+        continue;
+      }
+
+      unsigned SbcOpc = Is24 ? Z80::SBC24ao : Z80::SBC16ao;
+      unsigned AdcOpc = Is24 ? Z80::ADC24ao : Z80::ADC16ao;
+      MachineBasicBlock::iterator SbcI = nextNonDebug(std::next(OrI));
+      if (SbcI == MBBEnd || SbcI->getOpcode() != SbcOpc ||
+          SbcI->getNumOperands() < 1 || !SbcI->getOperand(0).isReg() ||
+          SbcI->getOperand(0).isUndef() || SbcI->getOperand(0).getReg() != SrcReg) {
+        ++I;
+        continue;
+      }
+
+      MachineBasicBlock::iterator UserI = nextNonDebug(std::next(SbcI));
+      if (UserI == MBBEnd || !isZOrNZConditionalUse(*UserI)) {
+        ++I;
+        continue;
+      }
+
+      LLVM_DEBUG(dbgs() << "folding zero-compare helper sequence in "
+                        << MF.getName() << ":\n";
+                 I->dump(); OrI->dump(); SbcI->dump());
+
+      if (SrcIsMinusOne) {
+        BuildMI(MBB, OrI, OrI->getDebugLoc(), TII.get(Z80::SCF));
+        OrI->eraseFromParent();
+      }
+
+      SbcI->setDesc(TII.get(AdcOpc));
+      I = MBB.erase(I);
+      Changed = true;
+    }
+  }
+
+  return Changed;
+}
+
 bool Z80MachineLateOptimization::foldCopyExchangeCopies(
     MachineFunction &MF, const TargetInstrInfo &TII) {
   bool Changed = false;
@@ -930,6 +1097,244 @@ bool Z80MachineLateOptimization::foldPushPopExchangeCopies(
   return Changed;
 }
 
+bool Z80MachineLateOptimization::foldPushPopPopStackShuffles(
+    MachineFunction &MF, const TargetInstrInfo &TII) {
+  bool Changed = false;
+
+  auto NextNonDebug = [](MachineBasicBlock &MBB,
+                         MachineBasicBlock::iterator It) {
+    while (It != MBB.end() && It->isDebugInstr())
+      ++It;
+    return It;
+  };
+
+  for (MachineBasicBlock &MBB : MF) {
+    for (MachineBasicBlock::iterator I = MBB.begin(); I != MBB.end();) {
+      // fold:
+      //   ex(sp), src
+      //   pop mid
+      //   pop src (repeated N times)
+      //   push mid
+      //   pop src
+      // ->
+      //   pop mid (repeated N+1 times)
+      //   push src
+      //   pop mid
+      if (I->getOpcode() == Z80::EX24sa || I->getOpcode() == Z80::EX16sa) {
+        bool Is24BitEx = I->getOpcode() == Z80::EX24sa;
+        unsigned ExpectedPopOpc = Is24BitEx ? Z80::POP24r : Z80::POP16r;
+        unsigned ExpectedPushOpc = Is24BitEx ? Z80::PUSH24r : Z80::PUSH16r;
+        Register SrcReg = I->getOperand(0).getReg();
+
+        if (isHLStackReg(SrcReg)) {
+          MachineBasicBlock::iterator PopMidI = NextNonDebug(MBB, std::next(I));
+          if (PopMidI != MBB.end() && PopMidI->getOpcode() == ExpectedPopOpc) {
+            Register MidReg = PopMidI->getOperand(0).getReg();
+            if (isBCDEStackReg(MidReg)) {
+              SmallVector<MachineBasicBlock::iterator, 8> SrcPops;
+              MachineBasicBlock::iterator ScanI =
+                  NextNonDebug(MBB, std::next(PopMidI));
+                while (ScanI != MBB.end() &&
+                       ScanI->getOpcode() == ExpectedPopOpc &&
+                       ScanI->getOperand(0).getReg() == SrcReg) {
+                  SrcPops.push_back(ScanI);
+                  ScanI = NextNonDebug(MBB, std::next(ScanI));
+                }
+
+              if (!SrcPops.empty()) {
+                MachineBasicBlock::iterator PushMidI = ScanI;
+                MachineBasicBlock::iterator TailPopI =
+                    PushMidI != MBB.end()
+                        ? NextNonDebug(MBB, std::next(PushMidI))
+                        : MBB.end();
+                if (PushMidI != MBB.end() && TailPopI != MBB.end() &&
+                    PushMidI->getOpcode() == ExpectedPushOpc &&
+                    PushMidI->getOperand(0).getReg() == MidReg &&
+                    TailPopI->getOpcode() == ExpectedPopOpc &&
+                    TailPopI->getOperand(0).getReg() == SrcReg) {
+                  ++NumPushPopPopLongCandidates;
+                  LLVM_DEBUG(dbgs() << "Folding long ex/pop/pop.../push/pop "
+                                       "stack shuffle in "
+                                    << MF.getName() << ":\n";
+                             I->dump(); PopMidI->dump());
+
+                  for (unsigned Idx = 0, E = SrcPops.size() + 1; Idx != E;
+                       ++Idx) {
+                    MachineInstrBuilder PopMIB =
+                        BuildMI(MBB, I, PopMidI->getDebugLoc(),
+                                TII.get(ExpectedPopOpc), MidReg);
+                    PopMIB->getOperand(0).setIsDead();
+                  }
+
+                  BuildMI(MBB, I, I->getDebugLoc(), TII.get(ExpectedPushOpc))
+                      .addReg(SrcReg,
+                              getKillRegState(I->getOperand(0).isKill()));
+                  MachineInstrBuilder FinalPop =
+                      BuildMI(MBB, I, TailPopI->getDebugLoc(),
+                              TII.get(ExpectedPopOpc), MidReg);
+                  if (PushMidI->getOperand(0).isKill())
+                    FinalPop->getOperand(0).setIsDead();
+
+                  TailPopI->eraseFromParent();
+                  PushMidI->eraseFromParent();
+                  for (auto It : SrcPops)
+                    It->eraseFromParent();
+                  PopMidI->eraseFromParent();
+                  I = MBB.erase(I);
+                  ++NumPushPopPopLongFolds;
+                  Changed = true;
+                  continue;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      MachineInstr &PushMI = *I;
+      bool Is24BitPush = PushMI.getOpcode() == Z80::PUSH24r;
+      if (!Is24BitPush && PushMI.getOpcode() != Z80::PUSH16r) {
+        ++I;
+        continue;
+      }
+
+      MachineBasicBlock::iterator Pop1I = std::next(I);
+      while (Pop1I != MBB.end() && Pop1I->isDebugInstr())
+        ++Pop1I;
+      if (Pop1I == MBB.end()) {
+        ++I;
+        continue;
+      }
+
+      unsigned ExpectedPopOpc = Is24BitPush ? Z80::POP24r : Z80::POP16r;
+      if (Pop1I->getOpcode() != ExpectedPopOpc) {
+        ++I;
+        continue;
+      }
+
+      Register SrcReg = PushMI.getOperand(0).getReg();
+      Register MidReg = Pop1I->getOperand(0).getReg();
+      unsigned ExpectedPushOpc = Is24BitPush ? Z80::PUSH24r : Z80::PUSH16r;
+
+      // prefer the longer fold first
+      //   push src
+      //   pop  mid
+      //   pop  src (repeated N times
+      //   push mid
+      //   pop  src
+      // ->
+      //   pop  mid (repeated N times)
+      //   push src
+      //   pop  mid
+      if (isHLStackReg(SrcReg) && isBCDEStackReg(MidReg)) {
+        SmallVector<MachineBasicBlock::iterator, 8> SrcPops;
+        MachineBasicBlock::iterator ScanI = NextNonDebug(MBB, std::next(Pop1I));
+        while (ScanI != MBB.end() && ScanI->getOpcode() == ExpectedPopOpc &&
+               ScanI->getOperand(0).getReg() == SrcReg) {
+          SrcPops.push_back(ScanI);
+          ScanI = NextNonDebug(MBB, std::next(ScanI));
+        }
+
+        if (!SrcPops.empty()) {
+          MachineBasicBlock::iterator PushMidI = ScanI;
+          MachineBasicBlock::iterator TailPopI =
+              PushMidI != MBB.end() ? NextNonDebug(MBB, std::next(PushMidI))
+                                    : MBB.end();
+          if (PushMidI != MBB.end() && TailPopI != MBB.end() &&
+              PushMidI->getOpcode() == ExpectedPushOpc &&
+              PushMidI->getOperand(0).getReg() == MidReg &&
+              TailPopI->getOpcode() == ExpectedPopOpc &&
+              TailPopI->getOperand(0).getReg() == SrcReg) {
+            ++NumPushPopPopLongCandidates;
+            LLVM_DEBUG(dbgs() << "Folding long push/pop/pop.../push/pop stack "
+                                 "shuffle in "
+                              << MF.getName() << ":\n";
+                       PushMI.dump(); Pop1I->dump());
+
+            // Emit N POP Mid replacements.
+            for (unsigned Idx = 0, E = SrcPops.size(); Idx != E; ++Idx) {
+              MachineInstrBuilder PopMIB =
+                  BuildMI(MBB, I, SrcPops[Idx]->getDebugLoc(),
+                          TII.get(ExpectedPopOpc), MidReg);
+              bool IsFinalValuePop = (Idx + 1 == E);
+              bool MidDeadAfter = PushMidI->getOperand(0).isKill();
+              if (!IsFinalValuePop || MidDeadAfter)
+                PopMIB->getOperand(0).setIsDead();
+            }
+
+            BuildMI(MBB, I, PushMI.getDebugLoc(), TII.get(ExpectedPushOpc))
+                .addReg(SrcReg,
+                        getKillRegState(PushMI.getOperand(0).isKill()));
+            MachineInstrBuilder FinalPop =
+                BuildMI(MBB, I, TailPopI->getDebugLoc(),
+                        TII.get(ExpectedPopOpc), MidReg);
+            if (PushMidI->getOperand(0).isKill())
+              FinalPop->getOperand(0).setIsDead();
+
+            TailPopI->eraseFromParent();
+            PushMidI->eraseFromParent();
+            for (auto It : SrcPops)
+              It->eraseFromParent();
+            Pop1I->eraseFromParent();
+            I = MBB.erase(I);
+            ++NumPushPopPopLongFolds;
+            Changed = true;
+            continue;
+          }
+        }
+      }
+
+      MachineBasicBlock::iterator Pop2I = std::next(Pop1I);
+      while (Pop2I != MBB.end() && Pop2I->isDebugInstr())
+        ++Pop2I;
+      if (Pop2I == MBB.end() || Pop2I->getOpcode() != ExpectedPopOpc) {
+        ++I;
+        continue;
+      }
+
+      ++NumPushPopPopCandidates;
+      Register TailReg = Pop2I->getOperand(0).getReg();
+      if (SrcReg != TailReg) {
+        ++I;
+        continue;
+      }
+
+      if (SrcReg == MidReg) {
+        ++NumPushPopPopRejectedSameRegs;
+        ++I;
+        continue;
+      }
+
+      if ((Is24BitPush && !Z80::A24RegClass.contains(SrcReg)) ||
+          (!Is24BitPush && !Z80::A16RegClass.contains(SrcReg))) {
+        ++NumPushPopPopRejectedUnsupportedSrc;
+        ++I;
+        continue;
+      }
+
+      LLVM_DEBUG(dbgs() << "folding push/pop/pop stack shuffle into ex(sp),reg "
+                        << "in " << MF.getName() << ":\n";
+                 PushMI.dump(); Pop1I->dump(); Pop2I->dump());
+
+      unsigned ExOpc = Is24BitPush ? Z80::EX24sa : Z80::EX16sa;
+      MachineInstrBuilder ExMIB =
+          BuildMI(MBB, I, PushMI.getDebugLoc(), TII.get(ExOpc), SrcReg)
+              .addReg(SrcReg, RegState::Kill);
+
+      if (MachineOperand *DefMO = ExMIB->findRegisterDefOperand(
+              SrcReg, /*TRI=*/nullptr, /*isDead=*/false, /*Overlap=*/false))
+        DefMO->setIsDead(Pop2I->getOperand(0).isDead());
+
+      Pop2I->eraseFromParent();
+      I = MBB.erase(I);
+      ++NumPushPopPopFolds;
+      Changed = true;
+    }
+  }
+
+  return Changed;
+}
+
 bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
   bool Changed = false;
   TRI = MF.getSubtarget().getRegisterInfo();
@@ -937,8 +1342,10 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
   MachineRegisterInfo &MRI = MF.getRegInfo();
 
   Changed |= foldCopyExchangeCopies(MF, TII);
+  Changed |= foldPushPopPopStackShuffles(MF, TII);
   Changed |= foldPushPopExchangeCopies(MF, TII);
   Changed |= foldIndexedCounterPeepholes(MF, TII);
+  Changed |= foldZeroCompareKnownHelper(MF, TII);
 
   LivePhysRegs LiveUnits(*TRI);
   for (MachineBasicBlock &MBB : MF) {

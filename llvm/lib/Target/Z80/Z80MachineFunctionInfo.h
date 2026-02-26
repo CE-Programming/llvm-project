@@ -58,6 +58,12 @@ private:
   /// frame base
   int64_t SecondaryFrameBaseOffset = 0;
 
+  /// otional frame pointer bias (in bytes) applied per function
+  /// when nonzero, frame index offsets are adjusted by this value and
+  /// prologue/epilogue maintain equivalent address semantics
+  int64_t FramePointerBias = 0;
+  bool FramePointerBiasInitialized = false;
+
 public:
   Z80MachineFunctionInfo() = default;
 
@@ -95,6 +101,17 @@ public:
 
   int64_t getSecondaryFrameBaseOffset() const { return SecondaryFrameBaseOffset; }
   void setSecondaryFrameBaseOffset(int64_t Off) { SecondaryFrameBaseOffset = Off; }
+
+  int64_t getFramePointerBias() const { return FramePointerBias; }
+  void setFramePointerBias(int64_t Off) {
+    FramePointerBias = Off;
+    FramePointerBiasInitialized = true;
+  }
+  bool isFramePointerBiasInitialized() const { return FramePointerBiasInitialized; }
+  void resetFramePointerBias() {
+    FramePointerBias = 0;
+    FramePointerBiasInitialized = false;
+  }
 };
 
 } // End llvm namespace

@@ -250,6 +250,8 @@ bool Z80RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   const Z80Subtarget &STI = MF.getSubtarget<Z80Subtarget>();
   const Z80InstrInfo &TII = *STI.getInstrInfo();
   const Z80FrameLowering *TFI = getFrameLowering(MF);
+  int64_t FrameBias = TFI->ensureFramePointerBias(MF);
+  const Z80MachineFunctionInfo &FuncInfo = *MF.getInfo<Z80MachineFunctionInfo>();
   int FrameIndex = MI.getOperand(FIOperandNum).getIndex();
   Register BaseReg = getFrameRegister(MF);
   assert(TFI->hasFP(MF) && "Stack slot use without fp unimplemented");
@@ -257,7 +259,8 @@ bool Z80RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
                 TFI->getOffsetOfLocalArea();
   if (FrameIndex < 0)
     // For fixed indices, skip over callee save slots.
-    Offset += MF.getInfo<Z80MachineFunctionInfo>()->getCalleeSavedFrameSize();
+    Offset += FuncInfo.getCalleeSavedFrameSize();
+  Offset += FrameBias;
 
   // SFB handling is disabled. see #if 0 block in getReservedRegs
 #if 0

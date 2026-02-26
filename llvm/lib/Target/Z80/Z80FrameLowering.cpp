@@ -22,11 +22,172 @@
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
-#include "llvm/Target/TargetMachine.h"
 #include "llvm/MC/MCDwarf.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Target/TargetMachine.h"
+#include <algorithm>
+#include <cstdlib>
+#include <limits>
 using namespace llvm;
 
 #define DEBUG_TYPE "z80-frame-lowering"
+
+namespace {
+enum class FramePointerBiasPolicy : uint8_t { Off, Fixed, Auto };
+
+cl::opt<FramePointerBiasPolicy> Z80FramePointerBiasPolicy(
+    "z80-frame-bias-policy", cl::Hidden, cl::init(FramePointerBiasPolicy::Off),
+    cl::desc("Per-function frame pointer bias policy for Z80"),
+    cl::values(clEnumValN(FramePointerBiasPolicy::Off, "off",
+                          "Disable frame pointer bias"),
+               clEnumValN(FramePointerBiasPolicy::Fixed, "fixed",
+                          "Use a fixed global frame pointer bias"),
+               clEnumValN(FramePointerBiasPolicy::Auto, "auto",
+                          "Choose a per-function bias subject to fixed-object "
+                          "overflow cap")));
+
+cl::opt<int> Z80FramePointerBiasValue(
+    "z80-frame-bias", cl::Hidden, cl::init(0),
+    cl::desc("Fixed Z80 frame pointer bias in bytes (policy=fixed)"));
+
+cl::opt<int> Z80FramePointerBiasAutoMin(
+    "z80-frame-bias-auto-min", cl::Hidden, cl::init(0),
+    cl::desc("Minimum bias considered by auto frame bias policy"));
+
+cl::opt<int> Z80FramePointerBiasAutoMax(
+    "z80-frame-bias-auto-max", cl::Hidden, cl::init(127),
+    cl::desc("Maximum bias considered by auto frame bias policy"));
+
+cl::opt<unsigned> Z80FramePointerBiasAutoMaxFixedOverflow(
+    "z80-frame-bias-auto-max-fixed-overflow", cl::Hidden, cl::init(0),
+    cl::desc("Maximum out-of-range fixed-object references allowed in auto "
+             "frame bias policy"));
+
+struct FrameBiasCost {
+  uint64_t LocalBadRefs = 0;
+  uint64_t FixedBadRefs = 0;
+};
+
+static bool isSplitFrameOp(unsigned Opc) {
+  switch (Opc) {
+  default:
+    return false;
+  case Z80::LD88ro:
+  case Z80::LD88or:
+  case Z80::LD88rp:
+  case Z80::LD88pr:
+    return true;
+  }
+}
+
+static bool isFrameOffsetReferenceLegal(const MachineInstr &MI, int64_t Offset) {
+  if (!isInt<8>(Offset))
+    return false;
+  return !isSplitFrameOp(MI.getOpcode()) || isInt<8>(Offset + 1);
+}
+
+static int64_t getFrameObjectBaseOffset(const MachineFunction &MF, int FI,
+                                        unsigned SlotSize) {
+  const MachineFrameInfo &MFI = MF.getFrameInfo();
+  int64_t Offset = MFI.getObjectOffset(FI) + int64_t(SlotSize);
+  if (FI < 0)
+    Offset += MF.getInfo<Z80MachineFunctionInfo>()->getCalleeSavedFrameSize();
+  return Offset;
+}
+
+static FrameBiasCost evaluateFrameBias(const MachineFunction &MF, unsigned SlotSize,
+                                       int64_t Bias) {
+  const MachineFrameInfo &MFI = MF.getFrameInfo();
+  FrameBiasCost Cost;
+  for (const MachineBasicBlock &MBB : MF) {
+    for (const MachineInstr &MI : MBB) {
+      if (MI.isDebugInstr())
+        continue;
+
+      int FI = std::numeric_limits<int>::max();
+      int64_t InstrOffset = 0;
+      for (unsigned OpIdx = 0, E = MI.getNumOperands(); OpIdx != E; ++OpIdx) {
+        const MachineOperand &MO = MI.getOperand(OpIdx);
+        if (!MO.isFI())
+          continue;
+        FI = MO.getIndex();
+        if (OpIdx + 1 < E && MI.getOperand(OpIdx + 1).isImm())
+          InstrOffset = MI.getOperand(OpIdx + 1).getImm();
+        break;
+      }
+      if (FI == std::numeric_limits<int>::max() || MFI.isDeadObjectIndex(FI))
+        continue;
+
+      int64_t BaseOffset = getFrameObjectBaseOffset(MF, FI, SlotSize);
+      int64_t NewOffset = BaseOffset + InstrOffset + Bias;
+      if (isFrameOffsetReferenceLegal(MI, NewOffset))
+        continue;
+      if (FI < 0)
+        ++Cost.FixedBadRefs;
+      else
+        ++Cost.LocalBadRefs;
+    }
+  }
+  return Cost;
+}
+
+static int64_t selectFramePointerBias(const MachineFunction &MF,
+                                      unsigned SlotSize) {
+  if (!MF.getSubtarget().getFrameLowering()->hasFP(MF))
+    return 0;
+  if (!MF.getSubtarget<Z80Subtarget>().hasEZ80Ops())
+    return 0;
+
+  if (MF.needsFrameMoves()) {
+    LLVM_DEBUG(dbgs() << "Z80FrameBias: disabling bias for " << MF.getName()
+                      << " because frame moves are enabled\n");
+    return 0;
+  }
+
+  switch (Z80FramePointerBiasPolicy) {
+  case FramePointerBiasPolicy::Off:
+    return 0;
+  case FramePointerBiasPolicy::Fixed:
+    return Z80FramePointerBiasValue;
+  case FramePointerBiasPolicy::Auto:
+    break;
+  }
+
+  int MinBias = Z80FramePointerBiasAutoMin;
+  int MaxBias = Z80FramePointerBiasAutoMax;
+  if (MinBias > MaxBias)
+    std::swap(MinBias, MaxBias);
+
+  FrameBiasCost BestCost = evaluateFrameBias(MF, SlotSize, 0);
+  int64_t BestBias = 0;
+  bool FoundFeasible = BestCost.FixedBadRefs <=
+                       Z80FramePointerBiasAutoMaxFixedOverflow;
+
+  for (int Bias = MinBias; Bias <= MaxBias; ++Bias) {
+    FrameBiasCost Cost = evaluateFrameBias(MF, SlotSize, Bias);
+    if (Cost.FixedBadRefs > Z80FramePointerBiasAutoMaxFixedOverflow)
+      continue;
+
+    if (!FoundFeasible ||
+        Cost.LocalBadRefs < BestCost.LocalBadRefs ||
+        (Cost.LocalBadRefs == BestCost.LocalBadRefs &&
+         (Cost.FixedBadRefs < BestCost.FixedBadRefs ||
+          (Cost.FixedBadRefs == BestCost.FixedBadRefs &&
+           (std::abs(Bias) < std::abs(BestBias) ||
+            (std::abs(Bias) == std::abs(BestBias) && Bias < BestBias)))))) {
+      BestCost = Cost;
+      BestBias = Bias;
+      FoundFeasible = true;
+    }
+  }
+
+  LLVM_DEBUG(dbgs() << "Z80FrameBias: " << MF.getName() << " chose bias="
+                    << BestBias << " local_bad=" << BestCost.LocalBadRefs
+                    << " fixed_bad=" << BestCost.FixedBadRefs << "\n");
+  return FoundFeasible ? BestBias : 0;
+}
+} // namespace
 
 Z80FrameLowering::Z80FrameLowering(const Z80Subtarget &STI)
     : TargetFrameLowering(StackGrowsDown, Align(), STI.is24Bit() ? -3 : -2),
@@ -39,6 +200,14 @@ Z80FrameLowering::Z80FrameLowering(const Z80Subtarget &STI)
 bool Z80FrameLowering::hasFP(const MachineFunction &MF) const {
   return MF.getTarget().Options.DisableFramePointerElim(MF) ||
          MF.getFrameInfo().hasStackObjects();
+}
+int64_t Z80FrameLowering::ensureFramePointerBias(MachineFunction &MF) const {
+  auto &FuncInfo = *MF.getInfo<Z80MachineFunctionInfo>();
+  if (FuncInfo.isFramePointerBiasInitialized())
+    return FuncInfo.getFramePointerBias();
+  int64_t Bias = selectFramePointerBias(MF, SlotSize);
+  FuncInfo.setFramePointerBias(Bias);
+  return Bias;
 }
 bool Z80FrameLowering::isFPSaved(const MachineFunction &MF) const {
   return hasFP(MF) && MF.getInfo<Z80MachineFunctionInfo>()->getUsesAltFP() ==
@@ -203,6 +372,23 @@ void Z80FrameLowering::emitPrologue(MachineFunction &MF,
   MachineFrameInfo &MFI = MF.getFrameInfo();
   int StackSize = -int(MFI.getStackSize());
   MCRegister ScratchReg = Is24Bit ? Z80::UHL : Z80::HL;
+  int64_t FrameBias = hasFP(MF) ? ensureFramePointerBias(MF) : 0;
+
+  auto emitFrameRegAdjust = [&](Register FrameReg, int64_t Adj) {
+    if (!Adj)
+      return;
+    assert(STI.hasEZ80Ops() && "frame pointer bias requires eZ80 ops");
+    while (Adj) {
+      int64_t Step =
+          Adj < 0 ? std::max<int64_t>(Adj, -128) : std::min<int64_t>(Adj, 127);
+      BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::LEA24ro : Z80::LEA16ro),
+              FrameReg)
+          .addReg(FrameReg)
+          .addImm(Step)
+          .setMIFlag(MachineInstr::FrameSetup);
+      Adj -= Step;
+    }
+  };
 
   // skip callee-saved saves
   while (MBBI != MBB.end() && MBBI->getFlag(MachineInstr::FrameSetup))
@@ -235,6 +421,7 @@ void Z80FrameLowering::emitPrologue(MachineFunction &MF,
             .addCFIIndex(MF.addFrameInst(MCCFIInstruction::createOffset(
                 nullptr, TRI->getDwarfRegNum(FrameReg, true), -2 * SlotSize)));
       }
+      emitFrameRegAdjust(FrameReg, -FrameBias);
     } else {
       if (isFPSaved(MF)) {
         BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::PUSH24r : Z80::PUSH16r))
@@ -281,12 +468,14 @@ void Z80FrameLowering::emitPrologue(MachineFunction &MF,
     }
 #endif
 
-    if (MF.getFunction().hasOptSize())
-      return;
+      if (MF.getFunction().hasOptSize())
+        return;
   }
 
   BuildStackAdjustment(MF, MBB, MBBI, DL, ScratchReg, StackSize, FPOffset,
                        MachineInstr::FrameSetup);
+  if (hasFP(MF))
+    emitFrameRegAdjust(TRI->getFrameRegister(MF), -FrameBias);
 }
 
 void Z80FrameLowering::emitEpilogue(MachineFunction &MF,
@@ -306,6 +495,7 @@ void Z80FrameLowering::emitEpilogue(MachineFunction &MF,
     assert(ScratchReg != ScratchRC->end() &&
            "Could not allocate a scratch register!");
   bool HasFP = hasFP(MF);
+  int64_t FrameBias = HasFP ? ensureFramePointerBias(MF) : 0;
   assert((HasFP || *ScratchReg != TRI->getFrameRegister(MF)) &&
          "Cannot allocate csr as scratch register!");
 
@@ -347,9 +537,14 @@ void Z80FrameLowering::emitEpilogue(MachineFunction &MF,
     PI->removeFromParent();
   }
 
+  // FrameReg is biased in prologue by -FrameBias. To restore SP from FrameReg
+  // we therefore need +FrameBias, which corresponds to FPOffset=StackSize-Bias
+  // in BuildStackAdjustment's medium path (SP = FP + (Offset - FPOffset)).
+  int64_t RestoreFromFP = int64_t(StackSize) - FrameBias;
+  assert((!HasFP || isInt<32>(RestoreFromFP)) && "frame pointer bias too large");
   BuildStackAdjustment(MF, MBB, MBBI, DL, *ScratchReg, StackSize,
-                       HasFP ? StackSize : -1, MachineInstr::FrameDestroy,
-                       MFI.hasVarSizedObjects());
+                       HasFP ? int(RestoreFromFP) : -1,
+                       MachineInstr::FrameDestroy, MFI.hasVarSizedObjects());
 
   if (isFPSaved(MF)) {
     Register FrameReg = TRI->getFrameRegister(MF);
@@ -548,9 +743,12 @@ bool Z80FrameLowering::restoreCalleeSavedRegisters(
 
 void Z80FrameLowering::processFunctionBeforeFrameFinalized(
     MachineFunction &MF, RegScavenger *RS) const {
+  auto &FuncInfo = *MF.getInfo<Z80MachineFunctionInfo>();
+  FuncInfo.resetFramePointerBias();
+
   MachineFrameInfo &MFI = MF.getFrameInfo();
   MFI.setMaxCallFrameSize(0); // call frames are not implemented yet
-  if (MF.getInfo<Z80MachineFunctionInfo>()->getHasIllegalLEA() ||
+  if (FuncInfo.getHasIllegalLEA() ||
       MFI.estimateStackSize(MF) > 0x80 - 2) {
     int64_t MinFixedObjOffset = -int64_t(SlotSize);
     for (int I = MFI.getObjectIndexBegin(); I < 0; ++I)

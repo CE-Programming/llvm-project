@@ -20,10 +20,12 @@
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/MC/MCDwarf.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 #include <iterator>
 using namespace llvm;
 
@@ -31,6 +33,10 @@ using namespace llvm;
 
 #define GET_INSTRINFO_CTOR_DTOR
 #include "Z80GenInstrInfo.inc"
+
+static cl::opt<bool> Z80TraceFrameIndices(
+    "z80-trace-frame-indices", cl::Hidden, cl::init(false),
+    cl::desc("Emit per-frame-index rewrite trace lines for Z80 analysis"));
 
 // Pin the vtable to this file.
 void Z80InstrInfo::anchor() {}
@@ -1195,12 +1201,33 @@ bool Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
   const Z80RegisterInfo &TRI = getRegisterInfo();
   DebugLoc DL = MI.getDebugLoc();
   bool Is24Bit = Subtarget.is24Bit();
-  int64_t NewOffset = Offset + TRI.getFrameIndexInstrOffset(&MI, FIOperandNum);
+  int FrameIndex = MI.getOperand(FIOperandNum).isFI()
+                       ? MI.getOperand(FIOperandNum).getIndex()
+                       : 0;
+  int64_t InstrOffset = TRI.getFrameIndexInstrOffset(&MI, FIOperandNum);
+  int64_t NewOffset = Offset + InstrOffset;
 
   unsigned Opc = MI.getOpcode();
   bool IllegalLEA = Opc == Z80::LEA16ro && !Subtarget.hasEZ80Ops();
+  bool IsOffsetLegal = TRI.isFrameOffsetLegal(&MI, BaseReg, Offset) && !IllegalLEA;
+
+  if (Z80TraceFrameIndices) {
+    errs() << "Z80FI fn=" << MF.getName() << " fi=" << FrameIndex << " base=";
+    if (!BaseReg)
+      errs() << "noreg";
+    else if (BaseReg.isPhysical() && BaseReg.id() < TRI.getNumRegs())
+      errs() << TRI.getName(BaseReg);
+    else if (BaseReg.isPhysical())
+      errs() << "preg" << BaseReg.id();
+    else
+      errs() << "vreg" << BaseReg.id();
+    errs() << " off=" << Offset
+           << " instr_off=" << InstrOffset << " new_off=" << NewOffset
+           << " legal=" << (IsOffsetLegal ? 1 : 0)
+           << " opc=" << getName(Opc) << "\n";
+  }
   
-  if (TRI.isFrameOffsetLegal(&MI, BaseReg, Offset) && !IllegalLEA) {
+  if (IsOffsetLegal) {
     MI.getOperand(FIOperandNum).ChangeToRegister(BaseReg, false);
     if (!NewOffset && (Opc == Z80::PEA24o || Opc == Z80::PEA16o)) {
       MI.setDesc(get(Opc == Z80::PEA24o ? Z80::PUSH24r : Z80::PUSH16r));
@@ -1927,31 +1954,33 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   case Z80::Cmp24a0: {
     // Zero-comparison: compare $src against 0 and set flags (Z) accordingly.
     //
-    // The instruction itself is a post-RA pseudo; expand to an ADD/SBC sequence
-    // that preserves the source register value. Only the Z flag is relied upon
-    // for branches generated from icmp-eq/ne-to-zero.
+    // The instruction itself is a post-RA pseudo; expand to a sequence that
+    // preserves the source register value. Only the Z flag is relied upon for
+    // branches generated from icmp-eq/ne-to-zero.
     //
     // With the TableGen constraint (G16/G24), $src is never an index register
     // (IX/IY), so we avoid clobbering IY in tight loops.
     const bool Is24 = (Opc == Z80::Cmp24a0);
     const MCRegister HLReg = Is24 ? Z80::UHL : Z80::HL;
     const MCRegister HelperReg = Is24 ? Z80::UBC : Z80::BC;
-    const unsigned PushOpc = Is24 ? Z80::PUSH24r : Z80::PUSH16r;
-    const unsigned PopOpc = Is24 ? Z80::POP24r : Z80::POP16r;
     const unsigned AddOpc = Is24 ? Z80::ADD24ao : Z80::ADD16ao;
     const unsigned SbcOpc = Is24 ? Z80::SBC24ao : Z80::SBC16ao;
+    const unsigned SbcAaOpc = Is24 ? Z80::SBC24aa : Z80::SBC16aa;
+    const unsigned AdcOpc = Is24 ? Z80::ADC24ao : Z80::ADC16ao;
 
     const Register SrcReg = MI.getOperand(0).getReg();
     const bool SrcIsO = Is24 ? Z80::O24RegClass.contains(SrcReg)
                              : Z80::O16RegClass.contains(SrcReg);
 
     if (SrcIsO) {
-      // src is BC/DE (O16/O24): copy to HL via PUSH/POP, then use src as helper.
-      applySPAdjust(*BuildMI(MBB, MI, DL, get(PushOpc)).addReg(SrcReg));
-      applySPAdjust(*BuildMI(MBB, MI, DL, get(PopOpc), HLReg));
-      BuildMI(MBB, MI, DL, get(AddOpc), HLReg).addReg(HLReg).addReg(SrcReg);
-      expandPostRAPseudo(*BuildMI(MBB, MI, DL, get(Z80::RCF)));
-      BuildMI(MBB, MI, DL, get(SbcOpc))
+      // src is BC/DE (O16/O24): compute src in HL without modifying src.
+      // this sequence preserves incoming carry:
+      //   sbc hl,hl ; HL = -CF
+      //   adc hl,src; HL = src
+      BuildMI(MBB, MI, DL, get(SbcAaOpc))
+          .addReg(HLReg, RegState::Implicit | RegState::Undef)
+          .addReg(Z80::F, RegState::Implicit);
+      BuildMI(MBB, MI, DL, get(AdcOpc))
           .addReg(SrcReg)
           .addReg(HLReg, RegState::Implicit)
           .addReg(Z80::F, RegState::Implicit);
