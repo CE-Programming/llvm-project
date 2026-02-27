@@ -1467,7 +1467,7 @@ bool Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
         LLVM_DEBUG(dbgs() << "  Has unused index scratch but no offset reg, trying scavenge\n");
         if (!isInt<8>(NewOffset)) {
           OffsetReg = RS->scavengeRegisterBackwards(
-              *OffsetRC, II, /*RestoreAfter=*/false, SPAdj, /*AllowSpill=*/true);
+              *OffsetRC, II, /*RestoreAfter=*/false, SPAdj, /*AllowSpill=*/false);
           LLVM_DEBUG(dbgs() << "  scavengeRegisterBackwards returned: "
                             << (OffsetReg ? TRI.getName(OffsetReg) : "none") << "\n");
           if (OffsetReg) {
@@ -1636,7 +1636,7 @@ bool Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
         // No unused register available - use scavengeRegisterBackwards to
         LLVM_DEBUG(dbgs() << "Z80FrameIndex: No unused offset reg, trying scavengeRegisterBackwards\n");
         Register ScavengedReg = RS->scavengeRegisterBackwards(
-            *OffsetRC, II, /*RestoreAfter=*/false, SPAdj, /*AllowSpill=*/true);
+            *OffsetRC, II, /*RestoreAfter=*/false, SPAdj, /*AllowSpill=*/false);
         LLVM_DEBUG(dbgs() << "Z80FrameIndex: scavengeRegisterBackwards returned: ";
                    if (ScavengedReg) dbgs() << printReg(ScavengedReg, &TRI);
                    else dbgs() << "null";
@@ -1688,7 +1688,7 @@ bool Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
       } else {
         // with a scavenger but no unused offset temp - use scavengeRegisterBackwards
         Register ScavengedReg = RS->scavengeRegisterBackwards(
-            *OffsetRC, II, /*RestoreAfter=*/false, SPAdj, /*AllowSpill=*/true);
+            *OffsetRC, II, /*RestoreAfter=*/false, SPAdj, /*AllowSpill=*/false);
         if (ScavengedReg) {
           RS->setRegUsed(ScavengedReg);
           BuildMI(MBB, II, DL, get(Is24Bit ? Z80::LD24ri : Z80::LD16ri),

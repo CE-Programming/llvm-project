@@ -217,9 +217,10 @@ void Z80PassConfig::addMachineSSAOptimization() {
 
 void Z80PassConfig::addFastRegAlloc() {
   // FastRegAlloc can't handle the register pressure on the Z80
-  if (usingDefaultRegAlloc())
+  if (usingDefaultRegAlloc()) {
+    addPass(createZ80R64SpillPass());
     addOptimizedRegAlloc();
-  else
+  } else
     TargetPassConfig::addFastRegAlloc();
 }
 

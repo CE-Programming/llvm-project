@@ -302,7 +302,14 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
                                G_FMAXNUM,
                                G_FCEIL,
                                G_FCOS,
+                               G_FCOSH,
                                G_FSIN,
+                               G_FSINH,
+                               G_FTAN,
+                               G_FTANH,
+                               G_FACOS,
+                               G_FASIN,
+                               G_FATAN,
                                G_FSQRT,
                                G_FFLOOR,
                                G_FRINT,
@@ -384,7 +391,8 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .clampScalar(0, s8, sMax);
 
   getActionDefinitionsBuilder(
-      {G_SDIVREM, G_UDIVREM, G_ABS, G_DYN_STACKALLOC, G_SEXT_INREG,
+      {G_SDIVREM, G_UDIVREM, G_ABS, G_DYN_STACKALLOC, G_STACKSAVE,
+       G_STACKRESTORE, G_SEXT_INREG,
        G_SMULH, G_UMULH, G_SMIN, G_SMAX, G_UMIN, G_UMAX, G_UADDSAT, G_SADDSAT,
        G_USUBSAT, G_SSUBSAT, G_USHLSAT, G_SSHLSAT, G_FPOWI})
       .lower();

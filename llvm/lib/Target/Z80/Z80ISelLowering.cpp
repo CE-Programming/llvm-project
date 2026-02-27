@@ -225,6 +225,13 @@ Z80TargetLowering::Z80TargetLowering(const Z80TargetMachine &TM,
   setLibcall(RTLIB::EXP2_F64,         "exp2l",       CallingConv::C             );
   setLibcall(RTLIB::SIN_F64,          "sinl",        CallingConv::C             );
   setLibcall(RTLIB::COS_F64,          "cosl",        CallingConv::C             );
+  setLibcall(RTLIB::TAN_F64,          "tanl",        CallingConv::C             );
+  setLibcall(RTLIB::ASIN_F64,         "asinl",       CallingConv::C             );
+  setLibcall(RTLIB::ACOS_F64,         "acosl",       CallingConv::C             );
+  setLibcall(RTLIB::ATAN_F64,         "atanl",       CallingConv::C             );
+  setLibcall(RTLIB::SINH_F64,         "sinhl",       CallingConv::C             );
+  setLibcall(RTLIB::COSH_F64,         "coshl",       CallingConv::C             );
+  setLibcall(RTLIB::TANH_F64,         "tanhl",       CallingConv::C             );
   setLibcall(RTLIB::POW_F64,          "powl",        CallingConv::C             );
   setLibcall(RTLIB::CEIL_F64,         "ceill",       CallingConv::C             );
   setLibcall(RTLIB::TRUNC_F64,        "truncl",      CallingConv::C             );

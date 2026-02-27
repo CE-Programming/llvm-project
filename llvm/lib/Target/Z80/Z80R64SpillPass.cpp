@@ -245,6 +245,51 @@ void Z80R64SpillPass::rewriteR64Def(MachineInstr &MI, Register R64Reg) {
     LLVM_DEBUG(dbgs() << "  Decomposed INSERT_SUBREG: " << MI);
     return;
   }
+
+  if (Opc == TargetOpcode::COPY) {
+    // COPY from another R64_24
+    Register SrcReg = MI.getOperand(1).getReg();
+    if (SrcReg.isVirtual() &&
+        MRI->getRegClassOrNull(SrcReg) == &Z80::R64_24RegClass) {
+      DecomposedR64 SrcD = getOrCreateDecomp64(SrcReg);
+      BuildMI(MBB, InsertPt, DL, TII->get(TargetOpcode::COPY), D.Lo24)
+          .addReg(SrcD.Lo24);
+      BuildMI(MBB, InsertPt, DL, TII->get(TargetOpcode::COPY), D.Mid24)
+          .addReg(SrcD.Mid24);
+      BuildMI(MBB, InsertPt, DL, TII->get(TargetOpcode::COPY), D.Hi16)
+          .addReg(SrcD.Hi16);
+      LLVM_DEBUG(dbgs() << "  Decomposed R64 COPY: " << MI);
+      return;
+    }
+  }
+
+  // generic fallback for defs that write only a subregister of the R64_24
+  // aggregate. rebind the def directly to the decomposed component to 
+  // avoid forcing allocation of the full tuple
+  bool RewroteSubregDef = false;
+  for (MachineOperand &MO : MI.operands()) {
+    if (!MO.isReg() || !MO.isDef() || MO.getReg() != R64Reg)
+      continue;
+
+    unsigned SubReg = MO.getSubReg();
+    if (SubReg == Z80::sub_low24) {
+      MO.setReg(D.Lo24);
+      MO.setSubReg(0);
+      RewroteSubregDef = true;
+    } else if (SubReg == Z80::sub_mid24) {
+      MO.setReg(D.Mid24);
+      MO.setSubReg(0);
+      RewroteSubregDef = true;
+    } else if (SubReg == Z80::sub_word3) {
+      MO.setReg(D.Hi16);
+      MO.setSubReg(0);
+      RewroteSubregDef = true;
+    }
+  }
+  if (RewroteSubregDef) {
+    LLVM_DEBUG(dbgs() << "  Rebound R64 subreg def to components: " << MI);
+    return;
+  }
   
   // for other defs (COPY, loads, etc.), we need to extract components
   LLVM_DEBUG(dbgs() << "  Unhandled R64_24 def: " << MI);
@@ -391,8 +436,19 @@ bool Z80R64SpillPass::decomposeR64Registers(MachineFunction &MF) {
   // erase original R64_24 defs
   for (auto &[Reg, DefMI] : R64Defs) {
     if (MRI->use_empty(Reg)) {
-      LLVM_DEBUG(dbgs() << "  Removing dead R64_24 def: " << *DefMI);
-      DefMI->eraseFromParent();
+      bool StillDefinesReg = false;
+      for (const MachineOperand &MO : DefMI->operands()) {
+        if (!MO.isReg() || !MO.isDef())
+          continue;
+        if (MO.getReg() == Reg) {
+          StillDefinesReg = true;
+          break;
+        }
+      }
+      if (StillDefinesReg) {
+        LLVM_DEBUG(dbgs() << "  Removing dead R64_24 def: " << *DefMI);
+        DefMI->eraseFromParent();
+      }
     } else {
       LLVM_DEBUG(dbgs() << "  WARNING: R64_24 still has uses: " << *DefMI);
       for (MachineInstr &Use : MRI->use_instructions(Reg)) {
