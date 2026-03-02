@@ -375,6 +375,76 @@ void Z80TargetLowering::AdjustAdjCallStack(MachineInstr &MI) const {
   LLVM_DEBUG(MI.dump());
 }
 
+static bool isSinkableSelectArmInstr(const MachineInstr &MI) {
+  if (MI.isPHI() || MI.isTerminator() || MI.isInlineAsm())
+    return false;
+  if (MI.isCall() || MI.mayLoadOrStore() || MI.hasUnmodeledSideEffects())
+    return false;
+  return MI.getNumExplicitDefs() == 1;
+}
+
+static bool isBeforeInBlock(const MachineInstr &A, const MachineInstr &B) {
+  if (A.getParent() != B.getParent())
+    return false;
+  const MachineBasicBlock *MBB = A.getParent();
+  for (const MachineInstr &MI : *MBB) {
+    if (&MI == &A)
+      return true;
+    if (&MI == &B)
+      return false;
+  }
+  return false;
+}
+
+static bool sinkSelectTrueArmComputation(MachineInstr &SelectMI,
+                                         MachineBasicBlock *ThisMBB,
+                                         MachineBasicBlock *TrueMBB,
+                                         Register FalseReg, Register TrueReg,
+                                         MachineRegisterInfo &MRI) {
+  if (!FalseReg.isVirtual() || !TrueReg.isVirtual())
+    return false;
+  if (!MRI.hasOneNonDBGUse(TrueReg))
+    return false;
+
+  MachineInstr *TrueDef = MRI.getVRegDef(TrueReg);
+  if (!TrueDef || TrueDef->getParent() != ThisMBB ||
+      !isBeforeInBlock(*TrueDef, SelectMI) ||
+      !isSinkableSelectArmInstr(*TrueDef))
+    return false;
+
+  MachineInstr *CopyFromFalse = nullptr;
+  bool DependsOnFalse = false;
+  for (const MachineOperand &MO : TrueDef->explicit_uses()) {
+    if (!MO.isReg())
+      continue;
+    Register UseReg = MO.getReg();
+    if (!UseReg || !UseReg.isVirtual())
+      continue;
+    if (UseReg == FalseReg) {
+      DependsOnFalse = true;
+      continue;
+    }
+    MachineInstr *DefI = MRI.getVRegDef(UseReg);
+    if (!DefI || DefI->getParent() != ThisMBB ||
+        DefI->getOpcode() != TargetOpcode::COPY ||
+        !isBeforeInBlock(*DefI, *TrueDef) || !MRI.hasOneNonDBGUse(UseReg))
+      continue;
+    if (!DefI->getOperand(1).isReg() || DefI->getOperand(1).getReg() != FalseReg)
+      continue;
+    DependsOnFalse = true;
+    CopyFromFalse = DefI;
+  }
+
+  if (!DependsOnFalse)
+    return false;
+
+  if (CopyFromFalse)
+    TrueMBB->splice(TrueMBB->end(), ThisMBB,
+                    MachineBasicBlock::iterator(CopyFromFalse));
+  TrueMBB->splice(TrueMBB->end(), ThisMBB, MachineBasicBlock::iterator(TrueDef));
+  return true;
+}
+
 MachineBasicBlock *
 Z80TargetLowering::EmitLoweredSelect(MachineInstr &MI,
                                      MachineBasicBlock *BB) const {
@@ -415,6 +485,10 @@ Z80TargetLowering::EmitLoweredSelect(MachineInstr &MI,
   MachineBasicBlock *copy1MBB = F->CreateMachineBasicBlock(LLVM_BB);
   F->insert(I, copy0MBB);
   F->insert(I, copy1MBB);
+
+  if (MI.getOpcode() != Z80::SetCC)
+    (void)sinkSelectTrueArmComputation(MI, BB, copy0MBB, FalseReg, TrueReg,
+                                       MRI);
 
   // Update machine-CFG edges by transferring all successors of the current
   // block to the new block which will contain the Phi node for the select.

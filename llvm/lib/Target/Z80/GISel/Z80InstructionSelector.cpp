@@ -2850,6 +2850,41 @@ bool Z80InstructionSelector::selectShift(MachineInstr &I,
     return constrainSelectedInstRegOperands(*ShiftI, TII, TRI, RBI);
   }
 
+  // handle s16 right shift by 1
+  // sequence:
+  //   hi' = srl/sra hi
+  //   lo' = rr lo
+  // then rebuild i16 via REG_SEQUENCE(lo', hi')
+  if ((Opc == TargetOpcode::G_LSHR || Opc == TargetOpcode::G_ASHR) &&
+      Ty == LLT::scalar(16) && Amt->Value == 1) {
+    auto HiIn = MIB.buildInstr(TargetOpcode::COPY, {LLT::scalar(8)}, {})
+                    .addReg(SrcReg, 0, Z80::sub_high);
+    auto LoIn = MIB.buildInstr(TargetOpcode::COPY, {LLT::scalar(8)}, {})
+                    .addReg(SrcReg, 0, Z80::sub_low);
+
+    const TargetRegisterClass *ByteRC =
+        STI.hasIndexHalfRegs() ? &Z80::R8RegClass : &Z80::G8RegClass;
+    const TargetRegisterClass *WordRC =
+        STI.hasIndexHalfRegs() ? &Z80::R16RegClass : &Z80::G16RegClass;
+    if (!RBI.constrainGenericRegister(HiIn.getReg(0), *ByteRC, MRI) ||
+        !RBI.constrainGenericRegister(LoIn.getReg(0), *ByteRC, MRI) ||
+        !RBI.constrainGenericRegister(SrcReg, *WordRC, MRI))
+      return false;
+
+    unsigned HiShiftOpc = Opc == TargetOpcode::G_LSHR ? Z80::SRL8g : Z80::SRA8g;
+    auto HiOut = MIB.buildInstr(HiShiftOpc, {LLT::scalar(8)}, {HiIn.getReg(0)});
+    auto LoOut = MIB.buildInstr(Z80::RR8g, {LLT::scalar(8)}, {LoIn.getReg(0)});
+    if (!constrainSelectedInstRegOperands(*HiOut, TII, TRI, RBI) ||
+        !constrainSelectedInstRegOperands(*LoOut, TII, TRI, RBI))
+      return false;
+
+    MIB.buildInstr(TargetOpcode::REG_SEQUENCE, {DstReg},
+                   {LoOut.getReg(0), uint64_t(Z80::sub_low),
+                    HiOut.getReg(0), uint64_t(Z80::sub_high)});
+    I.eraseFromParent();
+    return RBI.constrainGenericRegister(DstReg, *WordRC, MRI);
+  }
+
   // handle s16/s24 G_SHL by 1-6 (inline add hl, hl instructions)
   // for s24, use ADD24aa for all adds (generates add hl, hl, 1 byte each)
   // for s16 in 24 bit mode with shift > 1, use SUBREG_TO_REG to promote to s24,

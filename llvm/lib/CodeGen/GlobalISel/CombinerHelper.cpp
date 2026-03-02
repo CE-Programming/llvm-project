@@ -4997,6 +4997,54 @@ bool CombinerHelper::matchConstantFoldBinOp(MachineInstr &MI, APInt &MatchInfo) 
   return true;
 }
 
+bool CombinerHelper::matchConstantFoldCountBits(MachineInstr &MI,
+                                                APInt &MatchInfo) {
+  const unsigned Opc = MI.getOpcode();
+  if (Opc != TargetOpcode::G_CTTZ && Opc != TargetOpcode::G_CTTZ_ZERO_UNDEF &&
+      Opc != TargetOpcode::G_CTLZ && Opc != TargetOpcode::G_CTLZ_ZERO_UNDEF &&
+      Opc != TargetOpcode::G_CTPOP)
+    return false;
+
+  Register Dst = MI.getOperand(0).getReg();
+  LLT DstTy = MRI.getType(Dst);
+  if (!DstTy.isScalar())
+    return false;
+
+  Register Src = MI.getOperand(1).getReg();
+  auto MaybeSrcCst = getIConstantVRegVal(Src, MRI);
+  if (!MaybeSrcCst)
+    return false;
+  const APInt &SrcCst = *MaybeSrcCst;
+
+  unsigned Folded = 0;
+  switch (Opc) {
+  case TargetOpcode::G_CTTZ:
+    Folded = SrcCst.countTrailingZeros();
+    break;
+  case TargetOpcode::G_CTTZ_ZERO_UNDEF:
+    if (SrcCst.isZero())
+      return false;
+    Folded = SrcCst.countTrailingZeros();
+    break;
+  case TargetOpcode::G_CTLZ:
+    Folded = SrcCst.countLeadingZeros();
+    break;
+  case TargetOpcode::G_CTLZ_ZERO_UNDEF:
+    if (SrcCst.isZero())
+      return false;
+    Folded = SrcCst.countLeadingZeros();
+    break;
+  case TargetOpcode::G_CTPOP:
+    Folded = SrcCst.popcount();
+    break;
+  default:
+    llvm_unreachable("Unexpected opcode");
+  }
+
+  MatchInfo = APInt(DstTy.getSizeInBits(), Folded);
+  return true;
+}
+
 bool CombinerHelper::matchConstantFoldFPBinOp(MachineInstr &MI, ConstantFP* &MatchInfo) {
   Register Op1 = MI.getOperand(1).getReg();
   Register Op2 = MI.getOperand(2).getReg();
@@ -5589,9 +5637,23 @@ void CombinerHelper::applySDivByPow2(MachineInstr &MI) {
   unsigned BitWidth = Ty.getScalarSizeInBits();
   auto Zero = Builder.buildConstant(Ty, 0);
 
-  auto Bits = Builder.buildConstant(ShiftAmtTy, BitWidth);
-  auto C1 = Builder.buildCTTZ(ShiftAmtTy, RHS);
-  auto Inexact = Builder.buildSub(ShiftAmtTy, Bits, C1);
+  Register C1;
+  Register Inexact;
+  if (Ty.isScalar()) {
+    if (auto MaybeDivisor = getIConstantVRegVal(RHS, MRI)) {
+      APInt Divisor = *MaybeDivisor;
+      if (Divisor.isNegative())
+        Divisor = -Divisor;
+      const unsigned Shift = Divisor.countTrailingZeros();
+      C1 = Builder.buildConstant(ShiftAmtTy, Shift).getReg(0);
+      Inexact = Builder.buildConstant(ShiftAmtTy, BitWidth - Shift).getReg(0);
+    }
+  }
+  if (!C1) {
+    auto Bits = Builder.buildConstant(ShiftAmtTy, BitWidth);
+    C1 = Builder.buildCTTZ(ShiftAmtTy, RHS).getReg(0);
+    Inexact = Builder.buildSub(ShiftAmtTy, Bits, C1).getReg(0);
+  }
   // Splat the sign bit into the register
   auto Sign = Builder.buildAShr(
       Ty, LHS, Builder.buildConstant(ShiftAmtTy, BitWidth - 1));

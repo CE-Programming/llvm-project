@@ -175,8 +175,10 @@ Z80PreLegalizerCombiner::Z80PreLegalizerCombiner(bool IsOptNone)
   // disabled by default for this target until we have a target-aware variant.
   // This remains overridable via
   // -z80prelegalizercombiner-(only-)enable/disable-rule.
-  if (!RuleConfig.setRuleDisabled("sdiv_by_pow2"))
-    report_fatal_error("Invalid rule identifier");
+  if (!RuleConfig.setRuleDisabled("sdiv_by_pow2")) {
+    LLVM_DEBUG(dbgs() << "z80-prelegalizer-combiner: optional rule "
+                         "'sdiv_by_pow2' not found; skipping default disable\n");
+  }
 
   if (!RuleConfig.parseCommandLineOption())
     report_fatal_error("Invalid rule identifier");

@@ -758,6 +758,9 @@ public:
   /// Do constant folding when opportunities are exposed after MIR building.
   bool matchConstantFoldBinOp(MachineInstr &MI, APInt &MatchInfo);
 
+  /// Do constant folding for bit-counting ops (cttz/ctlz/ctpop).
+  bool matchConstantFoldCountBits(MachineInstr &MI, APInt &MatchInfo);
+
   /// Do constant FP folding when opportunities are exposed after MIR building.
   bool matchConstantFoldFPBinOp(MachineInstr &MI, ConstantFP* &MatchInfo);
 

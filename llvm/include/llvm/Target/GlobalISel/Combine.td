@@ -1129,6 +1129,13 @@ def constant_fold_cast_op : GICombineRule<
    [{ return Helper.matchConstantFoldCastOp(*${d}, ${matchinfo}); }]),
   (apply [{ Helper.replaceInstWithConstant(*${d}, ${matchinfo}); }])>;
 
+def constant_fold_count_bits : GICombineRule<
+  (defs root:$d, apint_matchinfo:$matchinfo),
+  (match (wip_match_opcode G_CTTZ, G_CTTZ_ZERO_UNDEF, G_CTLZ,
+                           G_CTLZ_ZERO_UNDEF, G_CTPOP):$d,
+   [{ return Helper.matchConstantFoldCountBits(*${d}, ${matchinfo}); }]),
+  (apply [{ Helper.replaceInstWithConstant(*${d}, ${matchinfo}); }])>;
+
 def mulo_by_2: GICombineRule<
   (defs root:$root, build_fn_matchinfo:$matchinfo),
   (match (wip_match_opcode G_UMULO, G_SMULO):$root,
@@ -1483,6 +1490,7 @@ def sink_const : GICombineRule<
 def constant_fold : GICombineGroup<[constant_fold_fp_ops, constant_fold_binop,
                                     constant_fold_fp_binop,
                                     constant_fold_cast_op,
+                                    constant_fold_count_bits,
                                     constant_fold_fma]>;
 
 def match_selects : GICombineRule<
@@ -2004,7 +2012,7 @@ def all_combines : GICombineGroup<[integer_reassoc_combines, trivial_combines,
     shift_immed_chain, shift_of_shifted_logic_chain, load_or_combine,
     div_rem_to_divrem, funnel_shift_combines, bitreverse_shift, commute_shift,
     form_bitfield_extract, constant_fold_binops, constant_fold_fma,
-    constant_fold_cast_op, fabs_fneg_fold,
+    constant_fold_cast_op, constant_fold_count_bits, fabs_fneg_fold,
     intdiv_combines, mulh_combines, redundant_neg_operands,
     and_or_disjoint_mask, fma_combines, fold_binop_into_select,
     sub_add_reg, select_to_minmax, redundant_binop_in_equality,

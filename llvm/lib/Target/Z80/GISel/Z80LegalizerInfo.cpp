@@ -21,6 +21,7 @@
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
 #include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
+#include "llvm/IR/DerivedTypes.h"
 #include <functional>
 #include <initializer_list>
 using namespace llvm;
@@ -351,9 +352,9 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
   for (unsigned MemOp : {G_LOAD, G_STORE})
     getLegacyLegalizerInfo().setLegalizeScalarToDifferentSizeStrategy(
         MemOp, 0, [](const LegacyLegalizerInfo::SizeAndActionsVec &Vec) {
-          using namespace LegacyLegalizeActions;
           return LegacyLegalizerInfo::decreaseToSmallerTypesAndIncreaseToSmallest(
-              Vec, NarrowScalar, WidenScalar);
+              Vec, LegacyLegalizeActions::NarrowScalar,
+              LegacyLegalizeActions::WidenScalar);
         });
 
   getActionDefinitionsBuilder(
@@ -914,6 +915,34 @@ Z80LegalizerInfo::legalizeShift(LegalizerHelper &Helper, MachineInstr &MI,
           getIConstantVRegValWithLookThrough(MI.getOperand(2).getReg(), MRI)) {
     if (Ty == LLT::scalar(8) && Amt->Value == 1)
       return LegalizerHelper::AlreadyLegal;
+    if ((Opc == G_ASHR || Opc == G_LSHR) && Ty == LLT::scalar(16) &&
+        Amt->Value == 1)
+      return LegalizerHelper::AlreadyLegal;
+    // for i24 right shift by 1, prefer the dedicated one bit helpers
+    // for shifts >= 2 we intentionally keep using the generic __ishrs/__ishru
+    // libcalls, which are faster overall on this target/runtime
+    if (Subtarget.is24Bit() && Ty == LLT::scalar(24) && Amt->Value == 1 &&
+        (Opc == G_ASHR || Opc == G_LSHR)) {
+      MachineIRBuilder &MIRBuilder = Helper.MIRBuilder;
+      auto &MF = MIRBuilder.getMF();
+      auto &TLI = *MF.getSubtarget().getTargetLowering();
+
+      const RTLIB::Libcall BaseCall = Opc == G_ASHR ? RTLIB::SRA_I24 : RTLIB::SRL_I24;
+      const CallingConv::ID CC = TLI.getLibcallCallingConv(BaseCall);
+      const char *Name = Opc == G_ASHR ? "_ishrs_1_fast" : "_ishru_1_fast";
+
+      Type *I24Ty = IntegerType::get(MF.getFunction().getContext(), 24);
+      Register SrcReg = MI.getOperand(1).getReg();
+      auto Result = createLibcall(MIRBuilder, Name, {DstReg, I24Ty, 0},
+                                  {{SrcReg, I24Ty, 0}}, CC, LocObserver, &MI);
+
+      if (Result != LegalizerHelper::Legalized)
+        return Result;
+      
+      MI.eraseFromParent();
+      return Result;
+    }
+
     // s16/s24 left shift by 1-6 can use inline ADD instructions
     // library call is 7-8 bytes (ld bc, N + call __ishl), so up to 6 adds is optimal
     if (Opc == G_SHL && Amt->Value.uge(1) && Amt->Value.ule(6)) {
