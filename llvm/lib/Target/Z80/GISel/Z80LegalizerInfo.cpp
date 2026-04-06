@@ -929,7 +929,7 @@ Z80LegalizerInfo::legalizeShift(LegalizerHelper &Helper, MachineInstr &MI,
 
       const RTLIB::Libcall BaseCall = Opc == G_ASHR ? RTLIB::SRA_I24 : RTLIB::SRL_I24;
       const CallingConv::ID CC = TLI.getLibcallCallingConv(BaseCall);
-      const char *Name = Opc == G_ASHR ? "_ishrs_1_fast" : "_ishru_1_fast";
+      const char *Name = Opc == G_ASHR ? "_ishrs_1" : "_ishru_1";
 
       Type *I24Ty = IntegerType::get(MF.getFunction().getContext(), 24);
       Register SrcReg = MI.getOperand(1).getReg();
