@@ -14,23 +14,25 @@ define i8 @sadd.sat.i8(i8, i8) {
 ; Z80-NEXT:    ld l, a
 ; Z80-NEXT:    jp pe, BB0_2
 ; Z80-NEXT:  ; %bb.1:
-; Z80-NEXT:    ld c, 0
+; Z80-NEXT:    ld e, 0
 ; Z80-NEXT:    jr BB0_3
+; Z80-NEXT:    private BB0_2
 ; Z80-NEXT:  BB0_2:
-; Z80-NEXT:    ld c, -1
+; Z80-NEXT:    ld e, -1
+; Z80-NEXT:    private BB0_3
 ; Z80-NEXT:  BB0_3:
 ; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    rlc a
 ; Z80-NEXT:    sbc a, a
-; Z80-NEXT:    ld e, -128
-; Z80-NEXT:    add a, e
-; Z80-NEXT:    ld e, a
-; Z80-NEXT:    bit 0, c
-; Z80-NEXT:    jr nz, BB0_5
+; Z80-NEXT:    bit 0, e
+; Z80-NEXT:    jr z, BB0_5
 ; Z80-NEXT:  ; %bb.4:
-; Z80-NEXT:    ld e, l
+; Z80-NEXT:    ld l, -128
+; Z80-NEXT:    add a, l
+; Z80-NEXT:    ld l, a
+; Z80-NEXT:    private BB0_5
 ; Z80-NEXT:  BB0_5:
-; Z80-NEXT:    ld a, e
+; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    ret
 ;
 ; EZ80-CODE16-LABEL: sadd.sat.i8:
@@ -42,23 +44,25 @@ define i8 @sadd.sat.i8(i8, i8) {
 ; EZ80-CODE16-NEXT:    ld l, a
 ; EZ80-CODE16-NEXT:    jp pe, BB0_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
-; EZ80-CODE16-NEXT:    ld c, 0
+; EZ80-CODE16-NEXT:    ld e, 0
 ; EZ80-CODE16-NEXT:    jr BB0_3
+; EZ80-CODE16-NEXT:    private BB0_2
 ; EZ80-CODE16-NEXT:  BB0_2:
-; EZ80-CODE16-NEXT:    ld c, -1
+; EZ80-CODE16-NEXT:    ld e, -1
+; EZ80-CODE16-NEXT:    private BB0_3
 ; EZ80-CODE16-NEXT:  BB0_3:
 ; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    rlc a
 ; EZ80-CODE16-NEXT:    sbc a, a
-; EZ80-CODE16-NEXT:    ld e, -128
-; EZ80-CODE16-NEXT:    add a, e
-; EZ80-CODE16-NEXT:    ld e, a
-; EZ80-CODE16-NEXT:    bit 0, c
-; EZ80-CODE16-NEXT:    jr nz, BB0_5
+; EZ80-CODE16-NEXT:    bit 0, e
+; EZ80-CODE16-NEXT:    jr z, BB0_5
 ; EZ80-CODE16-NEXT:  ; %bb.4:
-; EZ80-CODE16-NEXT:    ld e, l
+; EZ80-CODE16-NEXT:    ld l, -128
+; EZ80-CODE16-NEXT:    add a, l
+; EZ80-CODE16-NEXT:    ld l, a
+; EZ80-CODE16-NEXT:    private BB0_5
 ; EZ80-CODE16-NEXT:  BB0_5:
-; EZ80-CODE16-NEXT:    ld a, e
+; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    ret
 ;
 ; EZ80-LABEL: sadd.sat.i8:
@@ -70,23 +74,25 @@ define i8 @sadd.sat.i8(i8, i8) {
 ; EZ80-NEXT:    ld l, a
 ; EZ80-NEXT:    jp pe, BB0_2
 ; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    ld c, 0
+; EZ80-NEXT:    ld e, 0
 ; EZ80-NEXT:    jr BB0_3
+; EZ80-NEXT:    private BB0_2
 ; EZ80-NEXT:  BB0_2:
-; EZ80-NEXT:    ld c, -1
+; EZ80-NEXT:    ld e, -1
+; EZ80-NEXT:    private BB0_3
 ; EZ80-NEXT:  BB0_3:
 ; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    rlc a
 ; EZ80-NEXT:    sbc a, a
-; EZ80-NEXT:    ld e, -128
-; EZ80-NEXT:    add a, e
-; EZ80-NEXT:    ld e, a
-; EZ80-NEXT:    bit 0, c
-; EZ80-NEXT:    jr nz, BB0_5
+; EZ80-NEXT:    bit 0, e
+; EZ80-NEXT:    jr z, BB0_5
 ; EZ80-NEXT:  ; %bb.4:
-; EZ80-NEXT:    ld e, l
+; EZ80-NEXT:    ld l, -128
+; EZ80-NEXT:    add a, l
+; EZ80-NEXT:    ld l, a
+; EZ80-NEXT:    private BB0_5
 ; EZ80-NEXT:  BB0_5:
-; EZ80-NEXT:    ld a, e
+; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    ret
   call i8 @llvm.sadd.sat.i8(i8 %0, i8 %1)
   ret i8 %3
@@ -102,14 +108,15 @@ define i16 @sadd.sat.i16(i16, i16) {
 ; Z80-NEXT:    ld e, (iy + 4)
 ; Z80-NEXT:    ld d, (iy + 5)
 ; Z80-NEXT:    adc hl, de
-; Z80-NEXT:    ld e, l
-; Z80-NEXT:    ld d, h
+; Z80-NEXT:    ex de, hl
 ; Z80-NEXT:    jp pe, BB1_2
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld a, 0
 ; Z80-NEXT:    jr BB1_3
+; Z80-NEXT:    private BB1_2
 ; Z80-NEXT:  BB1_2:
 ; Z80-NEXT:    ld a, -1
+; Z80-NEXT:    private BB1_3
 ; Z80-NEXT:  BB1_3:
 ; Z80-NEXT:    ld l, e
 ; Z80-NEXT:    ld h, d
@@ -121,6 +128,7 @@ define i16 @sadd.sat.i16(i16, i16) {
 ; Z80-NEXT:    jr nz, BB1_5
 ; Z80-NEXT:  ; %bb.4:
 ; Z80-NEXT:    ex de, hl
+; Z80-NEXT:    private BB1_5
 ; Z80-NEXT:  BB1_5:
 ; Z80-NEXT:    ret
 ;
@@ -131,14 +139,15 @@ define i16 @sadd.sat.i16(i16, i16) {
 ; EZ80-CODE16-NEXT:    ld hl, (iy + 2)
 ; EZ80-CODE16-NEXT:    ld de, (iy + 4)
 ; EZ80-CODE16-NEXT:    adc hl, de
-; EZ80-CODE16-NEXT:    ld e, l
-; EZ80-CODE16-NEXT:    ld d, h
+; EZ80-CODE16-NEXT:    ex de, hl
 ; EZ80-CODE16-NEXT:    jp pe, BB1_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld a, 0
 ; EZ80-CODE16-NEXT:    jr BB1_3
+; EZ80-CODE16-NEXT:    private BB1_2
 ; EZ80-CODE16-NEXT:  BB1_2:
 ; EZ80-CODE16-NEXT:    ld a, -1
+; EZ80-CODE16-NEXT:    private BB1_3
 ; EZ80-CODE16-NEXT:  BB1_3:
 ; EZ80-CODE16-NEXT:    ld l, e
 ; EZ80-CODE16-NEXT:    ld h, d
@@ -150,6 +159,7 @@ define i16 @sadd.sat.i16(i16, i16) {
 ; EZ80-CODE16-NEXT:    jr nz, BB1_5
 ; EZ80-CODE16-NEXT:  ; %bb.4:
 ; EZ80-CODE16-NEXT:    ex de, hl
+; EZ80-CODE16-NEXT:    private BB1_5
 ; EZ80-CODE16-NEXT:  BB1_5:
 ; EZ80-CODE16-NEXT:    ret
 ;
@@ -161,14 +171,15 @@ define i16 @sadd.sat.i16(i16, i16) {
 ; EZ80-NEXT:    ld de, (iy + 6)
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
 ; EZ80-NEXT:    adc.sis hl, de
-; EZ80-NEXT:    ld e, l
-; EZ80-NEXT:    ld d, h
+; EZ80-NEXT:    ex.sis de, hl
 ; EZ80-NEXT:    jp pe, BB1_2
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld a, 0
 ; EZ80-NEXT:    jr BB1_3
+; EZ80-NEXT:    private BB1_2
 ; EZ80-NEXT:  BB1_2:
 ; EZ80-NEXT:    ld a, -1
+; EZ80-NEXT:    private BB1_3
 ; EZ80-NEXT:  BB1_3:
 ; EZ80-NEXT:    ld l, e
 ; EZ80-NEXT:    ld h, d
@@ -179,8 +190,8 @@ define i16 @sadd.sat.i16(i16, i16) {
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB1_5
 ; EZ80-NEXT:  ; %bb.4:
-; EZ80-NEXT:    ld l, e
-; EZ80-NEXT:    ld h, d
+; EZ80-NEXT:    ex.sis de, hl
+; EZ80-NEXT:    private BB1_5
 ; EZ80-NEXT:  BB1_5:
 ; EZ80-NEXT:    ret
   call i16 @llvm.sadd.sat.i16(i16 %0, i16 %1)
@@ -213,8 +224,10 @@ define i32 @sadd.sat.i32(i32, i32) {
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld a, 0
 ; Z80-NEXT:    jr BB2_3
+; Z80-NEXT:    private BB2_2
 ; Z80-NEXT:  BB2_2:
 ; Z80-NEXT:    ld a, -1
+; Z80-NEXT:    private BB2_3
 ; Z80-NEXT:  BB2_3:
 ; Z80-NEXT:    ld (ix - 1), a
 ; Z80-NEXT:    ld a, 31
@@ -241,12 +254,14 @@ define i32 @sadd.sat.i32(i32, i32) {
 ; Z80-NEXT:  ; %bb.4:
 ; Z80-NEXT:    ld l, (ix - 5)
 ; Z80-NEXT:    ld h, (ix - 4)
+; Z80-NEXT:    private BB2_5
 ; Z80-NEXT:  BB2_5:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB2_7
 ; Z80-NEXT:  ; %bb.6:
 ; Z80-NEXT:    ld e, (ix - 3)
 ; Z80-NEXT:    ld d, (ix - 2)
+; Z80-NEXT:    private BB2_7
 ; Z80-NEXT:  BB2_7:
 ; Z80-NEXT:    ld sp, ix
 ; Z80-NEXT:    pop ix
@@ -269,8 +284,10 @@ define i32 @sadd.sat.i32(i32, i32) {
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld a, 0
 ; EZ80-CODE16-NEXT:    jr BB2_3
+; EZ80-CODE16-NEXT:    private BB2_2
 ; EZ80-CODE16-NEXT:  BB2_2:
 ; EZ80-CODE16-NEXT:    ld a, -1
+; EZ80-CODE16-NEXT:    private BB2_3
 ; EZ80-CODE16-NEXT:  BB2_3:
 ; EZ80-CODE16-NEXT:    ld (ix - 1), a
 ; EZ80-CODE16-NEXT:    ld a, 31
@@ -290,11 +307,13 @@ define i32 @sadd.sat.i32(i32, i32) {
 ; EZ80-CODE16-NEXT:    jr nz, BB2_5
 ; EZ80-CODE16-NEXT:  ; %bb.4:
 ; EZ80-CODE16-NEXT:    ld hl, (ix - 5)
+; EZ80-CODE16-NEXT:    private BB2_5
 ; EZ80-CODE16-NEXT:  BB2_5:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB2_7
 ; EZ80-CODE16-NEXT:  ; %bb.6:
 ; EZ80-CODE16-NEXT:    ld de, (ix - 3)
+; EZ80-CODE16-NEXT:    private BB2_7
 ; EZ80-CODE16-NEXT:  BB2_7:
 ; EZ80-CODE16-NEXT:    ld sp, ix
 ; EZ80-CODE16-NEXT:    pop ix
@@ -315,8 +334,10 @@ define i32 @sadd.sat.i32(i32, i32) {
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld d, 0
 ; EZ80-NEXT:    jr BB2_3
+; EZ80-NEXT:    private BB2_2
 ; EZ80-NEXT:  BB2_2:
 ; EZ80-NEXT:    ld d, -1
+; EZ80-NEXT:    private BB2_3
 ; EZ80-NEXT:  BB2_3:
 ; EZ80-NEXT:    ld l, 31
 ; EZ80-NEXT:    lea bc, iy + 0
@@ -332,11 +353,13 @@ define i32 @sadd.sat.i32(i32, i32) {
 ; EZ80-NEXT:    jr nz, BB2_5
 ; EZ80-NEXT:  ; %bb.4:
 ; EZ80-NEXT:    lea hl, iy + 0
+; EZ80-NEXT:    private BB2_5
 ; EZ80-NEXT:  BB2_5:
 ; EZ80-NEXT:    bit 0, d
 ; EZ80-NEXT:    jr nz, BB2_7
 ; EZ80-NEXT:  ; %bb.6:
 ; EZ80-NEXT:    ld e, (ix - 1) ; 1-byte Folded Reload
+; EZ80-NEXT:    private BB2_7
 ; EZ80-NEXT:  BB2_7:
 ; EZ80-NEXT:    inc sp
 ; EZ80-NEXT:    pop ix
@@ -385,8 +408,10 @@ define i64 @sadd.sat.i64(i64, i64) {
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld a, 0
 ; Z80-NEXT:    jr BB3_3
+; Z80-NEXT:    private BB3_2
 ; Z80-NEXT:  BB3_2:
 ; Z80-NEXT:    ld a, -1
+; Z80-NEXT:    private BB3_3
 ; Z80-NEXT:  BB3_3:
 ; Z80-NEXT:    ld de, 63
 ; Z80-NEXT:    push de
@@ -431,24 +456,29 @@ define i64 @sadd.sat.i64(i64, i64) {
 ; Z80-NEXT:  ; %bb.4:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp z, BB3_10
+; Z80-NEXT:    private BB3_5
 ; Z80-NEXT:  BB3_5:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp z, BB3_11
+; Z80-NEXT:    private BB3_6
 ; Z80-NEXT:  BB3_6:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB3_8
+; Z80-NEXT:    private BB3_7
 ; Z80-NEXT:  BB3_7:
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 6)
 ; Z80-NEXT:    ld h, (ix - 5)
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop iy
+; Z80-NEXT:    private BB3_8
 ; Z80-NEXT:  BB3_8:
 ; Z80-NEXT:    ld l, (ix - 4)
 ; Z80-NEXT:    ld h, (ix - 3)
 ; Z80-NEXT:    ld sp, ix
 ; Z80-NEXT:    pop ix
 ; Z80-NEXT:    ret
+; Z80-NEXT:    private BB3_9
 ; Z80-NEXT:  BB3_9:
 ; Z80-NEXT:    ld l, (ix - 10)
 ; Z80-NEXT:    ld h, (ix - 9)
@@ -456,11 +486,13 @@ define i64 @sadd.sat.i64(i64, i64) {
 ; Z80-NEXT:    ld (ix - 3), h
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp nz, BB3_5
+; Z80-NEXT:    private BB3_10
 ; Z80-NEXT:  BB3_10:
 ; Z80-NEXT:    ld e, (ix - 2)
 ; Z80-NEXT:    ld d, (ix - 1)
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp nz, BB3_6
+; Z80-NEXT:    private BB3_11
 ; Z80-NEXT:  BB3_11:
 ; Z80-NEXT:    ld c, (ix - 8)
 ; Z80-NEXT:    ld b, (ix - 7)
@@ -494,8 +526,10 @@ define i64 @sadd.sat.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld a, 0
 ; EZ80-CODE16-NEXT:    jr BB3_3
+; EZ80-CODE16-NEXT:    private BB3_2
 ; EZ80-CODE16-NEXT:  BB3_2:
 ; EZ80-CODE16-NEXT:    ld a, -1
+; EZ80-CODE16-NEXT:    private BB3_3
 ; EZ80-CODE16-NEXT:  BB3_3:
 ; EZ80-CODE16-NEXT:    ld de, 63
 ; EZ80-CODE16-NEXT:    push de
@@ -528,28 +562,35 @@ define i64 @sadd.sat.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:  ; %bb.4:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp z, BB3_10
+; EZ80-CODE16-NEXT:    private BB3_5
 ; EZ80-CODE16-NEXT:  BB3_5:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp z, BB3_11
+; EZ80-CODE16-NEXT:    private BB3_6
 ; EZ80-CODE16-NEXT:  BB3_6:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB3_8
+; EZ80-CODE16-NEXT:    private BB3_7
 ; EZ80-CODE16-NEXT:  BB3_7:
 ; EZ80-CODE16-NEXT:    ld iy, (ix - 6)
+; EZ80-CODE16-NEXT:    private BB3_8
 ; EZ80-CODE16-NEXT:  BB3_8:
 ; EZ80-CODE16-NEXT:    ld hl, (ix - 4)
 ; EZ80-CODE16-NEXT:    ld sp, ix
 ; EZ80-CODE16-NEXT:    pop ix
 ; EZ80-CODE16-NEXT:    ret
+; EZ80-CODE16-NEXT:    private BB3_9
 ; EZ80-CODE16-NEXT:  BB3_9:
 ; EZ80-CODE16-NEXT:    ld hl, (ix - 10)
 ; EZ80-CODE16-NEXT:    ld (ix - 4), hl
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp nz, BB3_5
+; EZ80-CODE16-NEXT:    private BB3_10
 ; EZ80-CODE16-NEXT:  BB3_10:
 ; EZ80-CODE16-NEXT:    ld de, (ix - 2)
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp nz, BB3_6
+; EZ80-CODE16-NEXT:    private BB3_11
 ; EZ80-CODE16-NEXT:  BB3_11:
 ; EZ80-CODE16-NEXT:    ld bc, (ix - 8)
 ; EZ80-CODE16-NEXT:    bit 0, a
@@ -569,8 +610,7 @@ define i64 @sadd.sat.i64(i64, i64) {
 ; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    ld hl, (ix + 9)
 ; EZ80-NEXT:    adc hl, bc
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop de
+; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ld hl, (ix + 12)
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
 ; EZ80-NEXT:    ld bc, (ix + 21)
@@ -581,8 +621,10 @@ define i64 @sadd.sat.i64(i64, i64) {
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld a, 0
 ; EZ80-NEXT:    jr BB3_3
+; EZ80-NEXT:    private BB3_2
 ; EZ80-NEXT:  BB3_2:
 ; EZ80-NEXT:    ld a, -1
+; EZ80-NEXT:    private BB3_3
 ; EZ80-NEXT:  BB3_3:
 ; EZ80-NEXT:    ld hl, 63
 ; EZ80-NEXT:    push hl
@@ -607,20 +649,25 @@ define i64 @sadd.sat.i64(i64, i64) {
 ; EZ80-NEXT:  ; %bb.4:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp z, BB3_9
+; EZ80-NEXT:    private BB3_5
 ; EZ80-NEXT:  BB3_5:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB3_7
+; EZ80-NEXT:    private BB3_6
 ; EZ80-NEXT:  BB3_6:
 ; EZ80-NEXT:    ld c, (ix - 2)
 ; EZ80-NEXT:    ld b, (ix - 1)
+; EZ80-NEXT:    private BB3_7
 ; EZ80-NEXT:  BB3_7:
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
+; EZ80-NEXT:    private BB3_8
 ; EZ80-NEXT:  BB3_8:
 ; EZ80-NEXT:    ld hl, (ix - 8)
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp nz, BB3_5
+; EZ80-NEXT:    private BB3_9
 ; EZ80-NEXT:  BB3_9:
 ; EZ80-NEXT:    ld de, (ix - 5)
 ; EZ80-NEXT:    bit 0, a
@@ -641,6 +688,7 @@ define i8 @uadd.sat.i8(i8, i8) {
 ; Z80-NEXT:    jr nc, BB4_2
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld a, -1
+; Z80-NEXT:    private BB4_2
 ; Z80-NEXT:  BB4_2:
 ; Z80-NEXT:    ret
 ;
@@ -653,6 +701,7 @@ define i8 @uadd.sat.i8(i8, i8) {
 ; EZ80-CODE16-NEXT:    jr nc, BB4_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld a, -1
+; EZ80-CODE16-NEXT:    private BB4_2
 ; EZ80-CODE16-NEXT:  BB4_2:
 ; EZ80-CODE16-NEXT:    ret
 ;
@@ -665,6 +714,7 @@ define i8 @uadd.sat.i8(i8, i8) {
 ; EZ80-NEXT:    jr nc, BB4_2
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld a, -1
+; EZ80-NEXT:    private BB4_2
 ; EZ80-NEXT:  BB4_2:
 ; EZ80-NEXT:    ret
   call i8 @llvm.uadd.sat.i8(i8 %0, i8 %1)
@@ -684,6 +734,7 @@ define i16 @uadd.sat.i16(i16, i16) {
 ; Z80-NEXT:    jr nc, BB5_2
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld hl, -1
+; Z80-NEXT:    private BB5_2
 ; Z80-NEXT:  BB5_2:
 ; Z80-NEXT:    ret
 ;
@@ -697,6 +748,7 @@ define i16 @uadd.sat.i16(i16, i16) {
 ; EZ80-CODE16-NEXT:    jr nc, BB5_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld hl, -1
+; EZ80-CODE16-NEXT:    private BB5_2
 ; EZ80-CODE16-NEXT:  BB5_2:
 ; EZ80-CODE16-NEXT:    ret
 ;
@@ -710,6 +762,7 @@ define i16 @uadd.sat.i16(i16, i16) {
 ; EZ80-NEXT:    jr nc, BB5_2
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld.sis hl, -1
+; EZ80-NEXT:    private BB5_2
 ; EZ80-NEXT:  BB5_2:
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
 ; EZ80-NEXT:    ret
@@ -746,11 +799,13 @@ define i32 @uadd.sat.i32(i32, i32) {
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld c, iyl
 ; Z80-NEXT:    ld b, iyh
+; Z80-NEXT:    private BB6_2
 ; Z80-NEXT:  BB6_2:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB6_4
 ; Z80-NEXT:  ; %bb.3:
 ; Z80-NEXT:    ex de, hl
+; Z80-NEXT:    private BB6_4
 ; Z80-NEXT:  BB6_4:
 ; Z80-NEXT:    ld l, c
 ; Z80-NEXT:    ld h, b
@@ -777,11 +832,13 @@ define i32 @uadd.sat.i32(i32, i32) {
 ; EZ80-CODE16-NEXT:    jr nz, BB6_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    lea bc, iy + 0
+; EZ80-CODE16-NEXT:    private BB6_2
 ; EZ80-CODE16-NEXT:  BB6_2:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB6_4
 ; EZ80-CODE16-NEXT:  ; %bb.3:
 ; EZ80-CODE16-NEXT:    ex de, hl
+; EZ80-CODE16-NEXT:    private BB6_4
 ; EZ80-CODE16-NEXT:  BB6_4:
 ; EZ80-CODE16-NEXT:    ld l, c
 ; EZ80-CODE16-NEXT:    ld h, b
@@ -790,34 +847,33 @@ define i32 @uadd.sat.i32(i32, i32) {
 ;
 ; EZ80-LABEL: uadd.sat.i32:
 ; EZ80:       ; %bb.0:
-; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld ix, 0
-; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld iy, (ix + 6)
-; EZ80-NEXT:    ld de, (ix + 12)
-; EZ80-NEXT:    add iy, de
-; EZ80-NEXT:    ld a, (ix + 9)
-; EZ80-NEXT:    adc a, (ix + 15)
+; EZ80-NEXT:    ld iy, 0
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 3)
+; EZ80-NEXT:    ld de, (iy + 9)
+; EZ80-NEXT:    add hl, de
+; EZ80-NEXT:    ld a, (iy + 6)
+; EZ80-NEXT:    adc a, (iy + 12)
 ; EZ80-NEXT:    ld e, a
 ; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
+; EZ80-NEXT:    bit 0, a
+; EZ80-NEXT:    jr nz, BB6_3
+; EZ80-NEXT:  ; %bb.1:
+; EZ80-NEXT:    bit 0, a
+; EZ80-NEXT:    jr nz, BB6_4
+; EZ80-NEXT:    private BB6_2
+; EZ80-NEXT:  BB6_2:
+; EZ80-NEXT:    ret
+; EZ80-NEXT:    private BB6_3
+; EZ80-NEXT:  BB6_3:
 ; EZ80-NEXT:    scf
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    bit 0, a
-; EZ80-NEXT:    jp z, BB6_3
-; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    bit 0, a
-; EZ80-NEXT:    jp nz, BB6_4
-; EZ80-NEXT:  BB6_2:
-; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ret
-; EZ80-NEXT:  BB6_3:
-; EZ80-NEXT:    lea hl, iy + 0
-; EZ80-NEXT:    bit 0, a
-; EZ80-NEXT:    jp z, BB6_2
+; EZ80-NEXT:    jr z, BB6_2
+; EZ80-NEXT:    private BB6_4
 ; EZ80-NEXT:  BB6_4:
 ; EZ80-NEXT:    ld e, -1
-; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   call i32 @llvm.uadd.sat.i32(i32 %0, i32 %1)
   ret i32 %3
@@ -875,6 +931,7 @@ define i64 @uadd.sat.i64(i64, i64) {
 ; Z80-NEXT:    jr nz, BB7_2
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ex de, hl
+; Z80-NEXT:    private BB7_2
 ; Z80-NEXT:  BB7_2:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    ld e, iyl
@@ -883,6 +940,7 @@ define i64 @uadd.sat.i64(i64, i64) {
 ; Z80-NEXT:  ; %bb.3:
 ; Z80-NEXT:    ld e, (ix - 6)
 ; Z80-NEXT:    ld d, (ix - 5)
+; Z80-NEXT:    private BB7_4
 ; Z80-NEXT:  BB7_4:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    ld c, iyl
@@ -891,6 +949,7 @@ define i64 @uadd.sat.i64(i64, i64) {
 ; Z80-NEXT:  ; %bb.5:
 ; Z80-NEXT:    ld c, (ix - 4)
 ; Z80-NEXT:    ld b, (ix - 3)
+; Z80-NEXT:    private BB7_6
 ; Z80-NEXT:  BB7_6:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB7_8
@@ -900,6 +959,7 @@ define i64 @uadd.sat.i64(i64, i64) {
 ; Z80-NEXT:    ld h, (ix - 1)
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop iy
+; Z80-NEXT:    private BB7_8
 ; Z80-NEXT:  BB7_8:
 ; Z80-NEXT:    ld sp, ix
 ; Z80-NEXT:    pop ix
@@ -937,23 +997,27 @@ define i64 @uadd.sat.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:    jr nz, BB7_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ex de, hl
+; EZ80-CODE16-NEXT:    private BB7_2
 ; EZ80-CODE16-NEXT:  BB7_2:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    lea de, iy + 0
 ; EZ80-CODE16-NEXT:    jr nz, BB7_4
 ; EZ80-CODE16-NEXT:  ; %bb.3:
 ; EZ80-CODE16-NEXT:    ld de, (ix - 6)
+; EZ80-CODE16-NEXT:    private BB7_4
 ; EZ80-CODE16-NEXT:  BB7_4:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    lea bc, iy + 0
 ; EZ80-CODE16-NEXT:    jr nz, BB7_6
 ; EZ80-CODE16-NEXT:  ; %bb.5:
 ; EZ80-CODE16-NEXT:    ld bc, (ix - 4)
+; EZ80-CODE16-NEXT:    private BB7_6
 ; EZ80-CODE16-NEXT:  BB7_6:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB7_8
 ; EZ80-CODE16-NEXT:  ; %bb.7:
 ; EZ80-CODE16-NEXT:    ld iy, (ix - 2)
+; EZ80-CODE16-NEXT:    private BB7_8
 ; EZ80-CODE16-NEXT:  BB7_8:
 ; EZ80-CODE16-NEXT:    ld sp, ix
 ; EZ80-CODE16-NEXT:    pop ix
@@ -988,19 +1052,24 @@ define i64 @uadd.sat.i64(i64, i64) {
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp z, BB7_6
+; EZ80-NEXT:    private BB7_2
 ; EZ80-NEXT:  BB7_2:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr z, BB7_4
+; EZ80-NEXT:    private BB7_3
 ; EZ80-NEXT:  BB7_3:
 ; EZ80-NEXT:    ld.sis bc, -1
+; EZ80-NEXT:    private BB7_4
 ; EZ80-NEXT:  BB7_4:
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
+; EZ80-NEXT:    private BB7_5
 ; EZ80-NEXT:  BB7_5:
 ; EZ80-NEXT:    lea hl, iy + 0
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp nz, BB7_2
+; EZ80-NEXT:    private BB7_6
 ; EZ80-NEXT:  BB7_6:
 ; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    bit 0, a
@@ -1021,23 +1090,25 @@ define i8 @ssub.sat.i8(i8, i8) {
 ; Z80-NEXT:    ld l, a
 ; Z80-NEXT:    jp pe, BB8_2
 ; Z80-NEXT:  ; %bb.1:
-; Z80-NEXT:    ld c, 0
+; Z80-NEXT:    ld e, 0
 ; Z80-NEXT:    jr BB8_3
+; Z80-NEXT:    private BB8_2
 ; Z80-NEXT:  BB8_2:
-; Z80-NEXT:    ld c, -1
+; Z80-NEXT:    ld e, -1
+; Z80-NEXT:    private BB8_3
 ; Z80-NEXT:  BB8_3:
 ; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    rlc a
 ; Z80-NEXT:    sbc a, a
-; Z80-NEXT:    ld e, -128
-; Z80-NEXT:    add a, e
-; Z80-NEXT:    ld e, a
-; Z80-NEXT:    bit 0, c
-; Z80-NEXT:    jr nz, BB8_5
+; Z80-NEXT:    bit 0, e
+; Z80-NEXT:    jr z, BB8_5
 ; Z80-NEXT:  ; %bb.4:
-; Z80-NEXT:    ld e, l
+; Z80-NEXT:    ld l, -128
+; Z80-NEXT:    add a, l
+; Z80-NEXT:    ld l, a
+; Z80-NEXT:    private BB8_5
 ; Z80-NEXT:  BB8_5:
-; Z80-NEXT:    ld a, e
+; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    ret
 ;
 ; EZ80-CODE16-LABEL: ssub.sat.i8:
@@ -1049,23 +1120,25 @@ define i8 @ssub.sat.i8(i8, i8) {
 ; EZ80-CODE16-NEXT:    ld l, a
 ; EZ80-CODE16-NEXT:    jp pe, BB8_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
-; EZ80-CODE16-NEXT:    ld c, 0
+; EZ80-CODE16-NEXT:    ld e, 0
 ; EZ80-CODE16-NEXT:    jr BB8_3
+; EZ80-CODE16-NEXT:    private BB8_2
 ; EZ80-CODE16-NEXT:  BB8_2:
-; EZ80-CODE16-NEXT:    ld c, -1
+; EZ80-CODE16-NEXT:    ld e, -1
+; EZ80-CODE16-NEXT:    private BB8_3
 ; EZ80-CODE16-NEXT:  BB8_3:
 ; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    rlc a
 ; EZ80-CODE16-NEXT:    sbc a, a
-; EZ80-CODE16-NEXT:    ld e, -128
-; EZ80-CODE16-NEXT:    add a, e
-; EZ80-CODE16-NEXT:    ld e, a
-; EZ80-CODE16-NEXT:    bit 0, c
-; EZ80-CODE16-NEXT:    jr nz, BB8_5
+; EZ80-CODE16-NEXT:    bit 0, e
+; EZ80-CODE16-NEXT:    jr z, BB8_5
 ; EZ80-CODE16-NEXT:  ; %bb.4:
-; EZ80-CODE16-NEXT:    ld e, l
+; EZ80-CODE16-NEXT:    ld l, -128
+; EZ80-CODE16-NEXT:    add a, l
+; EZ80-CODE16-NEXT:    ld l, a
+; EZ80-CODE16-NEXT:    private BB8_5
 ; EZ80-CODE16-NEXT:  BB8_5:
-; EZ80-CODE16-NEXT:    ld a, e
+; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    ret
 ;
 ; EZ80-LABEL: ssub.sat.i8:
@@ -1077,23 +1150,25 @@ define i8 @ssub.sat.i8(i8, i8) {
 ; EZ80-NEXT:    ld l, a
 ; EZ80-NEXT:    jp pe, BB8_2
 ; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    ld c, 0
+; EZ80-NEXT:    ld e, 0
 ; EZ80-NEXT:    jr BB8_3
+; EZ80-NEXT:    private BB8_2
 ; EZ80-NEXT:  BB8_2:
-; EZ80-NEXT:    ld c, -1
+; EZ80-NEXT:    ld e, -1
+; EZ80-NEXT:    private BB8_3
 ; EZ80-NEXT:  BB8_3:
 ; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    rlc a
 ; EZ80-NEXT:    sbc a, a
-; EZ80-NEXT:    ld e, -128
-; EZ80-NEXT:    add a, e
-; EZ80-NEXT:    ld e, a
-; EZ80-NEXT:    bit 0, c
-; EZ80-NEXT:    jr nz, BB8_5
+; EZ80-NEXT:    bit 0, e
+; EZ80-NEXT:    jr z, BB8_5
 ; EZ80-NEXT:  ; %bb.4:
-; EZ80-NEXT:    ld e, l
+; EZ80-NEXT:    ld l, -128
+; EZ80-NEXT:    add a, l
+; EZ80-NEXT:    ld l, a
+; EZ80-NEXT:    private BB8_5
 ; EZ80-NEXT:  BB8_5:
-; EZ80-NEXT:    ld a, e
+; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    ret
   call i8 @llvm.ssub.sat.i8(i8 %0, i8 %1)
   ret i8 %3
@@ -1109,14 +1184,15 @@ define i16 @ssub.sat.i16(i16, i16) {
 ; Z80-NEXT:    ld e, (iy + 4)
 ; Z80-NEXT:    ld d, (iy + 5)
 ; Z80-NEXT:    sbc hl, de
-; Z80-NEXT:    ld e, l
-; Z80-NEXT:    ld d, h
+; Z80-NEXT:    ex de, hl
 ; Z80-NEXT:    jp pe, BB9_2
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld a, 0
 ; Z80-NEXT:    jr BB9_3
+; Z80-NEXT:    private BB9_2
 ; Z80-NEXT:  BB9_2:
 ; Z80-NEXT:    ld a, -1
+; Z80-NEXT:    private BB9_3
 ; Z80-NEXT:  BB9_3:
 ; Z80-NEXT:    ld l, e
 ; Z80-NEXT:    ld h, d
@@ -1128,6 +1204,7 @@ define i16 @ssub.sat.i16(i16, i16) {
 ; Z80-NEXT:    jr nz, BB9_5
 ; Z80-NEXT:  ; %bb.4:
 ; Z80-NEXT:    ex de, hl
+; Z80-NEXT:    private BB9_5
 ; Z80-NEXT:  BB9_5:
 ; Z80-NEXT:    ret
 ;
@@ -1138,14 +1215,15 @@ define i16 @ssub.sat.i16(i16, i16) {
 ; EZ80-CODE16-NEXT:    ld hl, (iy + 2)
 ; EZ80-CODE16-NEXT:    ld de, (iy + 4)
 ; EZ80-CODE16-NEXT:    sbc hl, de
-; EZ80-CODE16-NEXT:    ld e, l
-; EZ80-CODE16-NEXT:    ld d, h
+; EZ80-CODE16-NEXT:    ex de, hl
 ; EZ80-CODE16-NEXT:    jp pe, BB9_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld a, 0
 ; EZ80-CODE16-NEXT:    jr BB9_3
+; EZ80-CODE16-NEXT:    private BB9_2
 ; EZ80-CODE16-NEXT:  BB9_2:
 ; EZ80-CODE16-NEXT:    ld a, -1
+; EZ80-CODE16-NEXT:    private BB9_3
 ; EZ80-CODE16-NEXT:  BB9_3:
 ; EZ80-CODE16-NEXT:    ld l, e
 ; EZ80-CODE16-NEXT:    ld h, d
@@ -1157,6 +1235,7 @@ define i16 @ssub.sat.i16(i16, i16) {
 ; EZ80-CODE16-NEXT:    jr nz, BB9_5
 ; EZ80-CODE16-NEXT:  ; %bb.4:
 ; EZ80-CODE16-NEXT:    ex de, hl
+; EZ80-CODE16-NEXT:    private BB9_5
 ; EZ80-CODE16-NEXT:  BB9_5:
 ; EZ80-CODE16-NEXT:    ret
 ;
@@ -1168,14 +1247,15 @@ define i16 @ssub.sat.i16(i16, i16) {
 ; EZ80-NEXT:    ld de, (iy + 6)
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
 ; EZ80-NEXT:    sbc.sis hl, de
-; EZ80-NEXT:    ld e, l
-; EZ80-NEXT:    ld d, h
+; EZ80-NEXT:    ex.sis de, hl
 ; EZ80-NEXT:    jp pe, BB9_2
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld a, 0
 ; EZ80-NEXT:    jr BB9_3
+; EZ80-NEXT:    private BB9_2
 ; EZ80-NEXT:  BB9_2:
 ; EZ80-NEXT:    ld a, -1
+; EZ80-NEXT:    private BB9_3
 ; EZ80-NEXT:  BB9_3:
 ; EZ80-NEXT:    ld l, e
 ; EZ80-NEXT:    ld h, d
@@ -1186,8 +1266,8 @@ define i16 @ssub.sat.i16(i16, i16) {
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB9_5
 ; EZ80-NEXT:  ; %bb.4:
-; EZ80-NEXT:    ld l, e
-; EZ80-NEXT:    ld h, d
+; EZ80-NEXT:    ex.sis de, hl
+; EZ80-NEXT:    private BB9_5
 ; EZ80-NEXT:  BB9_5:
 ; EZ80-NEXT:    ret
   call i16 @llvm.ssub.sat.i16(i16 %0, i16 %1)
@@ -1225,8 +1305,10 @@ define i32 @ssub.sat.i32(i32, i32) {
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld a, 0
 ; Z80-NEXT:    jr BB10_3
+; Z80-NEXT:    private BB10_2
 ; Z80-NEXT:  BB10_2:
 ; Z80-NEXT:    ld a, -1
+; Z80-NEXT:    private BB10_3
 ; Z80-NEXT:  BB10_3:
 ; Z80-NEXT:    ld (ix - 1), a
 ; Z80-NEXT:    ld a, 31
@@ -1248,12 +1330,14 @@ define i32 @ssub.sat.i32(i32, i32) {
 ; Z80-NEXT:  ; %bb.4:
 ; Z80-NEXT:    ld l, (ix - 5)
 ; Z80-NEXT:    ld h, (ix - 4)
+; Z80-NEXT:    private BB10_5
 ; Z80-NEXT:  BB10_5:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB10_7
 ; Z80-NEXT:  ; %bb.6:
 ; Z80-NEXT:    ld e, (ix - 3)
 ; Z80-NEXT:    ld d, (ix - 2)
+; Z80-NEXT:    private BB10_7
 ; Z80-NEXT:  BB10_7:
 ; Z80-NEXT:    ld sp, ix
 ; Z80-NEXT:    pop ix
@@ -1279,8 +1363,10 @@ define i32 @ssub.sat.i32(i32, i32) {
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld a, 0
 ; EZ80-CODE16-NEXT:    jr BB10_3
+; EZ80-CODE16-NEXT:    private BB10_2
 ; EZ80-CODE16-NEXT:  BB10_2:
 ; EZ80-CODE16-NEXT:    ld a, -1
+; EZ80-CODE16-NEXT:    private BB10_3
 ; EZ80-CODE16-NEXT:  BB10_3:
 ; EZ80-CODE16-NEXT:    ld (ix - 1), a
 ; EZ80-CODE16-NEXT:    ld a, 31
@@ -1299,11 +1385,13 @@ define i32 @ssub.sat.i32(i32, i32) {
 ; EZ80-CODE16-NEXT:    jr nz, BB10_5
 ; EZ80-CODE16-NEXT:  ; %bb.4:
 ; EZ80-CODE16-NEXT:    ld hl, (ix - 5)
+; EZ80-CODE16-NEXT:    private BB10_5
 ; EZ80-CODE16-NEXT:  BB10_5:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB10_7
 ; EZ80-CODE16-NEXT:  ; %bb.6:
 ; EZ80-CODE16-NEXT:    ld de, (ix - 3)
+; EZ80-CODE16-NEXT:    private BB10_7
 ; EZ80-CODE16-NEXT:  BB10_7:
 ; EZ80-CODE16-NEXT:    ld sp, ix
 ; EZ80-CODE16-NEXT:    pop ix
@@ -1326,8 +1414,10 @@ define i32 @ssub.sat.i32(i32, i32) {
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld d, 0
 ; EZ80-NEXT:    jr BB10_3
+; EZ80-NEXT:    private BB10_2
 ; EZ80-NEXT:  BB10_2:
 ; EZ80-NEXT:    ld d, -1
+; EZ80-NEXT:    private BB10_3
 ; EZ80-NEXT:  BB10_3:
 ; EZ80-NEXT:    ld l, 31
 ; EZ80-NEXT:    lea bc, iy + 0
@@ -1343,11 +1433,13 @@ define i32 @ssub.sat.i32(i32, i32) {
 ; EZ80-NEXT:    jr nz, BB10_5
 ; EZ80-NEXT:  ; %bb.4:
 ; EZ80-NEXT:    lea hl, iy + 0
+; EZ80-NEXT:    private BB10_5
 ; EZ80-NEXT:  BB10_5:
 ; EZ80-NEXT:    bit 0, d
 ; EZ80-NEXT:    jr nz, BB10_7
 ; EZ80-NEXT:  ; %bb.6:
 ; EZ80-NEXT:    ld e, (ix - 1) ; 1-byte Folded Reload
+; EZ80-NEXT:    private BB10_7
 ; EZ80-NEXT:  BB10_7:
 ; EZ80-NEXT:    inc sp
 ; EZ80-NEXT:    pop ix
@@ -1383,8 +1475,7 @@ define i64 @ssub.sat.i64(i64, i64) {
 ; Z80-NEXT:    ld l, (ix + 6)
 ; Z80-NEXT:    ld h, (ix + 7)
 ; Z80-NEXT:    sbc hl, bc
-; Z80-NEXT:    ld e, l
-; Z80-NEXT:    ld d, h
+; Z80-NEXT:    ex de, hl
 ; Z80-NEXT:    ld l, (ix + 8)
 ; Z80-NEXT:    ld h, (ix + 9)
 ; Z80-NEXT:    ld c, iyl
@@ -1403,8 +1494,10 @@ define i64 @ssub.sat.i64(i64, i64) {
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld a, 0
 ; Z80-NEXT:    jr BB11_3
+; Z80-NEXT:    private BB11_2
 ; Z80-NEXT:  BB11_2:
 ; Z80-NEXT:    ld a, -1
+; Z80-NEXT:    private BB11_3
 ; Z80-NEXT:  BB11_3:
 ; Z80-NEXT:    ld bc, 63
 ; Z80-NEXT:    push bc
@@ -1447,24 +1540,29 @@ define i64 @ssub.sat.i64(i64, i64) {
 ; Z80-NEXT:  ; %bb.4:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp z, BB11_10
+; Z80-NEXT:    private BB11_5
 ; Z80-NEXT:  BB11_5:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp z, BB11_11
+; Z80-NEXT:    private BB11_6
 ; Z80-NEXT:  BB11_6:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB11_8
+; Z80-NEXT:    private BB11_7
 ; Z80-NEXT:  BB11_7:
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 6)
 ; Z80-NEXT:    ld h, (ix - 5)
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop iy
+; Z80-NEXT:    private BB11_8
 ; Z80-NEXT:  BB11_8:
 ; Z80-NEXT:    ld l, (ix - 2)
 ; Z80-NEXT:    ld h, (ix - 1)
 ; Z80-NEXT:    ld sp, ix
 ; Z80-NEXT:    pop ix
 ; Z80-NEXT:    ret
+; Z80-NEXT:    private BB11_9
 ; Z80-NEXT:  BB11_9:
 ; Z80-NEXT:    ld l, (ix - 4)
 ; Z80-NEXT:    ld h, (ix - 3)
@@ -1472,11 +1570,13 @@ define i64 @ssub.sat.i64(i64, i64) {
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp nz, BB11_5
+; Z80-NEXT:    private BB11_10
 ; Z80-NEXT:  BB11_10:
 ; Z80-NEXT:    ld e, (ix - 10)
 ; Z80-NEXT:    ld d, (ix - 9)
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp nz, BB11_6
+; Z80-NEXT:    private BB11_11
 ; Z80-NEXT:  BB11_11:
 ; Z80-NEXT:    ld c, (ix - 8)
 ; Z80-NEXT:    ld b, (ix - 7)
@@ -1499,8 +1599,7 @@ define i64 @ssub.sat.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld (ix - 4), hl
 ; EZ80-CODE16-NEXT:    ld hl, (ix + 6)
 ; EZ80-CODE16-NEXT:    sbc hl, bc
-; EZ80-CODE16-NEXT:    ld e, l
-; EZ80-CODE16-NEXT:    ld d, h
+; EZ80-CODE16-NEXT:    ex de, hl
 ; EZ80-CODE16-NEXT:    ld hl, (ix + 8)
 ; EZ80-CODE16-NEXT:    lea bc, iy + 0
 ; EZ80-CODE16-NEXT:    sbc hl, bc
@@ -1515,8 +1614,10 @@ define i64 @ssub.sat.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld a, 0
 ; EZ80-CODE16-NEXT:    jr BB11_3
+; EZ80-CODE16-NEXT:    private BB11_2
 ; EZ80-CODE16-NEXT:  BB11_2:
 ; EZ80-CODE16-NEXT:    ld a, -1
+; EZ80-CODE16-NEXT:    private BB11_3
 ; EZ80-CODE16-NEXT:  BB11_3:
 ; EZ80-CODE16-NEXT:    ld bc, 63
 ; EZ80-CODE16-NEXT:    push bc
@@ -1549,28 +1650,35 @@ define i64 @ssub.sat.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:  ; %bb.4:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp z, BB11_10
+; EZ80-CODE16-NEXT:    private BB11_5
 ; EZ80-CODE16-NEXT:  BB11_5:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp z, BB11_11
+; EZ80-CODE16-NEXT:    private BB11_6
 ; EZ80-CODE16-NEXT:  BB11_6:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB11_8
+; EZ80-CODE16-NEXT:    private BB11_7
 ; EZ80-CODE16-NEXT:  BB11_7:
 ; EZ80-CODE16-NEXT:    ld iy, (ix - 6)
+; EZ80-CODE16-NEXT:    private BB11_8
 ; EZ80-CODE16-NEXT:  BB11_8:
 ; EZ80-CODE16-NEXT:    ld hl, (ix - 2)
 ; EZ80-CODE16-NEXT:    ld sp, ix
 ; EZ80-CODE16-NEXT:    pop ix
 ; EZ80-CODE16-NEXT:    ret
+; EZ80-CODE16-NEXT:    private BB11_9
 ; EZ80-CODE16-NEXT:  BB11_9:
 ; EZ80-CODE16-NEXT:    ld hl, (ix - 4)
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp nz, BB11_5
+; EZ80-CODE16-NEXT:    private BB11_10
 ; EZ80-CODE16-NEXT:  BB11_10:
 ; EZ80-CODE16-NEXT:    ld de, (ix - 10)
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp nz, BB11_6
+; EZ80-CODE16-NEXT:    private BB11_11
 ; EZ80-CODE16-NEXT:  BB11_11:
 ; EZ80-CODE16-NEXT:    ld bc, (ix - 8)
 ; EZ80-CODE16-NEXT:    bit 0, a
@@ -1592,8 +1700,7 @@ define i64 @ssub.sat.i64(i64, i64) {
 ; EZ80-NEXT:    pop iy
 ; EZ80-NEXT:    ld hl, (ix + 9)
 ; EZ80-NEXT:    sbc hl, bc
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop de
+; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ld hl, (ix + 12)
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
 ; EZ80-NEXT:    ld bc, (ix + 21)
@@ -1604,8 +1711,10 @@ define i64 @ssub.sat.i64(i64, i64) {
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld a, 0
 ; EZ80-NEXT:    jr BB11_3
+; EZ80-NEXT:    private BB11_2
 ; EZ80-NEXT:  BB11_2:
 ; EZ80-NEXT:    ld a, -1
+; EZ80-NEXT:    private BB11_3
 ; EZ80-NEXT:  BB11_3:
 ; EZ80-NEXT:    ld hl, 63
 ; EZ80-NEXT:    push hl
@@ -1630,20 +1739,25 @@ define i64 @ssub.sat.i64(i64, i64) {
 ; EZ80-NEXT:  ; %bb.4:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp z, BB11_9
+; EZ80-NEXT:    private BB11_5
 ; EZ80-NEXT:  BB11_5:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB11_7
+; EZ80-NEXT:    private BB11_6
 ; EZ80-NEXT:  BB11_6:
 ; EZ80-NEXT:    ld c, (ix - 2)
 ; EZ80-NEXT:    ld b, (ix - 1)
+; EZ80-NEXT:    private BB11_7
 ; EZ80-NEXT:  BB11_7:
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
+; EZ80-NEXT:    private BB11_8
 ; EZ80-NEXT:  BB11_8:
 ; EZ80-NEXT:    ld hl, (ix - 8)
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp nz, BB11_5
+; EZ80-NEXT:    private BB11_9
 ; EZ80-NEXT:  BB11_9:
 ; EZ80-NEXT:    ld de, (ix - 5)
 ; EZ80-NEXT:    bit 0, a
@@ -1659,42 +1773,39 @@ define i8 @usub.sat.i8(i8, i8) {
 ; Z80:       ; %bb.0:
 ; Z80-NEXT:    ld iy, 0
 ; Z80-NEXT:    add iy, sp
-; Z80-NEXT:    ld l, 0
 ; Z80-NEXT:    ld a, (iy + 2)
 ; Z80-NEXT:    sub a, (iy + 4)
-; Z80-NEXT:    jr c, BB12_2
+; Z80-NEXT:    jr nc, BB12_2
 ; Z80-NEXT:  ; %bb.1:
-; Z80-NEXT:    ld l, a
+; Z80-NEXT:    xor a, a
+; Z80-NEXT:    private BB12_2
 ; Z80-NEXT:  BB12_2:
-; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    ret
 ;
 ; EZ80-CODE16-LABEL: usub.sat.i8:
 ; EZ80-CODE16:       ; %bb.0:
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    add iy, sp
-; EZ80-CODE16-NEXT:    ld l, 0
 ; EZ80-CODE16-NEXT:    ld a, (iy + 2)
 ; EZ80-CODE16-NEXT:    sub a, (iy + 4)
-; EZ80-CODE16-NEXT:    jr c, BB12_2
+; EZ80-CODE16-NEXT:    jr nc, BB12_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
-; EZ80-CODE16-NEXT:    ld l, a
+; EZ80-CODE16-NEXT:    xor a, a
+; EZ80-CODE16-NEXT:    private BB12_2
 ; EZ80-CODE16-NEXT:  BB12_2:
-; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    ret
 ;
 ; EZ80-LABEL: usub.sat.i8:
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
-; EZ80-NEXT:    ld l, 0
 ; EZ80-NEXT:    ld a, (iy + 3)
 ; EZ80-NEXT:    sub a, (iy + 6)
-; EZ80-NEXT:    jr c, BB12_2
+; EZ80-NEXT:    jr nc, BB12_2
 ; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    ld l, a
+; EZ80-NEXT:    xor a, a
+; EZ80-NEXT:    private BB12_2
 ; EZ80-NEXT:  BB12_2:
-; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    ret
   call i8 @llvm.usub.sat.i8(i8 %0, i8 %1)
   ret i8 %3
@@ -1713,6 +1824,7 @@ define i16 @usub.sat.i16(i16, i16) {
 ; Z80-NEXT:    jr nc, BB13_2
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld hl, 0
+; Z80-NEXT:    private BB13_2
 ; Z80-NEXT:  BB13_2:
 ; Z80-NEXT:    ret
 ;
@@ -1726,6 +1838,7 @@ define i16 @usub.sat.i16(i16, i16) {
 ; EZ80-CODE16-NEXT:    jr nc, BB13_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld hl, 0
+; EZ80-CODE16-NEXT:    private BB13_2
 ; EZ80-CODE16-NEXT:  BB13_2:
 ; EZ80-CODE16-NEXT:    ret
 ;
@@ -1740,6 +1853,7 @@ define i16 @usub.sat.i16(i16, i16) {
 ; EZ80-NEXT:    jr nc, BB13_2
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld.sis hl, 0
+; EZ80-NEXT:    private BB13_2
 ; EZ80-NEXT:  BB13_2:
 ; EZ80-NEXT:    ret
   call i16 @llvm.usub.sat.i16(i16 %0, i16 %1)
@@ -1776,11 +1890,13 @@ define i32 @usub.sat.i32(i32, i32) {
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld c, iyl
 ; Z80-NEXT:    ld b, iyh
+; Z80-NEXT:    private BB14_2
 ; Z80-NEXT:  BB14_2:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB14_4
 ; Z80-NEXT:  ; %bb.3:
 ; Z80-NEXT:    ex de, hl
+; Z80-NEXT:    private BB14_4
 ; Z80-NEXT:  BB14_4:
 ; Z80-NEXT:    ld l, c
 ; Z80-NEXT:    ld h, b
@@ -1811,11 +1927,13 @@ define i32 @usub.sat.i32(i32, i32) {
 ; EZ80-CODE16-NEXT:    jr nz, BB14_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    lea bc, iy + 0
+; EZ80-CODE16-NEXT:    private BB14_2
 ; EZ80-CODE16-NEXT:  BB14_2:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB14_4
 ; EZ80-CODE16-NEXT:  ; %bb.3:
 ; EZ80-CODE16-NEXT:    ex de, hl
+; EZ80-CODE16-NEXT:    private BB14_4
 ; EZ80-CODE16-NEXT:  BB14_4:
 ; EZ80-CODE16-NEXT:    ld l, c
 ; EZ80-CODE16-NEXT:    ld h, b
@@ -1829,30 +1947,28 @@ define i32 @usub.sat.i32(i32, i32) {
 ; EZ80-NEXT:    ld hl, (iy + 3)
 ; EZ80-NEXT:    ld de, (iy + 9)
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop bc
 ; EZ80-NEXT:    ld a, (iy + 6)
 ; EZ80-NEXT:    sbc a, (iy + 12)
-; EZ80-NEXT:    ld d, a
+; EZ80-NEXT:    ld e, a
 ; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
-; EZ80-NEXT:    or a, a
-; EZ80-NEXT:    sbc hl, hl
-; EZ80-NEXT:    ld e, h
 ; EZ80-NEXT:    bit 0, a
-; EZ80-NEXT:    jr z, BB14_3
+; EZ80-NEXT:    jr nz, BB14_3
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    bit 0, a
-; EZ80-NEXT:    jr z, BB14_4
+; EZ80-NEXT:    jr nz, BB14_4
+; EZ80-NEXT:    private BB14_2
 ; EZ80-NEXT:  BB14_2:
 ; EZ80-NEXT:    ret
+; EZ80-NEXT:    private BB14_3
 ; EZ80-NEXT:  BB14_3:
-; EZ80-NEXT:    push bc
-; EZ80-NEXT:    pop hl
+; EZ80-NEXT:    or a, a
+; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    bit 0, a
-; EZ80-NEXT:    jr nz, BB14_2
+; EZ80-NEXT:    jr z, BB14_2
+; EZ80-NEXT:    private BB14_4
 ; EZ80-NEXT:  BB14_4:
-; EZ80-NEXT:    ld e, d
+; EZ80-NEXT:    ld e, 0
 ; EZ80-NEXT:    ret
   call i32 @llvm.usub.sat.i32(i32 %0, i32 %1)
   ret i32 %3
@@ -1880,8 +1996,7 @@ define i64 @usub.sat.i64(i64, i64) {
 ; Z80-NEXT:    pop iy
 ; Z80-NEXT:    or a, a
 ; Z80-NEXT:    sbc hl, de
-; Z80-NEXT:    ld e, l
-; Z80-NEXT:    ld d, h
+; Z80-NEXT:    ex de, hl
 ; Z80-NEXT:    ld l, (ix + 6)
 ; Z80-NEXT:    ld h, (ix + 7)
 ; Z80-NEXT:    sbc hl, bc
@@ -1912,6 +2027,7 @@ define i64 @usub.sat.i64(i64, i64) {
 ; Z80-NEXT:    jr nz, BB15_2
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ex de, hl
+; Z80-NEXT:    private BB15_2
 ; Z80-NEXT:  BB15_2:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    ld e, iyl
@@ -1920,6 +2036,7 @@ define i64 @usub.sat.i64(i64, i64) {
 ; Z80-NEXT:  ; %bb.3:
 ; Z80-NEXT:    ld e, (ix - 6)
 ; Z80-NEXT:    ld d, (ix - 5)
+; Z80-NEXT:    private BB15_4
 ; Z80-NEXT:  BB15_4:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    ld c, iyl
@@ -1928,6 +2045,7 @@ define i64 @usub.sat.i64(i64, i64) {
 ; Z80-NEXT:  ; %bb.5:
 ; Z80-NEXT:    ld c, (ix - 4)
 ; Z80-NEXT:    ld b, (ix - 3)
+; Z80-NEXT:    private BB15_6
 ; Z80-NEXT:  BB15_6:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB15_8
@@ -1937,6 +2055,7 @@ define i64 @usub.sat.i64(i64, i64) {
 ; Z80-NEXT:    ld h, (ix - 1)
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop iy
+; Z80-NEXT:    private BB15_8
 ; Z80-NEXT:  BB15_8:
 ; Z80-NEXT:    ld sp, ix
 ; Z80-NEXT:    pop ix
@@ -1954,8 +2073,7 @@ define i64 @usub.sat.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld bc, (ix + 14)
 ; EZ80-CODE16-NEXT:    ld iy, (ix + 16)
 ; EZ80-CODE16-NEXT:    sbc hl, de
-; EZ80-CODE16-NEXT:    ld e, l
-; EZ80-CODE16-NEXT:    ld d, h
+; EZ80-CODE16-NEXT:    ex de, hl
 ; EZ80-CODE16-NEXT:    ld hl, (ix + 6)
 ; EZ80-CODE16-NEXT:    sbc hl, bc
 ; EZ80-CODE16-NEXT:    ld (ix - 6), hl
@@ -1975,23 +2093,27 @@ define i64 @usub.sat.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:    jr nz, BB15_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ex de, hl
+; EZ80-CODE16-NEXT:    private BB15_2
 ; EZ80-CODE16-NEXT:  BB15_2:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    lea de, iy + 0
 ; EZ80-CODE16-NEXT:    jr nz, BB15_4
 ; EZ80-CODE16-NEXT:  ; %bb.3:
 ; EZ80-CODE16-NEXT:    ld de, (ix - 6)
+; EZ80-CODE16-NEXT:    private BB15_4
 ; EZ80-CODE16-NEXT:  BB15_4:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    lea bc, iy + 0
 ; EZ80-CODE16-NEXT:    jr nz, BB15_6
 ; EZ80-CODE16-NEXT:  ; %bb.5:
 ; EZ80-CODE16-NEXT:    ld bc, (ix - 4)
+; EZ80-CODE16-NEXT:    private BB15_6
 ; EZ80-CODE16-NEXT:  BB15_6:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB15_8
 ; EZ80-CODE16-NEXT:  ; %bb.7:
 ; EZ80-CODE16-NEXT:    ld iy, (ix - 2)
+; EZ80-CODE16-NEXT:    private BB15_8
 ; EZ80-CODE16-NEXT:  BB15_8:
 ; EZ80-CODE16-NEXT:    ld sp, ix
 ; EZ80-CODE16-NEXT:    pop ix
@@ -2028,19 +2150,24 @@ define i64 @usub.sat.i64(i64, i64) {
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp z, BB15_6
+; EZ80-NEXT:    private BB15_2
 ; EZ80-NEXT:  BB15_2:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr z, BB15_4
+; EZ80-NEXT:    private BB15_3
 ; EZ80-NEXT:  BB15_3:
 ; EZ80-NEXT:    ld.sis bc, 0
+; EZ80-NEXT:    private BB15_4
 ; EZ80-NEXT:  BB15_4:
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
+; EZ80-NEXT:    private BB15_5
 ; EZ80-NEXT:  BB15_5:
 ; EZ80-NEXT:    lea hl, iy + 0
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp nz, BB15_2
+; EZ80-NEXT:    private BB15_6
 ; EZ80-NEXT:  BB15_6:
 ; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    bit 0, a
@@ -2070,14 +2197,17 @@ define i8 @sshl.sat.i8(i8, i8) {
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld h, 127
 ; Z80-NEXT:    jr BB16_3
+; Z80-NEXT:    private BB16_2
 ; Z80-NEXT:  BB16_2:
 ; Z80-NEXT:    ld h, -128
+; Z80-NEXT:    private BB16_3
 ; Z80-NEXT:  BB16_3:
 ; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    cp a, c
 ; Z80-NEXT:    jr nz, BB16_5
 ; Z80-NEXT:  ; %bb.4:
 ; Z80-NEXT:    ld h, e
+; Z80-NEXT:    private BB16_5
 ; Z80-NEXT:  BB16_5:
 ; Z80-NEXT:    ld a, h
 ; Z80-NEXT:    ret
@@ -2100,14 +2230,17 @@ define i8 @sshl.sat.i8(i8, i8) {
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld h, 127
 ; EZ80-CODE16-NEXT:    jr BB16_3
+; EZ80-CODE16-NEXT:    private BB16_2
 ; EZ80-CODE16-NEXT:  BB16_2:
 ; EZ80-CODE16-NEXT:    ld h, -128
+; EZ80-CODE16-NEXT:    private BB16_3
 ; EZ80-CODE16-NEXT:  BB16_3:
 ; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    cp a, c
 ; EZ80-CODE16-NEXT:    jr nz, BB16_5
 ; EZ80-CODE16-NEXT:  ; %bb.4:
 ; EZ80-CODE16-NEXT:    ld h, e
+; EZ80-CODE16-NEXT:    private BB16_5
 ; EZ80-CODE16-NEXT:  BB16_5:
 ; EZ80-CODE16-NEXT:    ld a, h
 ; EZ80-CODE16-NEXT:    ret
@@ -2130,14 +2263,17 @@ define i8 @sshl.sat.i8(i8, i8) {
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld h, 127
 ; EZ80-NEXT:    jr BB16_3
+; EZ80-NEXT:    private BB16_2
 ; EZ80-NEXT:  BB16_2:
 ; EZ80-NEXT:    ld h, -128
+; EZ80-NEXT:    private BB16_3
 ; EZ80-NEXT:  BB16_3:
 ; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    cp a, c
 ; EZ80-NEXT:    jr nz, BB16_5
 ; EZ80-NEXT:  ; %bb.4:
 ; EZ80-NEXT:    ld h, e
+; EZ80-NEXT:    private BB16_5
 ; EZ80-NEXT:  BB16_5:
 ; EZ80-NEXT:    ld a, h
 ; EZ80-NEXT:    ret
@@ -2175,6 +2311,7 @@ define i16 @sshl.sat.i16(i16, i16) {
 ; Z80-NEXT:    jr c, BB17_2
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld bc, 32767
+; Z80-NEXT:    private BB17_2
 ; Z80-NEXT:  BB17_2:
 ; Z80-NEXT:    ld l, (ix + 4)
 ; Z80-NEXT:    ld h, (ix + 5)
@@ -2186,6 +2323,7 @@ define i16 @sshl.sat.i16(i16, i16) {
 ; Z80-NEXT:  ; %bb.3:
 ; Z80-NEXT:    ld c, iyl
 ; Z80-NEXT:    ld b, iyh
+; Z80-NEXT:    private BB17_4
 ; Z80-NEXT:  BB17_4:
 ; Z80-NEXT:    ld l, c
 ; Z80-NEXT:    ld h, b
@@ -2219,6 +2357,7 @@ define i16 @sshl.sat.i16(i16, i16) {
 ; EZ80-CODE16-NEXT:    jr c, BB17_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld bc, 32767
+; EZ80-CODE16-NEXT:    private BB17_2
 ; EZ80-CODE16-NEXT:  BB17_2:
 ; EZ80-CODE16-NEXT:    ld hl, (ix + 4)
 ; EZ80-CODE16-NEXT:    ld de, (ix - 2)
@@ -2227,6 +2366,7 @@ define i16 @sshl.sat.i16(i16, i16) {
 ; EZ80-CODE16-NEXT:    jr nz, BB17_4
 ; EZ80-CODE16-NEXT:  ; %bb.3:
 ; EZ80-CODE16-NEXT:    lea bc, iy + 0
+; EZ80-CODE16-NEXT:    private BB17_4
 ; EZ80-CODE16-NEXT:  BB17_4:
 ; EZ80-CODE16-NEXT:    ld l, c
 ; EZ80-CODE16-NEXT:    ld h, b
@@ -2249,8 +2389,7 @@ define i16 @sshl.sat.i16(i16, i16) {
 ; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ; kill: def $c killed $c killed $ubc
 ; EZ80-NEXT:    call __sshrs
-; EZ80-NEXT:    ld e, l
-; EZ80-NEXT:    ld d, h
+; EZ80-NEXT:    ex.sis de, hl
 ; EZ80-NEXT:    ld.sis bc, -32768
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
@@ -2260,6 +2399,7 @@ define i16 @sshl.sat.i16(i16, i16) {
 ; EZ80-NEXT:    jr c, BB17_2
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld.sis bc, 32767
+; EZ80-NEXT:    private BB17_2
 ; EZ80-NEXT:  BB17_2:
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
@@ -2269,6 +2409,7 @@ define i16 @sshl.sat.i16(i16, i16) {
 ; EZ80-NEXT:  ; %bb.3:
 ; EZ80-NEXT:    ld c, iyl
 ; EZ80-NEXT:    ld b, iyh
+; EZ80-NEXT:    private BB17_4
 ; EZ80-NEXT:  BB17_4:
 ; EZ80-NEXT:    ld l, c
 ; EZ80-NEXT:    ld h, b
@@ -2324,15 +2465,19 @@ define i32 @sshl.sat.i32(i32, i32) {
 ; Z80-NEXT:    ld a, 0
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr z, BB18_4
+; Z80-NEXT:    private BB18_2
 ; Z80-NEXT:  BB18_2:
 ; Z80-NEXT:    ld hl, 0
 ; Z80-NEXT:    jr BB18_5
+; Z80-NEXT:    private BB18_3
 ; Z80-NEXT:  BB18_3:
 ; Z80-NEXT:    ld a, 1
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB18_2
+; Z80-NEXT:    private BB18_4
 ; Z80-NEXT:  BB18_4:
 ; Z80-NEXT:    ld hl, -1
+; Z80-NEXT:    private BB18_5
 ; Z80-NEXT:  BB18_5:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    ld (ix - 2), l
@@ -2341,8 +2486,10 @@ define i32 @sshl.sat.i32(i32, i32) {
 ; Z80-NEXT:  ; %bb.6:
 ; Z80-NEXT:    ld hl, 32767
 ; Z80-NEXT:    jr BB18_8
+; Z80-NEXT:    private BB18_7
 ; Z80-NEXT:  BB18_7:
 ; Z80-NEXT:    ld hl, -32768
+; Z80-NEXT:    private BB18_8
 ; Z80-NEXT:  BB18_8:
 ; Z80-NEXT:    ld (ix - 4), l
 ; Z80-NEXT:    ld (ix - 3), h
@@ -2353,8 +2500,10 @@ define i32 @sshl.sat.i32(i32, i32) {
 ; Z80-NEXT:  ; %bb.9:
 ; Z80-NEXT:    ld a, 0
 ; Z80-NEXT:    jr BB18_11
+; Z80-NEXT:    private BB18_10
 ; Z80-NEXT:  BB18_10:
 ; Z80-NEXT:    ld a, 1
+; Z80-NEXT:    private BB18_11
 ; Z80-NEXT:  BB18_11:
 ; Z80-NEXT:    ld l, (ix - 2)
 ; Z80-NEXT:    ld h, (ix - 1)
@@ -2365,12 +2514,14 @@ define i32 @sshl.sat.i32(i32, i32) {
 ; Z80-NEXT:  ; %bb.12:
 ; Z80-NEXT:    ld l, (ix - 8)
 ; Z80-NEXT:    ld h, (ix - 7)
+; Z80-NEXT:    private BB18_13
 ; Z80-NEXT:  BB18_13:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB18_15
 ; Z80-NEXT:  ; %bb.14:
 ; Z80-NEXT:    ld e, (ix - 6)
 ; Z80-NEXT:    ld d, (ix - 5)
+; Z80-NEXT:    private BB18_15
 ; Z80-NEXT:  BB18_15:
 ; Z80-NEXT:    ld sp, ix
 ; Z80-NEXT:    pop ix
@@ -2409,15 +2560,19 @@ define i32 @sshl.sat.i32(i32, i32) {
 ; EZ80-CODE16-NEXT:    ld a, 0
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr z, BB18_4
+; EZ80-CODE16-NEXT:    private BB18_2
 ; EZ80-CODE16-NEXT:  BB18_2:
 ; EZ80-CODE16-NEXT:    ld hl, 0
 ; EZ80-CODE16-NEXT:    jr BB18_5
+; EZ80-CODE16-NEXT:    private BB18_3
 ; EZ80-CODE16-NEXT:  BB18_3:
 ; EZ80-CODE16-NEXT:    ld a, 1
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB18_2
+; EZ80-CODE16-NEXT:    private BB18_4
 ; EZ80-CODE16-NEXT:  BB18_4:
 ; EZ80-CODE16-NEXT:    ld hl, -1
+; EZ80-CODE16-NEXT:    private BB18_5
 ; EZ80-CODE16-NEXT:  BB18_5:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
@@ -2425,8 +2580,10 @@ define i32 @sshl.sat.i32(i32, i32) {
 ; EZ80-CODE16-NEXT:  ; %bb.6:
 ; EZ80-CODE16-NEXT:    ld hl, 32767
 ; EZ80-CODE16-NEXT:    jr BB18_8
+; EZ80-CODE16-NEXT:    private BB18_7
 ; EZ80-CODE16-NEXT:  BB18_7:
 ; EZ80-CODE16-NEXT:    ld hl, -32768
+; EZ80-CODE16-NEXT:    private BB18_8
 ; EZ80-CODE16-NEXT:  BB18_8:
 ; EZ80-CODE16-NEXT:    ld (ix - 4), hl
 ; EZ80-CODE16-NEXT:    ld hl, (ix + 4)
@@ -2435,8 +2592,10 @@ define i32 @sshl.sat.i32(i32, i32) {
 ; EZ80-CODE16-NEXT:  ; %bb.9:
 ; EZ80-CODE16-NEXT:    ld a, 0
 ; EZ80-CODE16-NEXT:    jr BB18_11
+; EZ80-CODE16-NEXT:    private BB18_10
 ; EZ80-CODE16-NEXT:  BB18_10:
 ; EZ80-CODE16-NEXT:    ld a, 1
+; EZ80-CODE16-NEXT:    private BB18_11
 ; EZ80-CODE16-NEXT:  BB18_11:
 ; EZ80-CODE16-NEXT:    ld hl, (ix - 2)
 ; EZ80-CODE16-NEXT:    bit 0, a
@@ -2444,11 +2603,13 @@ define i32 @sshl.sat.i32(i32, i32) {
 ; EZ80-CODE16-NEXT:    jr nz, BB18_13
 ; EZ80-CODE16-NEXT:  ; %bb.12:
 ; EZ80-CODE16-NEXT:    ld hl, (ix - 8)
+; EZ80-CODE16-NEXT:    private BB18_13
 ; EZ80-CODE16-NEXT:  BB18_13:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB18_15
 ; EZ80-CODE16-NEXT:  ; %bb.14:
 ; EZ80-CODE16-NEXT:    ld de, (ix - 6)
+; EZ80-CODE16-NEXT:    private BB18_15
 ; EZ80-CODE16-NEXT:  BB18_15:
 ; EZ80-CODE16-NEXT:    ld sp, ix
 ; EZ80-CODE16-NEXT:    pop ix
@@ -2473,47 +2634,59 @@ define i32 @sshl.sat.i32(i32, i32) {
 ; EZ80-NEXT:    call __lshrs
 ; EZ80-NEXT:    lea hl, iy + 0
 ; EZ80-NEXT:    call __lcmpzero
-; EZ80-NEXT:    jp m, BB18_2
+; EZ80-NEXT:    jp m, BB18_4
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld l, 0
-; EZ80-NEXT:    jr BB18_3
+; EZ80-NEXT:    bit 0, l
+; EZ80-NEXT:    jr z, BB18_5
+; EZ80-NEXT:    private BB18_2
 ; EZ80-NEXT:  BB18_2:
-; EZ80-NEXT:    ld l, 1
-; EZ80-NEXT:  BB18_3:
-; EZ80-NEXT:    bit 0, l
 ; EZ80-NEXT:    ld iy, 0
-; EZ80-NEXT:    jr nz, BB18_5
-; EZ80-NEXT:  ; %bb.4:
-; EZ80-NEXT:    ld iy, -1
-; EZ80-NEXT:  BB18_5:
 ; EZ80-NEXT:    bit 0, l
-; EZ80-NEXT:    jr nz, BB18_7
-; EZ80-NEXT:  ; %bb.6:
-; EZ80-NEXT:    ld d, 127
-; EZ80-NEXT:    jr BB18_8
-; EZ80-NEXT:  BB18_7:
+; EZ80-NEXT:    jr z, BB18_6
+; EZ80-NEXT:    private BB18_3
+; EZ80-NEXT:  BB18_3:
 ; EZ80-NEXT:    ld d, -128
-; EZ80-NEXT:  BB18_8:
+; EZ80-NEXT:    jr BB18_7
+; EZ80-NEXT:    private BB18_4
+; EZ80-NEXT:  BB18_4:
+; EZ80-NEXT:    ld l, 1
+; EZ80-NEXT:    bit 0, l
+; EZ80-NEXT:    jr nz, BB18_2
+; EZ80-NEXT:    private BB18_5
+; EZ80-NEXT:  BB18_5:
+; EZ80-NEXT:    ld iy, -1
+; EZ80-NEXT:    bit 0, l
+; EZ80-NEXT:    jr nz, BB18_3
+; EZ80-NEXT:    private BB18_6
+; EZ80-NEXT:  BB18_6:
+; EZ80-NEXT:    ld d, 127
+; EZ80-NEXT:    private BB18_7
+; EZ80-NEXT:  BB18_7:
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    call __lcmpu
-; EZ80-NEXT:    jr nz, BB18_10
-; EZ80-NEXT:  ; %bb.9:
+; EZ80-NEXT:    jr nz, BB18_9
+; EZ80-NEXT:  ; %bb.8:
 ; EZ80-NEXT:    ld a, 0
 ; EZ80-NEXT:    bit 0, a
-; EZ80-NEXT:    jr z, BB18_11
-; EZ80-NEXT:    jr BB18_12
-; EZ80-NEXT:  BB18_10:
+; EZ80-NEXT:    jr z, BB18_10
+; EZ80-NEXT:    jr BB18_11
+; EZ80-NEXT:    private BB18_9
+; EZ80-NEXT:  BB18_9:
 ; EZ80-NEXT:    ld a, 1
 ; EZ80-NEXT:    bit 0, a
-; EZ80-NEXT:    jr nz, BB18_12
-; EZ80-NEXT:  BB18_11:
+; EZ80-NEXT:    jr nz, BB18_11
+; EZ80-NEXT:    private BB18_10
+; EZ80-NEXT:  BB18_10:
 ; EZ80-NEXT:    ld iy, (ix - 4)
-; EZ80-NEXT:  BB18_12:
+; EZ80-NEXT:    private BB18_11
+; EZ80-NEXT:  BB18_11:
 ; EZ80-NEXT:    bit 0, a
-; EZ80-NEXT:    jr nz, BB18_14
-; EZ80-NEXT:  ; %bb.13:
+; EZ80-NEXT:    jr nz, BB18_13
+; EZ80-NEXT:  ; %bb.12:
 ; EZ80-NEXT:    ld d, (ix - 1) ; 1-byte Folded Reload
-; EZ80-NEXT:  BB18_14:
+; EZ80-NEXT:    private BB18_13
+; EZ80-NEXT:  BB18_13:
 ; EZ80-NEXT:    lea hl, iy + 0
 ; EZ80-NEXT:    ld e, d
 ; EZ80-NEXT:    ld sp, ix
@@ -2596,8 +2769,10 @@ define i64 @sshl.sat.i64(i64, i64) {
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld a, 0
 ; Z80-NEXT:    jr BB19_3
+; Z80-NEXT:    private BB19_2
 ; Z80-NEXT:  BB19_2:
 ; Z80-NEXT:    ld a, 1
+; Z80-NEXT:    private BB19_3
 ; Z80-NEXT:  BB19_3:
 ; Z80-NEXT:    ld iy, 0
 ; Z80-NEXT:    ld hl, -1
@@ -2608,6 +2783,7 @@ define i64 @sshl.sat.i64(i64, i64) {
 ; Z80-NEXT:  ; %bb.4:
 ; Z80-NEXT:    ld e, l
 ; Z80-NEXT:    ld d, h
+; Z80-NEXT:    private BB19_5
 ; Z80-NEXT:  BB19_5:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    ld c, iyl
@@ -2616,6 +2792,7 @@ define i64 @sshl.sat.i64(i64, i64) {
 ; Z80-NEXT:  ; %bb.6:
 ; Z80-NEXT:    ld c, l
 ; Z80-NEXT:    ld b, h
+; Z80-NEXT:    private BB19_7
 ; Z80-NEXT:  BB19_7:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB19_9
@@ -2624,6 +2801,7 @@ define i64 @sshl.sat.i64(i64, i64) {
 ; Z80-NEXT:    ld iyl, e
 ; Z80-NEXT:    ld iyh, d
 ; Z80-NEXT:    ex de, hl
+; Z80-NEXT:    private BB19_9
 ; Z80-NEXT:  BB19_9:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    ld (ix - 6), e
@@ -2634,8 +2812,10 @@ define i64 @sshl.sat.i64(i64, i64) {
 ; Z80-NEXT:  ; %bb.10:
 ; Z80-NEXT:    ld hl, 32767
 ; Z80-NEXT:    jr BB19_12
+; Z80-NEXT:    private BB19_11
 ; Z80-NEXT:  BB19_11:
 ; Z80-NEXT:    ld hl, -32768
+; Z80-NEXT:    private BB19_12
 ; Z80-NEXT:  BB19_12:
 ; Z80-NEXT:    ld (ix - 4), l
 ; Z80-NEXT:    ld (ix - 3), h
@@ -2670,15 +2850,16 @@ define i64 @sshl.sat.i64(i64, i64) {
 ; Z80-NEXT:    ld sp, hl
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 10)
-; Z80-NEXT:    ; kill: def $h killed $a
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    jr nz, BB19_14
 ; Z80-NEXT:  ; %bb.13:
 ; Z80-NEXT:    ld a, 0
 ; Z80-NEXT:    jr BB19_15
+; Z80-NEXT:    private BB19_14
 ; Z80-NEXT:  BB19_14:
 ; Z80-NEXT:    ld a, 1
+; Z80-NEXT:    private BB19_15
 ; Z80-NEXT:  BB19_15:
 ; Z80-NEXT:    ld l, (ix - 6)
 ; Z80-NEXT:    ld h, (ix - 5)
@@ -2689,17 +2870,21 @@ define i64 @sshl.sat.i64(i64, i64) {
 ; Z80-NEXT:  ; %bb.16:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp z, BB19_22
+; Z80-NEXT:    private BB19_17
 ; Z80-NEXT:  BB19_17:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp z, BB19_23
+; Z80-NEXT:    private BB19_18
 ; Z80-NEXT:  BB19_18:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB19_20
+; Z80-NEXT:    private BB19_19
 ; Z80-NEXT:  BB19_19:
 ; Z80-NEXT:    ld c, (ix - 18)
 ; Z80-NEXT:    ld b, (ix - 17)
 ; Z80-NEXT:    ld (ix - 4), c
 ; Z80-NEXT:    ld (ix - 3), b
+; Z80-NEXT:    private BB19_20
 ; Z80-NEXT:  BB19_20:
 ; Z80-NEXT:    ld c, iyl
 ; Z80-NEXT:    ld b, iyh
@@ -2711,16 +2896,19 @@ define i64 @sshl.sat.i64(i64, i64) {
 ; Z80-NEXT:    ld sp, ix
 ; Z80-NEXT:    pop ix
 ; Z80-NEXT:    ret
+; Z80-NEXT:    private BB19_21
 ; Z80-NEXT:  BB19_21:
 ; Z80-NEXT:    ld l, (ix - 2)
 ; Z80-NEXT:    ld h, (ix - 1)
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp nz, BB19_17
+; Z80-NEXT:    private BB19_22
 ; Z80-NEXT:  BB19_22:
 ; Z80-NEXT:    ld e, (ix - 22)
 ; Z80-NEXT:    ld d, (ix - 21)
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp nz, BB19_18
+; Z80-NEXT:    private BB19_23
 ; Z80-NEXT:  BB19_23:
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 20)
@@ -2776,8 +2964,10 @@ define i64 @sshl.sat.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld a, 0
 ; EZ80-CODE16-NEXT:    jr BB19_3
+; EZ80-CODE16-NEXT:    private BB19_2
 ; EZ80-CODE16-NEXT:  BB19_2:
 ; EZ80-CODE16-NEXT:    ld a, 1
+; EZ80-CODE16-NEXT:    private BB19_3
 ; EZ80-CODE16-NEXT:  BB19_3:
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    ld hl, -1
@@ -2787,6 +2977,7 @@ define i64 @sshl.sat.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:  ; %bb.4:
 ; EZ80-CODE16-NEXT:    ld e, l
 ; EZ80-CODE16-NEXT:    ld d, h
+; EZ80-CODE16-NEXT:    private BB19_5
 ; EZ80-CODE16-NEXT:  BB19_5:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    lea bc, iy + 0
@@ -2794,6 +2985,7 @@ define i64 @sshl.sat.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:  ; %bb.6:
 ; EZ80-CODE16-NEXT:    ld c, l
 ; EZ80-CODE16-NEXT:    ld b, h
+; EZ80-CODE16-NEXT:    private BB19_7
 ; EZ80-CODE16-NEXT:  BB19_7:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB19_9
@@ -2802,6 +2994,7 @@ define i64 @sshl.sat.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld iyl, e
 ; EZ80-CODE16-NEXT:    ld iyh, d
 ; EZ80-CODE16-NEXT:    ex de, hl
+; EZ80-CODE16-NEXT:    private BB19_9
 ; EZ80-CODE16-NEXT:  BB19_9:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    ld (ix - 6), de
@@ -2810,8 +3003,10 @@ define i64 @sshl.sat.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:  ; %bb.10:
 ; EZ80-CODE16-NEXT:    ld hl, 32767
 ; EZ80-CODE16-NEXT:    jr BB19_12
+; EZ80-CODE16-NEXT:    private BB19_11
 ; EZ80-CODE16-NEXT:  BB19_11:
 ; EZ80-CODE16-NEXT:    ld hl, -32768
+; EZ80-CODE16-NEXT:    private BB19_12
 ; EZ80-CODE16-NEXT:  BB19_12:
 ; EZ80-CODE16-NEXT:    ld (ix - 4), hl
 ; EZ80-CODE16-NEXT:    ld hl, (ix - 16)
@@ -2837,15 +3032,16 @@ define i64 @sshl.sat.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld sp, hl
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld l, (ix - 10)
-; EZ80-CODE16-NEXT:    ; kill: def $h killed $a
 ; EZ80-CODE16-NEXT:    ex (sp), hl
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    jr nz, BB19_14
 ; EZ80-CODE16-NEXT:  ; %bb.13:
 ; EZ80-CODE16-NEXT:    ld a, 0
 ; EZ80-CODE16-NEXT:    jr BB19_15
+; EZ80-CODE16-NEXT:    private BB19_14
 ; EZ80-CODE16-NEXT:  BB19_14:
 ; EZ80-CODE16-NEXT:    ld a, 1
+; EZ80-CODE16-NEXT:    private BB19_15
 ; EZ80-CODE16-NEXT:  BB19_15:
 ; EZ80-CODE16-NEXT:    ld hl, (ix - 6)
 ; EZ80-CODE16-NEXT:    ld de, (ix - 8)
@@ -2854,29 +3050,36 @@ define i64 @sshl.sat.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:  ; %bb.16:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp z, BB19_22
+; EZ80-CODE16-NEXT:    private BB19_17
 ; EZ80-CODE16-NEXT:  BB19_17:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp z, BB19_23
+; EZ80-CODE16-NEXT:    private BB19_18
 ; EZ80-CODE16-NEXT:  BB19_18:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB19_20
+; EZ80-CODE16-NEXT:    private BB19_19
 ; EZ80-CODE16-NEXT:  BB19_19:
 ; EZ80-CODE16-NEXT:    ld bc, (ix - 18)
 ; EZ80-CODE16-NEXT:    ld (ix - 4), bc
+; EZ80-CODE16-NEXT:    private BB19_20
 ; EZ80-CODE16-NEXT:  BB19_20:
 ; EZ80-CODE16-NEXT:    lea bc, iy + 0
 ; EZ80-CODE16-NEXT:    ld iy, (ix - 4)
 ; EZ80-CODE16-NEXT:    ld sp, ix
 ; EZ80-CODE16-NEXT:    pop ix
 ; EZ80-CODE16-NEXT:    ret
+; EZ80-CODE16-NEXT:    private BB19_21
 ; EZ80-CODE16-NEXT:  BB19_21:
 ; EZ80-CODE16-NEXT:    ld hl, (ix - 2)
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp nz, BB19_17
+; EZ80-CODE16-NEXT:    private BB19_22
 ; EZ80-CODE16-NEXT:  BB19_22:
 ; EZ80-CODE16-NEXT:    ld de, (ix - 22)
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp nz, BB19_18
+; EZ80-CODE16-NEXT:    private BB19_23
 ; EZ80-CODE16-NEXT:  BB19_23:
 ; EZ80-CODE16-NEXT:    ld iy, (ix - 20)
 ; EZ80-CODE16-NEXT:    bit 0, a
@@ -2890,14 +3093,11 @@ define i64 @sshl.sat.i64(i64, i64) {
 ; EZ80-NEXT:    add ix, sp
 ; EZ80-NEXT:    lea hl, ix - 22
 ; EZ80-NEXT:    ld sp, hl
-; EZ80-NEXT:    ld iy, (ix + 6)
-; EZ80-NEXT:    ld bc, (ix + 12)
-; EZ80-NEXT:    ld de, (ix + 15)
-; EZ80-NEXT:    sbc hl, hl
-; EZ80-NEXT:    ld (ix - 3), hl
-; EZ80-NEXT:    push de
-; EZ80-NEXT:    lea hl, iy + 0
+; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    ld de, (ix + 9)
+; EZ80-NEXT:    ld bc, (ix + 12)
+; EZ80-NEXT:    ld iy, (ix + 15)
+; EZ80-NEXT:    push iy
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llshl
 ; EZ80-NEXT:    push hl
@@ -2912,7 +3112,7 @@ define i64 @sshl.sat.i64(i64, i64) {
 ; EZ80-NEXT:    ld (ix - 15), b
 ; EZ80-NEXT:    call __llshrs
 ; EZ80-NEXT:    ld (ix - 6), hl
-; EZ80-NEXT:    ld (ix - 11), de
+; EZ80-NEXT:    ld (ix - 9), de
 ; EZ80-NEXT:    ; kill: def $bc killed $bc def $ubc
 ; EZ80-NEXT:    ld (ix - 14), bc
 ; EZ80-NEXT:    pop hl
@@ -2925,43 +3125,50 @@ define i64 @sshl.sat.i64(i64, i64) {
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld a, 0
 ; EZ80-NEXT:    jr BB19_3
+; EZ80-NEXT:    private BB19_2
 ; EZ80-NEXT:  BB19_2:
 ; EZ80-NEXT:    ld a, 1
+; EZ80-NEXT:    private BB19_3
 ; EZ80-NEXT:  BB19_3:
-; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    ld iy, 0
-; EZ80-NEXT:    jr z, BB19_7
-; EZ80-NEXT:  ; %bb.4:
-; EZ80-NEXT:    bit 0, a
-; EZ80-NEXT:    jr z, BB19_8
-; EZ80-NEXT:  BB19_5:
-; EZ80-NEXT:    bit 0, a
-; EZ80-NEXT:    jr nz, BB19_9
-; EZ80-NEXT:  BB19_6:
-; EZ80-NEXT:    ld.sis hl, 32767
-; EZ80-NEXT:    jr BB19_10
-; EZ80-NEXT:  BB19_7:
-; EZ80-NEXT:    ld iy, -1
-; EZ80-NEXT:    bit 0, a
-; EZ80-NEXT:    jr nz, BB19_5
-; EZ80-NEXT:  BB19_8:
 ; EZ80-NEXT:    scf
 ; EZ80-NEXT:    sbc hl, hl
-; EZ80-NEXT:    ld (ix - 3), hl
 ; EZ80-NEXT:    bit 0, a
-; EZ80-NEXT:    jr z, BB19_6
+; EZ80-NEXT:    lea de, iy + 0
+; EZ80-NEXT:    jr nz, BB19_5
+; EZ80-NEXT:  ; %bb.4:
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    pop de
+; EZ80-NEXT:    private BB19_5
+; EZ80-NEXT:  BB19_5:
+; EZ80-NEXT:    bit 0, a
+; EZ80-NEXT:    jr nz, BB19_7
+; EZ80-NEXT:  ; %bb.6:
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    pop iy
+; EZ80-NEXT:    private BB19_7
+; EZ80-NEXT:  BB19_7:
+; EZ80-NEXT:    bit 0, a
+; EZ80-NEXT:    ld (ix - 3), de
+; EZ80-NEXT:    jr nz, BB19_9
+; EZ80-NEXT:  ; %bb.8:
+; EZ80-NEXT:    ld.sis hl, 32767
+; EZ80-NEXT:    jr BB19_10
+; EZ80-NEXT:    private BB19_9
 ; EZ80-NEXT:  BB19_9:
 ; EZ80-NEXT:    ld.sis hl, -32768
+; EZ80-NEXT:    private BB19_10
 ; EZ80-NEXT:  BB19_10:
-; EZ80-NEXT:    ld (ix - 8), l
-; EZ80-NEXT:    ld (ix - 7), h
+; EZ80-NEXT:    ld (ix - 11), l
+; EZ80-NEXT:    ld (ix - 10), h
 ; EZ80-NEXT:    ld hl, (ix - 14)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    ld hl, (ix - 11)
+; EZ80-NEXT:    ld hl, (ix - 9)
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix - 6)
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix + 6)
+; EZ80-NEXT:    ld de, (ix + 9)
 ; EZ80-NEXT:    ld bc, (ix + 12)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llcmpu
@@ -2974,42 +3181,47 @@ define i64 @sshl.sat.i64(i64, i64) {
 ; EZ80-NEXT:    ld sp, hl
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld l, (ix - 6)
-; EZ80-NEXT:    ; kill: def $h killed $a
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    jr nz, BB19_12
 ; EZ80-NEXT:  ; %bb.11:
 ; EZ80-NEXT:    ld a, 0
 ; EZ80-NEXT:    jr BB19_13
+; EZ80-NEXT:    private BB19_12
 ; EZ80-NEXT:  BB19_12:
 ; EZ80-NEXT:    ld a, 1
+; EZ80-NEXT:    private BB19_13
 ; EZ80-NEXT:  BB19_13:
+; EZ80-NEXT:    ld hl, (ix - 3)
 ; EZ80-NEXT:    bit 0, a
-; EZ80-NEXT:    ld c, (ix - 8)
-; EZ80-NEXT:    ld b, (ix - 7)
+; EZ80-NEXT:    ld c, (ix - 11)
+; EZ80-NEXT:    ld b, (ix - 10)
 ; EZ80-NEXT:    jp z, BB19_18
 ; EZ80-NEXT:  ; %bb.14:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp z, BB19_19
+; EZ80-NEXT:    private BB19_15
 ; EZ80-NEXT:  BB19_15:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB19_17
+; EZ80-NEXT:    private BB19_16
 ; EZ80-NEXT:  BB19_16:
 ; EZ80-NEXT:    ld c, (ix - 16)
 ; EZ80-NEXT:    ld b, (ix - 15)
+; EZ80-NEXT:    private BB19_17
 ; EZ80-NEXT:  BB19_17:
-; EZ80-NEXT:    lea hl, iy + 0
-; EZ80-NEXT:    ld de, (ix - 3)
+; EZ80-NEXT:    lea de, iy + 0
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
+; EZ80-NEXT:    private BB19_18
 ; EZ80-NEXT:  BB19_18:
-; EZ80-NEXT:    ld iy, (ix - 22)
+; EZ80-NEXT:    ld hl, (ix - 22)
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp nz, BB19_15
+; EZ80-NEXT:    private BB19_19
 ; EZ80-NEXT:  BB19_19:
-; EZ80-NEXT:    ld hl, (ix - 19)
-; EZ80-NEXT:    ld (ix - 3), hl
+; EZ80-NEXT:    ld iy, (ix - 19)
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp z, BB19_16
 ; EZ80-NEXT:    jp BB19_17
@@ -3035,6 +3247,7 @@ define i8 @ushl.sat.i8(i8, i8) {
 ; Z80-NEXT:    jr z, BB20_2
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld l, -1
+; Z80-NEXT:    private BB20_2
 ; Z80-NEXT:  BB20_2:
 ; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    ret
@@ -3055,6 +3268,7 @@ define i8 @ushl.sat.i8(i8, i8) {
 ; EZ80-CODE16-NEXT:    jr z, BB20_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld l, -1
+; EZ80-CODE16-NEXT:    private BB20_2
 ; EZ80-CODE16-NEXT:  BB20_2:
 ; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    ret
@@ -3075,6 +3289,7 @@ define i8 @ushl.sat.i8(i8, i8) {
 ; EZ80-NEXT:    jr z, BB20_2
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld l, -1
+; EZ80-NEXT:    private BB20_2
 ; EZ80-NEXT:  BB20_2:
 ; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    ret
@@ -3115,6 +3330,7 @@ define i16 @ushl.sat.i16(i16, i16) {
 ; Z80-NEXT:    jr z, BB21_2
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld de, -1
+; Z80-NEXT:    private BB21_2
 ; Z80-NEXT:  BB21_2:
 ; Z80-NEXT:    ex de, hl
 ; Z80-NEXT:    pop ix
@@ -3141,6 +3357,7 @@ define i16 @ushl.sat.i16(i16, i16) {
 ; EZ80-CODE16-NEXT:    jr z, BB21_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld de, -1
+; EZ80-CODE16-NEXT:    private BB21_2
 ; EZ80-CODE16-NEXT:  BB21_2:
 ; EZ80-CODE16-NEXT:    ex de, hl
 ; EZ80-CODE16-NEXT:    pop ix
@@ -3173,9 +3390,9 @@ define i16 @ushl.sat.i16(i16, i16) {
 ; EZ80-NEXT:    jr z, BB21_2
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld.sis de, -1
+; EZ80-NEXT:    private BB21_2
 ; EZ80-NEXT:  BB21_2:
-; EZ80-NEXT:    ld l, e
-; EZ80-NEXT:    ld h, d
+; EZ80-NEXT:    ex.sis de, hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
   call i16 @llvm.ushl.sat.i16(i16 %0, i16 %1)
@@ -3226,8 +3443,10 @@ define i32 @ushl.sat.i32(i32, i32) {
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld a, 0
 ; Z80-NEXT:    jr BB22_3
+; Z80-NEXT:    private BB22_2
 ; Z80-NEXT:  BB22_2:
 ; Z80-NEXT:    ld a, 1
+; Z80-NEXT:    private BB22_3
 ; Z80-NEXT:  BB22_3:
 ; Z80-NEXT:    ld de, -1
 ; Z80-NEXT:    bit 0, a
@@ -3237,12 +3456,14 @@ define i32 @ushl.sat.i32(i32, i32) {
 ; Z80-NEXT:  ; %bb.4:
 ; Z80-NEXT:    ld l, (ix - 4)
 ; Z80-NEXT:    ld h, (ix - 3)
+; Z80-NEXT:    private BB22_5
 ; Z80-NEXT:  BB22_5:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB22_7
 ; Z80-NEXT:  ; %bb.6:
 ; Z80-NEXT:    ld e, (ix - 2)
 ; Z80-NEXT:    ld d, (ix - 1)
+; Z80-NEXT:    private BB22_7
 ; Z80-NEXT:  BB22_7:
 ; Z80-NEXT:    ld sp, ix
 ; Z80-NEXT:    pop ix
@@ -3280,8 +3501,10 @@ define i32 @ushl.sat.i32(i32, i32) {
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld a, 0
 ; EZ80-CODE16-NEXT:    jr BB22_3
+; EZ80-CODE16-NEXT:    private BB22_2
 ; EZ80-CODE16-NEXT:  BB22_2:
 ; EZ80-CODE16-NEXT:    ld a, 1
+; EZ80-CODE16-NEXT:    private BB22_3
 ; EZ80-CODE16-NEXT:  BB22_3:
 ; EZ80-CODE16-NEXT:    ld de, -1
 ; EZ80-CODE16-NEXT:    bit 0, a
@@ -3290,11 +3513,13 @@ define i32 @ushl.sat.i32(i32, i32) {
 ; EZ80-CODE16-NEXT:    jr nz, BB22_5
 ; EZ80-CODE16-NEXT:  ; %bb.4:
 ; EZ80-CODE16-NEXT:    ld hl, (ix - 4)
+; EZ80-CODE16-NEXT:    private BB22_5
 ; EZ80-CODE16-NEXT:  BB22_5:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB22_7
 ; EZ80-CODE16-NEXT:  ; %bb.6:
 ; EZ80-CODE16-NEXT:    ld de, (ix - 2)
+; EZ80-CODE16-NEXT:    private BB22_7
 ; EZ80-CODE16-NEXT:  BB22_7:
 ; EZ80-CODE16-NEXT:    ld sp, ix
 ; EZ80-CODE16-NEXT:    pop ix
@@ -3320,21 +3545,26 @@ define i32 @ushl.sat.i32(i32, i32) {
 ; EZ80-NEXT:    jr nz, BB22_2
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld a, 0
-; EZ80-NEXT:    jr BB22_3
+; EZ80-NEXT:    bit 0, a
+; EZ80-NEXT:    jr nz, BB22_3
+; EZ80-NEXT:    jr BB22_4
+; EZ80-NEXT:    private BB22_2
 ; EZ80-NEXT:  BB22_2:
 ; EZ80-NEXT:    ld a, 1
+; EZ80-NEXT:    bit 0, a
+; EZ80-NEXT:    jr z, BB22_4
+; EZ80-NEXT:    private BB22_3
 ; EZ80-NEXT:  BB22_3:
+; EZ80-NEXT:    ld iy, -1
+; EZ80-NEXT:    private BB22_4
+; EZ80-NEXT:  BB22_4:
 ; EZ80-NEXT:    bit 0, a
-; EZ80-NEXT:    ld hl, -1
-; EZ80-NEXT:    jr nz, BB22_5
-; EZ80-NEXT:  ; %bb.4:
-; EZ80-NEXT:    lea hl, iy + 0
-; EZ80-NEXT:  BB22_5:
-; EZ80-NEXT:    bit 0, a
-; EZ80-NEXT:    jr z, BB22_7
-; EZ80-NEXT:  ; %bb.6:
+; EZ80-NEXT:    jr z, BB22_6
+; EZ80-NEXT:  ; %bb.5:
 ; EZ80-NEXT:    ld d, -1
-; EZ80-NEXT:  BB22_7:
+; EZ80-NEXT:    private BB22_6
+; EZ80-NEXT:  BB22_6:
+; EZ80-NEXT:    lea hl, iy + 0
 ; EZ80-NEXT:    ld e, d
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
@@ -3416,15 +3646,16 @@ define i64 @ushl.sat.i64(i64, i64) {
 ; Z80-NEXT:    ld sp, hl
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 4)
-; Z80-NEXT:    ; kill: def $h killed $a
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    jr nz, BB23_2
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld a, 0
 ; Z80-NEXT:    jr BB23_3
+; Z80-NEXT:    private BB23_2
 ; Z80-NEXT:  BB23_2:
 ; Z80-NEXT:    ld a, 1
+; Z80-NEXT:    private BB23_3
 ; Z80-NEXT:  BB23_3:
 ; Z80-NEXT:    ld iy, -1
 ; Z80-NEXT:    bit 0, a
@@ -3436,6 +3667,7 @@ define i64 @ushl.sat.i64(i64, i64) {
 ; Z80-NEXT:  ; %bb.4:
 ; Z80-NEXT:    ld l, (ix - 2)
 ; Z80-NEXT:    ld h, (ix - 1)
+; Z80-NEXT:    private BB23_5
 ; Z80-NEXT:  BB23_5:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    ld e, iyl
@@ -3444,6 +3676,7 @@ define i64 @ushl.sat.i64(i64, i64) {
 ; Z80-NEXT:  ; %bb.6:
 ; Z80-NEXT:    ld e, (ix - 10)
 ; Z80-NEXT:    ld d, (ix - 9)
+; Z80-NEXT:    private BB23_7
 ; Z80-NEXT:  BB23_7:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    ld c, iyl
@@ -3452,6 +3685,7 @@ define i64 @ushl.sat.i64(i64, i64) {
 ; Z80-NEXT:  ; %bb.8:
 ; Z80-NEXT:    ld c, (ix - 8)
 ; Z80-NEXT:    ld b, (ix - 7)
+; Z80-NEXT:    private BB23_9
 ; Z80-NEXT:  BB23_9:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB23_11
@@ -3461,6 +3695,7 @@ define i64 @ushl.sat.i64(i64, i64) {
 ; Z80-NEXT:    ld h, (ix - 5)
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop iy
+; Z80-NEXT:    private BB23_11
 ; Z80-NEXT:  BB23_11:
 ; Z80-NEXT:    ld sp, ix
 ; Z80-NEXT:    pop ix
@@ -3517,15 +3752,16 @@ define i64 @ushl.sat.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld sp, hl
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld l, (ix - 4)
-; EZ80-CODE16-NEXT:    ; kill: def $h killed $a
 ; EZ80-CODE16-NEXT:    ex (sp), hl
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    jr nz, BB23_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld a, 0
 ; EZ80-CODE16-NEXT:    jr BB23_3
+; EZ80-CODE16-NEXT:    private BB23_2
 ; EZ80-CODE16-NEXT:  BB23_2:
 ; EZ80-CODE16-NEXT:    ld a, 1
+; EZ80-CODE16-NEXT:    private BB23_3
 ; EZ80-CODE16-NEXT:  BB23_3:
 ; EZ80-CODE16-NEXT:    ld iy, -1
 ; EZ80-CODE16-NEXT:    bit 0, a
@@ -3533,23 +3769,27 @@ define i64 @ushl.sat.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:    jr nz, BB23_5
 ; EZ80-CODE16-NEXT:  ; %bb.4:
 ; EZ80-CODE16-NEXT:    ld hl, (ix - 2)
+; EZ80-CODE16-NEXT:    private BB23_5
 ; EZ80-CODE16-NEXT:  BB23_5:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    lea de, iy + 0
 ; EZ80-CODE16-NEXT:    jr nz, BB23_7
 ; EZ80-CODE16-NEXT:  ; %bb.6:
 ; EZ80-CODE16-NEXT:    ld de, (ix - 10)
+; EZ80-CODE16-NEXT:    private BB23_7
 ; EZ80-CODE16-NEXT:  BB23_7:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    lea bc, iy + 0
 ; EZ80-CODE16-NEXT:    jr nz, BB23_9
 ; EZ80-CODE16-NEXT:  ; %bb.8:
 ; EZ80-CODE16-NEXT:    ld bc, (ix - 8)
+; EZ80-CODE16-NEXT:    private BB23_9
 ; EZ80-CODE16-NEXT:  BB23_9:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB23_11
 ; EZ80-CODE16-NEXT:  ; %bb.10:
 ; EZ80-CODE16-NEXT:    ld iy, (ix - 6)
+; EZ80-CODE16-NEXT:    private BB23_11
 ; EZ80-CODE16-NEXT:  BB23_11:
 ; EZ80-CODE16-NEXT:    ld sp, ix
 ; EZ80-CODE16-NEXT:    pop ix
@@ -3569,20 +3809,16 @@ define i64 @ushl.sat.i64(i64, i64) {
 ; EZ80-NEXT:    push iy
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llshl
-; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop iy
-; EZ80-NEXT:    pop hl
-; EZ80-NEXT:    ld hl, (ix + 15)
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    ld (ix - 9), iy
-; EZ80-NEXT:    lea hl, iy + 0
+; EZ80-NEXT:    ld iy, (ix + 15)
+; EZ80-NEXT:    push iy
+; EZ80-NEXT:    ld (ix - 9), hl
 ; EZ80-NEXT:    ld (ix - 6), de
 ; EZ80-NEXT:    ld (ix - 2), c
 ; EZ80-NEXT:    ld (ix - 1), b
 ; EZ80-NEXT:    call __llshru
 ; EZ80-NEXT:    ; kill: def $bc killed $bc def $ubc
 ; EZ80-NEXT:    pop iy
-; EZ80-NEXT:    ld iy, -1
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
@@ -3600,40 +3836,47 @@ define i64 @ushl.sat.i64(i64, i64) {
 ; EZ80-NEXT:    ld sp, hl
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld l, (ix - 3)
-; EZ80-NEXT:    ; kill: def $h killed $a
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    jr nz, BB23_2
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld a, 0
 ; EZ80-NEXT:    jr BB23_3
+; EZ80-NEXT:    private BB23_2
 ; EZ80-NEXT:  BB23_2:
 ; EZ80-NEXT:    ld a, 1
+; EZ80-NEXT:    private BB23_3
 ; EZ80-NEXT:  BB23_3:
+; EZ80-NEXT:    ld de, -1
 ; EZ80-NEXT:    bit 0, a
-; EZ80-NEXT:    lea hl, iy + 0
+; EZ80-NEXT:    push de
+; EZ80-NEXT:    pop hl
 ; EZ80-NEXT:    ld c, (ix - 2)
 ; EZ80-NEXT:    ld b, (ix - 1)
 ; EZ80-NEXT:    jp z, BB23_8
 ; EZ80-NEXT:  ; %bb.4:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp z, BB23_9
+; EZ80-NEXT:    private BB23_5
 ; EZ80-NEXT:  BB23_5:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr z, BB23_7
+; EZ80-NEXT:    private BB23_6
 ; EZ80-NEXT:  BB23_6:
 ; EZ80-NEXT:    ld.sis bc, -1
+; EZ80-NEXT:    private BB23_7
 ; EZ80-NEXT:  BB23_7:
-; EZ80-NEXT:    lea de, iy + 0
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
+; EZ80-NEXT:    private BB23_8
 ; EZ80-NEXT:  BB23_8:
 ; EZ80-NEXT:    ld hl, (ix - 9)
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp nz, BB23_5
+; EZ80-NEXT:    private BB23_9
 ; EZ80-NEXT:  BB23_9:
-; EZ80-NEXT:    ld iy, (ix - 6)
+; EZ80-NEXT:    ld de, (ix - 6)
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp nz, BB23_6
 ; EZ80-NEXT:    jp BB23_7
@@ -4190,8 +4433,7 @@ define i8 @smul.fix.sat.i8.7(i8, i8) {
 ; Z80-NEXT:    ld l, a
 ; Z80-NEXT:    rlc l
 ; Z80-NEXT:    sbc hl, hl
-; Z80-NEXT:    ld e, l
-; Z80-NEXT:    ld d, h
+; Z80-NEXT:    ex de, hl
 ; Z80-NEXT:    ld e, a
 ; Z80-NEXT:    ld a, c
 ; Z80-NEXT:    ld iyl, c
@@ -4216,6 +4458,7 @@ define i8 @smul.fix.sat.i8.7(i8, i8) {
 ; Z80-NEXT:    jr nc, BB32_2
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld de, -128
+; Z80-NEXT:    private BB32_2
 ; Z80-NEXT:  BB32_2:
 ; Z80-NEXT:    ld l, e
 ; Z80-NEXT:    ld h, d
@@ -4228,6 +4471,7 @@ define i8 @smul.fix.sat.i8.7(i8, i8) {
 ; Z80-NEXT:    jr c, BB32_4
 ; Z80-NEXT:  ; %bb.3:
 ; Z80-NEXT:    ld de, 127
+; Z80-NEXT:    private BB32_4
 ; Z80-NEXT:  BB32_4:
 ; Z80-NEXT:    ld a, e
 ; Z80-NEXT:    ret
@@ -4241,8 +4485,7 @@ define i8 @smul.fix.sat.i8.7(i8, i8) {
 ; EZ80-CODE16-NEXT:    ld l, a
 ; EZ80-CODE16-NEXT:    rlc l
 ; EZ80-CODE16-NEXT:    sbc hl, hl
-; EZ80-CODE16-NEXT:    ld e, l
-; EZ80-CODE16-NEXT:    ld d, h
+; EZ80-CODE16-NEXT:    ex de, hl
 ; EZ80-CODE16-NEXT:    ld e, a
 ; EZ80-CODE16-NEXT:    ld a, c
 ; EZ80-CODE16-NEXT:    ld iyl, c
@@ -4267,6 +4510,7 @@ define i8 @smul.fix.sat.i8.7(i8, i8) {
 ; EZ80-CODE16-NEXT:    jr nc, BB32_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld de, -128
+; EZ80-CODE16-NEXT:    private BB32_2
 ; EZ80-CODE16-NEXT:  BB32_2:
 ; EZ80-CODE16-NEXT:    ld l, e
 ; EZ80-CODE16-NEXT:    ld h, d
@@ -4278,6 +4522,7 @@ define i8 @smul.fix.sat.i8.7(i8, i8) {
 ; EZ80-CODE16-NEXT:    jr c, BB32_4
 ; EZ80-CODE16-NEXT:  ; %bb.3:
 ; EZ80-CODE16-NEXT:    ld de, 127
+; EZ80-CODE16-NEXT:    private BB32_4
 ; EZ80-CODE16-NEXT:  BB32_4:
 ; EZ80-CODE16-NEXT:    ld a, e
 ; EZ80-CODE16-NEXT:    ret
@@ -4291,8 +4536,7 @@ define i8 @smul.fix.sat.i8.7(i8, i8) {
 ; EZ80-NEXT:    ld l, a
 ; EZ80-NEXT:    rlc l
 ; EZ80-NEXT:    sbc.sis hl, hl
-; EZ80-NEXT:    ld e, l
-; EZ80-NEXT:    ld d, h
+; EZ80-NEXT:    ex.sis de, hl
 ; EZ80-NEXT:    ld e, a
 ; EZ80-NEXT:    ld a, c
 ; EZ80-NEXT:    ld iyl, c
@@ -4301,8 +4545,7 @@ define i8 @smul.fix.sat.i8.7(i8, i8) {
 ; EZ80-NEXT:    ld c, l
 ; EZ80-NEXT:    ld b, h
 ; EZ80-NEXT:    ld c, iyl
-; EZ80-NEXT:    ld l, e
-; EZ80-NEXT:    ld h, d
+; EZ80-NEXT:    ex.sis de, hl
 ; EZ80-NEXT:    call __smulu
 ; EZ80-NEXT:    ld c, 7
 ; EZ80-NEXT:    call __sshrs
@@ -4318,6 +4561,7 @@ define i8 @smul.fix.sat.i8.7(i8, i8) {
 ; EZ80-NEXT:    jr nc, BB32_2
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld.sis de, -128
+; EZ80-NEXT:    private BB32_2
 ; EZ80-NEXT:  BB32_2:
 ; EZ80-NEXT:    ld l, e
 ; EZ80-NEXT:    ld h, d
@@ -4330,6 +4574,7 @@ define i8 @smul.fix.sat.i8.7(i8, i8) {
 ; EZ80-NEXT:    jr c, BB32_4
 ; EZ80-NEXT:  ; %bb.3:
 ; EZ80-NEXT:    ld.sis de, 127
+; EZ80-NEXT:    private BB32_4
 ; EZ80-NEXT:  BB32_4:
 ; EZ80-NEXT:    ld a, e
 ; EZ80-NEXT:    ret
@@ -4350,8 +4595,7 @@ define i16 @smul.fix.sat.i16.7(i16, i16) {
 ; Z80-NEXT:    ld b, (ix + 7)
 ; Z80-NEXT:    add hl, hl
 ; Z80-NEXT:    sbc hl, hl
-; Z80-NEXT:    ld e, l
-; Z80-NEXT:    ld d, h
+; Z80-NEXT:    ex de, hl
 ; Z80-NEXT:    ld l, c
 ; Z80-NEXT:    ld h, b
 ; Z80-NEXT:    add hl, hl
@@ -4385,19 +4629,23 @@ define i16 @smul.fix.sat.i16.7(i16, i16) {
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr z, BB33_3
 ; Z80-NEXT:    jr BB33_4
+; Z80-NEXT:    private BB33_2
 ; Z80-NEXT:  BB33_2:
 ; Z80-NEXT:    ld a, 1
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB33_4
+; Z80-NEXT:    private BB33_3
 ; Z80-NEXT:  BB33_3:
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
+; Z80-NEXT:    private BB33_4
 ; Z80-NEXT:  BB33_4:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB33_6
 ; Z80-NEXT:  ; %bb.5:
 ; Z80-NEXT:    ld iyl, e
 ; Z80-NEXT:    ld iyh, d
+; Z80-NEXT:    private BB33_6
 ; Z80-NEXT:  BB33_6:
 ; Z80-NEXT:    ld bc, 32767
 ; Z80-NEXT:    ld l, (ix - 2)
@@ -4411,6 +4659,7 @@ define i16 @smul.fix.sat.i16.7(i16, i16) {
 ; Z80-NEXT:  ; %bb.7:
 ; Z80-NEXT:    ld l, c
 ; Z80-NEXT:    ld h, b
+; Z80-NEXT:    private BB33_8
 ; Z80-NEXT:  BB33_8:
 ; Z80-NEXT:    ld sp, ix
 ; Z80-NEXT:    pop ix
@@ -4426,8 +4675,7 @@ define i16 @smul.fix.sat.i16.7(i16, i16) {
 ; EZ80-CODE16-NEXT:    ld bc, (ix + 6)
 ; EZ80-CODE16-NEXT:    add hl, hl
 ; EZ80-CODE16-NEXT:    sbc hl, hl
-; EZ80-CODE16-NEXT:    ld e, l
-; EZ80-CODE16-NEXT:    ld d, h
+; EZ80-CODE16-NEXT:    ex de, hl
 ; EZ80-CODE16-NEXT:    ld l, c
 ; EZ80-CODE16-NEXT:    ld h, b
 ; EZ80-CODE16-NEXT:    add hl, hl
@@ -4459,18 +4707,22 @@ define i16 @smul.fix.sat.i16.7(i16, i16) {
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr z, BB33_3
 ; EZ80-CODE16-NEXT:    jr BB33_4
+; EZ80-CODE16-NEXT:    private BB33_2
 ; EZ80-CODE16-NEXT:  BB33_2:
 ; EZ80-CODE16-NEXT:    ld a, 1
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB33_4
+; EZ80-CODE16-NEXT:    private BB33_3
 ; EZ80-CODE16-NEXT:  BB33_3:
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
+; EZ80-CODE16-NEXT:    private BB33_4
 ; EZ80-CODE16-NEXT:  BB33_4:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB33_6
 ; EZ80-CODE16-NEXT:  ; %bb.5:
 ; EZ80-CODE16-NEXT:    ld iyl, e
 ; EZ80-CODE16-NEXT:    ld iyh, d
+; EZ80-CODE16-NEXT:    private BB33_6
 ; EZ80-CODE16-NEXT:  BB33_6:
 ; EZ80-CODE16-NEXT:    ld bc, 32767
 ; EZ80-CODE16-NEXT:    ld hl, (ix - 2)
@@ -4482,6 +4734,7 @@ define i16 @smul.fix.sat.i16.7(i16, i16) {
 ; EZ80-CODE16-NEXT:  ; %bb.7:
 ; EZ80-CODE16-NEXT:    ld l, c
 ; EZ80-CODE16-NEXT:    ld h, b
+; EZ80-CODE16-NEXT:    private BB33_8
 ; EZ80-CODE16-NEXT:  BB33_8:
 ; EZ80-CODE16-NEXT:    ld sp, ix
 ; EZ80-CODE16-NEXT:    pop ix
@@ -4497,8 +4750,7 @@ define i16 @smul.fix.sat.i16.7(i16, i16) {
 ; EZ80-NEXT:    ld l, a
 ; EZ80-NEXT:    rlc l
 ; EZ80-NEXT:    sbc hl, hl
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop de
+; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ld e, c
 ; EZ80-NEXT:    ld d, b
 ; EZ80-NEXT:    rlc a
@@ -4522,7 +4774,6 @@ define i16 @smul.fix.sat.i16.7(i16, i16) {
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop bc
 ; EZ80-NEXT:    ld a, e
-; EZ80-NEXT:    ld d, 0
 ; EZ80-NEXT:    ld l, 7
 ; EZ80-NEXT:    call __lshrs
 ; EZ80-NEXT:    push bc
@@ -4537,18 +4788,23 @@ define i16 @smul.fix.sat.i16.7(i16, i16) {
 ; EZ80-NEXT:    bit 0, c
 ; EZ80-NEXT:    jr z, BB33_3
 ; EZ80-NEXT:    jr BB33_4
+; EZ80-NEXT:    private BB33_2
 ; EZ80-NEXT:  BB33_2:
 ; EZ80-NEXT:    ld c, 1
 ; EZ80-NEXT:    bit 0, c
 ; EZ80-NEXT:    jr nz, BB33_4
+; EZ80-NEXT:    private BB33_3
 ; EZ80-NEXT:  BB33_3:
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop iy
+; EZ80-NEXT:    private BB33_4
 ; EZ80-NEXT:  BB33_4:
+; EZ80-NEXT:    ld d, 0
 ; EZ80-NEXT:    bit 0, c
 ; EZ80-NEXT:    jr nz, BB33_6
 ; EZ80-NEXT:  ; %bb.5:
 ; EZ80-NEXT:    ld a, e
+; EZ80-NEXT:    private BB33_6
 ; EZ80-NEXT:  BB33_6:
 ; EZ80-NEXT:    ld bc, 32767
 ; EZ80-NEXT:    lea hl, iy + 0
@@ -4560,6 +4816,7 @@ define i16 @smul.fix.sat.i16.7(i16, i16) {
 ; EZ80-NEXT:  ; %bb.7:
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    pop iy
+; EZ80-NEXT:    private BB33_8
 ; EZ80-NEXT:  BB33_8:
 ; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ld e, iyl
@@ -4584,8 +4841,7 @@ define i16 @smul.fix.sat.i16.15(i16, i16) {
 ; Z80-NEXT:    ld a, 15
 ; Z80-NEXT:    add hl, hl
 ; Z80-NEXT:    sbc hl, hl
-; Z80-NEXT:    ld e, l
-; Z80-NEXT:    ld d, h
+; Z80-NEXT:    ex de, hl
 ; Z80-NEXT:    ld l, c
 ; Z80-NEXT:    ld h, b
 ; Z80-NEXT:    add hl, hl
@@ -4618,19 +4874,23 @@ define i16 @smul.fix.sat.i16.15(i16, i16) {
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr z, BB34_3
 ; Z80-NEXT:    jr BB34_4
+; Z80-NEXT:    private BB34_2
 ; Z80-NEXT:  BB34_2:
 ; Z80-NEXT:    ld a, 1
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB34_4
+; Z80-NEXT:    private BB34_3
 ; Z80-NEXT:  BB34_3:
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
+; Z80-NEXT:    private BB34_4
 ; Z80-NEXT:  BB34_4:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB34_6
 ; Z80-NEXT:  ; %bb.5:
 ; Z80-NEXT:    ld iyl, e
 ; Z80-NEXT:    ld iyh, d
+; Z80-NEXT:    private BB34_6
 ; Z80-NEXT:  BB34_6:
 ; Z80-NEXT:    ld bc, 32767
 ; Z80-NEXT:    ld l, (ix - 2)
@@ -4644,6 +4904,7 @@ define i16 @smul.fix.sat.i16.15(i16, i16) {
 ; Z80-NEXT:  ; %bb.7:
 ; Z80-NEXT:    ld l, c
 ; Z80-NEXT:    ld h, b
+; Z80-NEXT:    private BB34_8
 ; Z80-NEXT:  BB34_8:
 ; Z80-NEXT:    ld sp, ix
 ; Z80-NEXT:    pop ix
@@ -4660,8 +4921,7 @@ define i16 @smul.fix.sat.i16.15(i16, i16) {
 ; EZ80-CODE16-NEXT:    ld a, 15
 ; EZ80-CODE16-NEXT:    add hl, hl
 ; EZ80-CODE16-NEXT:    sbc hl, hl
-; EZ80-CODE16-NEXT:    ld e, l
-; EZ80-CODE16-NEXT:    ld d, h
+; EZ80-CODE16-NEXT:    ex de, hl
 ; EZ80-CODE16-NEXT:    ld l, c
 ; EZ80-CODE16-NEXT:    ld h, b
 ; EZ80-CODE16-NEXT:    add hl, hl
@@ -4692,18 +4952,22 @@ define i16 @smul.fix.sat.i16.15(i16, i16) {
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr z, BB34_3
 ; EZ80-CODE16-NEXT:    jr BB34_4
+; EZ80-CODE16-NEXT:    private BB34_2
 ; EZ80-CODE16-NEXT:  BB34_2:
 ; EZ80-CODE16-NEXT:    ld a, 1
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB34_4
+; EZ80-CODE16-NEXT:    private BB34_3
 ; EZ80-CODE16-NEXT:  BB34_3:
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
+; EZ80-CODE16-NEXT:    private BB34_4
 ; EZ80-CODE16-NEXT:  BB34_4:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB34_6
 ; EZ80-CODE16-NEXT:  ; %bb.5:
 ; EZ80-CODE16-NEXT:    ld iyl, e
 ; EZ80-CODE16-NEXT:    ld iyh, d
+; EZ80-CODE16-NEXT:    private BB34_6
 ; EZ80-CODE16-NEXT:  BB34_6:
 ; EZ80-CODE16-NEXT:    ld bc, 32767
 ; EZ80-CODE16-NEXT:    ld hl, (ix - 2)
@@ -4715,6 +4979,7 @@ define i16 @smul.fix.sat.i16.15(i16, i16) {
 ; EZ80-CODE16-NEXT:  ; %bb.7:
 ; EZ80-CODE16-NEXT:    ld l, c
 ; EZ80-CODE16-NEXT:    ld h, b
+; EZ80-CODE16-NEXT:    private BB34_8
 ; EZ80-CODE16-NEXT:  BB34_8:
 ; EZ80-CODE16-NEXT:    ld sp, ix
 ; EZ80-CODE16-NEXT:    pop ix
@@ -4730,8 +4995,7 @@ define i16 @smul.fix.sat.i16.15(i16, i16) {
 ; EZ80-NEXT:    ld l, a
 ; EZ80-NEXT:    rlc l
 ; EZ80-NEXT:    sbc hl, hl
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop de
+; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ld e, c
 ; EZ80-NEXT:    ld d, b
 ; EZ80-NEXT:    rlc a
@@ -4755,7 +5019,6 @@ define i16 @smul.fix.sat.i16.15(i16, i16) {
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop bc
 ; EZ80-NEXT:    ld a, e
-; EZ80-NEXT:    ld d, 0
 ; EZ80-NEXT:    ld l, 15
 ; EZ80-NEXT:    call __lshrs
 ; EZ80-NEXT:    push bc
@@ -4770,18 +5033,23 @@ define i16 @smul.fix.sat.i16.15(i16, i16) {
 ; EZ80-NEXT:    bit 0, c
 ; EZ80-NEXT:    jr z, BB34_3
 ; EZ80-NEXT:    jr BB34_4
+; EZ80-NEXT:    private BB34_2
 ; EZ80-NEXT:  BB34_2:
 ; EZ80-NEXT:    ld c, 1
 ; EZ80-NEXT:    bit 0, c
 ; EZ80-NEXT:    jr nz, BB34_4
+; EZ80-NEXT:    private BB34_3
 ; EZ80-NEXT:  BB34_3:
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop iy
+; EZ80-NEXT:    private BB34_4
 ; EZ80-NEXT:  BB34_4:
+; EZ80-NEXT:    ld d, 0
 ; EZ80-NEXT:    bit 0, c
 ; EZ80-NEXT:    jr nz, BB34_6
 ; EZ80-NEXT:  ; %bb.5:
 ; EZ80-NEXT:    ld a, e
+; EZ80-NEXT:    private BB34_6
 ; EZ80-NEXT:  BB34_6:
 ; EZ80-NEXT:    ld bc, 32767
 ; EZ80-NEXT:    lea hl, iy + 0
@@ -4793,6 +5061,7 @@ define i16 @smul.fix.sat.i16.15(i16, i16) {
 ; EZ80-NEXT:  ; %bb.7:
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    pop iy
+; EZ80-NEXT:    private BB34_8
 ; EZ80-NEXT:  BB34_8:
 ; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ld e, iyl
@@ -4886,7 +5155,6 @@ define i32 @smul.fix.sat.i32.15(i32, i32) {
 ; Z80-NEXT:    ld sp, hl
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 9)
-; Z80-NEXT:    ; kill: def $h killed $a
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    call pe, __setflag
@@ -4894,8 +5162,10 @@ define i32 @smul.fix.sat.i32.15(i32, i32) {
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld a, 0
 ; Z80-NEXT:    jr BB35_3
+; Z80-NEXT:    private BB35_2
 ; Z80-NEXT:  BB35_2:
 ; Z80-NEXT:    ld a, 1
+; Z80-NEXT:    private BB35_3
 ; Z80-NEXT:  BB35_3:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    ld hl, 0
@@ -4906,18 +5176,22 @@ define i32 @smul.fix.sat.i32.15(i32, i32) {
 ; Z80-NEXT:    ld h, (ix - 7)
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop iy
-; Z80-NEXT:    jp z, BB35_10
+; Z80-NEXT:    jr z, BB35_10
 ; Z80-NEXT:  ; %bb.4:
 ; Z80-NEXT:    bit 0, a
-; Z80-NEXT:    jp z, BB35_11
+; Z80-NEXT:    jr z, BB35_11
+; Z80-NEXT:    private BB35_5
 ; Z80-NEXT:  BB35_5:
 ; Z80-NEXT:    bit 0, a
-; Z80-NEXT:    jp z, BB35_12
+; Z80-NEXT:    jr z, BB35_12
+; Z80-NEXT:    private BB35_6
 ; Z80-NEXT:  BB35_6:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB35_8
+; Z80-NEXT:    private BB35_7
 ; Z80-NEXT:  BB35_7:
 ; Z80-NEXT:    ld iy, -1
+; Z80-NEXT:    private BB35_8
 ; Z80-NEXT:  BB35_8:
 ; Z80-NEXT:    ld de, 32767
 ; Z80-NEXT:    push hl
@@ -4940,7 +5214,6 @@ define i32 @smul.fix.sat.i32.15(i32, i32) {
 ; Z80-NEXT:    ld sp, iy
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 6)
-; Z80-NEXT:    ; kill: def $h killed $a
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    call pe, __setflag
@@ -4950,29 +5223,35 @@ define i32 @smul.fix.sat.i32.15(i32, i32) {
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr z, BB35_14
 ; Z80-NEXT:    jr BB35_15
+; Z80-NEXT:    private BB35_10
 ; Z80-NEXT:  BB35_10:
 ; Z80-NEXT:    ld (ix - 4), l
 ; Z80-NEXT:    ld (ix - 3), h
 ; Z80-NEXT:    bit 0, a
-; Z80-NEXT:    jp nz, BB35_5
+; Z80-NEXT:    jr nz, BB35_5
+; Z80-NEXT:    private BB35_11
 ; Z80-NEXT:  BB35_11:
 ; Z80-NEXT:    ld (ix - 2), e
 ; Z80-NEXT:    ld (ix - 1), d
 ; Z80-NEXT:    bit 0, a
-; Z80-NEXT:    jp nz, BB35_6
+; Z80-NEXT:    jr nz, BB35_6
+; Z80-NEXT:    private BB35_12
 ; Z80-NEXT:  BB35_12:
 ; Z80-NEXT:    ld de, -1
 ; Z80-NEXT:    ld c, e
 ; Z80-NEXT:    ld b, d
 ; Z80-NEXT:    bit 0, a
-; Z80-NEXT:    jp z, BB35_7
-; Z80-NEXT:    jp BB35_8
+; Z80-NEXT:    jr z, BB35_7
+; Z80-NEXT:    jr BB35_8
+; Z80-NEXT:    private BB35_13
 ; Z80-NEXT:  BB35_13:
 ; Z80-NEXT:    ld a, 1
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB35_15
+; Z80-NEXT:    private BB35_14
 ; Z80-NEXT:  BB35_14:
 ; Z80-NEXT:    ld hl, -1
+; Z80-NEXT:    private BB35_15
 ; Z80-NEXT:  BB35_15:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB35_17
@@ -4980,6 +5259,7 @@ define i32 @smul.fix.sat.i32.15(i32, i32) {
 ; Z80-NEXT:    ld de, 32767
 ; Z80-NEXT:    ld (ix - 2), e
 ; Z80-NEXT:    ld (ix - 1), d
+; Z80-NEXT:    private BB35_17
 ; Z80-NEXT:  BB35_17:
 ; Z80-NEXT:    ld e, (ix - 2)
 ; Z80-NEXT:    ld d, (ix - 1)
@@ -5048,7 +5328,6 @@ define i32 @smul.fix.sat.i32.15(i32, i32) {
 ; EZ80-CODE16-NEXT:    ld sp, hl
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld l, (ix - 9)
-; EZ80-CODE16-NEXT:    ; kill: def $h killed $a
 ; EZ80-CODE16-NEXT:    ex (sp), hl
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    call pe, __setflag
@@ -5056,25 +5335,31 @@ define i32 @smul.fix.sat.i32.15(i32, i32) {
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld a, 0
 ; EZ80-CODE16-NEXT:    jr BB35_3
+; EZ80-CODE16-NEXT:    private BB35_2
 ; EZ80-CODE16-NEXT:  BB35_2:
 ; EZ80-CODE16-NEXT:    ld a, 1
+; EZ80-CODE16-NEXT:    private BB35_3
 ; EZ80-CODE16-NEXT:  BB35_3:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    ld hl, 0
 ; EZ80-CODE16-NEXT:    ld bc, (ix - 6)
 ; EZ80-CODE16-NEXT:    ld iy, (ix - 8)
-; EZ80-CODE16-NEXT:    jp z, BB35_10
+; EZ80-CODE16-NEXT:    jr z, BB35_10
 ; EZ80-CODE16-NEXT:  ; %bb.4:
 ; EZ80-CODE16-NEXT:    bit 0, a
-; EZ80-CODE16-NEXT:    jp z, BB35_11
+; EZ80-CODE16-NEXT:    jr z, BB35_11
+; EZ80-CODE16-NEXT:    private BB35_5
 ; EZ80-CODE16-NEXT:  BB35_5:
 ; EZ80-CODE16-NEXT:    bit 0, a
-; EZ80-CODE16-NEXT:    jp z, BB35_12
+; EZ80-CODE16-NEXT:    jr z, BB35_12
+; EZ80-CODE16-NEXT:    private BB35_6
 ; EZ80-CODE16-NEXT:  BB35_6:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB35_8
+; EZ80-CODE16-NEXT:    private BB35_7
 ; EZ80-CODE16-NEXT:  BB35_7:
 ; EZ80-CODE16-NEXT:    ld iy, -1
+; EZ80-CODE16-NEXT:    private BB35_8
 ; EZ80-CODE16-NEXT:  BB35_8:
 ; EZ80-CODE16-NEXT:    ld de, 32767
 ; EZ80-CODE16-NEXT:    push hl
@@ -5095,7 +5380,6 @@ define i32 @smul.fix.sat.i32.15(i32, i32) {
 ; EZ80-CODE16-NEXT:    ld sp, iy
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld l, (ix - 6)
-; EZ80-CODE16-NEXT:    ; kill: def $h killed $a
 ; EZ80-CODE16-NEXT:    ex (sp), hl
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    call pe, __setflag
@@ -5105,33 +5389,40 @@ define i32 @smul.fix.sat.i32.15(i32, i32) {
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr z, BB35_14
 ; EZ80-CODE16-NEXT:    jr BB35_15
+; EZ80-CODE16-NEXT:    private BB35_10
 ; EZ80-CODE16-NEXT:  BB35_10:
 ; EZ80-CODE16-NEXT:    ld (ix - 4), hl
 ; EZ80-CODE16-NEXT:    bit 0, a
-; EZ80-CODE16-NEXT:    jp nz, BB35_5
+; EZ80-CODE16-NEXT:    jr nz, BB35_5
+; EZ80-CODE16-NEXT:    private BB35_11
 ; EZ80-CODE16-NEXT:  BB35_11:
 ; EZ80-CODE16-NEXT:    ld (ix - 2), de
 ; EZ80-CODE16-NEXT:    bit 0, a
-; EZ80-CODE16-NEXT:    jp nz, BB35_6
+; EZ80-CODE16-NEXT:    jr nz, BB35_6
+; EZ80-CODE16-NEXT:    private BB35_12
 ; EZ80-CODE16-NEXT:  BB35_12:
 ; EZ80-CODE16-NEXT:    ld de, -1
 ; EZ80-CODE16-NEXT:    ld c, e
 ; EZ80-CODE16-NEXT:    ld b, d
 ; EZ80-CODE16-NEXT:    bit 0, a
-; EZ80-CODE16-NEXT:    jp z, BB35_7
-; EZ80-CODE16-NEXT:    jp BB35_8
+; EZ80-CODE16-NEXT:    jr z, BB35_7
+; EZ80-CODE16-NEXT:    jr BB35_8
+; EZ80-CODE16-NEXT:    private BB35_13
 ; EZ80-CODE16-NEXT:  BB35_13:
 ; EZ80-CODE16-NEXT:    ld a, 1
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB35_15
+; EZ80-CODE16-NEXT:    private BB35_14
 ; EZ80-CODE16-NEXT:  BB35_14:
 ; EZ80-CODE16-NEXT:    ld hl, -1
+; EZ80-CODE16-NEXT:    private BB35_15
 ; EZ80-CODE16-NEXT:  BB35_15:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB35_17
 ; EZ80-CODE16-NEXT:  ; %bb.16:
 ; EZ80-CODE16-NEXT:    ld de, 32767
 ; EZ80-CODE16-NEXT:    ld (ix - 2), de
+; EZ80-CODE16-NEXT:    private BB35_17
 ; EZ80-CODE16-NEXT:  BB35_17:
 ; EZ80-CODE16-NEXT:    ld de, (ix - 2)
 ; EZ80-CODE16-NEXT:    ld sp, ix
@@ -5157,8 +5448,7 @@ define i32 @smul.fix.sat.i32.15(i32, i32) {
 ; EZ80-NEXT:    ld l, c
 ; EZ80-NEXT:    rlc l
 ; EZ80-NEXT:    sbc hl, hl
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop de
+; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ld e, c
 ; EZ80-NEXT:    rlc c
 ; EZ80-NEXT:    sbc.sis hl, hl
@@ -5214,7 +5504,6 @@ define i32 @smul.fix.sat.i32.15(i32, i32) {
 ; EZ80-NEXT:    ld sp, hl
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld l, (ix - 18)
-; EZ80-NEXT:    ; kill: def $h killed $a
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    call pe, __setflag
@@ -5222,8 +5511,10 @@ define i32 @smul.fix.sat.i32.15(i32, i32) {
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld a, 0
 ; EZ80-NEXT:    jr BB35_3
+; EZ80-NEXT:    private BB35_2
 ; EZ80-NEXT:  BB35_2:
 ; EZ80-NEXT:    ld a, 1
+; EZ80-NEXT:    private BB35_3
 ; EZ80-NEXT:  BB35_3:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    ld iy, (ix - 17)
@@ -5231,13 +5522,16 @@ define i32 @smul.fix.sat.i32.15(i32, i32) {
 ; EZ80-NEXT:  ; %bb.4:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp z, BB35_10
+; EZ80-NEXT:    private BB35_5
 ; EZ80-NEXT:  BB35_5:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp nz, BB35_7
+; EZ80-NEXT:    private BB35_6
 ; EZ80-NEXT:  BB35_6:
 ; EZ80-NEXT:    ld.sis hl, -1
 ; EZ80-NEXT:    ; kill: def $hl killed $hl def $uhl
 ; EZ80-NEXT:    ld (ix - 14), hl
+; EZ80-NEXT:    private BB35_7
 ; EZ80-NEXT:  BB35_7:
 ; EZ80-NEXT:    ld bc, -1
 ; EZ80-NEXT:    ld de, 127
@@ -5260,7 +5554,6 @@ define i32 @smul.fix.sat.i32.15(i32, i32) {
 ; EZ80-NEXT:    ld sp, hl
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld l, (ix - 14)
-; EZ80-NEXT:    ; kill: def $h killed $a
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    call pe, __setflag
@@ -5270,30 +5563,36 @@ define i32 @smul.fix.sat.i32.15(i32, i32) {
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr z, BB35_12
 ; EZ80-NEXT:    jr BB35_13
+; EZ80-NEXT:    private BB35_9
 ; EZ80-NEXT:  BB35_9:
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ld (ix - 11), hl
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp nz, BB35_5
+; EZ80-NEXT:    private BB35_10
 ; EZ80-NEXT:  BB35_10:
 ; EZ80-NEXT:    ld iy, -128
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp z, BB35_6
 ; EZ80-NEXT:    jp BB35_7
+; EZ80-NEXT:    private BB35_11
 ; EZ80-NEXT:  BB35_11:
 ; EZ80-NEXT:    ld a, 1
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB35_13
+; EZ80-NEXT:    private BB35_12
 ; EZ80-NEXT:  BB35_12:
 ; EZ80-NEXT:    scf
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ld (ix - 11), hl
+; EZ80-NEXT:    private BB35_13
 ; EZ80-NEXT:  BB35_13:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB35_15
 ; EZ80-NEXT:  ; %bb.14:
 ; EZ80-NEXT:    ld iy, 127
+; EZ80-NEXT:    private BB35_15
 ; EZ80-NEXT:  BB35_15:
 ; EZ80-NEXT:    ld e, iyl
 ; EZ80-NEXT:    ld hl, (ix - 11)
@@ -5385,7 +5684,6 @@ define i32 @smul.fix.sat.i32.31(i32, i32) {
 ; Z80-NEXT:    ld sp, hl
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 9)
-; Z80-NEXT:    ; kill: def $h killed $a
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    call pe, __setflag
@@ -5393,8 +5691,10 @@ define i32 @smul.fix.sat.i32.31(i32, i32) {
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld a, 0
 ; Z80-NEXT:    jr BB36_3
+; Z80-NEXT:    private BB36_2
 ; Z80-NEXT:  BB36_2:
 ; Z80-NEXT:    ld a, 1
+; Z80-NEXT:    private BB36_3
 ; Z80-NEXT:  BB36_3:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    ld hl, 0
@@ -5405,18 +5705,22 @@ define i32 @smul.fix.sat.i32.31(i32, i32) {
 ; Z80-NEXT:    ld h, (ix - 7)
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop iy
-; Z80-NEXT:    jp z, BB36_10
+; Z80-NEXT:    jr z, BB36_10
 ; Z80-NEXT:  ; %bb.4:
 ; Z80-NEXT:    bit 0, a
-; Z80-NEXT:    jp z, BB36_11
+; Z80-NEXT:    jr z, BB36_11
+; Z80-NEXT:    private BB36_5
 ; Z80-NEXT:  BB36_5:
 ; Z80-NEXT:    bit 0, a
-; Z80-NEXT:    jp z, BB36_12
+; Z80-NEXT:    jr z, BB36_12
+; Z80-NEXT:    private BB36_6
 ; Z80-NEXT:  BB36_6:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB36_8
+; Z80-NEXT:    private BB36_7
 ; Z80-NEXT:  BB36_7:
 ; Z80-NEXT:    ld iy, -1
+; Z80-NEXT:    private BB36_8
 ; Z80-NEXT:  BB36_8:
 ; Z80-NEXT:    ld de, 32767
 ; Z80-NEXT:    push hl
@@ -5439,7 +5743,6 @@ define i32 @smul.fix.sat.i32.31(i32, i32) {
 ; Z80-NEXT:    ld sp, iy
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 6)
-; Z80-NEXT:    ; kill: def $h killed $a
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    call pe, __setflag
@@ -5449,29 +5752,35 @@ define i32 @smul.fix.sat.i32.31(i32, i32) {
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr z, BB36_14
 ; Z80-NEXT:    jr BB36_15
+; Z80-NEXT:    private BB36_10
 ; Z80-NEXT:  BB36_10:
 ; Z80-NEXT:    ld (ix - 4), l
 ; Z80-NEXT:    ld (ix - 3), h
 ; Z80-NEXT:    bit 0, a
-; Z80-NEXT:    jp nz, BB36_5
+; Z80-NEXT:    jr nz, BB36_5
+; Z80-NEXT:    private BB36_11
 ; Z80-NEXT:  BB36_11:
 ; Z80-NEXT:    ld (ix - 2), e
 ; Z80-NEXT:    ld (ix - 1), d
 ; Z80-NEXT:    bit 0, a
-; Z80-NEXT:    jp nz, BB36_6
+; Z80-NEXT:    jr nz, BB36_6
+; Z80-NEXT:    private BB36_12
 ; Z80-NEXT:  BB36_12:
 ; Z80-NEXT:    ld de, -1
 ; Z80-NEXT:    ld c, e
 ; Z80-NEXT:    ld b, d
 ; Z80-NEXT:    bit 0, a
-; Z80-NEXT:    jp z, BB36_7
-; Z80-NEXT:    jp BB36_8
+; Z80-NEXT:    jr z, BB36_7
+; Z80-NEXT:    jr BB36_8
+; Z80-NEXT:    private BB36_13
 ; Z80-NEXT:  BB36_13:
 ; Z80-NEXT:    ld a, 1
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB36_15
+; Z80-NEXT:    private BB36_14
 ; Z80-NEXT:  BB36_14:
 ; Z80-NEXT:    ld hl, -1
+; Z80-NEXT:    private BB36_15
 ; Z80-NEXT:  BB36_15:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB36_17
@@ -5479,6 +5788,7 @@ define i32 @smul.fix.sat.i32.31(i32, i32) {
 ; Z80-NEXT:    ld de, 32767
 ; Z80-NEXT:    ld (ix - 2), e
 ; Z80-NEXT:    ld (ix - 1), d
+; Z80-NEXT:    private BB36_17
 ; Z80-NEXT:  BB36_17:
 ; Z80-NEXT:    ld e, (ix - 2)
 ; Z80-NEXT:    ld d, (ix - 1)
@@ -5547,7 +5857,6 @@ define i32 @smul.fix.sat.i32.31(i32, i32) {
 ; EZ80-CODE16-NEXT:    ld sp, hl
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld l, (ix - 9)
-; EZ80-CODE16-NEXT:    ; kill: def $h killed $a
 ; EZ80-CODE16-NEXT:    ex (sp), hl
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    call pe, __setflag
@@ -5555,25 +5864,31 @@ define i32 @smul.fix.sat.i32.31(i32, i32) {
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld a, 0
 ; EZ80-CODE16-NEXT:    jr BB36_3
+; EZ80-CODE16-NEXT:    private BB36_2
 ; EZ80-CODE16-NEXT:  BB36_2:
 ; EZ80-CODE16-NEXT:    ld a, 1
+; EZ80-CODE16-NEXT:    private BB36_3
 ; EZ80-CODE16-NEXT:  BB36_3:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    ld hl, 0
 ; EZ80-CODE16-NEXT:    ld bc, (ix - 6)
 ; EZ80-CODE16-NEXT:    ld iy, (ix - 8)
-; EZ80-CODE16-NEXT:    jp z, BB36_10
+; EZ80-CODE16-NEXT:    jr z, BB36_10
 ; EZ80-CODE16-NEXT:  ; %bb.4:
 ; EZ80-CODE16-NEXT:    bit 0, a
-; EZ80-CODE16-NEXT:    jp z, BB36_11
+; EZ80-CODE16-NEXT:    jr z, BB36_11
+; EZ80-CODE16-NEXT:    private BB36_5
 ; EZ80-CODE16-NEXT:  BB36_5:
 ; EZ80-CODE16-NEXT:    bit 0, a
-; EZ80-CODE16-NEXT:    jp z, BB36_12
+; EZ80-CODE16-NEXT:    jr z, BB36_12
+; EZ80-CODE16-NEXT:    private BB36_6
 ; EZ80-CODE16-NEXT:  BB36_6:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB36_8
+; EZ80-CODE16-NEXT:    private BB36_7
 ; EZ80-CODE16-NEXT:  BB36_7:
 ; EZ80-CODE16-NEXT:    ld iy, -1
+; EZ80-CODE16-NEXT:    private BB36_8
 ; EZ80-CODE16-NEXT:  BB36_8:
 ; EZ80-CODE16-NEXT:    ld de, 32767
 ; EZ80-CODE16-NEXT:    push hl
@@ -5594,7 +5909,6 @@ define i32 @smul.fix.sat.i32.31(i32, i32) {
 ; EZ80-CODE16-NEXT:    ld sp, iy
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld l, (ix - 6)
-; EZ80-CODE16-NEXT:    ; kill: def $h killed $a
 ; EZ80-CODE16-NEXT:    ex (sp), hl
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    call pe, __setflag
@@ -5604,33 +5918,40 @@ define i32 @smul.fix.sat.i32.31(i32, i32) {
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr z, BB36_14
 ; EZ80-CODE16-NEXT:    jr BB36_15
+; EZ80-CODE16-NEXT:    private BB36_10
 ; EZ80-CODE16-NEXT:  BB36_10:
 ; EZ80-CODE16-NEXT:    ld (ix - 4), hl
 ; EZ80-CODE16-NEXT:    bit 0, a
-; EZ80-CODE16-NEXT:    jp nz, BB36_5
+; EZ80-CODE16-NEXT:    jr nz, BB36_5
+; EZ80-CODE16-NEXT:    private BB36_11
 ; EZ80-CODE16-NEXT:  BB36_11:
 ; EZ80-CODE16-NEXT:    ld (ix - 2), de
 ; EZ80-CODE16-NEXT:    bit 0, a
-; EZ80-CODE16-NEXT:    jp nz, BB36_6
+; EZ80-CODE16-NEXT:    jr nz, BB36_6
+; EZ80-CODE16-NEXT:    private BB36_12
 ; EZ80-CODE16-NEXT:  BB36_12:
 ; EZ80-CODE16-NEXT:    ld de, -1
 ; EZ80-CODE16-NEXT:    ld c, e
 ; EZ80-CODE16-NEXT:    ld b, d
 ; EZ80-CODE16-NEXT:    bit 0, a
-; EZ80-CODE16-NEXT:    jp z, BB36_7
-; EZ80-CODE16-NEXT:    jp BB36_8
+; EZ80-CODE16-NEXT:    jr z, BB36_7
+; EZ80-CODE16-NEXT:    jr BB36_8
+; EZ80-CODE16-NEXT:    private BB36_13
 ; EZ80-CODE16-NEXT:  BB36_13:
 ; EZ80-CODE16-NEXT:    ld a, 1
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB36_15
+; EZ80-CODE16-NEXT:    private BB36_14
 ; EZ80-CODE16-NEXT:  BB36_14:
 ; EZ80-CODE16-NEXT:    ld hl, -1
+; EZ80-CODE16-NEXT:    private BB36_15
 ; EZ80-CODE16-NEXT:  BB36_15:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB36_17
 ; EZ80-CODE16-NEXT:  ; %bb.16:
 ; EZ80-CODE16-NEXT:    ld de, 32767
 ; EZ80-CODE16-NEXT:    ld (ix - 2), de
+; EZ80-CODE16-NEXT:    private BB36_17
 ; EZ80-CODE16-NEXT:  BB36_17:
 ; EZ80-CODE16-NEXT:    ld de, (ix - 2)
 ; EZ80-CODE16-NEXT:    ld sp, ix
@@ -5656,8 +5977,7 @@ define i32 @smul.fix.sat.i32.31(i32, i32) {
 ; EZ80-NEXT:    ld l, c
 ; EZ80-NEXT:    rlc l
 ; EZ80-NEXT:    sbc hl, hl
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop de
+; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ld e, c
 ; EZ80-NEXT:    rlc c
 ; EZ80-NEXT:    sbc.sis hl, hl
@@ -5713,7 +6033,6 @@ define i32 @smul.fix.sat.i32.31(i32, i32) {
 ; EZ80-NEXT:    ld sp, hl
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld l, (ix - 18)
-; EZ80-NEXT:    ; kill: def $h killed $a
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    call pe, __setflag
@@ -5721,8 +6040,10 @@ define i32 @smul.fix.sat.i32.31(i32, i32) {
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld a, 0
 ; EZ80-NEXT:    jr BB36_3
+; EZ80-NEXT:    private BB36_2
 ; EZ80-NEXT:  BB36_2:
 ; EZ80-NEXT:    ld a, 1
+; EZ80-NEXT:    private BB36_3
 ; EZ80-NEXT:  BB36_3:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    ld iy, (ix - 17)
@@ -5730,13 +6051,16 @@ define i32 @smul.fix.sat.i32.31(i32, i32) {
 ; EZ80-NEXT:  ; %bb.4:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp z, BB36_10
+; EZ80-NEXT:    private BB36_5
 ; EZ80-NEXT:  BB36_5:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp nz, BB36_7
+; EZ80-NEXT:    private BB36_6
 ; EZ80-NEXT:  BB36_6:
 ; EZ80-NEXT:    ld.sis hl, -1
 ; EZ80-NEXT:    ; kill: def $hl killed $hl def $uhl
 ; EZ80-NEXT:    ld (ix - 14), hl
+; EZ80-NEXT:    private BB36_7
 ; EZ80-NEXT:  BB36_7:
 ; EZ80-NEXT:    ld bc, -1
 ; EZ80-NEXT:    ld de, 127
@@ -5759,7 +6083,6 @@ define i32 @smul.fix.sat.i32.31(i32, i32) {
 ; EZ80-NEXT:    ld sp, hl
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld l, (ix - 14)
-; EZ80-NEXT:    ; kill: def $h killed $a
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    call pe, __setflag
@@ -5769,30 +6092,36 @@ define i32 @smul.fix.sat.i32.31(i32, i32) {
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr z, BB36_12
 ; EZ80-NEXT:    jr BB36_13
+; EZ80-NEXT:    private BB36_9
 ; EZ80-NEXT:  BB36_9:
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ld (ix - 11), hl
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp nz, BB36_5
+; EZ80-NEXT:    private BB36_10
 ; EZ80-NEXT:  BB36_10:
 ; EZ80-NEXT:    ld iy, -128
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp z, BB36_6
 ; EZ80-NEXT:    jp BB36_7
+; EZ80-NEXT:    private BB36_11
 ; EZ80-NEXT:  BB36_11:
 ; EZ80-NEXT:    ld a, 1
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB36_13
+; EZ80-NEXT:    private BB36_12
 ; EZ80-NEXT:  BB36_12:
 ; EZ80-NEXT:    scf
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ld (ix - 11), hl
+; EZ80-NEXT:    private BB36_13
 ; EZ80-NEXT:  BB36_13:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB36_15
 ; EZ80-NEXT:  ; %bb.14:
 ; EZ80-NEXT:    ld iy, 127
+; EZ80-NEXT:    private BB36_15
 ; EZ80-NEXT:  BB36_15:
 ; EZ80-NEXT:    ld e, iyl
 ; EZ80-NEXT:    ld hl, (ix - 11)
@@ -5927,8 +6256,7 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ccf
 ; Z80-NEXT:    sbc hl, hl
-; Z80-NEXT:    ld e, l
-; Z80-NEXT:    ld d, h
+; Z80-NEXT:    ex de, hl
 ; Z80-NEXT:    inc de
 ; Z80-NEXT:    ld c, (ix - 24)
 ; Z80-NEXT:    ld b, (ix - 23)
@@ -6087,8 +6415,7 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; Z80-NEXT:    ld (ix - 17), h
 ; Z80-NEXT:    ccf
 ; Z80-NEXT:    sbc hl, hl
-; Z80-NEXT:    ld e, l
-; Z80-NEXT:    ld d, h
+; Z80-NEXT:    ex de, hl
 ; Z80-NEXT:    inc de
 ; Z80-NEXT:    ld c, (ix - 28)
 ; Z80-NEXT:    ld b, (ix - 27)
@@ -6547,7 +6874,6 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; Z80-NEXT:    ld sp, hl
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 18)
-; Z80-NEXT:    ; kill: def $h killed $a
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    call pe, __setflag
@@ -6559,6 +6885,7 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; Z80-NEXT:    jp m, BB37_2
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld l, a
+; Z80-NEXT:    private BB37_2
 ; Z80-NEXT:  BB37_2:
 ; Z80-NEXT:    ld (ix - 20), l
 ; Z80-NEXT:    ld hl, -1
@@ -6585,12 +6912,12 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; Z80-NEXT:    ld sp, hl
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 18)
-; Z80-NEXT:    ; kill: def $h killed $a
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    jr z, BB37_4
 ; Z80-NEXT:  ; %bb.3:
 ; Z80-NEXT:    ld iyl, a
+; Z80-NEXT:    private BB37_4
 ; Z80-NEXT:  BB37_4:
 ; Z80-NEXT:    ld l, (ix - 10)
 ; Z80-NEXT:    ld h, (ix - 9)
@@ -6621,7 +6948,6 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; Z80-NEXT:    ld sp, hl
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 18)
-; Z80-NEXT:    ; kill: def $h killed $a
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    ; kill: def $a killed $a
@@ -6634,31 +6960,40 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; Z80-NEXT:  ; %bb.5:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp z, BB37_26
+; Z80-NEXT:    private BB37_6
 ; Z80-NEXT:  BB37_6:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp z, BB37_27
+; Z80-NEXT:    private BB37_7
 ; Z80-NEXT:  BB37_7:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp z, BB37_28
+; Z80-NEXT:    private BB37_8
 ; Z80-NEXT:  BB37_8:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp z, BB37_29
+; Z80-NEXT:    private BB37_9
 ; Z80-NEXT:  BB37_9:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp z, BB37_30
+; Z80-NEXT:    private BB37_10
 ; Z80-NEXT:  BB37_10:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp z, BB37_31
+; Z80-NEXT:    private BB37_11
 ; Z80-NEXT:  BB37_11:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp z, BB37_32
+; Z80-NEXT:    private BB37_12
 ; Z80-NEXT:  BB37_12:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB37_14
+; Z80-NEXT:    private BB37_13
 ; Z80-NEXT:  BB37_13:
 ; Z80-NEXT:    ld hl, -1
 ; Z80-NEXT:    ld (ix - 16), l
 ; Z80-NEXT:    ld (ix - 15), h
+; Z80-NEXT:    private BB37_14
 ; Z80-NEXT:  BB37_14:
 ; Z80-NEXT:    ld hl, 0
 ; Z80-NEXT:    push hl
@@ -6684,7 +7019,6 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; Z80-NEXT:    ld sp, hl
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 18)
-; Z80-NEXT:    ; kill: def $h killed $a
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    call pe, __setflag
@@ -6696,6 +7030,7 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; Z80-NEXT:    jp m, BB37_16
 ; Z80-NEXT:  ; %bb.15:
 ; Z80-NEXT:    ld l, a
+; Z80-NEXT:    private BB37_16
 ; Z80-NEXT:  BB37_16:
 ; Z80-NEXT:    ld (ix - 18), l
 ; Z80-NEXT:    ld hl, 0
@@ -6722,12 +7057,12 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; Z80-NEXT:    ld sp, hl
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 2)
-; Z80-NEXT:    ; kill: def $h killed $a
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    jr z, BB37_18
 ; Z80-NEXT:  ; %bb.17:
 ; Z80-NEXT:    ld iyl, a
+; Z80-NEXT:    private BB37_18
 ; Z80-NEXT:  BB37_18:
 ; Z80-NEXT:    ld hl, 32767
 ; Z80-NEXT:    push hl
@@ -6754,7 +7089,6 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; Z80-NEXT:    ld sp, hl
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 2)
-; Z80-NEXT:    ; kill: def $h killed $a
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    ; kill: def $a killed $a
@@ -6767,19 +7101,24 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; Z80-NEXT:  ; %bb.19:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp z, BB37_34
+; Z80-NEXT:    private BB37_20
 ; Z80-NEXT:  BB37_20:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp z, BB37_35
+; Z80-NEXT:    private BB37_21
 ; Z80-NEXT:  BB37_21:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp z, BB37_36
+; Z80-NEXT:    private BB37_22
 ; Z80-NEXT:  BB37_22:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB37_24
+; Z80-NEXT:    private BB37_23
 ; Z80-NEXT:  BB37_23:
 ; Z80-NEXT:    ld hl, 32767
 ; Z80-NEXT:    ld (ix - 10), l
 ; Z80-NEXT:    ld (ix - 9), h
+; Z80-NEXT:    private BB37_24
 ; Z80-NEXT:  BB37_24:
 ; Z80-NEXT:    ld l, (ix - 4)
 ; Z80-NEXT:    ld h, (ix - 3)
@@ -6795,46 +7134,54 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; Z80-NEXT:    ld sp, ix
 ; Z80-NEXT:    pop ix
 ; Z80-NEXT:    ret
+; Z80-NEXT:    private BB37_25
 ; Z80-NEXT:  BB37_25:
 ; Z80-NEXT:    ld a, (ix - 20) ; 1-byte Folded Reload
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp nz, BB37_6
+; Z80-NEXT:    private BB37_26
 ; Z80-NEXT:  BB37_26:
 ; Z80-NEXT:    ld hl, 0
 ; Z80-NEXT:    ld (ix - 4), l
 ; Z80-NEXT:    ld (ix - 3), h
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp nz, BB37_7
+; Z80-NEXT:    private BB37_27
 ; Z80-NEXT:  BB37_27:
 ; Z80-NEXT:    ld hl, 0
 ; Z80-NEXT:    ld (ix - 6), l
 ; Z80-NEXT:    ld (ix - 5), h
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp nz, BB37_8
+; Z80-NEXT:    private BB37_28
 ; Z80-NEXT:  BB37_28:
 ; Z80-NEXT:    ld hl, 0
 ; Z80-NEXT:    ld (ix - 8), l
 ; Z80-NEXT:    ld (ix - 7), h
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp nz, BB37_9
+; Z80-NEXT:    private BB37_29
 ; Z80-NEXT:  BB37_29:
 ; Z80-NEXT:    ld hl, -32768
 ; Z80-NEXT:    ld (ix - 10), l
 ; Z80-NEXT:    ld (ix - 9), h
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp nz, BB37_10
+; Z80-NEXT:    private BB37_30
 ; Z80-NEXT:  BB37_30:
 ; Z80-NEXT:    ld hl, -1
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp nz, BB37_11
+; Z80-NEXT:    private BB37_31
 ; Z80-NEXT:  BB37_31:
 ; Z80-NEXT:    ld hl, -1
 ; Z80-NEXT:    ld (ix - 12), l
 ; Z80-NEXT:    ld (ix - 11), h
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp nz, BB37_12
+; Z80-NEXT:    private BB37_32
 ; Z80-NEXT:  BB37_32:
 ; Z80-NEXT:    ld hl, -1
 ; Z80-NEXT:    ld (ix - 14), l
@@ -6842,22 +7189,26 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp z, BB37_13
 ; Z80-NEXT:    jp BB37_14
+; Z80-NEXT:    private BB37_33
 ; Z80-NEXT:  BB37_33:
 ; Z80-NEXT:    ld a, (ix - 18) ; 1-byte Folded Reload
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp nz, BB37_20
+; Z80-NEXT:    private BB37_34
 ; Z80-NEXT:  BB37_34:
 ; Z80-NEXT:    ld hl, -1
 ; Z80-NEXT:    ld (ix - 4), l
 ; Z80-NEXT:    ld (ix - 3), h
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp nz, BB37_21
+; Z80-NEXT:    private BB37_35
 ; Z80-NEXT:  BB37_35:
 ; Z80-NEXT:    ld hl, -1
 ; Z80-NEXT:    ld (ix - 6), l
 ; Z80-NEXT:    ld (ix - 5), h
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp nz, BB37_22
+; Z80-NEXT:    private BB37_36
 ; Z80-NEXT:  BB37_36:
 ; Z80-NEXT:    ld hl, -1
 ; Z80-NEXT:    ld (ix - 8), l
@@ -6937,8 +7288,7 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ccf
 ; EZ80-CODE16-NEXT:    sbc hl, hl
-; EZ80-CODE16-NEXT:    ld e, l
-; EZ80-CODE16-NEXT:    ld d, h
+; EZ80-CODE16-NEXT:    ex de, hl
 ; EZ80-CODE16-NEXT:    inc de
 ; EZ80-CODE16-NEXT:    ld bc, (ix - 24)
 ; EZ80-CODE16-NEXT:    add iy, bc
@@ -7038,8 +7388,7 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld (ix - 18), hl
 ; EZ80-CODE16-NEXT:    ccf
 ; EZ80-CODE16-NEXT:    sbc hl, hl
-; EZ80-CODE16-NEXT:    ld e, l
-; EZ80-CODE16-NEXT:    ld d, h
+; EZ80-CODE16-NEXT:    ex de, hl
 ; EZ80-CODE16-NEXT:    inc de
 ; EZ80-CODE16-NEXT:    ld bc, (ix - 28)
 ; EZ80-CODE16-NEXT:    add iy, bc
@@ -7328,7 +7677,6 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld sp, hl
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld l, (ix - 18)
-; EZ80-CODE16-NEXT:    ; kill: def $h killed $a
 ; EZ80-CODE16-NEXT:    ex (sp), hl
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    call pe, __setflag
@@ -7340,6 +7688,7 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-CODE16-NEXT:    jp m, BB37_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld l, a
+; EZ80-CODE16-NEXT:    private BB37_2
 ; EZ80-CODE16-NEXT:  BB37_2:
 ; EZ80-CODE16-NEXT:    ld (ix - 20), l
 ; EZ80-CODE16-NEXT:    ld hl, -1
@@ -7362,12 +7711,12 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld sp, hl
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld l, (ix - 18)
-; EZ80-CODE16-NEXT:    ; kill: def $h killed $a
 ; EZ80-CODE16-NEXT:    ex (sp), hl
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    jr z, BB37_4
 ; EZ80-CODE16-NEXT:  ; %bb.3:
 ; EZ80-CODE16-NEXT:    ld iyl, a
+; EZ80-CODE16-NEXT:    private BB37_4
 ; EZ80-CODE16-NEXT:  BB37_4:
 ; EZ80-CODE16-NEXT:    ld hl, (ix - 10)
 ; EZ80-CODE16-NEXT:    push hl
@@ -7394,7 +7743,6 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld sp, hl
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld l, (ix - 18)
-; EZ80-CODE16-NEXT:    ; kill: def $h killed $a
 ; EZ80-CODE16-NEXT:    ex (sp), hl
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    ; kill: def $a killed $a
@@ -7407,30 +7755,39 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-CODE16-NEXT:  ; %bb.5:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp z, BB37_26
+; EZ80-CODE16-NEXT:    private BB37_6
 ; EZ80-CODE16-NEXT:  BB37_6:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp z, BB37_27
+; EZ80-CODE16-NEXT:    private BB37_7
 ; EZ80-CODE16-NEXT:  BB37_7:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp z, BB37_28
+; EZ80-CODE16-NEXT:    private BB37_8
 ; EZ80-CODE16-NEXT:  BB37_8:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp z, BB37_29
+; EZ80-CODE16-NEXT:    private BB37_9
 ; EZ80-CODE16-NEXT:  BB37_9:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp z, BB37_30
+; EZ80-CODE16-NEXT:    private BB37_10
 ; EZ80-CODE16-NEXT:  BB37_10:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp z, BB37_31
+; EZ80-CODE16-NEXT:    private BB37_11
 ; EZ80-CODE16-NEXT:  BB37_11:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp z, BB37_32
+; EZ80-CODE16-NEXT:    private BB37_12
 ; EZ80-CODE16-NEXT:  BB37_12:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB37_14
+; EZ80-CODE16-NEXT:    private BB37_13
 ; EZ80-CODE16-NEXT:  BB37_13:
 ; EZ80-CODE16-NEXT:    ld hl, -1
 ; EZ80-CODE16-NEXT:    ld (ix - 16), hl
+; EZ80-CODE16-NEXT:    private BB37_14
 ; EZ80-CODE16-NEXT:  BB37_14:
 ; EZ80-CODE16-NEXT:    ld hl, 0
 ; EZ80-CODE16-NEXT:    push hl
@@ -7452,7 +7809,6 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld sp, hl
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld l, (ix - 18)
-; EZ80-CODE16-NEXT:    ; kill: def $h killed $a
 ; EZ80-CODE16-NEXT:    ex (sp), hl
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    call pe, __setflag
@@ -7464,6 +7820,7 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-CODE16-NEXT:    jp m, BB37_16
 ; EZ80-CODE16-NEXT:  ; %bb.15:
 ; EZ80-CODE16-NEXT:    ld l, a
+; EZ80-CODE16-NEXT:    private BB37_16
 ; EZ80-CODE16-NEXT:  BB37_16:
 ; EZ80-CODE16-NEXT:    ld (ix - 18), l
 ; EZ80-CODE16-NEXT:    ld hl, 0
@@ -7486,12 +7843,12 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld sp, hl
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld l, (ix - 2)
-; EZ80-CODE16-NEXT:    ; kill: def $h killed $a
 ; EZ80-CODE16-NEXT:    ex (sp), hl
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    jr z, BB37_18
 ; EZ80-CODE16-NEXT:  ; %bb.17:
 ; EZ80-CODE16-NEXT:    ld iyl, a
+; EZ80-CODE16-NEXT:    private BB37_18
 ; EZ80-CODE16-NEXT:  BB37_18:
 ; EZ80-CODE16-NEXT:    ld hl, 32767
 ; EZ80-CODE16-NEXT:    push hl
@@ -7514,7 +7871,6 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld sp, hl
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld l, (ix - 2)
-; EZ80-CODE16-NEXT:    ; kill: def $h killed $a
 ; EZ80-CODE16-NEXT:    ex (sp), hl
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    ; kill: def $a killed $a
@@ -7527,18 +7883,23 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-CODE16-NEXT:  ; %bb.19:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp z, BB37_34
+; EZ80-CODE16-NEXT:    private BB37_20
 ; EZ80-CODE16-NEXT:  BB37_20:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp z, BB37_35
+; EZ80-CODE16-NEXT:    private BB37_21
 ; EZ80-CODE16-NEXT:  BB37_21:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp z, BB37_36
+; EZ80-CODE16-NEXT:    private BB37_22
 ; EZ80-CODE16-NEXT:  BB37_22:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB37_24
+; EZ80-CODE16-NEXT:    private BB37_23
 ; EZ80-CODE16-NEXT:  BB37_23:
 ; EZ80-CODE16-NEXT:    ld hl, 32767
 ; EZ80-CODE16-NEXT:    ld (ix - 10), hl
+; EZ80-CODE16-NEXT:    private BB37_24
 ; EZ80-CODE16-NEXT:  BB37_24:
 ; EZ80-CODE16-NEXT:    ld hl, (ix - 4)
 ; EZ80-CODE16-NEXT:    ld de, (ix - 6)
@@ -7547,60 +7908,72 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld sp, ix
 ; EZ80-CODE16-NEXT:    pop ix
 ; EZ80-CODE16-NEXT:    ret
+; EZ80-CODE16-NEXT:    private BB37_25
 ; EZ80-CODE16-NEXT:  BB37_25:
 ; EZ80-CODE16-NEXT:    ld a, (ix - 20) ; 1-byte Folded Reload
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp nz, BB37_6
+; EZ80-CODE16-NEXT:    private BB37_26
 ; EZ80-CODE16-NEXT:  BB37_26:
 ; EZ80-CODE16-NEXT:    ld hl, 0
 ; EZ80-CODE16-NEXT:    ld (ix - 4), hl
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp nz, BB37_7
+; EZ80-CODE16-NEXT:    private BB37_27
 ; EZ80-CODE16-NEXT:  BB37_27:
 ; EZ80-CODE16-NEXT:    ld hl, 0
 ; EZ80-CODE16-NEXT:    ld (ix - 6), hl
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp nz, BB37_8
+; EZ80-CODE16-NEXT:    private BB37_28
 ; EZ80-CODE16-NEXT:  BB37_28:
 ; EZ80-CODE16-NEXT:    ld hl, 0
 ; EZ80-CODE16-NEXT:    ld (ix - 8), hl
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp nz, BB37_9
+; EZ80-CODE16-NEXT:    private BB37_29
 ; EZ80-CODE16-NEXT:  BB37_29:
 ; EZ80-CODE16-NEXT:    ld hl, -32768
 ; EZ80-CODE16-NEXT:    ld (ix - 10), hl
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp nz, BB37_10
+; EZ80-CODE16-NEXT:    private BB37_30
 ; EZ80-CODE16-NEXT:  BB37_30:
 ; EZ80-CODE16-NEXT:    ld hl, -1
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp nz, BB37_11
+; EZ80-CODE16-NEXT:    private BB37_31
 ; EZ80-CODE16-NEXT:  BB37_31:
 ; EZ80-CODE16-NEXT:    ld hl, -1
 ; EZ80-CODE16-NEXT:    ld (ix - 12), hl
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp nz, BB37_12
+; EZ80-CODE16-NEXT:    private BB37_32
 ; EZ80-CODE16-NEXT:  BB37_32:
 ; EZ80-CODE16-NEXT:    ld hl, -1
 ; EZ80-CODE16-NEXT:    ld (ix - 14), hl
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp z, BB37_13
 ; EZ80-CODE16-NEXT:    jp BB37_14
+; EZ80-CODE16-NEXT:    private BB37_33
 ; EZ80-CODE16-NEXT:  BB37_33:
 ; EZ80-CODE16-NEXT:    ld a, (ix - 18) ; 1-byte Folded Reload
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp nz, BB37_20
+; EZ80-CODE16-NEXT:    private BB37_34
 ; EZ80-CODE16-NEXT:  BB37_34:
 ; EZ80-CODE16-NEXT:    ld hl, -1
 ; EZ80-CODE16-NEXT:    ld (ix - 4), hl
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp nz, BB37_21
+; EZ80-CODE16-NEXT:    private BB37_35
 ; EZ80-CODE16-NEXT:  BB37_35:
 ; EZ80-CODE16-NEXT:    ld hl, -1
 ; EZ80-CODE16-NEXT:    ld (ix - 6), hl
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp nz, BB37_22
+; EZ80-CODE16-NEXT:    private BB37_36
 ; EZ80-CODE16-NEXT:  BB37_36:
 ; EZ80-CODE16-NEXT:    ld hl, -1
 ; EZ80-CODE16-NEXT:    ld (ix - 8), hl
@@ -7629,12 +8002,9 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ld c, a
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -216
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld (ix + 0), bc
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 88), bc
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld (iy + 3), c
 ; EZ80-NEXT:    ld hl, (iy + 1)
 ; EZ80-NEXT:    ld h, c
@@ -7646,9 +8016,8 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld l, d
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld de, -234
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld (ix + 0), l
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 106), l
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld de, (ix + 18)
 ; EZ80-NEXT:    ld (iy + 4), de
@@ -7658,9 +8027,8 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ld c, a
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld de, -228
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld (ix + 0), bc
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 100), bc
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    rlc l
 ; EZ80-NEXT:    sbc hl, hl
@@ -7678,9 +8046,8 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld (iy + 7), de
 ; EZ80-NEXT:    ld hl, (iy + 8)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -249
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld (ix + 0), hl
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 121), hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld (iy + 10), de
 ; EZ80-NEXT:    ld bc, (iy + 11)
@@ -7705,24 +8072,19 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld de, (ix + 18)
 ; EZ80-NEXT:    ld a, e
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -222
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld (ix + 0), a
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 94), a
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld (iy + 16), de
 ; EZ80-NEXT:    ld bc, (iy + 17)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -246
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld (ix + 0), bc
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 118), bc
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld (iy + 19), de
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld de, -219
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld (ix + 0), iy
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 91), iy
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld bc, (iy + 20)
 ; EZ80-NEXT:    ld de, (ix + 21)
@@ -7747,24 +8109,20 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld iy, (ix + 18)
 ; EZ80-NEXT:    ld a, iyl
 ; EZ80-NEXT:    call __lmulu
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -255
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 127
 ; EZ80-NEXT:    ld (iy + 0), hl
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ; kill: def $e killed $e def $ude
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -258
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, bc
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 2
 ; EZ80-NEXT:    ld (iy + 0), de
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ld hl, (ix + 9)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld de, -219
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld iy, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld iy, (ix - 91)
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld (iy + 25), hl
 ; EZ80-NEXT:    ld hl, (iy + 26)
@@ -7774,17 +8132,13 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld hl, (iy + 28)
 ; EZ80-NEXT:    ld e, d
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -222
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld a, (ix + 0) ; 1-byte Folded Reload
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld a, (ix - 94) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    call __lmulu
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -231
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld (ix + 0), hl
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 103), hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld bc, -225
 ; EZ80-NEXT:    lea hl, ix + 0
@@ -7799,20 +8153,14 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld bc, (iy + 34)
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -240
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld d, (ix + 0) ; 1-byte Folded Reload
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld d, (ix - 112) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ld e, d
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -234
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld a, (ix + 0) ; 1-byte Folded Reload
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld a, (ix - 106) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    call __lmulu
 ; EZ80-NEXT:    push ix
 ; EZ80-NEXT:    ld bc, -265
@@ -7829,44 +8177,36 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld b, h
 ; EZ80-NEXT:    ld c, d
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld de, -237
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld (ix + 0), bc
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 109), bc
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld de, 0
 ; EZ80-NEXT:    ld c, e
 ; EZ80-NEXT:    ld b, d
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld de, -213
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld (ix + 0), bc
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 85), bc
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld (iy + 38), h
 ; EZ80-NEXT:    ld de, (iy + 36)
 ; EZ80-NEXT:    ld d, h
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -222
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, bc
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 94
 ; EZ80-NEXT:    ld e, (iy + 0) ; 1-byte Folded Reload
-; EZ80-NEXT:    ld bc, (ix - 3)
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -243
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, bc
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 115
 ; EZ80-NEXT:    ld (iy + 0), de
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    ld hl, (ix + 15)
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -237
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, bc
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 109
 ; EZ80-NEXT:    ld de, (iy + 0)
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llmulu
 ; EZ80-NEXT:    ld iy, 9
@@ -7908,23 +8248,20 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    adc a, (hl) ; 1-byte Folded Reload
 ; EZ80-NEXT:    ccf
 ; EZ80-NEXT:    sbc hl, hl
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop de
+; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    inc de
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -252
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld (ix + 0), l
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 124), l
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -278
-; EZ80-NEXT:    add ix, de
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    lea ix, ix - 22
 ; EZ80-NEXT:    ld bc, (ix + 0)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld bc, -231
 ; EZ80-NEXT:    lea hl, ix + 0
@@ -7985,17 +8322,13 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ; kill: def $e killed $e killed $ude
 ; EZ80-NEXT:    ld bc, (ix + 15)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -222
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld a, (ix + 0) ; 1-byte Folded Reload
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld a, (ix - 94) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __lmulu
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -225
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld (ix + 0), hl
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 97), hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld bc, -291
 ; EZ80-NEXT:    lea hl, ix + 0
@@ -8018,12 +8351,9 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld de, (ix + 12)
 ; EZ80-NEXT:    ld e, d
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -234
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld a, (ix + 0) ; 1-byte Folded Reload
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld a, (ix - 106) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    call __lmulu
 ; EZ80-NEXT:    push ix
 ; EZ80-NEXT:    ld bc, -295
@@ -8035,33 +8365,27 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    add hl, bc
 ; EZ80-NEXT:    ld (hl), e ; 1-byte Folded Spill
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld de, -228
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld hl, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld hl, (ix - 100)
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld h, l
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld (ix + 0), hl
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 100), hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld (iy + 54), hl
 ; EZ80-NEXT:    ld (iy + 55), l
 ; EZ80-NEXT:    ld (iy + 56), h
 ; EZ80-NEXT:    ld bc, (iy + 54)
 ; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -240
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, bc
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 112
 ; EZ80-NEXT:    ld e, (iy + 0) ; 1-byte Folded Reload
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -228
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld iy, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld iy, (ix - 100)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ld a, iyl
 ; EZ80-NEXT:    call __lmulu
 ; EZ80-NEXT:    ld bc, -299
@@ -8074,27 +8398,22 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld (iy + 0), e ; 1-byte Folded Spill
 ; EZ80-NEXT:    ld hl, (ix + 12)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld de, -219
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld iy, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld iy, (ix - 91)
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld (iy + 57), l
 ; EZ80-NEXT:    ld de, (iy + 55)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -249
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld bc, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld bc, (ix - 121)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld d, b
 ; EZ80-NEXT:    ld e, c
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -249
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld (ix + 0), de
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 121), de
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    inc b
+; EZ80-NEXT:    ld b, 0
 ; EZ80-NEXT:    ld (iy + 58), b
 ; EZ80-NEXT:    ld de, (iy + 56)
 ; EZ80-NEXT:    ld d, b
@@ -8103,28 +8422,22 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld (iy + 0), de
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -213
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 85
 ; EZ80-NEXT:    ld bc, (iy + 0)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push bc
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -243
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 115
 ; EZ80-NEXT:    ld hl, (iy + 0)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix + 15)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -249
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 121
 ; EZ80-NEXT:    ld hl, (iy + 0)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llmulu
 ; EZ80-NEXT:    ld iy, 9
@@ -8145,19 +8458,15 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld (iy + 0), a
 ; EZ80-NEXT:    ld hl, (ix + 21)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld de, -219
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld iy, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld iy, (ix - 91)
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld (iy + 59), l
 ; EZ80-NEXT:    ld bc, (iy + 57)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -246
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld de, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld de, (ix - 118)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ld b, d
 ; EZ80-NEXT:    ld c, e
 ; EZ80-NEXT:    push bc
@@ -8179,22 +8488,18 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld (iy + 0), de
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -213
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 85
 ; EZ80-NEXT:    ld bc, (iy + 0)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -237
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, bc
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 109
 ; EZ80-NEXT:    ld de, (iy + 0)
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llmulu
 ; EZ80-NEXT:    ld iy, 9
@@ -8236,16 +8541,14 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    adc a, (hl) ; 1-byte Folded Reload
 ; EZ80-NEXT:    ccf
 ; EZ80-NEXT:    sbc hl, hl
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop de
+; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    inc de
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -299
-; EZ80-NEXT:    add ix, de
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    lea ix, ix - 43
 ; EZ80-NEXT:    ld bc, (ix + 0)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld bc, -296
 ; EZ80-NEXT:    lea hl, ix + 0
@@ -8266,12 +8569,9 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    inc bc
 ; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -252
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld d, (ix + 0) ; 1-byte Folded Reload
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld d, (ix - 124) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ld e, d
 ; EZ80-NEXT:    ld a, d
 ; EZ80-NEXT:    call __ladd
@@ -8281,12 +8581,11 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld (ix + 0), hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -302
-; EZ80-NEXT:    add ix, de
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    lea ix, ix - 46
 ; EZ80-NEXT:    ld bc, (ix + 0)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld bc, -225
 ; EZ80-NEXT:    lea hl, ix + 0
@@ -8312,12 +8611,11 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    pop bc
 ; EZ80-NEXT:    inc bc
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -291
-; EZ80-NEXT:    add ix, de
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    lea ix, ix - 35
 ; EZ80-NEXT:    ld hl, (ix + 0)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld a, d
 ; EZ80-NEXT:    call __ladd
 ; EZ80-NEXT:    push ix
@@ -8326,12 +8624,9 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld (ix + 0), hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -246
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld bc, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld bc, (ix - 118)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld bc, -225
 ; EZ80-NEXT:    lea hl, ix + 0
@@ -8357,12 +8652,11 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    pop bc
 ; EZ80-NEXT:    inc bc
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -291
-; EZ80-NEXT:    add ix, de
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    lea ix, ix - 35
 ; EZ80-NEXT:    ld hl, (ix + 0)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld a, d
 ; EZ80-NEXT:    call __ladd
 ; EZ80-NEXT:    push ix
@@ -8371,12 +8665,11 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld (ix + 0), hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -282
-; EZ80-NEXT:    add ix, de
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    lea ix, ix - 26
 ; EZ80-NEXT:    ld bc, (ix + 0)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld bc, -225
 ; EZ80-NEXT:    lea hl, ix + 0
@@ -8408,12 +8701,11 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop bc
 ; EZ80-NEXT:    inc bc
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -291
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 35
 ; EZ80-NEXT:    ld hl, (iy + 0)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld a, d
 ; EZ80-NEXT:    call __ladd
 ; EZ80-NEXT:    ld bc, -252
@@ -8434,12 +8726,10 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld de, (iy + 0)
 ; EZ80-NEXT:    ; kill: def $e killed $e killed $ude
 ; EZ80-NEXT:    ld bc, (ix + 15)
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -222
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 94
 ; EZ80-NEXT:    ld a, (iy + 0) ; 1-byte Folded Reload
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __lmulu
 ; EZ80-NEXT:    ld bc, -222
 ; EZ80-NEXT:    lea iy, ix + 0
@@ -8454,9 +8744,8 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    add hl, de
 ; EZ80-NEXT:    ld iy, (hl)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld de, -216
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld hl, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld hl, (ix - 88)
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld (iy + 61), hl
 ; EZ80-NEXT:    ld (iy + 62), l
@@ -8470,25 +8759,18 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld (iy + 69), e
 ; EZ80-NEXT:    ld bc, (iy + 67)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -216
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld de, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld de, (ix - 88)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ; kill: def $e killed $e killed $ude
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -234
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld a, (ix + 0) ; 1-byte Folded Reload
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld a, (ix - 106) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    call __lmulu
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -216
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld (ix + 0), hl
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 88), hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld bc, -234
 ; EZ80-NEXT:    lea hl, ix + 0
@@ -8502,31 +8784,25 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld (iy + 75), e
 ; EZ80-NEXT:    ld hl, (iy + 73)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -228
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld iy, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld iy, (ix - 100)
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -134
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld (ix + 0), iy
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 6), iy
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    inc bc
-; EZ80-NEXT:    add ix, bc
+; EZ80-NEXT:    lea ix, ix - 128
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    lea hl, iy + 0
-; EZ80-NEXT:    ld (ix + 0), l
-; EZ80-NEXT:    ld (ix + 1), h
+; EZ80-NEXT:    ld (ix - 5), l
+; EZ80-NEXT:    ld (ix - 4), h
 ; EZ80-NEXT:    pop hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -134
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld bc, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld bc, (ix - 6)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld e, d
 ; EZ80-NEXT:    ld a, iyl
 ; EZ80-NEXT:    call __lmulu
@@ -8543,12 +8819,11 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld e, (iy + 0) ; 1-byte Folded Reload
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -268
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 12
 ; EZ80-NEXT:    ld bc, (iy + 0)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __lmulu
 ; EZ80-NEXT:    ld bc, -219
 ; EZ80-NEXT:    lea iy, ix + 0
@@ -8572,28 +8847,23 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld e, (iy + 0) ; 1-byte Folded Reload
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -213
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 85
 ; EZ80-NEXT:    ld bc, (iy + 0)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push bc
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -243
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 115
 ; EZ80-NEXT:    ld hl, (iy + 0)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix + 15)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -271
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 15
 ; EZ80-NEXT:    ld hl, (iy + 0)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llmulu
 ; EZ80-NEXT:    ld iy, 9
@@ -8631,12 +8901,11 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    ld hl, (iy + 0)
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -278
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, bc
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 22
 ; EZ80-NEXT:    ld de, (iy + 0)
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llmulu
 ; EZ80-NEXT:    ld iy, 9
@@ -8681,12 +8950,10 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld hl, (iy + 0)
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -237
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, bc
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 109
 ; EZ80-NEXT:    ld de, (iy + 0)
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llmulu
 ; EZ80-NEXT:    ld iy, 9
@@ -8700,9 +8967,8 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    pop hl
 ; EZ80-NEXT:    ld d, e
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -222
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld hl, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld hl, (ix - 94)
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    push ix
 ; EZ80-NEXT:    ld bc, -275
@@ -8710,104 +8976,76 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld e, (ix + 0) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -216
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld bc, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld bc, (ix - 88)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -234
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld a, (ix + 0) ; 1-byte Folded Reload
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld a, (ix - 106) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __ladd
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -282
-; EZ80-NEXT:    add ix, de
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    lea ix, ix - 26
 ; EZ80-NEXT:    ld bc, (ix + 0)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -291
-; EZ80-NEXT:    add ix, de
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    lea ix, ix - 35
 ; EZ80-NEXT:    ld a, (ix + 0) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __ladd
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -219
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld bc, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld bc, (ix - 91)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -228
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld a, (ix + 0) ; 1-byte Folded Reload
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld a, (ix - 100) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __ladd
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -240
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld bc, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld bc, (ix - 112)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -243
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld a, (ix + 0) ; 1-byte Folded Reload
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld a, (ix - 115) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __ladd
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -249
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld bc, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld bc, (ix - 121)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -268
-; EZ80-NEXT:    add ix, de
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    lea ix, ix - 12
 ; EZ80-NEXT:    ld a, (ix + 0) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __ladd
 ; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    ld a, d
 ; EZ80-NEXT:    call __ladd
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -252
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 124
 ; EZ80-NEXT:    ld bc, (iy + 0)
-; EZ80-NEXT:    ld de, (ix - 3)
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -279
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 23
 ; EZ80-NEXT:    ld a, (iy + 0) ; 1-byte Folded Reload
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __ladd
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop iy
 ; EZ80-NEXT:    ld h, e
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld de, -216
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld (ix + 0), l
-; EZ80-NEXT:    ld (ix + 1), h
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 88), l
+; EZ80-NEXT:    ld (ix - 87), h
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld de, -231
 ; EZ80-NEXT:    lea hl, ix + 0
@@ -8816,62 +9054,45 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld l, c
 ; EZ80-NEXT:    ld h, b
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -258
-; EZ80-NEXT:    add ix, bc
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    lea ix, ix - 2
 ; EZ80-NEXT:    ld de, (ix + 0)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -129
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld (ix + 0), de
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 1), de
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ld (ix - 128), l
 ; EZ80-NEXT:    ld (ix - 127), h
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -129
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld de, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld de, (ix - 1)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ld (ix - 126), bc
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -265
-; EZ80-NEXT:    add ix, de
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    lea ix, ix - 9
 ; EZ80-NEXT:    ld c, (ix + 0)
 ; EZ80-NEXT:    ld b, (ix + 1)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld c, (ix - 124)
 ; EZ80-NEXT:    ld hl, 31
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -255
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld hl, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld hl, (ix - 127)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __llshru
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -222
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld (ix + 0), hl
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 94), hl
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -228
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld (ix + 0), de
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 100), de
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ld de, -234
 ; EZ80-NEXT:    lea hl, ix + 0
 ; EZ80-NEXT:    add hl, de
@@ -8894,38 +9115,31 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld (hl), d
 ; EZ80-NEXT:    dec hl
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -246
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld hl, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld hl, (ix - 118)
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld (ix - 123), hl
 ; EZ80-NEXT:    ld (ix - 122), e
 ; EZ80-NEXT:    ld (ix - 121), d
 ; EZ80-NEXT:    ld de, (ix - 123)
 ; EZ80-NEXT:    ld (ix - 120), iy
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -216
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 88
 ; EZ80-NEXT:    ld c, (iy + 0)
 ; EZ80-NEXT:    ld b, (iy + 1)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld c, (ix - 118)
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -216
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 88
 ; EZ80-NEXT:    ld (iy + 0), c
 ; EZ80-NEXT:    ld (iy + 1), b
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld hl, 33
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -225
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 97
 ; EZ80-NEXT:    ld hl, (iy + 0)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __llshl
 ; EZ80-NEXT:    ; kill: def $bc killed $bc def $ubc
 ; EZ80-NEXT:    pop iy
@@ -8936,32 +9150,24 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    ld hl, (iy + 0)
-; EZ80-NEXT:    ld (ix - 3), bc
 ; EZ80-NEXT:    ld bc, -228
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld de, (iy + 0)
-; EZ80-NEXT:    ld bc, (ix - 3)
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -234
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 106
 ; EZ80-NEXT:    ld c, (iy + 0)
 ; EZ80-NEXT:    ld b, (iy + 1)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __llor
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -228
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 100
 ; EZ80-NEXT:    ld (iy + 0), hl
-; EZ80-NEXT:    ld de, (ix - 3)
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -222
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, bc
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 94
 ; EZ80-NEXT:    ld (iy + 0), de
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc def $ubc
 ; EZ80-NEXT:    ld de, -237
 ; EZ80-NEXT:    lea iy, ix + 0
@@ -8983,42 +9189,32 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld (ix - 116), l
 ; EZ80-NEXT:    ld (ix - 115), h
 ; EZ80-NEXT:    ld de, (ix - 117)
-; EZ80-NEXT:    ld (ix - 3), bc
 ; EZ80-NEXT:    ld bc, -219
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld hl, (iy + 0)
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ld (ix - 114), hl
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -216
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 88
 ; EZ80-NEXT:    ld c, (iy + 0)
 ; EZ80-NEXT:    ld b, (iy + 1)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld c, (ix - 112)
 ; EZ80-NEXT:    ld hl, 31
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -225
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 97
 ; EZ80-NEXT:    ld hl, (iy + 0)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __llshrs
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -234
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 106
 ; EZ80-NEXT:    ld (iy + 0), hl
-; EZ80-NEXT:    ld de, (ix - 3)
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -231
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, bc
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 103
 ; EZ80-NEXT:    ld (iy + 0), de
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc def $ubc
 ; EZ80-NEXT:    ld de, -225
 ; EZ80-NEXT:    lea iy, ix + 0
@@ -9043,12 +9239,11 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld e, (ix - 103)
 ; EZ80-NEXT:    ld (ix - 102), de
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld de, -240
-; EZ80-NEXT:    add ix, de
+; EZ80-NEXT:    lea ix, ix - 128
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    lea hl, iy + 0
-; EZ80-NEXT:    ld (ix + 0), l
-; EZ80-NEXT:    ld (ix + 1), h
+; EZ80-NEXT:    ld (ix - 112), l
+; EZ80-NEXT:    ld (ix - 111), h
 ; EZ80-NEXT:    pop hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    push hl
@@ -9061,35 +9256,24 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld (ix - 99), iy
 ; EZ80-NEXT:    ld c, (ix - 97)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -225
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld iy, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld iy, (ix - 97)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push iy
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -231
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld iy, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld iy, (ix - 103)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push iy
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -234
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld iy, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld iy, (ix - 106)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push iy
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -219
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 91
 ; EZ80-NEXT:    ld (iy + 0), bc
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llcmps
 ; EZ80-NEXT:    push af
@@ -9106,7 +9290,6 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    ld l, (iy + 0)
-; EZ80-NEXT:    ; kill: def $h killed $a
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    call pe, __setflag
@@ -9120,6 +9303,7 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    jp m, BB37_2
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld l, a
+; EZ80-NEXT:    private BB37_2
 ; EZ80-NEXT:  BB37_2:
 ; EZ80-NEXT:    ld de, -243
 ; EZ80-NEXT:    lea iy, ix + 0
@@ -9147,19 +9331,15 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld (ix - 85), b
 ; EZ80-NEXT:    ld de, (ix - 87)
 ; EZ80-NEXT:    ld (ix - 84), iy
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -219
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 91
 ; EZ80-NEXT:    ld bc, (iy + 0)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld c, (ix - 82)
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -219
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 91
 ; EZ80-NEXT:    ld (iy + 0), bc
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
@@ -9171,12 +9351,10 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld de, (iy + 0)
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -225
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 97
 ; EZ80-NEXT:    ld bc, (iy + 0)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llcmpu
 ; EZ80-NEXT:    push af
@@ -9193,7 +9371,6 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    ld l, (iy + 0)
-; EZ80-NEXT:    ; kill: def $h killed $a
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    jr z, BB37_4
@@ -9202,6 +9379,7 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    ld (iy + 0), a ; 1-byte Folded Spill
+; EZ80-NEXT:    private BB37_4
 ; EZ80-NEXT:  BB37_4:
 ; EZ80-NEXT:    ld hl, -32768
 ; EZ80-NEXT:    ld c, l
@@ -9228,9 +9406,8 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    push af
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld de, -240
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld (ix + 0), l
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 112), l
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    pop hl
 ; EZ80-NEXT:    ld hl, 9
@@ -9238,10 +9415,9 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld sp, hl
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld l, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld l, (ix - 112)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ; kill: def $h killed $a
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    ; kill: def $a killed $a
@@ -9258,6 +9434,7 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    lea hl, ix + 0
 ; EZ80-NEXT:    add hl, de
 ; EZ80-NEXT:    ld a, (hl) ; 1-byte Folded Reload
+; EZ80-NEXT:    private BB37_6
 ; EZ80-NEXT:  BB37_6:
 ; EZ80-NEXT:    ld de, -234
 ; EZ80-NEXT:    lea hl, ix + 0
@@ -9265,73 +9442,69 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld bc, (hl)
 ; EZ80-NEXT:    ld l, c
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -237
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld de, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld de, (ix - 109)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ld (ix - 81), de
 ; EZ80-NEXT:    ld (ix - 79), l
 ; EZ80-NEXT:    ld hl, (ix - 81)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld de, -216
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld (ix + 0), hl
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 88), hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld (ix - 78), bc
 ; EZ80-NEXT:    ld hl, (ix - 77)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld de, -231
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld bc, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld bc, (ix - 103)
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld e, c
 ; EZ80-NEXT:    ld (ix - 75), hl
 ; EZ80-NEXT:    ld (ix - 73), e
 ; EZ80-NEXT:    ld hl, (ix - 75)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld de, -234
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld (ix + 0), hl
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 106), hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld (ix - 72), bc
 ; EZ80-NEXT:    ld hl, (ix - 71)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -225
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld de, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld de, (ix - 97)
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld (ix - 69), hl
 ; EZ80-NEXT:    ld (ix - 67), e
 ; EZ80-NEXT:    ld hl, (ix - 69)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld de, -231
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld (ix + 0), hl
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 103), hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr z, BB37_14
 ; EZ80-NEXT:  ; %bb.7:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr z, BB37_15
+; EZ80-NEXT:    private BB37_8
 ; EZ80-NEXT:  BB37_8:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr z, BB37_16
+; EZ80-NEXT:    private BB37_9
 ; EZ80-NEXT:  BB37_9:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr z, BB37_17
+; EZ80-NEXT:    private BB37_10
 ; EZ80-NEXT:  BB37_10:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB37_12
+; EZ80-NEXT:    private BB37_11
 ; EZ80-NEXT:  BB37_11:
 ; EZ80-NEXT:    scf
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld de, -231
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld (ix + 0), hl
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 103), hl
 ; EZ80-NEXT:    pop ix
+; EZ80-NEXT:    private BB37_12
 ; EZ80-NEXT:  BB37_12:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    ld de, -228
@@ -9347,6 +9520,7 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld de, (iy + 0)
 ; EZ80-NEXT:    jr BB37_19
+; EZ80-NEXT:    private BB37_14
 ; EZ80-NEXT:  BB37_14:
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, hl
@@ -9354,42 +9528,44 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    pop iy
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB37_8
+; EZ80-NEXT:    private BB37_15
 ; EZ80-NEXT:  BB37_15:
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld de, -222
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld (ix + 0), hl
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 94), hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB37_9
+; EZ80-NEXT:    private BB37_16
 ; EZ80-NEXT:  BB37_16:
 ; EZ80-NEXT:    ld hl, -32768
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld de, -216
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld (ix + 0), hl
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 88), hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB37_10
+; EZ80-NEXT:    private BB37_17
 ; EZ80-NEXT:  BB37_17:
 ; EZ80-NEXT:    scf
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld de, -234
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld (ix + 0), hl
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 106), hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr z, BB37_11
 ; EZ80-NEXT:    jr BB37_12
+; EZ80-NEXT:    private BB37_18
 ; EZ80-NEXT:  BB37_18:
 ; EZ80-NEXT:    ld de, -225
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    ld hl, (iy + 0)
 ; EZ80-NEXT:    ld d, h
+; EZ80-NEXT:    private BB37_19
 ; EZ80-NEXT:  BB37_19:
 ; EZ80-NEXT:    ld bc, -216
 ; EZ80-NEXT:    lea iy, ix + 0
@@ -9401,62 +9577,48 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld iyl, a
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -234
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld bc, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld bc, (ix - 106)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld l, c
 ; EZ80-NEXT:    ld h, b
 ; EZ80-NEXT:    ld (ix - 63), iy
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -219
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 91
 ; EZ80-NEXT:    ld (iy + 0), l
 ; EZ80-NEXT:    ld (iy + 1), h
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld (ix - 62), l
 ; EZ80-NEXT:    ld (ix - 61), h
 ; EZ80-NEXT:    ld hl, (ix - 63)
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -225
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 97
 ; EZ80-NEXT:    ld (iy + 0), hl
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld (ix - 60), bc
 ; EZ80-NEXT:    push af
 ; EZ80-NEXT:    ld a, (ix - 58)
 ; EZ80-NEXT:    ld iyl, a
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -231
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld bc, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld bc, (ix - 103)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld l, c
 ; EZ80-NEXT:    ld h, b
 ; EZ80-NEXT:    ld (ix - 57), iy
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -240
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 112
 ; EZ80-NEXT:    ld (iy + 0), l
 ; EZ80-NEXT:    ld (iy + 1), h
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld (ix - 56), l
 ; EZ80-NEXT:    ld (ix - 55), h
 ; EZ80-NEXT:    ld hl, (ix - 57)
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -243
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 115
 ; EZ80-NEXT:    ld (iy + 0), hl
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld (ix - 54), bc
 ; EZ80-NEXT:    ld e, (ix - 52)
 ; EZ80-NEXT:    ld hl, 32767
@@ -9482,12 +9644,9 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld (ix - 39), hl
 ; EZ80-NEXT:    ld l, (ix - 37)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -237
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld (ix + 0), hl
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 109), hl
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push iy
@@ -9497,12 +9656,10 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    ld hl, (iy + 0)
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -243
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, bc
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 115
 ; EZ80-NEXT:    ld de, (iy + 0)
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    call __llcmps
 ; EZ80-NEXT:    push af
 ; EZ80-NEXT:    ex (sp), hl
@@ -9518,7 +9675,6 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    ld l, (iy + 0)
-; EZ80-NEXT:    ; kill: def $h killed $a
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    call pe, __setflag
@@ -9532,6 +9688,7 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    jp m, BB37_21
 ; EZ80-NEXT:  ; %bb.20:
 ; EZ80-NEXT:    ld l, a
+; EZ80-NEXT:    private BB37_21
 ; EZ80-NEXT:  BB37_21:
 ; EZ80-NEXT:    ld de, -246
 ; EZ80-NEXT:    lea iy, ix + 0
@@ -9605,9 +9762,8 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld bc, (ix - 12)
 ; EZ80-NEXT:    ld (ix - 9), de
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld de, -237
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld hl, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld hl, (ix - 109)
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld l, (ix - 7)
 ; EZ80-NEXT:    push hl
@@ -9621,12 +9777,10 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld de, (iy + 0)
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -219
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 91
 ; EZ80-NEXT:    ld bc, (iy + 0)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llcmpu
 ; EZ80-NEXT:    push af
@@ -9643,7 +9797,6 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    ld l, (iy + 0)
-; EZ80-NEXT:    ; kill: def $h killed $a
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    jr z, BB37_23
@@ -9652,6 +9805,7 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    ld (iy + 0), a ; 1-byte Folded Spill
+; EZ80-NEXT:    private BB37_23
 ; EZ80-NEXT:  BB37_23:
 ; EZ80-NEXT:    ld de, -216
 ; EZ80-NEXT:    lea iy, ix + 0
@@ -9669,12 +9823,10 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    ld hl, (iy + 0)
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -222
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, bc
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 94
 ; EZ80-NEXT:    ld de, (iy + 0)
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    call __llcmpu
 ; EZ80-NEXT:    push af
 ; EZ80-NEXT:    ex (sp), hl
@@ -9690,7 +9842,6 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    ld l, (iy + 0)
-; EZ80-NEXT:    ; kill: def $h killed $a
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    ; kill: def $a killed $a
@@ -9705,36 +9856,37 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:  ; %bb.24:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp z, BB37_30
+; EZ80-NEXT:    private BB37_25
 ; EZ80-NEXT:  BB37_25:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp z, BB37_31
+; EZ80-NEXT:    private BB37_26
 ; EZ80-NEXT:  BB37_26:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB37_28
+; EZ80-NEXT:    private BB37_27
 ; EZ80-NEXT:  BB37_27:
 ; EZ80-NEXT:    ld de, 32767
 ; EZ80-NEXT:    ld bc, -216
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld (iy + 0), de
+; EZ80-NEXT:    private BB37_28
 ; EZ80-NEXT:  BB37_28:
-; EZ80-NEXT:    ld (ix - 3), bc
 ; EZ80-NEXT:    ld bc, -216
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld de, (iy + 0)
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ld c, e
 ; EZ80-NEXT:    ld b, d
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -222
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, bc
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 94
 ; EZ80-NEXT:    ld de, (iy + 0)
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
+; EZ80-NEXT:    private BB37_29
 ; EZ80-NEXT:  BB37_29:
 ; EZ80-NEXT:    ld de, -246
 ; EZ80-NEXT:    lea iy, ix + 0
@@ -9742,11 +9894,13 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld a, (iy + 0) ; 1-byte Folded Reload
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp nz, BB37_25
+; EZ80-NEXT:    private BB37_30
 ; EZ80-NEXT:  BB37_30:
 ; EZ80-NEXT:    scf
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp nz, BB37_26
+; EZ80-NEXT:    private BB37_31
 ; EZ80-NEXT:  BB37_31:
 ; EZ80-NEXT:    ld de, -1
 ; EZ80-NEXT:    ld bc, -222
@@ -9767,13 +9921,14 @@ define i8 @umul.fix.sat.i8.8(i8, i8) {
 ; Z80-NEXT:    ld iy, 0
 ; Z80-NEXT:    add iy, sp
 ; Z80-NEXT:    ld a, (iy + 2)
-; Z80-NEXT:    ld e, (iy + 4)
-; Z80-NEXT:    ld h, 0
-; Z80-NEXT:    ld l, a
-; Z80-NEXT:    ld b, h
-; Z80-NEXT:    ld c, e
-; Z80-NEXT:    call __smulu
+; Z80-NEXT:    ld l, (iy + 4)
 ; Z80-NEXT:    ld d, 0
+; Z80-NEXT:    ld e, a
+; Z80-NEXT:    ld b, d
+; Z80-NEXT:    ld c, l
+; Z80-NEXT:    ld l, e
+; Z80-NEXT:    ld h, d
+; Z80-NEXT:    call __smulu
 ; Z80-NEXT:    ld e, h
 ; Z80-NEXT:    ld bc, 255
 ; Z80-NEXT:    ld l, e
@@ -9783,6 +9938,7 @@ define i8 @umul.fix.sat.i8.8(i8, i8) {
 ; Z80-NEXT:    jr c, BB38_2
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld de, 255
+; Z80-NEXT:    private BB38_2
 ; Z80-NEXT:  BB38_2:
 ; Z80-NEXT:    ld a, e
 ; Z80-NEXT:    ret
@@ -9792,13 +9948,14 @@ define i8 @umul.fix.sat.i8.8(i8, i8) {
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    add iy, sp
 ; EZ80-CODE16-NEXT:    ld a, (iy + 2)
-; EZ80-CODE16-NEXT:    ld e, (iy + 4)
-; EZ80-CODE16-NEXT:    ld h, 0
-; EZ80-CODE16-NEXT:    ld l, a
-; EZ80-CODE16-NEXT:    ld b, h
-; EZ80-CODE16-NEXT:    ld c, e
-; EZ80-CODE16-NEXT:    call __smulu
+; EZ80-CODE16-NEXT:    ld l, (iy + 4)
 ; EZ80-CODE16-NEXT:    ld d, 0
+; EZ80-CODE16-NEXT:    ld e, a
+; EZ80-CODE16-NEXT:    ld b, d
+; EZ80-CODE16-NEXT:    ld c, l
+; EZ80-CODE16-NEXT:    ld l, e
+; EZ80-CODE16-NEXT:    ld h, d
+; EZ80-CODE16-NEXT:    call __smulu
 ; EZ80-CODE16-NEXT:    ld e, h
 ; EZ80-CODE16-NEXT:    ld bc, 255
 ; EZ80-CODE16-NEXT:    ld l, e
@@ -9808,6 +9965,7 @@ define i8 @umul.fix.sat.i8.8(i8, i8) {
 ; EZ80-CODE16-NEXT:    jr c, BB38_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld de, 255
+; EZ80-CODE16-NEXT:    private BB38_2
 ; EZ80-CODE16-NEXT:  BB38_2:
 ; EZ80-CODE16-NEXT:    ld a, e
 ; EZ80-CODE16-NEXT:    ret
@@ -9817,13 +9975,14 @@ define i8 @umul.fix.sat.i8.8(i8, i8) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld a, (iy + 3)
-; EZ80-NEXT:    ld e, (iy + 6)
-; EZ80-NEXT:    ld h, 0
-; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    ld b, h
-; EZ80-NEXT:    ld c, e
-; EZ80-NEXT:    call __smulu
+; EZ80-NEXT:    ld l, (iy + 6)
 ; EZ80-NEXT:    ld d, 0
+; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    ld b, d
+; EZ80-NEXT:    ld c, l
+; EZ80-NEXT:    ld l, e
+; EZ80-NEXT:    ld h, d
+; EZ80-NEXT:    call __smulu
 ; EZ80-NEXT:    ld e, h
 ; EZ80-NEXT:    ld.sis bc, 255
 ; EZ80-NEXT:    ld l, e
@@ -9833,6 +9992,7 @@ define i8 @umul.fix.sat.i8.8(i8, i8) {
 ; EZ80-NEXT:    jr c, BB38_2
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld.sis de, 255
+; EZ80-NEXT:    private BB38_2
 ; EZ80-NEXT:  BB38_2:
 ; EZ80-NEXT:    ld a, e
 ; EZ80-NEXT:    ret
@@ -9865,6 +10025,7 @@ define i16 @umul.fix.sat.i16.8(i16, i16) {
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld l, c
 ; Z80-NEXT:    ld h, b
+; Z80-NEXT:    private BB39_2
 ; Z80-NEXT:  BB39_2:
 ; Z80-NEXT:    ret
 ;
@@ -9890,6 +10051,7 @@ define i16 @umul.fix.sat.i16.8(i16, i16) {
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld l, c
 ; EZ80-CODE16-NEXT:    ld h, b
+; EZ80-CODE16-NEXT:    private BB39_2
 ; EZ80-CODE16-NEXT:  BB39_2:
 ; EZ80-CODE16-NEXT:    ret
 ;
@@ -9936,6 +10098,7 @@ define i16 @umul.fix.sat.i16.8(i16, i16) {
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    pop hl
+; EZ80-NEXT:    private BB39_2
 ; EZ80-NEXT:  BB39_2:
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
 ; EZ80-NEXT:    ld sp, ix
@@ -9969,6 +10132,7 @@ define i16 @umul.fix.sat.i16.16(i16, i16) {
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld l, c
 ; Z80-NEXT:    ld h, b
+; Z80-NEXT:    private BB40_2
 ; Z80-NEXT:  BB40_2:
 ; Z80-NEXT:    ret
 ;
@@ -9994,6 +10158,7 @@ define i16 @umul.fix.sat.i16.16(i16, i16) {
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld l, c
 ; EZ80-CODE16-NEXT:    ld h, b
+; EZ80-CODE16-NEXT:    private BB40_2
 ; EZ80-CODE16-NEXT:  BB40_2:
 ; EZ80-CODE16-NEXT:    ret
 ;
@@ -10040,6 +10205,7 @@ define i16 @umul.fix.sat.i16.16(i16, i16) {
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    pop hl
+; EZ80-NEXT:    private BB40_2
 ; EZ80-NEXT:  BB40_2:
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
 ; EZ80-NEXT:    ld sp, ix
@@ -10121,7 +10287,6 @@ define i32 @umul.fix.sat.i32.16(i32, i32) {
 ; Z80-NEXT:    ld sp, iy
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 6)
-; Z80-NEXT:    ; kill: def $h killed $a
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    ccf
@@ -10134,6 +10299,7 @@ define i32 @umul.fix.sat.i32.16(i32, i32) {
 ; Z80-NEXT:    ld hl, -1
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
+; Z80-NEXT:    private BB41_2
 ; Z80-NEXT:  BB41_2:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    ld e, (ix - 4)
@@ -10141,6 +10307,7 @@ define i32 @umul.fix.sat.i32.16(i32, i32) {
 ; Z80-NEXT:    jr nz, BB41_4
 ; Z80-NEXT:  ; %bb.3:
 ; Z80-NEXT:    ld de, -1
+; Z80-NEXT:    private BB41_4
 ; Z80-NEXT:  BB41_4:
 ; Z80-NEXT:    ld l, (ix - 2)
 ; Z80-NEXT:    ld h, (ix - 1)
@@ -10200,7 +10367,6 @@ define i32 @umul.fix.sat.i32.16(i32, i32) {
 ; EZ80-CODE16-NEXT:    ld sp, iy
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld l, (ix - 6)
-; EZ80-CODE16-NEXT:    ; kill: def $h killed $a
 ; EZ80-CODE16-NEXT:    ex (sp), hl
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    ccf
@@ -10212,12 +10378,14 @@ define i32 @umul.fix.sat.i32.16(i32, i32) {
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld hl, -1
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
+; EZ80-CODE16-NEXT:    private BB41_2
 ; EZ80-CODE16-NEXT:  BB41_2:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    ld de, (ix - 4)
 ; EZ80-CODE16-NEXT:    jr nz, BB41_4
 ; EZ80-CODE16-NEXT:  ; %bb.3:
 ; EZ80-CODE16-NEXT:    ld de, -1
+; EZ80-CODE16-NEXT:    private BB41_4
 ; EZ80-CODE16-NEXT:  BB41_4:
 ; EZ80-CODE16-NEXT:    ld hl, (ix - 2)
 ; EZ80-CODE16-NEXT:    ld sp, ix
@@ -10238,7 +10406,9 @@ define i32 @umul.fix.sat.i32.16(i32, i32) {
 ; EZ80-NEXT:    ld de, (ix - 4)
 ; EZ80-NEXT:    ld d, a
 ; EZ80-NEXT:    ld e, c
-; EZ80-NEXT:    ld bc, 0
+; EZ80-NEXT:    sbc hl, hl
+; EZ80-NEXT:    ld c, l
+; EZ80-NEXT:    ld b, h
 ; EZ80-NEXT:    ld (ix - 1), a
 ; EZ80-NEXT:    ld hl, (ix - 3)
 ; EZ80-NEXT:    ld h, a
@@ -10275,7 +10445,6 @@ define i32 @umul.fix.sat.i32.16(i32, i32) {
 ; EZ80-NEXT:    ld sp, iy
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld l, (ix - 3)
-; EZ80-NEXT:    ; kill: def $h killed $a
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    ccf
@@ -10287,11 +10456,13 @@ define i32 @umul.fix.sat.i32.16(i32, i32) {
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    scf
 ; EZ80-NEXT:    sbc hl, hl
+; EZ80-NEXT:    private BB41_2
 ; EZ80-NEXT:  BB41_2:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB41_4
 ; EZ80-NEXT:  ; %bb.3:
 ; EZ80-NEXT:    ld de, 255
+; EZ80-NEXT:    private BB41_4
 ; EZ80-NEXT:  BB41_4:
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
@@ -10371,7 +10542,6 @@ define i32 @umul.fix.sat.i32.32(i32, i32) {
 ; Z80-NEXT:    ld sp, iy
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 6)
-; Z80-NEXT:    ; kill: def $h killed $a
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    ccf
@@ -10384,6 +10554,7 @@ define i32 @umul.fix.sat.i32.32(i32, i32) {
 ; Z80-NEXT:    ld hl, -1
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
+; Z80-NEXT:    private BB42_2
 ; Z80-NEXT:  BB42_2:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    ld e, (ix - 4)
@@ -10391,6 +10562,7 @@ define i32 @umul.fix.sat.i32.32(i32, i32) {
 ; Z80-NEXT:    jr nz, BB42_4
 ; Z80-NEXT:  ; %bb.3:
 ; Z80-NEXT:    ld de, -1
+; Z80-NEXT:    private BB42_4
 ; Z80-NEXT:  BB42_4:
 ; Z80-NEXT:    ld l, (ix - 2)
 ; Z80-NEXT:    ld h, (ix - 1)
@@ -10450,7 +10622,6 @@ define i32 @umul.fix.sat.i32.32(i32, i32) {
 ; EZ80-CODE16-NEXT:    ld sp, iy
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld l, (ix - 6)
-; EZ80-CODE16-NEXT:    ; kill: def $h killed $a
 ; EZ80-CODE16-NEXT:    ex (sp), hl
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    ccf
@@ -10462,12 +10633,14 @@ define i32 @umul.fix.sat.i32.32(i32, i32) {
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld hl, -1
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
+; EZ80-CODE16-NEXT:    private BB42_2
 ; EZ80-CODE16-NEXT:  BB42_2:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    ld de, (ix - 4)
 ; EZ80-CODE16-NEXT:    jr nz, BB42_4
 ; EZ80-CODE16-NEXT:  ; %bb.3:
 ; EZ80-CODE16-NEXT:    ld de, -1
+; EZ80-CODE16-NEXT:    private BB42_4
 ; EZ80-CODE16-NEXT:  BB42_4:
 ; EZ80-CODE16-NEXT:    ld hl, (ix - 2)
 ; EZ80-CODE16-NEXT:    ld sp, ix
@@ -10488,7 +10661,9 @@ define i32 @umul.fix.sat.i32.32(i32, i32) {
 ; EZ80-NEXT:    ld de, (ix - 4)
 ; EZ80-NEXT:    ld d, a
 ; EZ80-NEXT:    ld e, c
-; EZ80-NEXT:    ld bc, 0
+; EZ80-NEXT:    sbc hl, hl
+; EZ80-NEXT:    ld c, l
+; EZ80-NEXT:    ld b, h
 ; EZ80-NEXT:    ld (ix - 1), a
 ; EZ80-NEXT:    ld hl, (ix - 3)
 ; EZ80-NEXT:    ld h, a
@@ -10525,7 +10700,6 @@ define i32 @umul.fix.sat.i32.32(i32, i32) {
 ; EZ80-NEXT:    ld sp, iy
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld l, (ix - 3)
-; EZ80-NEXT:    ; kill: def $h killed $a
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    ccf
@@ -10537,11 +10711,13 @@ define i32 @umul.fix.sat.i32.32(i32, i32) {
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    scf
 ; EZ80-NEXT:    sbc hl, hl
+; EZ80-NEXT:    private BB42_2
 ; EZ80-NEXT:  BB42_2:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB42_4
 ; EZ80-NEXT:  ; %bb.3:
 ; EZ80-NEXT:    ld de, 255
+; EZ80-NEXT:    private BB42_4
 ; EZ80-NEXT:  BB42_4:
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
@@ -10649,8 +10825,7 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; Z80-NEXT:    ld (ix - 1), h
 ; Z80-NEXT:    ccf
 ; Z80-NEXT:    sbc hl, hl
-; Z80-NEXT:    ld e, l
-; Z80-NEXT:    ld d, h
+; Z80-NEXT:    ex de, hl
 ; Z80-NEXT:    inc de
 ; Z80-NEXT:    ld c, (ix - 16)
 ; Z80-NEXT:    ld b, (ix - 15)
@@ -10802,8 +10977,7 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; Z80-NEXT:    ld (ix - 13), h
 ; Z80-NEXT:    ccf
 ; Z80-NEXT:    sbc hl, hl
-; Z80-NEXT:    ld e, l
-; Z80-NEXT:    ld d, h
+; Z80-NEXT:    ex de, hl
 ; Z80-NEXT:    inc de
 ; Z80-NEXT:    ld c, (ix - 20)
 ; Z80-NEXT:    ld b, (ix - 19)
@@ -11242,7 +11416,6 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; Z80-NEXT:    ld sp, hl
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 12)
-; Z80-NEXT:    ; kill: def $h killed $a
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    ccf
@@ -11272,15 +11445,16 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; Z80-NEXT:    ld sp, hl
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 2)
-; Z80-NEXT:    ; kill: def $h killed $a
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    jr z, BB43_2
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld a, 0
 ; Z80-NEXT:    jr BB43_3
+; Z80-NEXT:    private BB43_2
 ; Z80-NEXT:  BB43_2:
 ; Z80-NEXT:    ld a, 1
+; Z80-NEXT:    private BB43_3
 ; Z80-NEXT:  BB43_3:
 ; Z80-NEXT:    ld (ix - 2), a
 ; Z80-NEXT:    ld hl, -1
@@ -11307,7 +11481,6 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; Z80-NEXT:    ld sp, iy
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 10)
-; Z80-NEXT:    ; kill: def $h killed $a
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    ; kill: def $a killed $a
@@ -11317,19 +11490,24 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; Z80-NEXT:  ; %bb.4:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp z, BB43_11
+; Z80-NEXT:    private BB43_5
 ; Z80-NEXT:  BB43_5:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp z, BB43_12
+; Z80-NEXT:    private BB43_6
 ; Z80-NEXT:  BB43_6:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp z, BB43_13
+; Z80-NEXT:    private BB43_7
 ; Z80-NEXT:  BB43_7:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB43_9
+; Z80-NEXT:    private BB43_8
 ; Z80-NEXT:  BB43_8:
 ; Z80-NEXT:    ld de, -1
 ; Z80-NEXT:    ld (ix - 8), e
 ; Z80-NEXT:    ld (ix - 7), d
+; Z80-NEXT:    private BB43_9
 ; Z80-NEXT:  BB43_9:
 ; Z80-NEXT:    ld e, (ix - 4)
 ; Z80-NEXT:    ld d, (ix - 3)
@@ -11343,20 +11521,24 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; Z80-NEXT:    ld sp, ix
 ; Z80-NEXT:    pop ix
 ; Z80-NEXT:    ret
+; Z80-NEXT:    private BB43_10
 ; Z80-NEXT:  BB43_10:
 ; Z80-NEXT:    ld a, (ix - 12) ; 1-byte Folded Reload
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp nz, BB43_5
+; Z80-NEXT:    private BB43_11
 ; Z80-NEXT:  BB43_11:
 ; Z80-NEXT:    ld hl, -1
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp nz, BB43_6
+; Z80-NEXT:    private BB43_12
 ; Z80-NEXT:  BB43_12:
 ; Z80-NEXT:    ld de, -1
 ; Z80-NEXT:    ld (ix - 4), e
 ; Z80-NEXT:    ld (ix - 3), d
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jp nz, BB43_7
+; Z80-NEXT:    private BB43_13
 ; Z80-NEXT:  BB43_13:
 ; Z80-NEXT:    ld de, -1
 ; Z80-NEXT:    ld (ix - 6), e
@@ -11425,8 +11607,7 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
 ; EZ80-CODE16-NEXT:    ccf
 ; EZ80-CODE16-NEXT:    sbc hl, hl
-; EZ80-CODE16-NEXT:    ld e, l
-; EZ80-CODE16-NEXT:    ld d, h
+; EZ80-CODE16-NEXT:    ex de, hl
 ; EZ80-CODE16-NEXT:    inc de
 ; EZ80-CODE16-NEXT:    ld bc, (ix - 16)
 ; EZ80-CODE16-NEXT:    add iy, bc
@@ -11526,8 +11707,7 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld (ix - 14), hl
 ; EZ80-CODE16-NEXT:    ccf
 ; EZ80-CODE16-NEXT:    sbc hl, hl
-; EZ80-CODE16-NEXT:    ld e, l
-; EZ80-CODE16-NEXT:    ld d, h
+; EZ80-CODE16-NEXT:    ex de, hl
 ; EZ80-CODE16-NEXT:    inc de
 ; EZ80-CODE16-NEXT:    ld bc, (ix - 20)
 ; EZ80-CODE16-NEXT:    add iy, bc
@@ -11810,7 +11990,6 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld sp, hl
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld l, (ix - 12)
-; EZ80-CODE16-NEXT:    ; kill: def $h killed $a
 ; EZ80-CODE16-NEXT:    ex (sp), hl
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    ccf
@@ -11836,15 +12015,16 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld sp, hl
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld l, (ix - 2)
-; EZ80-CODE16-NEXT:    ; kill: def $h killed $a
 ; EZ80-CODE16-NEXT:    ex (sp), hl
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    jr z, BB43_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld a, 0
 ; EZ80-CODE16-NEXT:    jr BB43_3
+; EZ80-CODE16-NEXT:    private BB43_2
 ; EZ80-CODE16-NEXT:  BB43_2:
 ; EZ80-CODE16-NEXT:    ld a, 1
+; EZ80-CODE16-NEXT:    private BB43_3
 ; EZ80-CODE16-NEXT:  BB43_3:
 ; EZ80-CODE16-NEXT:    ld (ix - 2), a
 ; EZ80-CODE16-NEXT:    ld hl, -1
@@ -11867,7 +12047,6 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld sp, iy
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld l, (ix - 10)
-; EZ80-CODE16-NEXT:    ; kill: def $h killed $a
 ; EZ80-CODE16-NEXT:    ex (sp), hl
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    ; kill: def $a killed $a
@@ -11877,18 +12056,23 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-CODE16-NEXT:  ; %bb.4:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp z, BB43_11
+; EZ80-CODE16-NEXT:    private BB43_5
 ; EZ80-CODE16-NEXT:  BB43_5:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp z, BB43_12
+; EZ80-CODE16-NEXT:    private BB43_6
 ; EZ80-CODE16-NEXT:  BB43_6:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp z, BB43_13
+; EZ80-CODE16-NEXT:    private BB43_7
 ; EZ80-CODE16-NEXT:  BB43_7:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB43_9
+; EZ80-CODE16-NEXT:    private BB43_8
 ; EZ80-CODE16-NEXT:  BB43_8:
 ; EZ80-CODE16-NEXT:    ld de, -1
 ; EZ80-CODE16-NEXT:    ld (ix - 8), de
+; EZ80-CODE16-NEXT:    private BB43_9
 ; EZ80-CODE16-NEXT:  BB43_9:
 ; EZ80-CODE16-NEXT:    ld de, (ix - 4)
 ; EZ80-CODE16-NEXT:    ld bc, (ix - 6)
@@ -11896,19 +12080,23 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld sp, ix
 ; EZ80-CODE16-NEXT:    pop ix
 ; EZ80-CODE16-NEXT:    ret
+; EZ80-CODE16-NEXT:    private BB43_10
 ; EZ80-CODE16-NEXT:  BB43_10:
 ; EZ80-CODE16-NEXT:    ld a, (ix - 12) ; 1-byte Folded Reload
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp nz, BB43_5
+; EZ80-CODE16-NEXT:    private BB43_11
 ; EZ80-CODE16-NEXT:  BB43_11:
 ; EZ80-CODE16-NEXT:    ld hl, -1
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp nz, BB43_6
+; EZ80-CODE16-NEXT:    private BB43_12
 ; EZ80-CODE16-NEXT:  BB43_12:
 ; EZ80-CODE16-NEXT:    ld de, -1
 ; EZ80-CODE16-NEXT:    ld (ix - 4), de
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jp nz, BB43_7
+; EZ80-CODE16-NEXT:    private BB43_13
 ; EZ80-CODE16-NEXT:  BB43_13:
 ; EZ80-CODE16-NEXT:    ld de, -1
 ; EZ80-CODE16-NEXT:    ld (ix - 6), de
@@ -11935,68 +12123,49 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -157
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld (ix + 0), a
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 29), a
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ld (iy + 3), bc
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -134
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 6
 ; EZ80-NEXT:    ld a, (iy + 0)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld a, e
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -154
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, bc
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 26
 ; EZ80-NEXT:    ld (iy + 0), a
-; EZ80-NEXT:    ld bc, (ix - 3)
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -133
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, bc
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 5
 ; EZ80-NEXT:    ld (iy + 0), de
-; EZ80-NEXT:    ld bc, (ix - 3)
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -132
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, bc
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 4
 ; EZ80-NEXT:    ld hl, (iy + 0)
-; EZ80-NEXT:    ld bc, (ix - 3)
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -177
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, bc
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 49
 ; EZ80-NEXT:    ld (iy + 0), hl
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ld a, c
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -148
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 20
 ; EZ80-NEXT:    ld (iy + 0), a
-; EZ80-NEXT:    ld de, (ix - 3)
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -130
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 2
 ; EZ80-NEXT:    ld (iy + 0), bc
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    pop iy
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -129
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld hl, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld hl, (ix - 1)
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -166
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld (ix + 0), hl
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 38), hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    ; kill: def $e killed $e killed $ude
@@ -12004,20 +12173,14 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    ld a, iyl
 ; EZ80-NEXT:    call __lmulu
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -169
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld (ix + 0), hl
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 41), hl
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ; kill: def $e killed $e def $ude
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -172
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld (ix + 0), de
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 44), de
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ld hl, (ix + 9)
 ; EZ80-NEXT:    ld (ix - 127), hl
 ; EZ80-NEXT:    ld hl, (ix - 126)
@@ -12027,17 +12190,13 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    ld hl, (ix - 124)
 ; EZ80-NEXT:    ld e, d
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -148
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld a, (ix + 0) ; 1-byte Folded Reload
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld a, (ix - 20) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    call __lmulu
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -151
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld (ix + 0), hl
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 23), hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld bc, -145
 ; EZ80-NEXT:    lea hl, ix + 0
@@ -12054,12 +12213,9 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    ld bc, (ix - 118)
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -154
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld d, (ix + 0) ; 1-byte Folded Reload
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld d, (ix - 26) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ld e, d
 ; EZ80-NEXT:    ld a, iyh
 ; EZ80-NEXT:    call __lmulu
@@ -12090,12 +12246,9 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    ld c, l
 ; EZ80-NEXT:    ld b, h
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -142
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld (ix + 0), bc
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 14), bc
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push af
 ; EZ80-NEXT:    ld a, iyl
 ; EZ80-NEXT:    ld (ix - 114), a
@@ -12104,18 +12257,14 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ld d, iyl
 ; EZ80-NEXT:    ex de, hl
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -148
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 20
 ; EZ80-NEXT:    ld l, (iy + 0) ; 1-byte Folded Reload
-; EZ80-NEXT:    ld de, (ix - 3)
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -163
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 35
 ; EZ80-NEXT:    ld (iy + 0), hl
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix + 15)
@@ -12162,16 +12311,12 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    adc a, (hl) ; 1-byte Folded Reload
 ; EZ80-NEXT:    ccf
 ; EZ80-NEXT:    sbc hl, hl
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop de
+; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    inc de
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -183
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld bc, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld bc, (ix - 55)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld bc, -151
 ; EZ80-NEXT:    lea hl, ix + 0
@@ -12226,12 +12371,10 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    ld (ix - 110), de
 ; EZ80-NEXT:    ld e, (ix - 108)
 ; EZ80-NEXT:    ld bc, (ix + 15)
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -148
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 20
 ; EZ80-NEXT:    ld a, (iy + 0) ; 1-byte Folded Reload
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __lmulu
 ; EZ80-NEXT:    ld bc, -145
 ; EZ80-NEXT:    lea iy, ix + 0
@@ -12288,17 +12431,13 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    ld a, (ix - 90)
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -154
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld e, (ix + 0) ; 1-byte Folded Reload
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld e, (ix - 26) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    call __lmulu
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -207
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld (ix + 0), hl
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 79), hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld bc, -204
 ; EZ80-NEXT:    lea hl, ix + 0
@@ -12308,12 +12447,9 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    ld (ix - 89), l
 ; EZ80-NEXT:    ld bc, (ix - 91)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -177
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld de, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld de, (ix - 49)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ld b, d
 ; EZ80-NEXT:    ld c, e
 ; EZ80-NEXT:    ld de, -177
@@ -12327,20 +12463,14 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    ld hl, (ix + 12)
 ; EZ80-NEXT:    ld e, h
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -180
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld (ix + 0), de
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 52), de
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    push iy
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -163
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld hl, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld hl, (ix - 35)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix + 15)
 ; EZ80-NEXT:    push hl
@@ -12372,9 +12502,8 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    ld de, (ix - 89)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -166
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld hl, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld hl, (ix - 38)
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld d, h
 ; EZ80-NEXT:    ld e, l
@@ -12393,22 +12522,18 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld (iy + 0), hl
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -142
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 14
 ; EZ80-NEXT:    ld bc, (iy + 0)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -160
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, bc
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 32
 ; EZ80-NEXT:    ld de, (iy + 0)
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llmulu
 ; EZ80-NEXT:    ld iy, 9
@@ -12450,16 +12575,12 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    adc a, (hl) ; 1-byte Folded Reload
 ; EZ80-NEXT:    ccf
 ; EZ80-NEXT:    sbc hl, hl
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop de
+; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    inc de
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -207
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld bc, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld bc, (ix - 79)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld bc, -204
 ; EZ80-NEXT:    lea hl, ix + 0
@@ -12480,27 +12601,20 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    inc bc
 ; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -157
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld d, (ix + 0) ; 1-byte Folded Reload
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld d, (ix - 29) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ld e, d
 ; EZ80-NEXT:    ld a, d
 ; EZ80-NEXT:    call __ladd
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -195
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld (ix + 0), hl
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 67), hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -210
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld bc, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld bc, (ix - 82)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld bc, -145
 ; EZ80-NEXT:    lea hl, ix + 0
@@ -12526,26 +12640,19 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    pop bc
 ; EZ80-NEXT:    inc bc
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -195
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld hl, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld hl, (ix - 67)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld a, d
 ; EZ80-NEXT:    call __ladd
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -195
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld (ix + 0), hl
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 67), hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -166
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld bc, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld bc, (ix - 38)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld bc, -145
 ; EZ80-NEXT:    lea hl, ix + 0
@@ -12571,26 +12678,19 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    pop bc
 ; EZ80-NEXT:    inc bc
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -195
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld hl, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld hl, (ix - 67)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld a, d
 ; EZ80-NEXT:    call __ladd
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -195
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld (ix + 0), hl
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 67), hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -186
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld bc, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld bc, (ix - 58)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld bc, -145
 ; EZ80-NEXT:    lea hl, ix + 0
@@ -12622,12 +12722,10 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop bc
 ; EZ80-NEXT:    inc bc
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -195
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 67
 ; EZ80-NEXT:    ld hl, (iy + 0)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld a, d
 ; EZ80-NEXT:    call __ladd
 ; EZ80-NEXT:    ld bc, -183
@@ -12643,17 +12741,13 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    ld e, d
 ; EZ80-NEXT:    ld bc, (ix + 15)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -148
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld a, (ix + 0) ; 1-byte Folded Reload
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld a, (ix - 20) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __lmulu
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -148
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld (ix + 0), hl
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 20), hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld bc, -195
 ; EZ80-NEXT:    lea hl, ix + 0
@@ -12662,9 +12756,8 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    ld l, 0
 ; EZ80-NEXT:    ld (ix - 85), hl
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld de, -142
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld hl, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld hl, (ix - 14)
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld (ix - 84), l
 ; EZ80-NEXT:    ld (ix - 83), h
@@ -12699,9 +12792,8 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    ld e, 0
 ; EZ80-NEXT:    ld (ix - 67), de
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld de, -142
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld iy, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld iy, (ix - 14)
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    lea hl, iy + 0
@@ -12716,9 +12808,8 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    ld e, d
 ; EZ80-NEXT:    call __lmulu
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -204
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld (ix + 0), hl
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 76), hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld bc, -207
 ; EZ80-NEXT:    lea hl, ix + 0
@@ -12726,23 +12817,18 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    ld (hl), e ; 1-byte Folded Spill
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -154
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld e, (ix + 0) ; 1-byte Folded Reload
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld e, (ix - 26) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld bc, 0
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -157
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld a, (ix + 0) ; 1-byte Folded Reload
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld a, (ix - 29) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __lmulu
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -154
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld (ix + 0), hl
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 26), hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld bc, -157
 ; EZ80-NEXT:    lea hl, ix + 0
@@ -12759,12 +12845,9 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    ld e, c
 ; EZ80-NEXT:    push iy
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -163
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld bc, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld bc, (ix - 35)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    ld bc, (ix + 15)
 ; EZ80-NEXT:    push bc
@@ -12806,12 +12889,10 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    ld hl, (iy + 0)
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -180
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, bc
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 52
 ; EZ80-NEXT:    ld de, (iy + 0)
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llmulu
 ; EZ80-NEXT:    ld iy, 9
@@ -12839,22 +12920,18 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    ld de, (ix - 60)
 ; EZ80-NEXT:    ld d, c
 ; EZ80-NEXT:    ld e, c
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -142
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 14
 ; EZ80-NEXT:    ld bc, (iy + 0)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -160
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, bc
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 32
 ; EZ80-NEXT:    ld de, (iy + 0)
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llmulu
 ; EZ80-NEXT:    ld iy, 9
@@ -12868,114 +12945,77 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    pop hl
 ; EZ80-NEXT:    ld d, e
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -148
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld hl, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld hl, (ix - 20)
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -195
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld e, (ix + 0) ; 1-byte Folded Reload
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld e, (ix - 67) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -198
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld bc, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld bc, (ix - 70)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -201
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld a, (ix + 0) ; 1-byte Folded Reload
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld a, (ix - 73) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __ladd
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -204
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld bc, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld bc, (ix - 76)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -207
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld a, (ix + 0) ; 1-byte Folded Reload
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld a, (ix - 79) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __ladd
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -154
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld bc, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld bc, (ix - 26)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -157
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld a, (ix + 0) ; 1-byte Folded Reload
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld a, (ix - 29) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __ladd
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -163
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld bc, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld bc, (ix - 35)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -210
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld a, (ix + 0) ; 1-byte Folded Reload
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld a, (ix - 82) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __ladd
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -177
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld bc, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld bc, (ix - 49)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -180
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld a, (ix + 0) ; 1-byte Folded Reload
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld a, (ix - 52) ; 1-byte Folded Reload
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __ladd
 ; EZ80-NEXT:    lea bc, iy + 0
 ; EZ80-NEXT:    ld a, d
 ; EZ80-NEXT:    call __ladd
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -183
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 55
 ; EZ80-NEXT:    ld bc, (iy + 0)
-; EZ80-NEXT:    ld de, (ix - 3)
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -186
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 58
 ; EZ80-NEXT:    ld a, (iy + 0) ; 1-byte Folded Reload
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __ladd
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop iy
 ; EZ80-NEXT:    ld h, e
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld de, -148
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld (ix + 0), l
-; EZ80-NEXT:    ld (ix + 1), h
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 20), l
+; EZ80-NEXT:    ld (ix - 19), h
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld de, -151
 ; EZ80-NEXT:    lea hl, ix + 0
@@ -12984,50 +13024,35 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    ld l, c
 ; EZ80-NEXT:    ld h, b
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -172
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld de, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld de, (ix - 44)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ld (ix - 57), de
 ; EZ80-NEXT:    ld (ix - 56), l
 ; EZ80-NEXT:    ld (ix - 55), h
 ; EZ80-NEXT:    ld de, (ix - 57)
 ; EZ80-NEXT:    ld (ix - 54), bc
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -174
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld c, (ix + 0)
-; EZ80-NEXT:    ld b, (ix + 1)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld c, (ix - 46)
+; EZ80-NEXT:    ld b, (ix - 45)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld c, (ix - 52)
 ; EZ80-NEXT:    ld hl, 32
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -169
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld hl, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld hl, (ix - 41)
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __llshru
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -151
-; EZ80-NEXT:    add ix, de
-; EZ80-NEXT:    ld (ix + 0), hl
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 23), hl
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -154
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld (ix + 0), de
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld (ix - 26), de
 ; EZ80-NEXT:    pop ix
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ld de, -160
 ; EZ80-NEXT:    lea hl, ix + 0
 ; EZ80-NEXT:    add hl, de
@@ -13050,38 +13075,31 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    ld (hl), d
 ; EZ80-NEXT:    dec hl
 ; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld bc, -166
-; EZ80-NEXT:    add ix, bc
-; EZ80-NEXT:    ld hl, (ix + 0)
+; EZ80-NEXT:    lea ix, ix - 128
+; EZ80-NEXT:    ld hl, (ix - 38)
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ld (ix - 51), hl
 ; EZ80-NEXT:    ld (ix - 50), e
 ; EZ80-NEXT:    ld (ix - 49), d
 ; EZ80-NEXT:    ld de, (ix - 51)
 ; EZ80-NEXT:    ld (ix - 48), iy
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -148
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 20
 ; EZ80-NEXT:    ld c, (iy + 0)
 ; EZ80-NEXT:    ld b, (iy + 1)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld c, (ix - 46)
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -148
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 20
 ; EZ80-NEXT:    ld (iy + 0), c
 ; EZ80-NEXT:    ld (iy + 1), b
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld hl, 32
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -145
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 17
 ; EZ80-NEXT:    ld hl, (iy + 0)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __llshl
 ; EZ80-NEXT:    ; kill: def $bc killed $bc def $ubc
 ; EZ80-NEXT:    pop iy
@@ -13092,32 +13110,24 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    ld hl, (iy + 0)
-; EZ80-NEXT:    ld (ix - 3), bc
 ; EZ80-NEXT:    ld bc, -154
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld de, (iy + 0)
-; EZ80-NEXT:    ld bc, (ix - 3)
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -160
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 32
 ; EZ80-NEXT:    ld c, (iy + 0)
 ; EZ80-NEXT:    ld b, (iy + 1)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __llor
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -160
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 32
 ; EZ80-NEXT:    ld (iy + 0), hl
-; EZ80-NEXT:    ld de, (ix - 3)
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -151
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, bc
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 23
 ; EZ80-NEXT:    ld (iy + 0), de
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc def $ubc
 ; EZ80-NEXT:    ld de, -154
 ; EZ80-NEXT:    lea iy, ix + 0
@@ -13139,42 +13149,32 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    ld (ix - 44), l
 ; EZ80-NEXT:    ld (ix - 43), h
 ; EZ80-NEXT:    ld de, (ix - 45)
-; EZ80-NEXT:    ld (ix - 3), bc
 ; EZ80-NEXT:    ld bc, -157
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld hl, (iy + 0)
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ld (ix - 42), hl
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -148
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 20
 ; EZ80-NEXT:    ld c, (iy + 0)
 ; EZ80-NEXT:    ld b, (iy + 1)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld c, (ix - 40)
 ; EZ80-NEXT:    ld hl, 32
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -145
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 17
 ; EZ80-NEXT:    ld hl, (iy + 0)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __llshru
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -145
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 17
 ; EZ80-NEXT:    ld (iy + 0), hl
-; EZ80-NEXT:    ld de, (ix - 3)
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -148
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, bc
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 20
 ; EZ80-NEXT:    ld (iy + 0), de
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ld de, -157
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, de
@@ -13217,13 +13217,11 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld de, (iy + 0)
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -157
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 29
 ; EZ80-NEXT:    ld c, (iy + 0)
 ; EZ80-NEXT:    ld b, (iy + 1)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __llcmpu
 ; EZ80-NEXT:    push af
 ; EZ80-NEXT:    ex (sp), hl
@@ -13239,7 +13237,6 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    ld l, (iy + 0)
-; EZ80-NEXT:    ; kill: def $h killed $a
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    ccf
@@ -13285,13 +13282,11 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld de, (iy + 0)
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -157
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 29
 ; EZ80-NEXT:    ld c, (iy + 0)
 ; EZ80-NEXT:    ld b, (iy + 1)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    call __llcmpu
 ; EZ80-NEXT:    push af
 ; EZ80-NEXT:    ex (sp), hl
@@ -13307,15 +13302,16 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    ld l, (iy + 0)
-; EZ80-NEXT:    ; kill: def $h killed $a
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    jr z, BB43_2
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld a, 0
 ; EZ80-NEXT:    jr BB43_3
+; EZ80-NEXT:    private BB43_2
 ; EZ80-NEXT:  BB43_2:
 ; EZ80-NEXT:    ld a, 1
+; EZ80-NEXT:    private BB43_3
 ; EZ80-NEXT:  BB43_3:
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, de
@@ -13334,12 +13330,10 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld de, (iy + 0)
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -154
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 26
 ; EZ80-NEXT:    ld bc, (iy + 0)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llcmpu
 ; EZ80-NEXT:    push af
@@ -13356,7 +13350,6 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    ld l, (iy + 0)
-; EZ80-NEXT:    ; kill: def $h killed $a
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    ; kill: def $a killed $a
@@ -13373,17 +13366,16 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    ld a, (iy + 0) ; 1-byte Folded Reload
+; EZ80-NEXT:    private BB43_5
 ; EZ80-NEXT:  BB43_5:
 ; EZ80-NEXT:    ld bc, -145
 ; EZ80-NEXT:    lea iy, ix + 0
 ; EZ80-NEXT:    add iy, bc
 ; EZ80-NEXT:    ld de, (iy + 0)
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -154
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 26
 ; EZ80-NEXT:    ld bc, (iy + 0)
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    ld (ix - 9), bc
 ; EZ80-NEXT:    ld (ix - 7), e
 ; EZ80-NEXT:    ld de, (ix - 9)
@@ -13392,36 +13384,37 @@ define i64 @umul.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:  ; %bb.6:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp z, BB43_11
+; EZ80-NEXT:    private BB43_7
 ; EZ80-NEXT:  BB43_7:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB43_9
+; EZ80-NEXT:    private BB43_8
 ; EZ80-NEXT:  BB43_8:
 ; EZ80-NEXT:    ld de, 65535
+; EZ80-NEXT:    private BB43_9
 ; EZ80-NEXT:  BB43_9:
 ; EZ80-NEXT:    ld c, e
 ; EZ80-NEXT:    ld b, d
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld bc, -151
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, bc
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 23
 ; EZ80-NEXT:    ld de, (iy + 0)
-; EZ80-NEXT:    ld bc, (ix - 3)
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
+; EZ80-NEXT:    private BB43_10
 ; EZ80-NEXT:  BB43_10:
 ; EZ80-NEXT:    scf
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp nz, BB43_7
+; EZ80-NEXT:    private BB43_11
 ; EZ80-NEXT:  BB43_11:
 ; EZ80-NEXT:    ld bc, -1
-; EZ80-NEXT:    ld (ix - 3), de
-; EZ80-NEXT:    ld de, -151
 ; EZ80-NEXT:    lea iy, ix + 0
-; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    lea iy, iy - 128
+; EZ80-NEXT:    lea iy, iy - 23
 ; EZ80-NEXT:    ld (iy + 0), bc
-; EZ80-NEXT:    ld de, (ix - 3)
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp z, BB43_8
 ; EZ80-NEXT:    jp BB43_9
@@ -13443,8 +13436,7 @@ define i8 @sdiv.fix.sat.i8.7(i8, i8) {
 ; Z80-NEXT:    ld l, e
 ; Z80-NEXT:    ld c, 7
 ; Z80-NEXT:    call __sshl
-; Z80-NEXT:    ld e, l
-; Z80-NEXT:    ld d, h
+; Z80-NEXT:    ex de, hl
 ; Z80-NEXT:    ld l, a
 ; Z80-NEXT:    rlc l
 ; Z80-NEXT:    sbc hl, hl
@@ -13465,6 +13457,7 @@ define i8 @sdiv.fix.sat.i8.7(i8, i8) {
 ; Z80-NEXT:    jr nc, BB44_2
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld de, -128
+; Z80-NEXT:    private BB44_2
 ; Z80-NEXT:  BB44_2:
 ; Z80-NEXT:    ld l, e
 ; Z80-NEXT:    ld h, d
@@ -13477,6 +13470,7 @@ define i8 @sdiv.fix.sat.i8.7(i8, i8) {
 ; Z80-NEXT:    jr c, BB44_4
 ; Z80-NEXT:  ; %bb.3:
 ; Z80-NEXT:    ld de, 127
+; Z80-NEXT:    private BB44_4
 ; Z80-NEXT:  BB44_4:
 ; Z80-NEXT:    ld a, e
 ; Z80-NEXT:    ret
@@ -13493,8 +13487,7 @@ define i8 @sdiv.fix.sat.i8.7(i8, i8) {
 ; EZ80-CODE16-NEXT:    ld l, e
 ; EZ80-CODE16-NEXT:    ld c, 7
 ; EZ80-CODE16-NEXT:    call __sshl
-; EZ80-CODE16-NEXT:    ld e, l
-; EZ80-CODE16-NEXT:    ld d, h
+; EZ80-CODE16-NEXT:    ex de, hl
 ; EZ80-CODE16-NEXT:    ld l, a
 ; EZ80-CODE16-NEXT:    rlc l
 ; EZ80-CODE16-NEXT:    sbc hl, hl
@@ -13515,6 +13508,7 @@ define i8 @sdiv.fix.sat.i8.7(i8, i8) {
 ; EZ80-CODE16-NEXT:    jr nc, BB44_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld de, -128
+; EZ80-CODE16-NEXT:    private BB44_2
 ; EZ80-CODE16-NEXT:  BB44_2:
 ; EZ80-CODE16-NEXT:    ld l, e
 ; EZ80-CODE16-NEXT:    ld h, d
@@ -13526,6 +13520,7 @@ define i8 @sdiv.fix.sat.i8.7(i8, i8) {
 ; EZ80-CODE16-NEXT:    jr c, BB44_4
 ; EZ80-CODE16-NEXT:  ; %bb.3:
 ; EZ80-CODE16-NEXT:    ld de, 127
+; EZ80-CODE16-NEXT:    private BB44_4
 ; EZ80-CODE16-NEXT:  BB44_4:
 ; EZ80-CODE16-NEXT:    ld a, e
 ; EZ80-CODE16-NEXT:    ret
@@ -13542,16 +13537,14 @@ define i8 @sdiv.fix.sat.i8.7(i8, i8) {
 ; EZ80-NEXT:    ld l, e
 ; EZ80-NEXT:    ld c, 7
 ; EZ80-NEXT:    call __sshl
-; EZ80-NEXT:    ld e, l
-; EZ80-NEXT:    ld d, h
+; EZ80-NEXT:    ex.sis de, hl
 ; EZ80-NEXT:    ld l, a
 ; EZ80-NEXT:    rlc l
 ; EZ80-NEXT:    sbc.sis hl, hl
 ; EZ80-NEXT:    ld c, l
 ; EZ80-NEXT:    ld b, h
 ; EZ80-NEXT:    ld c, a
-; EZ80-NEXT:    ld l, e
-; EZ80-NEXT:    ld h, d
+; EZ80-NEXT:    ex.sis de, hl
 ; EZ80-NEXT:    call __sdivs
 ; EZ80-NEXT:    ld e, l
 ; EZ80-NEXT:    ld d, h
@@ -13565,6 +13558,7 @@ define i8 @sdiv.fix.sat.i8.7(i8, i8) {
 ; EZ80-NEXT:    jr nc, BB44_2
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld.sis de, -128
+; EZ80-NEXT:    private BB44_2
 ; EZ80-NEXT:  BB44_2:
 ; EZ80-NEXT:    ld l, e
 ; EZ80-NEXT:    ld h, d
@@ -13577,6 +13571,7 @@ define i8 @sdiv.fix.sat.i8.7(i8, i8) {
 ; EZ80-NEXT:    jr c, BB44_4
 ; EZ80-NEXT:  ; %bb.3:
 ; EZ80-NEXT:    ld.sis de, 127
+; EZ80-NEXT:    private BB44_4
 ; EZ80-NEXT:  BB44_4:
 ; EZ80-NEXT:    ld a, e
 ; EZ80-NEXT:    ret
@@ -13634,19 +13629,23 @@ define i16 @sdiv.fix.sat.i16.7(i16, i16) {
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr z, BB45_3
 ; Z80-NEXT:    jr BB45_4
+; Z80-NEXT:    private BB45_2
 ; Z80-NEXT:  BB45_2:
 ; Z80-NEXT:    ld a, 1
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB45_4
+; Z80-NEXT:    private BB45_3
 ; Z80-NEXT:  BB45_3:
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
+; Z80-NEXT:    private BB45_4
 ; Z80-NEXT:  BB45_4:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB45_6
 ; Z80-NEXT:  ; %bb.5:
 ; Z80-NEXT:    ld iyl, e
 ; Z80-NEXT:    ld iyh, d
+; Z80-NEXT:    private BB45_6
 ; Z80-NEXT:  BB45_6:
 ; Z80-NEXT:    ld bc, 32767
 ; Z80-NEXT:    ld l, (ix - 2)
@@ -13660,6 +13659,7 @@ define i16 @sdiv.fix.sat.i16.7(i16, i16) {
 ; Z80-NEXT:  ; %bb.7:
 ; Z80-NEXT:    ld l, c
 ; Z80-NEXT:    ld h, b
+; Z80-NEXT:    private BB45_8
 ; Z80-NEXT:  BB45_8:
 ; Z80-NEXT:    ld sp, ix
 ; Z80-NEXT:    pop ix
@@ -13710,18 +13710,22 @@ define i16 @sdiv.fix.sat.i16.7(i16, i16) {
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr z, BB45_3
 ; EZ80-CODE16-NEXT:    jr BB45_4
+; EZ80-CODE16-NEXT:    private BB45_2
 ; EZ80-CODE16-NEXT:  BB45_2:
 ; EZ80-CODE16-NEXT:    ld a, 1
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB45_4
+; EZ80-CODE16-NEXT:    private BB45_3
 ; EZ80-CODE16-NEXT:  BB45_3:
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
+; EZ80-CODE16-NEXT:    private BB45_4
 ; EZ80-CODE16-NEXT:  BB45_4:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB45_6
 ; EZ80-CODE16-NEXT:  ; %bb.5:
 ; EZ80-CODE16-NEXT:    ld iyl, e
 ; EZ80-CODE16-NEXT:    ld iyh, d
+; EZ80-CODE16-NEXT:    private BB45_6
 ; EZ80-CODE16-NEXT:  BB45_6:
 ; EZ80-CODE16-NEXT:    ld bc, 32767
 ; EZ80-CODE16-NEXT:    ld hl, (ix - 2)
@@ -13733,6 +13737,7 @@ define i16 @sdiv.fix.sat.i16.7(i16, i16) {
 ; EZ80-CODE16-NEXT:  ; %bb.7:
 ; EZ80-CODE16-NEXT:    ld l, c
 ; EZ80-CODE16-NEXT:    ld h, b
+; EZ80-CODE16-NEXT:    private BB45_8
 ; EZ80-CODE16-NEXT:  BB45_8:
 ; EZ80-CODE16-NEXT:    ld sp, ix
 ; EZ80-CODE16-NEXT:    pop ix
@@ -13755,7 +13760,6 @@ define i16 @sdiv.fix.sat.i16.7(i16, i16) {
 ; EZ80-NEXT:    ld b, d
 ; EZ80-NEXT:    rlc a
 ; EZ80-NEXT:    sbc a, a
-; EZ80-NEXT:    ld d, 0
 ; EZ80-NEXT:    ld l, 7
 ; EZ80-NEXT:    call __lshl
 ; EZ80-NEXT:    ld e, a
@@ -13778,10 +13782,11 @@ define i16 @sdiv.fix.sat.i16.7(i16, i16) {
 ; EZ80-NEXT:    call __ldivs
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop iy
-; EZ80-NEXT:    ld a, e
+; EZ80-NEXT:    ld d, e
 ; EZ80-NEXT:    ld hl, -32768
 ; EZ80-NEXT:    ld e, -1
 ; EZ80-NEXT:    lea bc, iy + 0
+; EZ80-NEXT:    ld a, d
 ; EZ80-NEXT:    call __lcmps
 ; EZ80-NEXT:    call pe, __setflag
 ; EZ80-NEXT:    jp m, BB45_2
@@ -13790,29 +13795,34 @@ define i16 @sdiv.fix.sat.i16.7(i16, i16) {
 ; EZ80-NEXT:    bit 0, c
 ; EZ80-NEXT:    jr z, BB45_3
 ; EZ80-NEXT:    jr BB45_4
+; EZ80-NEXT:    private BB45_2
 ; EZ80-NEXT:  BB45_2:
 ; EZ80-NEXT:    ld c, 1
 ; EZ80-NEXT:    bit 0, c
 ; EZ80-NEXT:    jr nz, BB45_4
+; EZ80-NEXT:    private BB45_3
 ; EZ80-NEXT:  BB45_3:
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop iy
+; EZ80-NEXT:    private BB45_4
 ; EZ80-NEXT:  BB45_4:
+; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    bit 0, c
 ; EZ80-NEXT:    jr nz, BB45_6
 ; EZ80-NEXT:  ; %bb.5:
-; EZ80-NEXT:    ld a, e
+; EZ80-NEXT:    ld d, e
+; EZ80-NEXT:    private BB45_6
 ; EZ80-NEXT:  BB45_6:
 ; EZ80-NEXT:    ld bc, 32767
 ; EZ80-NEXT:    lea hl, iy + 0
-; EZ80-NEXT:    ld e, a
-; EZ80-NEXT:    ld a, d
+; EZ80-NEXT:    ld e, d
 ; EZ80-NEXT:    call __lcmps
 ; EZ80-NEXT:    call pe, __setflag
 ; EZ80-NEXT:    jp m, BB45_8
 ; EZ80-NEXT:  ; %bb.7:
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    pop iy
+; EZ80-NEXT:    private BB45_8
 ; EZ80-NEXT:  BB45_8:
 ; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ld e, iyl
@@ -13873,19 +13883,23 @@ define i16 @sdiv.fix.sat.i16.15(i16, i16) {
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr z, BB46_3
 ; Z80-NEXT:    jr BB46_4
+; Z80-NEXT:    private BB46_2
 ; Z80-NEXT:  BB46_2:
 ; Z80-NEXT:    ld a, 1
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB46_4
+; Z80-NEXT:    private BB46_3
 ; Z80-NEXT:  BB46_3:
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
+; Z80-NEXT:    private BB46_4
 ; Z80-NEXT:  BB46_4:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB46_6
 ; Z80-NEXT:  ; %bb.5:
 ; Z80-NEXT:    ld iyl, e
 ; Z80-NEXT:    ld iyh, d
+; Z80-NEXT:    private BB46_6
 ; Z80-NEXT:  BB46_6:
 ; Z80-NEXT:    ld bc, 32767
 ; Z80-NEXT:    ld l, (ix - 2)
@@ -13899,6 +13913,7 @@ define i16 @sdiv.fix.sat.i16.15(i16, i16) {
 ; Z80-NEXT:  ; %bb.7:
 ; Z80-NEXT:    ld l, c
 ; Z80-NEXT:    ld h, b
+; Z80-NEXT:    private BB46_8
 ; Z80-NEXT:  BB46_8:
 ; Z80-NEXT:    ld sp, ix
 ; Z80-NEXT:    pop ix
@@ -13949,18 +13964,22 @@ define i16 @sdiv.fix.sat.i16.15(i16, i16) {
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr z, BB46_3
 ; EZ80-CODE16-NEXT:    jr BB46_4
+; EZ80-CODE16-NEXT:    private BB46_2
 ; EZ80-CODE16-NEXT:  BB46_2:
 ; EZ80-CODE16-NEXT:    ld a, 1
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB46_4
+; EZ80-CODE16-NEXT:    private BB46_3
 ; EZ80-CODE16-NEXT:  BB46_3:
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
+; EZ80-CODE16-NEXT:    private BB46_4
 ; EZ80-CODE16-NEXT:  BB46_4:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB46_6
 ; EZ80-CODE16-NEXT:  ; %bb.5:
 ; EZ80-CODE16-NEXT:    ld iyl, e
 ; EZ80-CODE16-NEXT:    ld iyh, d
+; EZ80-CODE16-NEXT:    private BB46_6
 ; EZ80-CODE16-NEXT:  BB46_6:
 ; EZ80-CODE16-NEXT:    ld bc, 32767
 ; EZ80-CODE16-NEXT:    ld hl, (ix - 2)
@@ -13972,6 +13991,7 @@ define i16 @sdiv.fix.sat.i16.15(i16, i16) {
 ; EZ80-CODE16-NEXT:  ; %bb.7:
 ; EZ80-CODE16-NEXT:    ld l, c
 ; EZ80-CODE16-NEXT:    ld h, b
+; EZ80-CODE16-NEXT:    private BB46_8
 ; EZ80-CODE16-NEXT:  BB46_8:
 ; EZ80-CODE16-NEXT:    ld sp, ix
 ; EZ80-CODE16-NEXT:    pop ix
@@ -13994,7 +14014,6 @@ define i16 @sdiv.fix.sat.i16.15(i16, i16) {
 ; EZ80-NEXT:    ld b, d
 ; EZ80-NEXT:    rlc a
 ; EZ80-NEXT:    sbc a, a
-; EZ80-NEXT:    ld d, 0
 ; EZ80-NEXT:    ld l, 15
 ; EZ80-NEXT:    call __lshl
 ; EZ80-NEXT:    ld e, a
@@ -14017,10 +14036,11 @@ define i16 @sdiv.fix.sat.i16.15(i16, i16) {
 ; EZ80-NEXT:    call __ldivs
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop iy
-; EZ80-NEXT:    ld a, e
+; EZ80-NEXT:    ld d, e
 ; EZ80-NEXT:    ld hl, -32768
 ; EZ80-NEXT:    ld e, -1
 ; EZ80-NEXT:    lea bc, iy + 0
+; EZ80-NEXT:    ld a, d
 ; EZ80-NEXT:    call __lcmps
 ; EZ80-NEXT:    call pe, __setflag
 ; EZ80-NEXT:    jp m, BB46_2
@@ -14029,29 +14049,34 @@ define i16 @sdiv.fix.sat.i16.15(i16, i16) {
 ; EZ80-NEXT:    bit 0, c
 ; EZ80-NEXT:    jr z, BB46_3
 ; EZ80-NEXT:    jr BB46_4
+; EZ80-NEXT:    private BB46_2
 ; EZ80-NEXT:  BB46_2:
 ; EZ80-NEXT:    ld c, 1
 ; EZ80-NEXT:    bit 0, c
 ; EZ80-NEXT:    jr nz, BB46_4
+; EZ80-NEXT:    private BB46_3
 ; EZ80-NEXT:  BB46_3:
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop iy
+; EZ80-NEXT:    private BB46_4
 ; EZ80-NEXT:  BB46_4:
+; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    bit 0, c
 ; EZ80-NEXT:    jr nz, BB46_6
 ; EZ80-NEXT:  ; %bb.5:
-; EZ80-NEXT:    ld a, e
+; EZ80-NEXT:    ld d, e
+; EZ80-NEXT:    private BB46_6
 ; EZ80-NEXT:  BB46_6:
 ; EZ80-NEXT:    ld bc, 32767
 ; EZ80-NEXT:    lea hl, iy + 0
-; EZ80-NEXT:    ld e, a
-; EZ80-NEXT:    ld a, d
+; EZ80-NEXT:    ld e, d
 ; EZ80-NEXT:    call __lcmps
 ; EZ80-NEXT:    call pe, __setflag
 ; EZ80-NEXT:    jp m, BB46_8
 ; EZ80-NEXT:  ; %bb.7:
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    pop iy
+; EZ80-NEXT:    private BB46_8
 ; EZ80-NEXT:  BB46_8:
 ; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ld e, iyl
@@ -14140,7 +14165,6 @@ define i32 @sdiv.fix.sat.i32.15(i32, i32) {
 ; Z80-NEXT:    ld sp, hl
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 9)
-; Z80-NEXT:    ; kill: def $h killed $a
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    call pe, __setflag
@@ -14148,8 +14172,10 @@ define i32 @sdiv.fix.sat.i32.15(i32, i32) {
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld a, 0
 ; Z80-NEXT:    jr BB47_3
+; Z80-NEXT:    private BB47_2
 ; Z80-NEXT:  BB47_2:
 ; Z80-NEXT:    ld a, 1
+; Z80-NEXT:    private BB47_3
 ; Z80-NEXT:  BB47_3:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    ld hl, 0
@@ -14160,18 +14186,22 @@ define i32 @sdiv.fix.sat.i32.15(i32, i32) {
 ; Z80-NEXT:    ld h, (ix - 7)
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop iy
-; Z80-NEXT:    jp z, BB47_10
+; Z80-NEXT:    jr z, BB47_10
 ; Z80-NEXT:  ; %bb.4:
 ; Z80-NEXT:    bit 0, a
-; Z80-NEXT:    jp z, BB47_11
+; Z80-NEXT:    jr z, BB47_11
+; Z80-NEXT:    private BB47_5
 ; Z80-NEXT:  BB47_5:
 ; Z80-NEXT:    bit 0, a
-; Z80-NEXT:    jp z, BB47_12
+; Z80-NEXT:    jr z, BB47_12
+; Z80-NEXT:    private BB47_6
 ; Z80-NEXT:  BB47_6:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB47_8
+; Z80-NEXT:    private BB47_7
 ; Z80-NEXT:  BB47_7:
 ; Z80-NEXT:    ld iy, -1
+; Z80-NEXT:    private BB47_8
 ; Z80-NEXT:  BB47_8:
 ; Z80-NEXT:    ld de, 32767
 ; Z80-NEXT:    push hl
@@ -14194,7 +14224,6 @@ define i32 @sdiv.fix.sat.i32.15(i32, i32) {
 ; Z80-NEXT:    ld sp, iy
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 6)
-; Z80-NEXT:    ; kill: def $h killed $a
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    call pe, __setflag
@@ -14204,29 +14233,35 @@ define i32 @sdiv.fix.sat.i32.15(i32, i32) {
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr z, BB47_14
 ; Z80-NEXT:    jr BB47_15
+; Z80-NEXT:    private BB47_10
 ; Z80-NEXT:  BB47_10:
 ; Z80-NEXT:    ld (ix - 4), l
 ; Z80-NEXT:    ld (ix - 3), h
 ; Z80-NEXT:    bit 0, a
-; Z80-NEXT:    jp nz, BB47_5
+; Z80-NEXT:    jr nz, BB47_5
+; Z80-NEXT:    private BB47_11
 ; Z80-NEXT:  BB47_11:
 ; Z80-NEXT:    ld (ix - 2), e
 ; Z80-NEXT:    ld (ix - 1), d
 ; Z80-NEXT:    bit 0, a
-; Z80-NEXT:    jp nz, BB47_6
+; Z80-NEXT:    jr nz, BB47_6
+; Z80-NEXT:    private BB47_12
 ; Z80-NEXT:  BB47_12:
 ; Z80-NEXT:    ld de, -1
 ; Z80-NEXT:    ld c, e
 ; Z80-NEXT:    ld b, d
 ; Z80-NEXT:    bit 0, a
-; Z80-NEXT:    jp z, BB47_7
-; Z80-NEXT:    jp BB47_8
+; Z80-NEXT:    jr z, BB47_7
+; Z80-NEXT:    jr BB47_8
+; Z80-NEXT:    private BB47_13
 ; Z80-NEXT:  BB47_13:
 ; Z80-NEXT:    ld a, 1
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB47_15
+; Z80-NEXT:    private BB47_14
 ; Z80-NEXT:  BB47_14:
 ; Z80-NEXT:    ld hl, -1
+; Z80-NEXT:    private BB47_15
 ; Z80-NEXT:  BB47_15:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB47_17
@@ -14234,6 +14269,7 @@ define i32 @sdiv.fix.sat.i32.15(i32, i32) {
 ; Z80-NEXT:    ld de, 32767
 ; Z80-NEXT:    ld (ix - 2), e
 ; Z80-NEXT:    ld (ix - 1), d
+; Z80-NEXT:    private BB47_17
 ; Z80-NEXT:  BB47_17:
 ; Z80-NEXT:    ld e, (ix - 2)
 ; Z80-NEXT:    ld d, (ix - 1)
@@ -14302,7 +14338,6 @@ define i32 @sdiv.fix.sat.i32.15(i32, i32) {
 ; EZ80-CODE16-NEXT:    ld sp, hl
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld l, (ix - 9)
-; EZ80-CODE16-NEXT:    ; kill: def $h killed $a
 ; EZ80-CODE16-NEXT:    ex (sp), hl
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    call pe, __setflag
@@ -14310,25 +14345,31 @@ define i32 @sdiv.fix.sat.i32.15(i32, i32) {
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld a, 0
 ; EZ80-CODE16-NEXT:    jr BB47_3
+; EZ80-CODE16-NEXT:    private BB47_2
 ; EZ80-CODE16-NEXT:  BB47_2:
 ; EZ80-CODE16-NEXT:    ld a, 1
+; EZ80-CODE16-NEXT:    private BB47_3
 ; EZ80-CODE16-NEXT:  BB47_3:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    ld hl, 0
 ; EZ80-CODE16-NEXT:    ld bc, (ix - 6)
 ; EZ80-CODE16-NEXT:    ld iy, (ix - 8)
-; EZ80-CODE16-NEXT:    jp z, BB47_10
+; EZ80-CODE16-NEXT:    jr z, BB47_10
 ; EZ80-CODE16-NEXT:  ; %bb.4:
 ; EZ80-CODE16-NEXT:    bit 0, a
-; EZ80-CODE16-NEXT:    jp z, BB47_11
+; EZ80-CODE16-NEXT:    jr z, BB47_11
+; EZ80-CODE16-NEXT:    private BB47_5
 ; EZ80-CODE16-NEXT:  BB47_5:
 ; EZ80-CODE16-NEXT:    bit 0, a
-; EZ80-CODE16-NEXT:    jp z, BB47_12
+; EZ80-CODE16-NEXT:    jr z, BB47_12
+; EZ80-CODE16-NEXT:    private BB47_6
 ; EZ80-CODE16-NEXT:  BB47_6:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB47_8
+; EZ80-CODE16-NEXT:    private BB47_7
 ; EZ80-CODE16-NEXT:  BB47_7:
 ; EZ80-CODE16-NEXT:    ld iy, -1
+; EZ80-CODE16-NEXT:    private BB47_8
 ; EZ80-CODE16-NEXT:  BB47_8:
 ; EZ80-CODE16-NEXT:    ld de, 32767
 ; EZ80-CODE16-NEXT:    push hl
@@ -14349,7 +14390,6 @@ define i32 @sdiv.fix.sat.i32.15(i32, i32) {
 ; EZ80-CODE16-NEXT:    ld sp, iy
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld l, (ix - 6)
-; EZ80-CODE16-NEXT:    ; kill: def $h killed $a
 ; EZ80-CODE16-NEXT:    ex (sp), hl
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    call pe, __setflag
@@ -14359,33 +14399,40 @@ define i32 @sdiv.fix.sat.i32.15(i32, i32) {
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr z, BB47_14
 ; EZ80-CODE16-NEXT:    jr BB47_15
+; EZ80-CODE16-NEXT:    private BB47_10
 ; EZ80-CODE16-NEXT:  BB47_10:
 ; EZ80-CODE16-NEXT:    ld (ix - 4), hl
 ; EZ80-CODE16-NEXT:    bit 0, a
-; EZ80-CODE16-NEXT:    jp nz, BB47_5
+; EZ80-CODE16-NEXT:    jr nz, BB47_5
+; EZ80-CODE16-NEXT:    private BB47_11
 ; EZ80-CODE16-NEXT:  BB47_11:
 ; EZ80-CODE16-NEXT:    ld (ix - 2), de
 ; EZ80-CODE16-NEXT:    bit 0, a
-; EZ80-CODE16-NEXT:    jp nz, BB47_6
+; EZ80-CODE16-NEXT:    jr nz, BB47_6
+; EZ80-CODE16-NEXT:    private BB47_12
 ; EZ80-CODE16-NEXT:  BB47_12:
 ; EZ80-CODE16-NEXT:    ld de, -1
 ; EZ80-CODE16-NEXT:    ld c, e
 ; EZ80-CODE16-NEXT:    ld b, d
 ; EZ80-CODE16-NEXT:    bit 0, a
-; EZ80-CODE16-NEXT:    jp z, BB47_7
-; EZ80-CODE16-NEXT:    jp BB47_8
+; EZ80-CODE16-NEXT:    jr z, BB47_7
+; EZ80-CODE16-NEXT:    jr BB47_8
+; EZ80-CODE16-NEXT:    private BB47_13
 ; EZ80-CODE16-NEXT:  BB47_13:
 ; EZ80-CODE16-NEXT:    ld a, 1
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB47_15
+; EZ80-CODE16-NEXT:    private BB47_14
 ; EZ80-CODE16-NEXT:  BB47_14:
 ; EZ80-CODE16-NEXT:    ld hl, -1
+; EZ80-CODE16-NEXT:    private BB47_15
 ; EZ80-CODE16-NEXT:  BB47_15:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB47_17
 ; EZ80-CODE16-NEXT:  ; %bb.16:
 ; EZ80-CODE16-NEXT:    ld de, 32767
 ; EZ80-CODE16-NEXT:    ld (ix - 2), de
+; EZ80-CODE16-NEXT:    private BB47_17
 ; EZ80-CODE16-NEXT:  BB47_17:
 ; EZ80-CODE16-NEXT:    ld de, (ix - 2)
 ; EZ80-CODE16-NEXT:    ld sp, ix
@@ -14409,8 +14456,7 @@ define i32 @sdiv.fix.sat.i32.15(i32, i32) {
 ; EZ80-NEXT:    ld l, c
 ; EZ80-NEXT:    rlc l
 ; EZ80-NEXT:    sbc hl, hl
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop de
+; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ld e, c
 ; EZ80-NEXT:    rlc c
 ; EZ80-NEXT:    sbc.sis hl, hl
@@ -14469,7 +14515,6 @@ define i32 @sdiv.fix.sat.i32.15(i32, i32) {
 ; EZ80-NEXT:    ld sp, hl
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld l, (ix - 18)
-; EZ80-NEXT:    ; kill: def $h killed $a
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    call pe, __setflag
@@ -14477,8 +14522,10 @@ define i32 @sdiv.fix.sat.i32.15(i32, i32) {
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld a, 0
 ; EZ80-NEXT:    jr BB47_3
+; EZ80-NEXT:    private BB47_2
 ; EZ80-NEXT:  BB47_2:
 ; EZ80-NEXT:    ld a, 1
+; EZ80-NEXT:    private BB47_3
 ; EZ80-NEXT:  BB47_3:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    ld iy, (ix - 17)
@@ -14486,13 +14533,16 @@ define i32 @sdiv.fix.sat.i32.15(i32, i32) {
 ; EZ80-NEXT:  ; %bb.4:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp z, BB47_10
+; EZ80-NEXT:    private BB47_5
 ; EZ80-NEXT:  BB47_5:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp nz, BB47_7
+; EZ80-NEXT:    private BB47_6
 ; EZ80-NEXT:  BB47_6:
 ; EZ80-NEXT:    ld.sis hl, -1
 ; EZ80-NEXT:    ; kill: def $hl killed $hl def $uhl
 ; EZ80-NEXT:    ld (ix - 14), hl
+; EZ80-NEXT:    private BB47_7
 ; EZ80-NEXT:  BB47_7:
 ; EZ80-NEXT:    ld bc, -1
 ; EZ80-NEXT:    ld de, 127
@@ -14515,7 +14565,6 @@ define i32 @sdiv.fix.sat.i32.15(i32, i32) {
 ; EZ80-NEXT:    ld sp, hl
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld l, (ix - 14)
-; EZ80-NEXT:    ; kill: def $h killed $a
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    call pe, __setflag
@@ -14525,30 +14574,36 @@ define i32 @sdiv.fix.sat.i32.15(i32, i32) {
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr z, BB47_12
 ; EZ80-NEXT:    jr BB47_13
+; EZ80-NEXT:    private BB47_9
 ; EZ80-NEXT:  BB47_9:
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ld (ix - 11), hl
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp nz, BB47_5
+; EZ80-NEXT:    private BB47_10
 ; EZ80-NEXT:  BB47_10:
 ; EZ80-NEXT:    ld iy, -128
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp z, BB47_6
 ; EZ80-NEXT:    jp BB47_7
+; EZ80-NEXT:    private BB47_11
 ; EZ80-NEXT:  BB47_11:
 ; EZ80-NEXT:    ld a, 1
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB47_13
+; EZ80-NEXT:    private BB47_12
 ; EZ80-NEXT:  BB47_12:
 ; EZ80-NEXT:    scf
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ld (ix - 11), hl
+; EZ80-NEXT:    private BB47_13
 ; EZ80-NEXT:  BB47_13:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB47_15
 ; EZ80-NEXT:  ; %bb.14:
 ; EZ80-NEXT:    ld iy, 127
+; EZ80-NEXT:    private BB47_15
 ; EZ80-NEXT:  BB47_15:
 ; EZ80-NEXT:    ld e, iyl
 ; EZ80-NEXT:    ld hl, (ix - 11)
@@ -14635,7 +14690,6 @@ define i32 @sdiv.fix.sat.i32.31(i32, i32) {
 ; Z80-NEXT:    ld sp, hl
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 9)
-; Z80-NEXT:    ; kill: def $h killed $a
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    call pe, __setflag
@@ -14643,8 +14697,10 @@ define i32 @sdiv.fix.sat.i32.31(i32, i32) {
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld a, 0
 ; Z80-NEXT:    jr BB48_3
+; Z80-NEXT:    private BB48_2
 ; Z80-NEXT:  BB48_2:
 ; Z80-NEXT:    ld a, 1
+; Z80-NEXT:    private BB48_3
 ; Z80-NEXT:  BB48_3:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    ld hl, 0
@@ -14655,18 +14711,22 @@ define i32 @sdiv.fix.sat.i32.31(i32, i32) {
 ; Z80-NEXT:    ld h, (ix - 7)
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop iy
-; Z80-NEXT:    jp z, BB48_10
+; Z80-NEXT:    jr z, BB48_10
 ; Z80-NEXT:  ; %bb.4:
 ; Z80-NEXT:    bit 0, a
-; Z80-NEXT:    jp z, BB48_11
+; Z80-NEXT:    jr z, BB48_11
+; Z80-NEXT:    private BB48_5
 ; Z80-NEXT:  BB48_5:
 ; Z80-NEXT:    bit 0, a
-; Z80-NEXT:    jp z, BB48_12
+; Z80-NEXT:    jr z, BB48_12
+; Z80-NEXT:    private BB48_6
 ; Z80-NEXT:  BB48_6:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB48_8
+; Z80-NEXT:    private BB48_7
 ; Z80-NEXT:  BB48_7:
 ; Z80-NEXT:    ld iy, -1
+; Z80-NEXT:    private BB48_8
 ; Z80-NEXT:  BB48_8:
 ; Z80-NEXT:    ld de, 32767
 ; Z80-NEXT:    push hl
@@ -14689,7 +14749,6 @@ define i32 @sdiv.fix.sat.i32.31(i32, i32) {
 ; Z80-NEXT:    ld sp, iy
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 6)
-; Z80-NEXT:    ; kill: def $h killed $a
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    call pe, __setflag
@@ -14699,29 +14758,35 @@ define i32 @sdiv.fix.sat.i32.31(i32, i32) {
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr z, BB48_14
 ; Z80-NEXT:    jr BB48_15
+; Z80-NEXT:    private BB48_10
 ; Z80-NEXT:  BB48_10:
 ; Z80-NEXT:    ld (ix - 4), l
 ; Z80-NEXT:    ld (ix - 3), h
 ; Z80-NEXT:    bit 0, a
-; Z80-NEXT:    jp nz, BB48_5
+; Z80-NEXT:    jr nz, BB48_5
+; Z80-NEXT:    private BB48_11
 ; Z80-NEXT:  BB48_11:
 ; Z80-NEXT:    ld (ix - 2), e
 ; Z80-NEXT:    ld (ix - 1), d
 ; Z80-NEXT:    bit 0, a
-; Z80-NEXT:    jp nz, BB48_6
+; Z80-NEXT:    jr nz, BB48_6
+; Z80-NEXT:    private BB48_12
 ; Z80-NEXT:  BB48_12:
 ; Z80-NEXT:    ld de, -1
 ; Z80-NEXT:    ld c, e
 ; Z80-NEXT:    ld b, d
 ; Z80-NEXT:    bit 0, a
-; Z80-NEXT:    jp z, BB48_7
-; Z80-NEXT:    jp BB48_8
+; Z80-NEXT:    jr z, BB48_7
+; Z80-NEXT:    jr BB48_8
+; Z80-NEXT:    private BB48_13
 ; Z80-NEXT:  BB48_13:
 ; Z80-NEXT:    ld a, 1
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB48_15
+; Z80-NEXT:    private BB48_14
 ; Z80-NEXT:  BB48_14:
 ; Z80-NEXT:    ld hl, -1
+; Z80-NEXT:    private BB48_15
 ; Z80-NEXT:  BB48_15:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr nz, BB48_17
@@ -14729,6 +14794,7 @@ define i32 @sdiv.fix.sat.i32.31(i32, i32) {
 ; Z80-NEXT:    ld de, 32767
 ; Z80-NEXT:    ld (ix - 2), e
 ; Z80-NEXT:    ld (ix - 1), d
+; Z80-NEXT:    private BB48_17
 ; Z80-NEXT:  BB48_17:
 ; Z80-NEXT:    ld e, (ix - 2)
 ; Z80-NEXT:    ld d, (ix - 1)
@@ -14797,7 +14863,6 @@ define i32 @sdiv.fix.sat.i32.31(i32, i32) {
 ; EZ80-CODE16-NEXT:    ld sp, hl
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld l, (ix - 9)
-; EZ80-CODE16-NEXT:    ; kill: def $h killed $a
 ; EZ80-CODE16-NEXT:    ex (sp), hl
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    call pe, __setflag
@@ -14805,25 +14870,31 @@ define i32 @sdiv.fix.sat.i32.31(i32, i32) {
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld a, 0
 ; EZ80-CODE16-NEXT:    jr BB48_3
+; EZ80-CODE16-NEXT:    private BB48_2
 ; EZ80-CODE16-NEXT:  BB48_2:
 ; EZ80-CODE16-NEXT:    ld a, 1
+; EZ80-CODE16-NEXT:    private BB48_3
 ; EZ80-CODE16-NEXT:  BB48_3:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    ld hl, 0
 ; EZ80-CODE16-NEXT:    ld bc, (ix - 6)
 ; EZ80-CODE16-NEXT:    ld iy, (ix - 8)
-; EZ80-CODE16-NEXT:    jp z, BB48_10
+; EZ80-CODE16-NEXT:    jr z, BB48_10
 ; EZ80-CODE16-NEXT:  ; %bb.4:
 ; EZ80-CODE16-NEXT:    bit 0, a
-; EZ80-CODE16-NEXT:    jp z, BB48_11
+; EZ80-CODE16-NEXT:    jr z, BB48_11
+; EZ80-CODE16-NEXT:    private BB48_5
 ; EZ80-CODE16-NEXT:  BB48_5:
 ; EZ80-CODE16-NEXT:    bit 0, a
-; EZ80-CODE16-NEXT:    jp z, BB48_12
+; EZ80-CODE16-NEXT:    jr z, BB48_12
+; EZ80-CODE16-NEXT:    private BB48_6
 ; EZ80-CODE16-NEXT:  BB48_6:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB48_8
+; EZ80-CODE16-NEXT:    private BB48_7
 ; EZ80-CODE16-NEXT:  BB48_7:
 ; EZ80-CODE16-NEXT:    ld iy, -1
+; EZ80-CODE16-NEXT:    private BB48_8
 ; EZ80-CODE16-NEXT:  BB48_8:
 ; EZ80-CODE16-NEXT:    ld de, 32767
 ; EZ80-CODE16-NEXT:    push hl
@@ -14844,7 +14915,6 @@ define i32 @sdiv.fix.sat.i32.31(i32, i32) {
 ; EZ80-CODE16-NEXT:    ld sp, iy
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld l, (ix - 6)
-; EZ80-CODE16-NEXT:    ; kill: def $h killed $a
 ; EZ80-CODE16-NEXT:    ex (sp), hl
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    call pe, __setflag
@@ -14854,33 +14924,40 @@ define i32 @sdiv.fix.sat.i32.31(i32, i32) {
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr z, BB48_14
 ; EZ80-CODE16-NEXT:    jr BB48_15
+; EZ80-CODE16-NEXT:    private BB48_10
 ; EZ80-CODE16-NEXT:  BB48_10:
 ; EZ80-CODE16-NEXT:    ld (ix - 4), hl
 ; EZ80-CODE16-NEXT:    bit 0, a
-; EZ80-CODE16-NEXT:    jp nz, BB48_5
+; EZ80-CODE16-NEXT:    jr nz, BB48_5
+; EZ80-CODE16-NEXT:    private BB48_11
 ; EZ80-CODE16-NEXT:  BB48_11:
 ; EZ80-CODE16-NEXT:    ld (ix - 2), de
 ; EZ80-CODE16-NEXT:    bit 0, a
-; EZ80-CODE16-NEXT:    jp nz, BB48_6
+; EZ80-CODE16-NEXT:    jr nz, BB48_6
+; EZ80-CODE16-NEXT:    private BB48_12
 ; EZ80-CODE16-NEXT:  BB48_12:
 ; EZ80-CODE16-NEXT:    ld de, -1
 ; EZ80-CODE16-NEXT:    ld c, e
 ; EZ80-CODE16-NEXT:    ld b, d
 ; EZ80-CODE16-NEXT:    bit 0, a
-; EZ80-CODE16-NEXT:    jp z, BB48_7
-; EZ80-CODE16-NEXT:    jp BB48_8
+; EZ80-CODE16-NEXT:    jr z, BB48_7
+; EZ80-CODE16-NEXT:    jr BB48_8
+; EZ80-CODE16-NEXT:    private BB48_13
 ; EZ80-CODE16-NEXT:  BB48_13:
 ; EZ80-CODE16-NEXT:    ld a, 1
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB48_15
+; EZ80-CODE16-NEXT:    private BB48_14
 ; EZ80-CODE16-NEXT:  BB48_14:
 ; EZ80-CODE16-NEXT:    ld hl, -1
+; EZ80-CODE16-NEXT:    private BB48_15
 ; EZ80-CODE16-NEXT:  BB48_15:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr nz, BB48_17
 ; EZ80-CODE16-NEXT:  ; %bb.16:
 ; EZ80-CODE16-NEXT:    ld de, 32767
 ; EZ80-CODE16-NEXT:    ld (ix - 2), de
+; EZ80-CODE16-NEXT:    private BB48_17
 ; EZ80-CODE16-NEXT:  BB48_17:
 ; EZ80-CODE16-NEXT:    ld de, (ix - 2)
 ; EZ80-CODE16-NEXT:    ld sp, ix
@@ -14904,8 +14981,7 @@ define i32 @sdiv.fix.sat.i32.31(i32, i32) {
 ; EZ80-NEXT:    ld l, c
 ; EZ80-NEXT:    rlc l
 ; EZ80-NEXT:    sbc hl, hl
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop de
+; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ld e, c
 ; EZ80-NEXT:    rlc c
 ; EZ80-NEXT:    sbc.sis hl, hl
@@ -14964,7 +15040,6 @@ define i32 @sdiv.fix.sat.i32.31(i32, i32) {
 ; EZ80-NEXT:    ld sp, hl
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld l, (ix - 18)
-; EZ80-NEXT:    ; kill: def $h killed $a
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    call pe, __setflag
@@ -14972,8 +15047,10 @@ define i32 @sdiv.fix.sat.i32.31(i32, i32) {
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld a, 0
 ; EZ80-NEXT:    jr BB48_3
+; EZ80-NEXT:    private BB48_2
 ; EZ80-NEXT:  BB48_2:
 ; EZ80-NEXT:    ld a, 1
+; EZ80-NEXT:    private BB48_3
 ; EZ80-NEXT:  BB48_3:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    ld iy, (ix - 17)
@@ -14981,13 +15058,16 @@ define i32 @sdiv.fix.sat.i32.31(i32, i32) {
 ; EZ80-NEXT:  ; %bb.4:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp z, BB48_10
+; EZ80-NEXT:    private BB48_5
 ; EZ80-NEXT:  BB48_5:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp nz, BB48_7
+; EZ80-NEXT:    private BB48_6
 ; EZ80-NEXT:  BB48_6:
 ; EZ80-NEXT:    ld.sis hl, -1
 ; EZ80-NEXT:    ; kill: def $hl killed $hl def $uhl
 ; EZ80-NEXT:    ld (ix - 14), hl
+; EZ80-NEXT:    private BB48_7
 ; EZ80-NEXT:  BB48_7:
 ; EZ80-NEXT:    ld bc, -1
 ; EZ80-NEXT:    ld de, 127
@@ -15010,7 +15090,6 @@ define i32 @sdiv.fix.sat.i32.31(i32, i32) {
 ; EZ80-NEXT:    ld sp, hl
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld l, (ix - 14)
-; EZ80-NEXT:    ; kill: def $h killed $a
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    call pe, __setflag
@@ -15020,30 +15099,36 @@ define i32 @sdiv.fix.sat.i32.31(i32, i32) {
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr z, BB48_12
 ; EZ80-NEXT:    jr BB48_13
+; EZ80-NEXT:    private BB48_9
 ; EZ80-NEXT:  BB48_9:
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ld (ix - 11), hl
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp nz, BB48_5
+; EZ80-NEXT:    private BB48_10
 ; EZ80-NEXT:  BB48_10:
 ; EZ80-NEXT:    ld iy, -128
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jp z, BB48_6
 ; EZ80-NEXT:    jp BB48_7
+; EZ80-NEXT:    private BB48_11
 ; EZ80-NEXT:  BB48_11:
 ; EZ80-NEXT:    ld a, 1
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB48_13
+; EZ80-NEXT:    private BB48_12
 ; EZ80-NEXT:  BB48_12:
 ; EZ80-NEXT:    scf
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ld (ix - 11), hl
+; EZ80-NEXT:    private BB48_13
 ; EZ80-NEXT:  BB48_13:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB48_15
 ; EZ80-NEXT:  ; %bb.14:
 ; EZ80-NEXT:    ld iy, 127
+; EZ80-NEXT:    private BB48_15
 ; EZ80-NEXT:  BB48_15:
 ; EZ80-NEXT:    ld e, iyl
 ; EZ80-NEXT:    ld hl, (ix - 11)
@@ -15201,7 +15286,6 @@ define i64 @sdiv.fix.sat.i64.31(i64, i64) {
 ; Z80-NEXT:    ld sp, hl
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 23)
-; Z80-NEXT:    ; kill: def $h killed $a
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    ccf
@@ -15242,12 +15326,14 @@ define i64 @sdiv.fix.sat.i64.31(i64, i64) {
 ; Z80-NEXT:    ld hl, 30
 ; Z80-NEXT:    ld (ix - 8), l
 ; Z80-NEXT:    ld (ix - 7), h
+; Z80-NEXT:    private BB49_2
 ; Z80-NEXT:  BB49_2:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    ld hl, 0
 ; Z80-NEXT:    jr nz, BB49_4
 ; Z80-NEXT:  ; %bb.3:
 ; Z80-NEXT:    ex de, hl
+; Z80-NEXT:    private BB49_4
 ; Z80-NEXT:  BB49_4:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    ld de, 0
@@ -15255,6 +15341,7 @@ define i64 @sdiv.fix.sat.i64.31(i64, i64) {
 ; Z80-NEXT:  ; %bb.5:
 ; Z80-NEXT:    ld e, c
 ; Z80-NEXT:    ld d, b
+; Z80-NEXT:    private BB49_6
 ; Z80-NEXT:  BB49_6:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    ld bc, 0
@@ -15262,6 +15349,7 @@ define i64 @sdiv.fix.sat.i64.31(i64, i64) {
 ; Z80-NEXT:  ; %bb.7:
 ; Z80-NEXT:    ld c, iyl
 ; Z80-NEXT:    ld b, iyh
+; Z80-NEXT:    private BB49_8
 ; Z80-NEXT:  BB49_8:
 ; Z80-NEXT:    ld iy, 31
 ; Z80-NEXT:    push bc
@@ -15536,7 +15624,6 @@ define i64 @sdiv.fix.sat.i64.31(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld sp, hl
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld l, (ix - 23)
-; EZ80-CODE16-NEXT:    ; kill: def $h killed $a
 ; EZ80-CODE16-NEXT:    ex (sp), hl
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    ccf
@@ -15572,12 +15659,14 @@ define i64 @sdiv.fix.sat.i64.31(i64, i64) {
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld hl, 30
 ; EZ80-CODE16-NEXT:    ld (ix - 8), hl
+; EZ80-CODE16-NEXT:    private BB49_2
 ; EZ80-CODE16-NEXT:  BB49_2:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    ld hl, 0
 ; EZ80-CODE16-NEXT:    jr nz, BB49_4
 ; EZ80-CODE16-NEXT:  ; %bb.3:
 ; EZ80-CODE16-NEXT:    ex de, hl
+; EZ80-CODE16-NEXT:    private BB49_4
 ; EZ80-CODE16-NEXT:  BB49_4:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    ld de, 0
@@ -15585,12 +15674,14 @@ define i64 @sdiv.fix.sat.i64.31(i64, i64) {
 ; EZ80-CODE16-NEXT:  ; %bb.5:
 ; EZ80-CODE16-NEXT:    ld e, c
 ; EZ80-CODE16-NEXT:    ld d, b
+; EZ80-CODE16-NEXT:    private BB49_6
 ; EZ80-CODE16-NEXT:  BB49_6:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    ld bc, 0
 ; EZ80-CODE16-NEXT:    jr nz, BB49_8
 ; EZ80-CODE16-NEXT:  ; %bb.7:
 ; EZ80-CODE16-NEXT:    lea bc, iy + 0
+; EZ80-CODE16-NEXT:    private BB49_8
 ; EZ80-CODE16-NEXT:  BB49_8:
 ; EZ80-CODE16-NEXT:    ld iy, 31
 ; EZ80-CODE16-NEXT:    push bc
@@ -15778,26 +15869,27 @@ define i64 @sdiv.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld c, (ix - 7)
 ; EZ80-NEXT:    ld b, (ix - 6)
 ; EZ80-NEXT:    call __llxor
+; EZ80-NEXT:    ld (ix - 10), hl
 ; EZ80-NEXT:    ld iy, 9
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld sp, iy
-; EZ80-NEXT:    ld iy, 0
-; EZ80-NEXT:    push iy
 ; EZ80-NEXT:    ld iy, 64
+; EZ80-NEXT:    or a, a
+; EZ80-NEXT:    sbc hl, hl
+; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    push iy
-; EZ80-NEXT:    ld iy, 0
-; EZ80-NEXT:    push iy
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (ix - 10)
 ; EZ80-NEXT:    call __llcmpu
 ; EZ80-NEXT:    push af
 ; EZ80-NEXT:    ex (sp), hl
-; EZ80-NEXT:    ld (ix - 10), l
+; EZ80-NEXT:    ld (ix - 24), l
 ; EZ80-NEXT:    pop hl
 ; EZ80-NEXT:    ld iy, 9
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld sp, iy
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    ld l, (ix - 10)
-; EZ80-NEXT:    ; kill: def $h killed $a
+; EZ80-NEXT:    ld l, (ix - 24)
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    ccf
@@ -15805,6 +15897,7 @@ define i64 @sdiv.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ld iyl, a
 ; EZ80-NEXT:    inc iyl
+; EZ80-NEXT:    ld hl, (ix - 10)
 ; EZ80-NEXT:    call __llctlz
 ; EZ80-NEXT:    ld e, 0
 ; EZ80-NEXT:    ld (ix - 1), e
@@ -15829,6 +15922,7 @@ define i64 @sdiv.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld hl, 30
 ; EZ80-NEXT:    ld (ix - 10), hl
+; EZ80-NEXT:    private BB49_2
 ; EZ80-NEXT:  BB49_2:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    ld iy, 0
@@ -15836,6 +15930,7 @@ define i64 @sdiv.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:  ; %bb.3:
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    pop iy
+; EZ80-NEXT:    private BB49_4
 ; EZ80-NEXT:  BB49_4:
 ; EZ80-NEXT:    ld.sis de, 0
 ; EZ80-NEXT:    bit 0, a
@@ -15844,6 +15939,7 @@ define i64 @sdiv.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:  ; %bb.5:
 ; EZ80-NEXT:    ld e, c
 ; EZ80-NEXT:    ld d, b
+; EZ80-NEXT:    private BB49_6
 ; EZ80-NEXT:  BB49_6:
 ; EZ80-NEXT:    ld hl, 31
 ; EZ80-NEXT:    push de
@@ -15947,8 +16043,8 @@ define i8 @udiv.fix.sat.i8.8(i8, i8) {
 ; Z80-NEXT:    ld e, (iy + 4)
 ; Z80-NEXT:    ld b, 0
 ; Z80-NEXT:    ld c, a
-; Z80-NEXT:    ld l, b
 ; Z80-NEXT:    ld h, c
+; Z80-NEXT:    ld l, b
 ; Z80-NEXT:    ld c, e
 ; Z80-NEXT:    call __sdivu
 ; Z80-NEXT:    ld e, l
@@ -15959,6 +16055,7 @@ define i8 @udiv.fix.sat.i8.8(i8, i8) {
 ; Z80-NEXT:    jr c, BB50_2
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld de, 255
+; Z80-NEXT:    private BB50_2
 ; Z80-NEXT:  BB50_2:
 ; Z80-NEXT:    ld a, e
 ; Z80-NEXT:    ret
@@ -15971,8 +16068,8 @@ define i8 @udiv.fix.sat.i8.8(i8, i8) {
 ; EZ80-CODE16-NEXT:    ld e, (iy + 4)
 ; EZ80-CODE16-NEXT:    ld b, 0
 ; EZ80-CODE16-NEXT:    ld c, a
-; EZ80-CODE16-NEXT:    ld l, b
 ; EZ80-CODE16-NEXT:    ld h, c
+; EZ80-CODE16-NEXT:    ld l, b
 ; EZ80-CODE16-NEXT:    ld c, e
 ; EZ80-CODE16-NEXT:    call __sdivu
 ; EZ80-CODE16-NEXT:    ld e, l
@@ -15983,6 +16080,7 @@ define i8 @udiv.fix.sat.i8.8(i8, i8) {
 ; EZ80-CODE16-NEXT:    jr c, BB50_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld de, 255
+; EZ80-CODE16-NEXT:    private BB50_2
 ; EZ80-CODE16-NEXT:  BB50_2:
 ; EZ80-CODE16-NEXT:    ld a, e
 ; EZ80-CODE16-NEXT:    ret
@@ -15995,8 +16093,8 @@ define i8 @udiv.fix.sat.i8.8(i8, i8) {
 ; EZ80-NEXT:    ld e, (iy + 6)
 ; EZ80-NEXT:    ld b, 0
 ; EZ80-NEXT:    ld c, a
-; EZ80-NEXT:    ld l, b
 ; EZ80-NEXT:    ld h, c
+; EZ80-NEXT:    ld l, b
 ; EZ80-NEXT:    ld c, e
 ; EZ80-NEXT:    call __sdivu
 ; EZ80-NEXT:    ld e, l
@@ -16007,6 +16105,7 @@ define i8 @udiv.fix.sat.i8.8(i8, i8) {
 ; EZ80-NEXT:    jr c, BB50_2
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld.sis de, 255
+; EZ80-NEXT:    private BB50_2
 ; EZ80-NEXT:  BB50_2:
 ; EZ80-NEXT:    ld a, e
 ; EZ80-NEXT:    ret
@@ -16034,6 +16133,7 @@ define i16 @udiv.fix.sat.i16.8(i16, i16) {
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld l, c
 ; Z80-NEXT:    ld h, b
+; Z80-NEXT:    private BB51_2
 ; Z80-NEXT:  BB51_2:
 ; Z80-NEXT:    pop ix
 ; Z80-NEXT:    ret
@@ -16055,6 +16155,7 @@ define i16 @udiv.fix.sat.i16.8(i16, i16) {
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld l, c
 ; EZ80-CODE16-NEXT:    ld h, b
+; EZ80-CODE16-NEXT:    private BB51_2
 ; EZ80-CODE16-NEXT:  BB51_2:
 ; EZ80-CODE16-NEXT:    pop ix
 ; EZ80-CODE16-NEXT:    ret
@@ -16095,6 +16196,7 @@ define i16 @udiv.fix.sat.i16.8(i16, i16) {
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    pop hl
+; EZ80-NEXT:    private BB51_2
 ; EZ80-NEXT:  BB51_2:
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
 ; EZ80-NEXT:    ld sp, ix
@@ -16123,6 +16225,7 @@ define i16 @udiv.fix.sat.i16.16(i16, i16) {
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld l, c
 ; Z80-NEXT:    ld h, b
+; Z80-NEXT:    private BB52_2
 ; Z80-NEXT:  BB52_2:
 ; Z80-NEXT:    pop ix
 ; Z80-NEXT:    ret
@@ -16144,6 +16247,7 @@ define i16 @udiv.fix.sat.i16.16(i16, i16) {
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld l, c
 ; EZ80-CODE16-NEXT:    ld h, b
+; EZ80-CODE16-NEXT:    private BB52_2
 ; EZ80-CODE16-NEXT:  BB52_2:
 ; EZ80-CODE16-NEXT:    pop ix
 ; EZ80-CODE16-NEXT:    ret
@@ -16184,6 +16288,7 @@ define i16 @udiv.fix.sat.i16.16(i16, i16) {
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    pop hl
+; EZ80-NEXT:    private BB52_2
 ; EZ80-NEXT:  BB52_2:
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
 ; EZ80-NEXT:    ld sp, ix
@@ -16258,7 +16363,6 @@ define i32 @udiv.fix.sat.i32.16(i32, i32) {
 ; Z80-NEXT:    ld sp, iy
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 6)
-; Z80-NEXT:    ; kill: def $h killed $a
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    ccf
@@ -16271,6 +16375,7 @@ define i32 @udiv.fix.sat.i32.16(i32, i32) {
 ; Z80-NEXT:    ld hl, -1
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
+; Z80-NEXT:    private BB53_2
 ; Z80-NEXT:  BB53_2:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    ld e, (ix - 4)
@@ -16278,6 +16383,7 @@ define i32 @udiv.fix.sat.i32.16(i32, i32) {
 ; Z80-NEXT:    jr nz, BB53_4
 ; Z80-NEXT:  ; %bb.3:
 ; Z80-NEXT:    ld de, -1
+; Z80-NEXT:    private BB53_4
 ; Z80-NEXT:  BB53_4:
 ; Z80-NEXT:    ld l, (ix - 2)
 ; Z80-NEXT:    ld h, (ix - 1)
@@ -16338,7 +16444,6 @@ define i32 @udiv.fix.sat.i32.16(i32, i32) {
 ; EZ80-CODE16-NEXT:    ld sp, iy
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld l, (ix - 6)
-; EZ80-CODE16-NEXT:    ; kill: def $h killed $a
 ; EZ80-CODE16-NEXT:    ex (sp), hl
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    ccf
@@ -16350,12 +16455,14 @@ define i32 @udiv.fix.sat.i32.16(i32, i32) {
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld hl, -1
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
+; EZ80-CODE16-NEXT:    private BB53_2
 ; EZ80-CODE16-NEXT:  BB53_2:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    ld de, (ix - 4)
 ; EZ80-CODE16-NEXT:    jr nz, BB53_4
 ; EZ80-CODE16-NEXT:  ; %bb.3:
 ; EZ80-CODE16-NEXT:    ld de, -1
+; EZ80-CODE16-NEXT:    private BB53_4
 ; EZ80-CODE16-NEXT:  BB53_4:
 ; EZ80-CODE16-NEXT:    ld hl, (ix - 2)
 ; EZ80-CODE16-NEXT:    ld sp, ix
@@ -16414,7 +16521,6 @@ define i32 @udiv.fix.sat.i32.16(i32, i32) {
 ; EZ80-NEXT:    ld sp, iy
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld l, (ix - 5)
-; EZ80-NEXT:    ; kill: def $h killed $a
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    ccf
@@ -16426,11 +16532,13 @@ define i32 @udiv.fix.sat.i32.16(i32, i32) {
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    scf
 ; EZ80-NEXT:    sbc hl, hl
+; EZ80-NEXT:    private BB53_2
 ; EZ80-NEXT:  BB53_2:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB53_4
 ; EZ80-NEXT:  ; %bb.3:
 ; EZ80-NEXT:    ld de, 255
+; EZ80-NEXT:    private BB53_4
 ; EZ80-NEXT:  BB53_4:
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
@@ -16503,7 +16611,6 @@ define i32 @udiv.fix.sat.i32.32(i32, i32) {
 ; Z80-NEXT:    ld sp, iy
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 6)
-; Z80-NEXT:    ; kill: def $h killed $a
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    ccf
@@ -16516,6 +16623,7 @@ define i32 @udiv.fix.sat.i32.32(i32, i32) {
 ; Z80-NEXT:    ld hl, -1
 ; Z80-NEXT:    ld (ix - 2), l
 ; Z80-NEXT:    ld (ix - 1), h
+; Z80-NEXT:    private BB54_2
 ; Z80-NEXT:  BB54_2:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    ld e, (ix - 4)
@@ -16523,6 +16631,7 @@ define i32 @udiv.fix.sat.i32.32(i32, i32) {
 ; Z80-NEXT:    jr nz, BB54_4
 ; Z80-NEXT:  ; %bb.3:
 ; Z80-NEXT:    ld de, -1
+; Z80-NEXT:    private BB54_4
 ; Z80-NEXT:  BB54_4:
 ; Z80-NEXT:    ld l, (ix - 2)
 ; Z80-NEXT:    ld h, (ix - 1)
@@ -16583,7 +16692,6 @@ define i32 @udiv.fix.sat.i32.32(i32, i32) {
 ; EZ80-CODE16-NEXT:    ld sp, iy
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld l, (ix - 6)
-; EZ80-CODE16-NEXT:    ; kill: def $h killed $a
 ; EZ80-CODE16-NEXT:    ex (sp), hl
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    ccf
@@ -16595,12 +16703,14 @@ define i32 @udiv.fix.sat.i32.32(i32, i32) {
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld hl, -1
 ; EZ80-CODE16-NEXT:    ld (ix - 2), hl
+; EZ80-CODE16-NEXT:    private BB54_2
 ; EZ80-CODE16-NEXT:  BB54_2:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    ld de, (ix - 4)
 ; EZ80-CODE16-NEXT:    jr nz, BB54_4
 ; EZ80-CODE16-NEXT:  ; %bb.3:
 ; EZ80-CODE16-NEXT:    ld de, -1
+; EZ80-CODE16-NEXT:    private BB54_4
 ; EZ80-CODE16-NEXT:  BB54_4:
 ; EZ80-CODE16-NEXT:    ld hl, (ix - 2)
 ; EZ80-CODE16-NEXT:    ld sp, ix
@@ -16659,7 +16769,6 @@ define i32 @udiv.fix.sat.i32.32(i32, i32) {
 ; EZ80-NEXT:    ld sp, iy
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld l, (ix - 5)
-; EZ80-NEXT:    ; kill: def $h killed $a
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    ccf
@@ -16671,11 +16780,13 @@ define i32 @udiv.fix.sat.i32.32(i32, i32) {
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    scf
 ; EZ80-NEXT:    sbc hl, hl
+; EZ80-NEXT:    private BB54_2
 ; EZ80-NEXT:  BB54_2:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB54_4
 ; EZ80-NEXT:  ; %bb.3:
 ; EZ80-NEXT:    ld de, 255
+; EZ80-NEXT:    private BB54_4
 ; EZ80-NEXT:  BB54_4:
 ; EZ80-NEXT:    ld sp, ix
 ; EZ80-NEXT:    pop ix
@@ -16787,7 +16898,6 @@ define i64 @udiv.fix.sat.i64.32(i64, i64) {
 ; Z80-NEXT:    ld sp, hl
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix - 8)
-; Z80-NEXT:    ; kill: def $h killed $a
 ; Z80-NEXT:    ex (sp), hl
 ; Z80-NEXT:    pop af
 ; Z80-NEXT:    ccf
@@ -16834,6 +16944,7 @@ define i64 @udiv.fix.sat.i64.32(i64, i64) {
 ; Z80-NEXT:    ld iyl, e
 ; Z80-NEXT:    ld iyh, d
 ; Z80-NEXT:    ex de, hl
+; Z80-NEXT:    private BB55_2
 ; Z80-NEXT:  BB55_2:
 ; Z80-NEXT:    push iy
 ; Z80-NEXT:    ex (sp), hl
@@ -16849,6 +16960,7 @@ define i64 @udiv.fix.sat.i64.32(i64, i64) {
 ; Z80-NEXT:    jr nz, BB55_4
 ; Z80-NEXT:  ; %bb.3:
 ; Z80-NEXT:    ex de, hl
+; Z80-NEXT:    private BB55_4
 ; Z80-NEXT:  BB55_4:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    ld e, iyl
@@ -16857,6 +16969,7 @@ define i64 @udiv.fix.sat.i64.32(i64, i64) {
 ; Z80-NEXT:  ; %bb.5:
 ; Z80-NEXT:    ld e, c
 ; Z80-NEXT:    ld d, b
+; Z80-NEXT:    private BB55_6
 ; Z80-NEXT:  BB55_6:
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    ld c, iyl
@@ -16865,6 +16978,7 @@ define i64 @udiv.fix.sat.i64.32(i64, i64) {
 ; Z80-NEXT:  ; %bb.7:
 ; Z80-NEXT:    ld c, (ix - 8)
 ; Z80-NEXT:    ld b, (ix - 7)
+; Z80-NEXT:    private BB55_8
 ; Z80-NEXT:  BB55_8:
 ; Z80-NEXT:    push bc
 ; Z80-NEXT:    push de
@@ -17105,7 +17219,6 @@ define i64 @udiv.fix.sat.i64.32(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld sp, hl
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld l, (ix - 8)
-; EZ80-CODE16-NEXT:    ; kill: def $h killed $a
 ; EZ80-CODE16-NEXT:    ex (sp), hl
 ; EZ80-CODE16-NEXT:    pop af
 ; EZ80-CODE16-NEXT:    ccf
@@ -17144,6 +17257,7 @@ define i64 @udiv.fix.sat.i64.32(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld iyl, e
 ; EZ80-CODE16-NEXT:    ld iyh, d
 ; EZ80-CODE16-NEXT:    ex de, hl
+; EZ80-CODE16-NEXT:    private BB55_2
 ; EZ80-CODE16-NEXT:  BB55_2:
 ; EZ80-CODE16-NEXT:    ld (ix - 10), iy
 ; EZ80-CODE16-NEXT:    bit 0, a
@@ -17152,6 +17266,7 @@ define i64 @udiv.fix.sat.i64.32(i64, i64) {
 ; EZ80-CODE16-NEXT:    jr nz, BB55_4
 ; EZ80-CODE16-NEXT:  ; %bb.3:
 ; EZ80-CODE16-NEXT:    ex de, hl
+; EZ80-CODE16-NEXT:    private BB55_4
 ; EZ80-CODE16-NEXT:  BB55_4:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    lea de, iy + 0
@@ -17159,12 +17274,14 @@ define i64 @udiv.fix.sat.i64.32(i64, i64) {
 ; EZ80-CODE16-NEXT:  ; %bb.5:
 ; EZ80-CODE16-NEXT:    ld e, c
 ; EZ80-CODE16-NEXT:    ld d, b
+; EZ80-CODE16-NEXT:    private BB55_6
 ; EZ80-CODE16-NEXT:  BB55_6:
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    lea bc, iy + 0
 ; EZ80-CODE16-NEXT:    jr nz, BB55_8
 ; EZ80-CODE16-NEXT:  ; %bb.7:
 ; EZ80-CODE16-NEXT:    ld bc, (ix - 8)
+; EZ80-CODE16-NEXT:    private BB55_8
 ; EZ80-CODE16-NEXT:  BB55_8:
 ; EZ80-CODE16-NEXT:    push bc
 ; EZ80-CODE16-NEXT:    push de
@@ -17298,15 +17415,16 @@ define i64 @udiv.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    lea hl, ix - 20
 ; EZ80-NEXT:    ld sp, hl
 ; EZ80-NEXT:    ld bc, (ix + 12)
-; EZ80-NEXT:    ld de, (ix + 15)
-; EZ80-NEXT:    ld hl, (ix + 18)
-; EZ80-NEXT:    ld iy, (ix + 21)
-; EZ80-NEXT:    push iy
+; EZ80-NEXT:    ld iy, (ix + 15)
+; EZ80-NEXT:    ld de, (ix + 18)
+; EZ80-NEXT:    ld hl, (ix + 21)
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    push de
+; EZ80-NEXT:    push iy
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    ld de, (ix + 9)
-; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
+; EZ80-NEXT:    push bc
+; EZ80-NEXT:    pop iy
 ; EZ80-NEXT:    call __lldivu
 ; EZ80-NEXT:    ld (ix - 10), hl
 ; EZ80-NEXT:    ld (ix - 13), de
@@ -17315,15 +17433,16 @@ define i64 @udiv.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    ld hl, 9
 ; EZ80-NEXT:    add hl, sp
 ; EZ80-NEXT:    ld sp, hl
-; EZ80-NEXT:    push iy
+; EZ80-NEXT:    ld hl, (ix + 21)
+; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix + 18)
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix + 15)
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    ld de, (ix + 9)
-; EZ80-NEXT:    ld bc, (ix + 12)
-; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
+; EZ80-NEXT:    ld c, iyl
+; EZ80-NEXT:    ld b, iyh
 ; EZ80-NEXT:    call __llremu
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop iy
@@ -17349,7 +17468,6 @@ define i64 @udiv.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    ld sp, hl
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld l, (ix - 7)
-; EZ80-NEXT:    ; kill: def $h killed $a
 ; EZ80-NEXT:    ex (sp), hl
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    ccf
@@ -17369,14 +17487,11 @@ define i64 @udiv.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:    ld l, a
 ; EZ80-NEXT:    ld a, iyl
 ; EZ80-NEXT:    ld de, 0
+; EZ80-NEXT:    ld c, e
+; EZ80-NEXT:    ld b, d
 ; EZ80-NEXT:    push de
-; EZ80-NEXT:    pop iy
-; EZ80-NEXT:    ld c, iyl
-; EZ80-NEXT:    ld b, iyh
 ; EZ80-NEXT:    push de
-; EZ80-NEXT:    push iy
-; EZ80-NEXT:    push iy
-; EZ80-NEXT:    lea de, iy + 0
+; EZ80-NEXT:    push de
 ; EZ80-NEXT:    call __lladd
 ; EZ80-NEXT:    ld iy, 9
 ; EZ80-NEXT:    add iy, sp
@@ -17387,12 +17502,14 @@ define i64 @udiv.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop iy
+; EZ80-NEXT:    private BB55_2
 ; EZ80-NEXT:  BB55_2:
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    ld hl, 0
 ; EZ80-NEXT:    jr nz, BB55_4
 ; EZ80-NEXT:  ; %bb.3:
 ; EZ80-NEXT:    ex de, hl
+; EZ80-NEXT:    private BB55_4
 ; EZ80-NEXT:  BB55_4:
 ; EZ80-NEXT:    ld.sis de, 0
 ; EZ80-NEXT:    bit 0, a
@@ -17401,6 +17518,7 @@ define i64 @udiv.fix.sat.i64.32(i64, i64) {
 ; EZ80-NEXT:  ; %bb.5:
 ; EZ80-NEXT:    ld e, c
 ; EZ80-NEXT:    ld d, b
+; EZ80-NEXT:    private BB55_6
 ; EZ80-NEXT:  BB55_6:
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl

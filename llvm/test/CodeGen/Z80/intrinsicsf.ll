@@ -465,8 +465,7 @@ define double @powi.f64.i16(double, i16) {
 ; Z80-NEXT:    ld h, b
 ; Z80-NEXT:    add hl, hl
 ; Z80-NEXT:    sbc hl, hl
-; Z80-NEXT:    ld e, l
-; Z80-NEXT:    ld d, h
+; Z80-NEXT:    ex de, hl
 ; Z80-NEXT:    ld l, c
 ; Z80-NEXT:    ld h, b
 ; Z80-NEXT:    call __ltod
@@ -509,8 +508,7 @@ define double @powi.f64.i16(double, i16) {
 ; EZ80-CODE16-NEXT:    ld h, b
 ; EZ80-CODE16-NEXT:    add hl, hl
 ; EZ80-CODE16-NEXT:    sbc hl, hl
-; EZ80-CODE16-NEXT:    ld e, l
-; EZ80-CODE16-NEXT:    ld d, h
+; EZ80-CODE16-NEXT:    ex de, hl
 ; EZ80-CODE16-NEXT:    ld l, c
 ; EZ80-CODE16-NEXT:    ld h, b
 ; EZ80-CODE16-NEXT:    call __ltod

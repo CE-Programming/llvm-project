@@ -1425,8 +1425,7 @@ define i48 @add.i48(i48, i48) {
 ; EZ80-NEXT:    ld bc, (ix + 15)
 ; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    adc hl, bc
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop de
+; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    lea hl, iy + 0
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
@@ -1715,8 +1714,7 @@ define i48 @sub.i48(i48, i48) {
 ; EZ80-NEXT:    pop bc
 ; EZ80-NEXT:    lea hl, iy + 0
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop de
+; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    pop hl
 ; EZ80-NEXT:    pop ix
@@ -4826,8 +4824,7 @@ define i64 @sext.i8.i64(i8) {
 ; EZ80-NEXT:    ld l, a
 ; EZ80-NEXT:    rlc l
 ; EZ80-NEXT:    sbc hl, hl
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop de
+; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ld e, a
 ; EZ80-NEXT:    rlc a
 ; EZ80-NEXT:    sbc hl, hl
@@ -5045,8 +5042,7 @@ define i64 @sext.i16.i64(i16) {
 ; EZ80-NEXT:    ld l, a
 ; EZ80-NEXT:    rlc l
 ; EZ80-NEXT:    sbc hl, hl
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop de
+; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ld e, c
 ; EZ80-NEXT:    ld d, b
 ; EZ80-NEXT:    rlc a
@@ -5146,8 +5142,7 @@ define i48 @sext.i24.i48(i24) {
 ; EZ80-NEXT:    pop hl
 ; EZ80-NEXT:    add hl, hl
 ; EZ80-NEXT:    sbc hl, hl
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop de
+; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    pop hl
 ; EZ80-NEXT:    ret
@@ -5329,8 +5324,7 @@ define i64 @sext.i32.i64(i32) {
 ; EZ80-NEXT:    ld l, a
 ; EZ80-NEXT:    rlc l
 ; EZ80-NEXT:    sbc hl, hl
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop de
+; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ld e, a
 ; EZ80-NEXT:    rlc a
 ; EZ80-NEXT:    sbc.sis hl, hl

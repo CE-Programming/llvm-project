@@ -277,36 +277,42 @@ define i8 @br.i1(i1) {
 ; Z80:       ; %bb.0:
 ; Z80-NEXT:    ld iy, 0
 ; Z80-NEXT:    add iy, sp
-; Z80-NEXT:    xor a, a
 ; Z80-NEXT:    bit 0, (iy + 2)
 ; Z80-NEXT:    jr z, BB10_2
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld a, 1
+; Z80-NEXT:    ret
+; Z80-NEXT:    private BB10_2
 ; Z80-NEXT:  BB10_2:
+; Z80-NEXT:    xor a, a
 ; Z80-NEXT:    ret
 ;
 ; EZ80-CODE16-LABEL: br.i1:
 ; EZ80-CODE16:       ; %bb.0:
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    add iy, sp
-; EZ80-CODE16-NEXT:    xor a, a
 ; EZ80-CODE16-NEXT:    bit 0, (iy + 2)
 ; EZ80-CODE16-NEXT:    jr z, BB10_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld a, 1
+; EZ80-CODE16-NEXT:    ret
+; EZ80-CODE16-NEXT:    private BB10_2
 ; EZ80-CODE16-NEXT:  BB10_2:
+; EZ80-CODE16-NEXT:    xor a, a
 ; EZ80-CODE16-NEXT:    ret
 ;
 ; EZ80-LABEL: br.i1:
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
-; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    bit 0, (iy + 3)
 ; EZ80-NEXT:    jr z, BB10_2
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld a, 1
+; EZ80-NEXT:    ret
+; EZ80-NEXT:    private BB10_2
 ; EZ80-NEXT:  BB10_2:
+; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    ret
   br i1 %0, label %2, label %3
   ret i8 1
@@ -326,6 +332,7 @@ define i8 @switch(i8) {
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    ld a, -1
 ; Z80-NEXT:    ret
+; Z80-NEXT:    private BB11_2
 ; Z80-NEXT:  BB11_2:
 ; Z80-NEXT:    ld hl, JTI11_0
 ; Z80-NEXT:    add hl, de
@@ -337,18 +344,28 @@ define i8 @switch(i8) {
 ; Z80-NEXT:    ex de, hl
 ; Z80-NEXT:    pop de
 ; Z80-NEXT:    jp (hl)
+; Z80-NEXT:    private BB11_3
 ; Z80-NEXT:  BB11_3:
 ; Z80-NEXT:    ld a, d
 ; Z80-NEXT:    ret
+; Z80-NEXT:    private BB11_4
 ; Z80-NEXT:  BB11_4:
 ; Z80-NEXT:    ld a, 2
 ; Z80-NEXT:    ret
+; Z80-NEXT:    private BB11_5
 ; Z80-NEXT:  BB11_5:
 ; Z80-NEXT:    ld a, 3
 ; Z80-NEXT:    ret
+; Z80-NEXT:    private BB11_6
 ; Z80-NEXT:  BB11_6:
 ; Z80-NEXT:    ld a, 1
 ; Z80-NEXT:    ret
+; Z80-NEXT:    .section .rodata,"a",@progbits
+; Z80-NEXT:  JTI11_0:
+; Z80-NEXT:    dw BB11_3
+; Z80-NEXT:    dw BB11_6
+; Z80-NEXT:    dw BB11_4
+; Z80-NEXT:    dw BB11_5
 ;
 ; EZ80-CODE16-LABEL: switch:
 ; EZ80-CODE16:       ; %bb.0:
@@ -362,57 +379,78 @@ define i8 @switch(i8) {
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    ld a, -1
 ; EZ80-CODE16-NEXT:    ret
+; EZ80-CODE16-NEXT:    private BB11_2
 ; EZ80-CODE16-NEXT:  BB11_2:
 ; EZ80-CODE16-NEXT:    ld hl, JTI11_0
 ; EZ80-CODE16-NEXT:    add hl, de
 ; EZ80-CODE16-NEXT:    add hl, de
 ; EZ80-CODE16-NEXT:    ld hl, (hl)
 ; EZ80-CODE16-NEXT:    jp (hl)
+; EZ80-CODE16-NEXT:    private BB11_3
 ; EZ80-CODE16-NEXT:  BB11_3:
 ; EZ80-CODE16-NEXT:    ld a, d
 ; EZ80-CODE16-NEXT:    ret
+; EZ80-CODE16-NEXT:    private BB11_4
 ; EZ80-CODE16-NEXT:  BB11_4:
 ; EZ80-CODE16-NEXT:    ld a, 2
 ; EZ80-CODE16-NEXT:    ret
+; EZ80-CODE16-NEXT:    private BB11_5
 ; EZ80-CODE16-NEXT:  BB11_5:
 ; EZ80-CODE16-NEXT:    ld a, 3
 ; EZ80-CODE16-NEXT:    ret
+; EZ80-CODE16-NEXT:    private BB11_6
 ; EZ80-CODE16-NEXT:  BB11_6:
 ; EZ80-CODE16-NEXT:    ld a, 1
 ; EZ80-CODE16-NEXT:    ret
+; EZ80-CODE16-NEXT:    .section .rodata,"a",@progbits
+; EZ80-CODE16-NEXT:  JTI11_0:
+; EZ80-CODE16-NEXT:    dw BB11_3
+; EZ80-CODE16-NEXT:    dw BB11_6
+; EZ80-CODE16-NEXT:    dw BB11_4
+; EZ80-CODE16-NEXT:    dw BB11_5
 ;
 ; EZ80-LABEL: switch:
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld a, (iy + 3)
-; EZ80-NEXT:    ld e, 0
-; EZ80-NEXT:    ld bc, 0
+; EZ80-NEXT:    ld de, 0
 ; EZ80-NEXT:    cp a, 4
 ; EZ80-NEXT:    jr c, BB11_2
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    ld a, -1
 ; EZ80-NEXT:    ret
+; EZ80-NEXT:    private BB11_2
 ; EZ80-NEXT:  BB11_2:
-; EZ80-NEXT:    ld c, a
+; EZ80-NEXT:    ld e, a
 ; EZ80-NEXT:    ld hl, JTI11_0
-; EZ80-NEXT:    add hl, bc
-; EZ80-NEXT:    add hl, bc
-; EZ80-NEXT:    add hl, bc
+; EZ80-NEXT:    add hl, de
+; EZ80-NEXT:    add hl, de
+; EZ80-NEXT:    add hl, de
 ; EZ80-NEXT:    ld hl, (hl)
 ; EZ80-NEXT:    jp (hl)
+; EZ80-NEXT:    private BB11_3
 ; EZ80-NEXT:  BB11_3:
-; EZ80-NEXT:    ld a, e
+; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    ret
+; EZ80-NEXT:    private BB11_4
 ; EZ80-NEXT:  BB11_4:
 ; EZ80-NEXT:    ld a, 2
 ; EZ80-NEXT:    ret
+; EZ80-NEXT:    private BB11_5
 ; EZ80-NEXT:  BB11_5:
 ; EZ80-NEXT:    ld a, 3
 ; EZ80-NEXT:    ret
+; EZ80-NEXT:    private BB11_6
 ; EZ80-NEXT:  BB11_6:
 ; EZ80-NEXT:    ld a, 1
 ; EZ80-NEXT:    ret
+; EZ80-NEXT:    .section .rodata,"a",@progbits
+; EZ80-NEXT:  JTI11_0:
+; EZ80-NEXT:    dl BB11_3
+; EZ80-NEXT:    dl BB11_6
+; EZ80-NEXT:    dl BB11_4
+; EZ80-NEXT:    dl BB11_5
   switch i8 %0, label %2 [ i8 0, label %3
                            i8 1, label %4
                            i8 2, label %5
@@ -431,11 +469,14 @@ define i8 @indirectbr(i8*) {
 ; Z80-NEXT:    add iy, sp
 ; Z80-NEXT:    ld l, (iy + 2)
 ; Z80-NEXT:    ld h, (iy + 3)
-; Z80-NEXT:    xor a, a
 ; Z80-NEXT:    jp (hl)
+; Z80-NEXT:    private BB12_1
 ; Z80-NEXT:  BB12_1:
 ; Z80-NEXT:    ld a, 1
+; Z80-NEXT:    ret
+; Z80-NEXT:    private BB12_2
 ; Z80-NEXT:  BB12_2:
+; Z80-NEXT:    xor a, a
 ; Z80-NEXT:    ret
 ;
 ; EZ80-CODE16-LABEL: indirectbr:
@@ -443,11 +484,14 @@ define i8 @indirectbr(i8*) {
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    add iy, sp
 ; EZ80-CODE16-NEXT:    ld hl, (iy + 2)
-; EZ80-CODE16-NEXT:    xor a, a
 ; EZ80-CODE16-NEXT:    jp (hl)
+; EZ80-CODE16-NEXT:    private BB12_1
 ; EZ80-CODE16-NEXT:  BB12_1:
 ; EZ80-CODE16-NEXT:    ld a, 1
+; EZ80-CODE16-NEXT:    ret
+; EZ80-CODE16-NEXT:    private BB12_2
 ; EZ80-CODE16-NEXT:  BB12_2:
+; EZ80-CODE16-NEXT:    xor a, a
 ; EZ80-CODE16-NEXT:    ret
 ;
 ; EZ80-LABEL: indirectbr:
@@ -455,11 +499,14 @@ define i8 @indirectbr(i8*) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    jp (hl)
+; EZ80-NEXT:    private BB12_1
 ; EZ80-NEXT:  BB12_1:
 ; EZ80-NEXT:    ld a, 1
+; EZ80-NEXT:    ret
+; EZ80-NEXT:    private BB12_2
 ; EZ80-NEXT:  BB12_2:
+; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    ret
   indirectbr i8* %0, [label %2, label %3]
   ret i8 1
