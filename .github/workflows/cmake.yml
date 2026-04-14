@@ -3,7 +3,7 @@ name: "CMake Build"
 on:
   workflow_dispatch:
   push:
-    branches: [z80, ci-unification]
+    branches: [z80-17.0.6]
 
 jobs:
   build-llvm:
@@ -426,15 +426,3 @@ jobs:
         run: |
           zip ez80-clang-link_windows_nightly.zip ez80-clang.exe ez80-link.exe
           rm ez80-clang.exe ez80-link.exe
-
-      - name: Update nightly release
-        uses: softprops/action-gh-release@5122b4edc95f85501a71628a57dc180a03ec7588 # latest as of 2025-12-30
-        with:
-          tag_name: nightly
-          prerelease: true
-          token: ${{secrets.GITHUB_TOKEN}}
-          files: |
-            ez80-clang-link_ubuntu_nightly.zip
-            ez80-clang-link_macOS_intel_nightly.zip
-            ez80-clang-link_macOS_arm_nightly.zip
-            ez80-clang-link_windows_nightly.zip
