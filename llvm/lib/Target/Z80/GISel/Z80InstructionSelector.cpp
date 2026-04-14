@@ -1952,8 +1952,56 @@ bool Z80InstructionSelector::selectExtract(MachineInstr &I,
     const TargetRegisterClass *WideSrcRC = SrcRC;
     unsigned Opc;
     MachineIRBuilder MIB(I);
+    auto BuildStore = [&](unsigned StoreOpc, Register Reg, int FI,
+                          unsigned ByteOffset,
+                          unsigned SubReg = Z80::NoSubRegister) {
+      auto Store = MIB.buildInstr(StoreOpc).addFrameIndex(FI).addImm(ByteOffset);
+      if (SubReg == Z80::NoSubRegister)
+        Store.addReg(Reg);
+      else
+        Store.addReg(Reg, 0, SubReg);
+      return constrainSelectedInstRegOperands(*Store, TII, TRI, RBI);
+    };
+    auto BuildLoad = [&](unsigned LoadOpc, Register Reg, int FI,
+                         unsigned ByteOffset) {
+      auto Load = MIB.buildInstr(LoadOpc, {Reg}, {})
+                      .addFrameIndex(FI)
+                      .addImm(ByteOffset);
+      return constrainSelectedInstRegOperands(*Load, TII, TRI, RBI);
+    };
     int FI = MF.getFrameInfo().CreateStackObject(
         TRI.getSpillSize(*SrcRC), TRI.getSpillAlign(*SrcRC), false);
+    if (STI.is24Bit() &&
+        (SrcRC == &Z80::R32_24RegClass || SrcRC == &Z80::R48_24RegClass ||
+         SrcRC == &Z80::R64_24RegClass)) {
+      if (!BuildStore(Z80::LD24or, SrcReg, FI, 0, Z80::sub_low24))
+        return false;
+      if (SrcRC == &Z80::R32_24RegClass) {
+        if (!BuildStore(Z80::LD8or, SrcReg, FI, 3, Z80::sub_high8))
+          return false;
+      } else {
+        if (!BuildStore(Z80::LD24or, SrcReg, FI, 3, Z80::sub_mid24))
+          return false;
+        if (SrcRC == &Z80::R64_24RegClass &&
+            !BuildStore(STI.has16BitEZ80Ops() ? Z80::LD16or : Z80::LD88or,
+                        SrcReg, FI, 6, Z80::sub_word3))
+          return false;
+      }
+
+      if (DstRC == &Z80::R8RegClass)
+        Opc = Z80::LD8ro;
+      else if (DstRC == &Z80::R16RegClass)
+        Opc = STI.has16BitEZ80Ops() ? Z80::LD16ro : Z80::LD88ro;
+      else if (DstRC == &Z80::R24RegClass)
+        Opc = Z80::LD24ro;
+      else
+        return false;
+
+      if (!BuildLoad(Opc, DstReg, FI, Offset / 8))
+        return false;
+      I.eraseFromParent();
+      return true;
+    }
     if (STI.is24Bit() && SrcRC == &Z80::R16RegClass) {
       WideSrcRC = &Z80::R24RegClass;
       if (SrcReg.isPhysical())
@@ -1973,7 +2021,8 @@ bool Z80InstructionSelector::selectExtract(MachineInstr &I,
       Opc = Z80::LD24or;
     else
       return false;
-    MIB.buildInstr(Opc).addFrameIndex(FI).addImm(0).addReg(WideSrcReg);
+    if (!BuildStore(Opc, WideSrcReg, FI, 0))
+      return false;
     if (STI.is24Bit() && DstRC == &Z80::R16RegClass) {
       WideDstRC = &Z80::R24RegClass;
       if (DstReg.isPhysical())
@@ -1990,7 +2039,8 @@ bool Z80InstructionSelector::selectExtract(MachineInstr &I,
       Opc = Z80::LD24ro;
     else
       return false;
-    MIB.buildInstr(Opc, {WideDstReg}, {}).addFrameIndex(FI).addImm(Offset / 8);
+    if (!BuildLoad(Opc, WideDstReg, FI, Offset / 8))
+      return false;
     if (WideDstReg != DstReg) {
       if (!select(*MIB.buildTrunc(DstReg, WideDstReg)) ||
           !RBI.constrainGenericRegister(WideDstReg, *WideDstRC, MRI))
