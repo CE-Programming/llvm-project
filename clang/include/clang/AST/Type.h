@@ -1942,7 +1942,7 @@ protected:
     /// Extra information which affects how the function is called, like
     /// regparm and the calling convention.
     LLVM_PREFERRED_TYPE(CallingConv)
-    unsigned ExtInfo : 14;
+    unsigned ExtInfo : 13;
 
     /// The ref-qualifier associated with a \c FunctionProtoType.
     ///
@@ -4395,8 +4395,6 @@ public:
 
     // |  CC  |noreturn|produces|nocallersavedregs|regparm|nocfcheck|cmsenscall|
     // |0 .. 4|   5    |    6   |       7         |8 .. 10|    11   |    12    |
-    // |tiflags|
-    // |   13  |
     //
     // regparm is either 0 (no regparm attribute) or the regparm value+1.
     enum { CallConvMask = 0x1F };
@@ -4541,10 +4539,12 @@ public:
     LLVM_PREFERRED_TYPE(bool)
     unsigned EffectsHaveConditions : 1;
     unsigned NumFunctionEffects : 4;
+    LLVM_PREFERRED_TYPE(bool)
+    unsigned TIFlags : 1;
 
     FunctionTypeExtraBitfields()
         : NumExceptionType(0), HasArmTypeAttributes(false),
-          EffectsHaveConditions(false), NumFunctionEffects(0) {}
+          EffectsHaveConditions(false), NumFunctionEffects(0), TIFlags(false) {}
   };
 
   /// The AArch64 SME ACLE (Arm C/C++ Language Extensions) define a number
@@ -4597,7 +4597,7 @@ protected:
   FunctionType(TypeClass tc, QualType res, QualType Canonical,
                TypeDependence Dependence, ExtInfo Info)
       : Type(tc, Canonical, Dependence), ResultType(res) {
-    FunctionTypeBits.ExtInfo = Info.Bits;
+    FunctionTypeBits.ExtInfo = Info.Bits & ~ExtInfo::TIFlagsMask;
   }
 
   Qualifiers getFastTypeQuals() const {
@@ -4620,7 +4620,7 @@ public:
 
   bool getCmseNSCallAttr() const { return getExtInfo().getCmseNSCall(); }
   CallingConv getCallConv() const { return getExtInfo().getCC(); }
-  ExtInfo getExtInfo() const { return ExtInfo(FunctionTypeBits.ExtInfo); }
+  ExtInfo getExtInfo() const;
 
   static_assert((~Qualifiers::FastMask & Qualifiers::CVRMask) == 0,
                 "Const, volatile and restrict are assumed to be a subset of "
@@ -4648,17 +4648,20 @@ public:
 /// no information available about its arguments.
 class FunctionNoProtoType : public FunctionType, public llvm::FoldingSetNode {
   friend class ASTContext; // ASTContext creates these.
+  friend class FunctionType;
+
+  LLVM_PREFERRED_TYPE(bool)
+  unsigned TIFlags : 1;
 
   FunctionNoProtoType(QualType Result, QualType Canonical, ExtInfo Info)
       : FunctionType(FunctionNoProto, Result, Canonical,
                      Result->getDependence() &
                          ~(TypeDependence::DependentInstantiation |
                            TypeDependence::UnexpandedPack),
-                     Info) {}
+                     Info),
+        TIFlags(Info.getTIFlags()) {}
 
 public:
-  // No additional state past what FunctionType provides.
-
   bool isSugared() const { return false; }
   QualType desugar() const { return QualType(this, 0); }
 
@@ -4984,6 +4987,7 @@ class FunctionProtoType final
           FunctionEffect, EffectConditionExpr> {
   friend class ASTContext; // ASTContext creates these.
   friend TrailingObjects;
+  friend class FunctionType;
 
   // FunctionProtoType is followed by several trailing objects, some of
   // which optional. They are in order:
@@ -5094,6 +5098,7 @@ public:
 
     bool requiresFunctionProtoTypeExtraBitfields() const {
       return ExceptionSpec.Type == EST_Dynamic ||
+             ExtInfo.getTIFlags() ||
              requiresFunctionProtoTypeArmAttributes() ||
              !FunctionEffects.empty();
     }
@@ -5227,6 +5232,11 @@ private:
     return FunctionTypeBits.HasExtraBitfields &&
            getTrailingObjects<FunctionTypeExtraBitfields>()
                ->HasArmTypeAttributes;
+  }
+
+  bool hasTIFlags() const {
+    return hasExtraBitfields() &&
+           getTrailingObjects<FunctionTypeExtraBitfields>()->TIFlags;
   }
 
   bool hasExtQualifiers() const {

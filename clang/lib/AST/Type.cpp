@@ -3463,6 +3463,18 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
   llvm_unreachable("Invalid builtin type.");
 }
 
+FunctionType::ExtInfo FunctionType::getExtInfo() const {
+  ExtInfo Info(FunctionTypeBits.ExtInfo);
+  switch (getTypeClass()) {
+  case FunctionNoProto:
+    return Info.withTIFlags(cast<FunctionNoProtoType>(this)->TIFlags);
+  case FunctionProto:
+    return Info.withTIFlags(cast<FunctionProtoType>(this)->hasTIFlags());
+  default:
+    llvm_unreachable("unexpected function type class");
+  }
+}
+
 QualType QualType::getNonPackExpansionType() const {
   // We never wrap type sugar around a PackExpansionType.
   if (auto *PET = dyn_cast<PackExpansionType>(getTypePtr()))
@@ -3544,6 +3556,7 @@ FunctionProtoType::FunctionProtoType(QualType result, ArrayRef<QualType> params,
     FunctionTypeBits.HasExtraBitfields = true;
     auto &ExtraBits = *getTrailingObjects<FunctionTypeExtraBitfields>();
     ExtraBits = FunctionTypeExtraBitfields();
+    ExtraBits.TIFlags = epi.ExtInfo.getTIFlags();
   } else {
     FunctionTypeBits.HasExtraBitfields = false;
   }
