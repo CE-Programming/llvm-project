@@ -2962,8 +2962,6 @@ bool Z80InstructionSelector::selectShift(MachineInstr &I,
         .addImm(0)           // upper bits undefined (don't care)
         .addReg(SrcReg)      // source s16
           .addImm(Z80::sub_short);
-      if (!RBI.constrainGenericRegister(SrcReg, Z80::A16RegClass, MRI))
-        return false;
 
       // copy to physical UHL for ADD24aa operations
       BuildMI(MBB, InsertPt, DL, TII.get(TargetOpcode::COPY), Z80::UHL)
@@ -2979,7 +2977,7 @@ bool Z80InstructionSelector::selectShift(MachineInstr &I,
       MIB.buildCopy(DstReg, Register(Z80::HL));
 
       const TargetRegisterClass *DstRC = MRI.getRegClassOrNull(DstReg);
-      if (!DstRC && !RBI.constrainGenericRegister(DstReg, Z80::A16RegClass, MRI)) {
+      if (!DstRC && !RBI.constrainGenericRegister(DstReg, Z80::R16RegClass, MRI)) {
         return false;
       }
       I.eraseFromParent();
