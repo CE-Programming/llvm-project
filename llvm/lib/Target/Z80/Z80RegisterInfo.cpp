@@ -22,6 +22,7 @@
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/TargetFrameLowering.h"
 #include "llvm/CodeGen/VirtRegMap.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/Debug.h"
 using namespace llvm;
@@ -30,6 +31,45 @@ using namespace llvm;
 
 #define GET_REGINFO_TARGET_DESC
 #include "Z80GenRegisterInfo.inc"
+
+namespace {
+
+static bool shouldCanonicalizeHintOrder(const TargetRegisterClass *RC,
+                                        bool Is24Bit) {
+  return RC == (Is24Bit ? &Z80::G24RegClass : &Z80::G16RegClass) ||
+         RC == (Is24Bit ? &Z80::O24RegClass : &Z80::O16RegClass);
+}
+
+static unsigned getAllocationOrderIndex(ArrayRef<MCPhysReg> Order,
+                                        MCPhysReg Reg) {
+  for (auto [Idx, PhysReg] : enumerate(Order))
+    if (PhysReg == Reg)
+      return Idx;
+  llvm_unreachable("hint register must be present in allocation order");
+}
+
+static void canonicalizeHintOrder(ArrayRef<MCPhysReg> Order,
+                                  SmallVectorImpl<MCPhysReg> &Hints,
+                                  MCPhysReg PreferredReg = MCPhysReg()) {
+  if (Hints.size() < 2)
+    return;
+
+  llvm::stable_sort(Hints, [&](MCPhysReg LHS, MCPhysReg RHS) {
+    const bool LHSPref = PreferredReg && LHS == PreferredReg;
+    const bool RHSPref = PreferredReg && RHS == PreferredReg;
+    if (LHSPref != RHSPref)
+      return LHSPref;
+
+    const unsigned LHSIdx = getAllocationOrderIndex(Order, LHS);
+    const unsigned RHSIdx = getAllocationOrderIndex(Order, RHS);
+    if (LHSIdx != RHSIdx)
+      return LHSIdx < RHSIdx;
+
+    return LHS < RHS;
+  });
+}
+
+} // namespace
 
 Z80RegisterInfo::Z80RegisterInfo(const Triple &TT)
     : Z80GenRegisterInfo(0, 0, 0, Z80::PC) {
@@ -486,7 +526,7 @@ bool Z80RegisterInfo::getRegAllocationHints(
   }
 
   bool ShouldHintDE = false;
-  const char *HintReason = nullptr;
+  [[maybe_unused]] const char *HintReason = nullptr;
 
   // case A: PHI defined vregs are loop carried
   if (IsPHIDefined && HasFIInLiveBBs) {
@@ -518,8 +558,8 @@ bool Z80RegisterInfo::getRegAllocationHints(
            << " => " << (ShouldHintDE ? HintReason : "NO_HINT") << "\n";
   });
 
+  MCPhysReg DE = Is24Bit ? Z80::UDE : Z80::DE;
   if (ShouldHintDE) {
-    MCPhysReg DE = Is24Bit ? Z80::UDE : Z80::DE;
     if (is_contained(Order, DE) && !MRI->isReserved(DE) &&
         !is_contained(Hints, DE)) {
 
@@ -536,6 +576,9 @@ bool Z80RegisterInfo::getRegAllocationHints(
       });
     }
   }
+
+  if (shouldCanonicalizeHintOrder(RC, Is24Bit))
+    canonicalizeHintOrder(Order, Hints, ShouldHintDE ? DE : MCPhysReg());
 
   return BaseResult;
 }
