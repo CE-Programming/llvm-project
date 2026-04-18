@@ -3,7 +3,7 @@ name: "CMake Build"
 on:
   workflow_dispatch:
   push:
-    branches: [z80]
+    branches: [z80,to-check]
 
 jobs:
   build-llvm:
