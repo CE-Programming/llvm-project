@@ -36,6 +36,11 @@ namespace {
 
 static bool shouldCanonicalizeHintOrder(const TargetRegisterClass *RC,
                                         bool Is24Bit) {
+  return RC->isAllocatable();
+}
+
+static bool shouldPreferDEForHintOrder(const TargetRegisterClass *RC,
+                                       bool Is24Bit) {
   return RC == (Is24Bit ? &Z80::G24RegClass : &Z80::G16RegClass) ||
          RC == (Is24Bit ? &Z80::O24RegClass : &Z80::O16RegClass);
 }
@@ -578,7 +583,10 @@ bool Z80RegisterInfo::getRegAllocationHints(
   }
 
   if (shouldCanonicalizeHintOrder(RC, Is24Bit))
-    canonicalizeHintOrder(Order, Hints, ShouldHintDE ? DE : MCPhysReg());
+    canonicalizeHintOrder(Order, Hints,
+                          ShouldHintDE && shouldPreferDEForHintOrder(RC, Is24Bit)
+                              ? DE
+                              : MCPhysReg());
 
   return BaseResult;
 }
