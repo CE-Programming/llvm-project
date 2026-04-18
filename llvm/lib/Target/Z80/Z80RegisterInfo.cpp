@@ -74,6 +74,24 @@ static void canonicalizeHintOrder(ArrayRef<MCPhysReg> Order,
   });
 }
 
+static MCPhysReg getCanonicalPrimaryHint(ArrayRef<MCPhysReg> Order,
+                                         const MachineRegisterInfo &MRI,
+                                         const TargetRegisterClass *RC,
+                                         bool Is24Bit,
+                                         bool PreferDE) {
+  if (PreferDE) {
+    MCPhysReg DE = Is24Bit ? Z80::UDE : Z80::DE;
+    if (is_contained(Order, DE) && !MRI.isReserved(DE))
+      return DE;
+  }
+
+  for (MCPhysReg Reg : Order)
+    if (!MRI.isReserved(Reg))
+      return Reg;
+
+  return MCPhysReg();
+}
+
 } // namespace
 
 Z80RegisterInfo::Z80RegisterInfo(const Triple &TT)
@@ -564,22 +582,26 @@ bool Z80RegisterInfo::getRegAllocationHints(
   });
 
   MCPhysReg DE = Is24Bit ? Z80::UDE : Z80::DE;
-  if (ShouldHintDE) {
-    if (is_contained(Order, DE) && !MRI->isReserved(DE) &&
-        !is_contained(Hints, DE)) {
+  MCPhysReg PreferredHint =
+      shouldCanonicalizeHintOrder(RC, Is24Bit)
+          ? getCanonicalPrimaryHint(Order, *MRI, RC, Is24Bit, ShouldHintDE)
+          : MCPhysReg();
+  if (PreferredHint && !is_contained(Hints, PreferredHint)) {
+    Hints.insert(Hints.begin(), PreferredHint);
 
-      Hints.insert(Hints.begin(), DE);
-
-      LLVM_DEBUG(dbgs() << "  -> Applied hint to " << printReg(DE, this) << "\n");
-    } else {
-      LLVM_DEBUG({
-        dbgs() << "  -> Hint NOT applied: ";
-        if (!is_contained(Order, DE)) dbgs() << "DE not in Order ";
-        if (MRI->isReserved(DE)) dbgs() << "DE reserved ";
-        if (is_contained(Hints, DE)) dbgs() << "DE already hinted ";
-        dbgs() << "\n";
-      });
-    }
+    LLVM_DEBUG(dbgs() << "  -> Applied canonical hint to "
+                      << printReg(PreferredHint, this) << "\n");
+  } else if (ShouldHintDE) {
+    LLVM_DEBUG({
+      dbgs() << "  -> Hint NOT applied: ";
+      if (!is_contained(Order, DE))
+        dbgs() << "DE not in Order ";
+      if (MRI->isReserved(DE))
+        dbgs() << "DE reserved ";
+      if (is_contained(Hints, DE))
+        dbgs() << "DE already hinted ";
+      dbgs() << "\n";
+    });
   }
 
   if (shouldCanonicalizeHintOrder(RC, Is24Bit))
