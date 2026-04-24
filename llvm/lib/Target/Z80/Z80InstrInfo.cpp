@@ -1311,6 +1311,51 @@ bool Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
     }
   };
 
+  auto isSplitFrameAccess = [&]() {
+    switch (Opc) {
+    default:
+      return false;
+    case Z80::LD88rp:
+    case Z80::LD88ro:
+    case Z80::LD88pr:
+    case Z80::LD88or:
+      return true;
+    }
+  };
+
+  auto countLEAChunks = [&](int64_t Adj) -> unsigned {
+    if (Adj > 0)
+      return static_cast<unsigned>((Adj + 126) / 127);
+    
+    return static_cast<unsigned>((-Adj + 127) / 128);
+  };
+
+  auto chooseFinalDisp = [&](int64_t TotalOff, int64_t &FinalDisp) {
+    FinalDisp = 0;
+    if (Opc == Z80::PEA24o || Opc == Z80::PEA16o)
+      return false;
+
+    unsigned FullChunks = countLEAChunks(TotalOff);
+    if (FullChunks == 0)
+      return false;
+
+    int64_t MaxDisp = isSplitFrameAccess() ? 126 : 127;
+    int64_t BestDisp = std::min<int64_t>(std::max<int64_t>(TotalOff, -128), MaxDisp);
+    if (BestDisp == 0)
+      return false;
+
+    unsigned BestChunks = countLEAChunks(TotalOff - BestDisp);
+    if (BestChunks >= FullChunks)
+      return false;
+
+    FinalDisp = BestDisp;
+    return true;
+  };
+
+  unsigned ManualSpillAddCost = 2 + 1 + (Is24Bit ? 3 : 2) + 1;
+  if (SaveFlags)
+    ManualSpillAddCost += 2;
+
   auto regOverlapsMI = [&](Register Cand) -> bool {
     if (!Cand)
       return false;
@@ -1323,28 +1368,41 @@ bool Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
     return false;
   };
 
-	  auto selectUnusedNoOverlap = [&](const TargetRegisterClass *RC,
-	                                   Register Exclude0,
-	                                   Register Exclude1,
-	                                   bool IncludeReserved = true) -> Register {
-	    if (!RS)
-	      return Register();
-	    for (MCPhysReg Reg : *RC) {
-	      if (Reg == Exclude0 || Reg == Exclude1)
-	        continue;
-	      if (RS->isRegUsed(Reg, IncludeReserved))
-	        continue;
-	      if (regOverlapsMI(Reg))
-	        continue;
-	      return Reg;
-	    }
-	    return Register();
-	  };
+  auto selectUnusedNoOverlap = [&](const TargetRegisterClass *RC,
+                                   Register Exclude0,
+                                   Register Exclude1,
+                                   bool IncludeReserved = true) -> Register {
+    for (MCPhysReg Reg : *RC) {
+      if (Reg == Exclude0 || Reg == Exclude1)
+        continue;
+      if (RS->isRegUsed(Reg, IncludeReserved))
+        continue;
+      if (regOverlapsMI(Reg))
+        continue;
+      return Reg;
+    }
+    return Register();
+  };
 
   auto selectAnyNoOverlap = [&](const TargetRegisterClass *RC, Register Exclude0,
                                 Register Exclude1) -> Register {
     for (MCPhysReg Reg : *RC) {
       if (Reg == Exclude0 || Reg == Exclude1)
+        continue;
+      return Reg;
+    }
+    return Register();
+  };
+
+  auto selectSpillableNoOverlap = [&](const TargetRegisterClass *RC,
+                                      Register Exclude0,
+                                      Register Exclude1) -> Register {
+    for (MCPhysReg Reg : *RC) {
+      if (Reg == Exclude0 || Reg == Exclude1)
+        continue;
+      if (MRI.isReserved(Reg))
+        continue;
+      if (regOverlapsMI(Reg))
         continue;
       return Reg;
     }
@@ -1377,6 +1435,31 @@ bool Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
     applySPAdjust(*BuildMI(MBB, II, DL, get(Is24Bit ? Z80::POP24r : Z80::POP16r),
                            Reg));
   };
+  auto emitOffsetAdd = [&](Register DstReg, Register OffsetReg, int64_t Adj,
+                           bool SpillOffsetReg = false) {
+    if (SpillOffsetReg) {
+      assert(OffsetReg.isPhysical());
+      assert(!regOverlapsMI(OffsetReg) &&
+             "manual spill temp must not overlap rewritten MI");
+      pushPhys(OffsetReg);
+    }
+    BuildMI(MBB, II, DL, get(Is24Bit ? Z80::LD24ri : Z80::LD16ri), OffsetReg)
+        .addImm(Adj);
+    if (SaveFlags)
+      applySPAdjust(
+          *BuildMI(MBB, II, DL, get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF)))
+          .findRegisterUseOperand(Z80::AF, nullptr)
+          ->setIsUndef();
+    BuildMI(MBB, II, DL, get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao), DstReg)
+        .addReg(DstReg)
+        .addReg(OffsetReg, RegState::Kill)
+        ->addRegisterDead(Z80::F, &TRI);
+    if (SaveFlags)
+      applySPAdjust(
+          *BuildMI(MBB, II, DL, get(Is24Bit ? Z80::POP24AF : Z80::POP16AF)));
+    if (SpillOffsetReg)
+      popPhysBeforeMI(OffsetReg);
+  };
   auto miDefinesPhys = [&](Register Reg) -> bool {
     if (!Reg.isPhysical())
       return false;
@@ -1396,31 +1479,23 @@ bool Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
     Register Op0Reg = MI.getOperand(0).getReg();
     auto [OffsetReg, SpillOffsetReg] = selectOffsetTemp(/*Exclude0=*/Op0Reg,
                                                         /*Exclude1=*/BaseReg);
-    if (SpillOffsetReg && OffsetReg.isPhysical() && !miDefinesPhys(OffsetReg))
+    if (SpillOffsetReg && !miDefinesPhys(OffsetReg))
       pushPhys(OffsetReg);
-    BuildMI(MBB, II, DL, get(Is24Bit ? Z80::LD24ri : Z80::LD16ri), OffsetReg)
-        .addImm(NewOffset);
     copyRegister(MBB, II, DL, Op0Reg, BaseReg);
-    if (SaveFlags)
-      applySPAdjust(
-          *BuildMI(MBB, II, DL, get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF)));
-    BuildMI(MBB, II, DL, get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao), Op0Reg)
-        .addReg(Op0Reg).addReg(OffsetReg, RegState::Kill)
-        ->addRegisterDead(Z80::F, &TRI);
-    if (SaveFlags)
-      applySPAdjust(
-          *BuildMI(MBB, II, DL, get(Is24Bit ? Z80::POP24AF : Z80::POP16AF)));
-    if (SpillOffsetReg && OffsetReg.isPhysical() && !miDefinesPhys(OffsetReg))
+    emitOffsetAdd(Op0Reg, OffsetReg, NewOffset);
+    if (SpillOffsetReg && !miDefinesPhys(OffsetReg))
       popPhysBeforeMI(OffsetReg);
     MI.eraseFromParent();
     return true;
   }
 
   // for illegal frame offsets, prefer rewriting the instruction to use a
-  // scratch base register only when we can do so without forcing spills. when
-  // no unused scratch regs exist, using BaseReg (push/adjust/pop) should
-  // need fewer temporaries and avoid cascading push/pop sequences inserted by
-  // scavengeFrameVirtualRegs
+  // scratch base register only when we can do so cheaply. when PEI cant find
+  // a truly unused offset temp, fallback to LEA chunks unless the remaining
+  // chain is large enough that a controlled manual spill plus LDri+ADD is 
+  // better. when no scratch reg exists, using BaseReg (push/adjust/pop) 
+  // should need fewer temporaries and avoid cascading push/pop sequences inserted 
+  // by scavengeFrameVirtualRegs
   //
   // keep the pre RA behavior (no scavenger) by allowing vreg temporaries so that
   // the register allocator can schedule/allocate
@@ -1444,21 +1519,17 @@ bool Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
                     << (ScratchReg ? TRI.getName(ScratchReg) : "none") << "\n");
 
   if (ScratchReg) {
-    // take the scratch reg rewrite path only when we can get a truly unused
-    // offset register as well. falling back to spilling a live offset reg
-    // (push/pop) reintroduces the exact code size issues this path is meant to
-    // avoid under register pressure
     if (!RS) {
       std::tie(OffsetReg, SpillOffsetReg) =
           selectOffsetTemp(/*Exclude0=*/ScratchReg, /*Exclude1=*/BaseReg);
     } else {
-	      OffsetReg = selectUnusedNoOverlap(OffsetRC, /*Exclude0=*/ScratchReg,
-	                                        /*Exclude1=*/BaseReg);
+      OffsetReg = selectUnusedNoOverlap(OffsetRC, /*Exclude0=*/ScratchReg,
+                                        /*Exclude1=*/BaseReg);
       LLVM_DEBUG(dbgs() << "  OffsetReg from selectUnusedNoOverlap: "
                         << (OffsetReg ? TRI.getName(OffsetReg) : "none") << "\n");
-	      if (!OffsetReg &&
-	          HasLEA &&
-	          (Is24Bit ? Z80::I24RegClass : Z80::I16RegClass).contains(ScratchReg)) {
+      if (!OffsetReg &&
+          HasLEA &&
+          (Is24Bit ? Z80::I24RegClass : Z80::I16RegClass).contains(ScratchReg)) {
 
         LLVM_DEBUG(dbgs() << "  Has unused index scratch but no offset reg, trying scavenge\n");
         if (!isInt<8>(NewOffset)) {
@@ -1472,21 +1543,40 @@ bool Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
         }
 
         if (!OffsetReg) {
-          LLVM_DEBUG(dbgs() << "  Using LEA chains with ScratchReg=" << TRI.getName(ScratchReg) << "\n");
-          copyRegister(MBB, II, DL, ScratchReg, BaseReg);
-          emitChunkedLEAAdjust(ScratchReg, NewOffset);
+          int64_t FinalDisp = 0;
+          bool KeepFinalDisp = chooseFinalDisp(NewOffset, FinalDisp);
+          int64_t LEAAdjust = KeepFinalDisp ? NewOffset - FinalDisp : NewOffset;
+          Register SpillableOffset =
+              ManualSpillAddCost < countLEAChunks(LEAAdjust) * 3
+                  ? selectSpillableNoOverlap(OffsetRC, /*Exclude0=*/ScratchReg,
+                                             /*Exclude1=*/BaseReg)
+                  : Register();
+          if (SpillableOffset) {
+            LLVM_DEBUG(dbgs() << "  Using manual spill/add with ScratchReg="
+                              << TRI.getName(ScratchReg)
+                              << ", SpillOffsetReg="
+                              << TRI.getName(SpillableOffset) << "\n");
+            OffsetReg = SpillableOffset;
+            SpillOffsetReg = true;
+          } else {
+            LLVM_DEBUG(dbgs() << "  Using LEA chains with ScratchReg="
+                              << TRI.getName(ScratchReg) << "\n");
+            copyRegister(MBB, II, DL, ScratchReg, BaseReg);
+            emitChunkedLEAAdjust(ScratchReg, LEAAdjust);
 
-          if (IllegalLEA) {
-            copyRegister(MBB, II, DL, MI.getOperand(0).getReg(), ScratchReg);
-            MI.eraseFromParent();
-            return true;
+            if (IllegalLEA) {
+              copyRegister(MBB, II, DL, MI.getOperand(0).getReg(), ScratchReg);
+              MI.eraseFromParent();
+              return true;
+            }
+
+            MI.getOperand(FIOperandNum).ChangeToRegister(ScratchReg, false);
+            MI.getOperand(FIOperandNum + 1)
+                .ChangeToImmediate(KeepFinalDisp ? FinalDisp : 0);
+            if (Is24Bit)
+              canonicalizePhysRegsTo24Bit(MI, TRI);
+            return false;
           }
-
-          MI.getOperand(FIOperandNum).ChangeToRegister(ScratchReg, false);
-          MI.getOperand(FIOperandNum + 1).ChangeToImmediate(0);
-          if (Is24Bit)
-            canonicalizePhysRegsTo24Bit(MI, TRI);
-          return false;
         }
       }
 
@@ -1500,19 +1590,9 @@ bool Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
   if (ScratchReg) {
     LLVM_DEBUG(dbgs() << "  Using scratch reg path: ScratchReg=" << TRI.getName(ScratchReg)
                       << ", OffsetReg=" << TRI.getName(OffsetReg) << "\n");
-    BuildMI(MBB, II, DL, get(Is24Bit ? Z80::LD24ri : Z80::LD16ri), OffsetReg)
-        .addImm(NewOffset);
     copyRegister(MBB, II, DL, ScratchReg, BaseReg);
-    if (SaveFlags)
-      applySPAdjust(
-          *BuildMI(MBB, II, DL, get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF)));
     Register TempReg = createIfVirtual(ScratchReg, MRI);
-    BuildMI(MBB, II, DL, get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao), TempReg)
-        .addReg(ScratchReg).addReg(OffsetReg, RegState::Kill)
-        ->addRegisterDead(Z80::F, &TRI);
-    if (SaveFlags)
-      applySPAdjust(
-          *BuildMI(MBB, II, DL, get(Is24Bit ? Z80::POP24AF : Z80::POP16AF)));
+    emitOffsetAdd(TempReg, OffsetReg, NewOffset, SpillOffsetReg);
     if (IllegalLEA) {
       copyRegister(MBB, II, DL, MI.getOperand(0).getReg(), TempReg);
       MI.eraseFromParent();
@@ -1580,55 +1660,20 @@ bool Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
       *BuildMI(MBB, II, DL, get(Is24Bit ? Z80::PUSH24r : Z80::PUSH16r))
            .addReg(BaseReg));
 
-  if (HasLEA && RS && !isInt<8>(NewOffset) && Opc != Z80::PEA24o &&
-      Opc != Z80::PEA16o) {
-    int64_t Bias = 0;
-    if (NewOffset > 127 && NewOffset <= 254)
-      Bias = 127;
-    else if (NewOffset < -128 && NewOffset >= -256)
-      Bias = -128;
-
-    if (Bias) {
-      FinalDisp = NewOffset - Bias;
-      assert(isInt<8>(FinalDisp) && "biased frame offset should fit in i8");
-      LLVM_DEBUG(dbgs() << "  Using biased LEA fallback: bias=" << Bias
-                        << ", final_disp=" << FinalDisp << "\n");
-      emitChunkedLEAAdjust(BaseReg, Bias);
-      KeepFinalDisp = true;
-    }
-  }
-
-  // prefer lea for the base-reg push/adjust/pop fallback. it doesnt clobber
-  // flags and avoids consuming a scratch/offset register (which can otherwise
-  // lead to spill/kill ordering issues under PEI+RegScavenger)
-  if (!KeepFinalDisp && HasLEA) {
+  // for the base reg push/adjust/pop fallback, keep the current order of
+  // preference. first try an unused offset temp, then a no spill
+  // scavenged temp, and only then choose between LEA chunks and a controlled
+  // manual spill based on the predicted local code size
+  if (HasLEA) {
     if (!isInt<8>(NewOffset) && RS) {
-      // under PEI and RegScavenger, spilling a live offset temp (push/pop) tends to
-      // destroy code size. if we cant get a truly unused offset reg, adjust
-      // the base in signed 8 bit chunks using LEA
-	      Register UnusedOffset =
-	          selectUnusedNoOverlap(OffsetRC, /*Exclude0=*/BaseReg,
-	                                /*Exclude1=*/Register());
+      Register UnusedOffset =
+          selectUnusedNoOverlap(OffsetRC, /*Exclude0=*/BaseReg,
+                                /*Exclude1=*/Register());
       LLVM_DEBUG(dbgs() << "  UnusedOffset from fallback selectUnusedNoOverlap: "
                         << (UnusedOffset ? TRI.getName(UnusedOffset) : "none") << "\n");
       if (UnusedOffset) {
-        BuildMI(MBB, II, DL, get(Is24Bit ? Z80::LD24ri : Z80::LD16ri),
-                UnusedOffset)
-            .addImm(NewOffset);
-        if (SaveFlags)
-          applySPAdjust(*BuildMI(MBB, II, DL,
-                                 get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF)))
-              .findRegisterUseOperand(Z80::AF, nullptr)
-              ->setIsUndef();
-        BuildMI(MBB, II, DL, get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao), BaseReg)
-            .addReg(BaseReg)
-            .addReg(UnusedOffset, RegState::Kill)
-            ->addRegisterDead(Z80::F, &TRI);
-        if (SaveFlags)
-          applySPAdjust(*BuildMI(MBB, II, DL,
-                                 get(Is24Bit ? Z80::POP24AF : Z80::POP16AF)));
+        emitOffsetAdd(BaseReg, UnusedOffset, NewOffset);
       } else {
-        // No unused register available - use scavengeRegisterBackwards to
         LLVM_DEBUG(dbgs() << "Z80FrameIndex: No unused offset reg, trying scavengeRegisterBackwards\n");
         Register ScavengedReg = RS->scavengeRegisterBackwards(
             *OffsetRC, II, /*RestoreAfter=*/false, SPAdj, /*AllowSpill=*/false);
@@ -1638,95 +1683,50 @@ bool Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
                    dbgs() << "\n");
         if (ScavengedReg) {
           RS->setRegUsed(ScavengedReg);
-          BuildMI(MBB, II, DL, get(Is24Bit ? Z80::LD24ri : Z80::LD16ri),
-                  ScavengedReg)
-              .addImm(NewOffset);
-          if (SaveFlags)
-            applySPAdjust(*BuildMI(MBB, II, DL,
-                                   get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF)))
-                .findRegisterUseOperand(Z80::AF, nullptr)
-                ->setIsUndef();
-          BuildMI(MBB, II, DL, get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao), BaseReg)
-              .addReg(BaseReg)
-              .addReg(ScavengedReg, RegState::Kill)
-              ->addRegisterDead(Z80::F, &TRI);
-          if (SaveFlags)
-            applySPAdjust(*BuildMI(MBB, II, DL,
-                                   get(Is24Bit ? Z80::POP24AF : Z80::POP16AF)));
+          emitOffsetAdd(BaseReg, ScavengedReg, NewOffset);
         } else {
-          LLVM_DEBUG(dbgs() << "Z80FrameIndex: Scavenging failed, falling back to LEA chunks for offset " << NewOffset << "\n");
-          emitChunkedLEAAdjust(BaseReg, NewOffset);
+          KeepFinalDisp = chooseFinalDisp(NewOffset, FinalDisp);
+          int64_t LEAAdjust = KeepFinalDisp ? NewOffset - FinalDisp : NewOffset;
+          Register SpillableOffset =
+              ManualSpillAddCost < countLEAChunks(LEAAdjust) * 3
+                  ? selectSpillableNoOverlap(OffsetRC, /*Exclude0=*/BaseReg,
+                                             /*Exclude1=*/Register())
+                  : Register();
+          if (SpillableOffset) {
+            LLVM_DEBUG(dbgs() << "Z80FrameIndex: Using manual spill/add with "
+                              << printReg(SpillableOffset, &TRI) << "\n");
+            emitOffsetAdd(BaseReg, SpillableOffset, NewOffset,
+                          /*SpillOffsetReg=*/true);
+          } else {
+            LLVM_DEBUG(dbgs() << "Z80FrameIndex: Scavenging failed, falling back to LEA chunks for offset " << NewOffset << "\n");
+            emitChunkedLEAAdjust(BaseReg, LEAAdjust);
+          }
         }
       }
     } else {
-      // for small adjustments, always prefer LEA so we dont clobber flags or
-      // consume extra regs
       if (isInt<8>(NewOffset))
         emitChunkedLEAAdjust(BaseReg, NewOffset);
       else if (!RS) {
-        // no scavenger
         OffsetReg = MRI.createVirtualRegister(OffsetRC);
-        BuildMI(MBB, II, DL, get(Is24Bit ? Z80::LD24ri : Z80::LD16ri), OffsetReg)
-            .addImm(NewOffset);
-        if (SaveFlags)
-          applySPAdjust(*BuildMI(MBB, II, DL,
-                                 get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF)))
-              .findRegisterUseOperand(Z80::AF, nullptr)
-              ->setIsUndef();
-        BuildMI(MBB, II, DL, get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao), BaseReg)
-            .addReg(BaseReg)
-            .addReg(OffsetReg, RegState::Kill)
-            ->addRegisterDead(Z80::F, &TRI);
-        if (SaveFlags)
-          applySPAdjust(
-              *BuildMI(MBB, II, DL, get(Is24Bit ? Z80::POP24AF : Z80::POP16AF)));
+        emitOffsetAdd(BaseReg, OffsetReg, NewOffset);
       } else {
-        // with a scavenger but no unused offset temp - use scavengeRegisterBackwards
         Register ScavengedReg = RS->scavengeRegisterBackwards(
             *OffsetRC, II, /*RestoreAfter=*/false, SPAdj, /*AllowSpill=*/false);
         if (ScavengedReg) {
           RS->setRegUsed(ScavengedReg);
-          BuildMI(MBB, II, DL, get(Is24Bit ? Z80::LD24ri : Z80::LD16ri),
-                  ScavengedReg)
-              .addImm(NewOffset);
-          if (SaveFlags)
-            applySPAdjust(*BuildMI(MBB, II, DL,
-                                   get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF)))
-                .findRegisterUseOperand(Z80::AF, nullptr)
-                ->setIsUndef();
-          BuildMI(MBB, II, DL, get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao), BaseReg)
-              .addReg(BaseReg)
-              .addReg(ScavengedReg, RegState::Kill)
-              ->addRegisterDead(Z80::F, &TRI);
-          if (SaveFlags)
-            applySPAdjust(*BuildMI(MBB, II, DL,
-                                   get(Is24Bit ? Z80::POP24AF : Z80::POP16AF)));
+          emitOffsetAdd(BaseReg, ScavengedReg, NewOffset);
         } else {
-          // Scavenging failed - fall back to LEA chunks
           emitChunkedLEAAdjust(BaseReg, NewOffset);
         }
       }
     }
-  } else if (!KeepFinalDisp) {
+  } else {
     std::tie(OffsetReg, SpillOffsetReg) =
         selectOffsetTemp(/*Exclude0=*/BaseReg, /*Exclude1=*/Register());
-    if (SpillOffsetReg && OffsetReg.isPhysical() && !miDefinesPhys(OffsetReg))
+    if (SpillOffsetReg && !miDefinesPhys(OffsetReg))
       pushPhys(OffsetReg);
-    BuildMI(MBB, II, DL, get(Is24Bit ? Z80::LD24ri : Z80::LD16ri), OffsetReg)
-        .addImm(NewOffset);
-    if (SaveFlags)
-      applySPAdjust(
-          *BuildMI(MBB, II, DL, get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF)))
-          .findRegisterUseOperand(Z80::AF, nullptr)
-          ->setIsUndef();
-    BuildMI(MBB, II, DL, get(Is24Bit ? Z80::ADD24ao : Z80::ADD16ao), BaseReg)
-        .addReg(BaseReg)
-        .addReg(OffsetReg, RegState::Kill)
-        ->addRegisterDead(Z80::F, &TRI);
-    if (SaveFlags)
-      applySPAdjust(
-          *BuildMI(MBB, II, DL, get(Is24Bit ? Z80::POP24AF : Z80::POP16AF)));
-    if (SpillOffsetReg && OffsetReg.isPhysical() && !miDefinesPhys(OffsetReg))
+    emitOffsetAdd(BaseReg, OffsetReg, NewOffset);
+    if (SpillOffsetReg && !miDefinesPhys(OffsetReg))
       popPhysBeforeMI(OffsetReg);
   }
   if (Opc == Z80::PEA24o || Opc == Z80::PEA16o) {
