@@ -510,6 +510,53 @@ Z80LegalizerInfo::legalizeAddSub(LegalizerHelper &Helper, MachineInstr &MI,
   LLT LLTy = MRI.getType(DstReg);
   unsigned Size = LLTy.getSizeInBits();
   bool LegalSize = Size == 16 || (Subtarget.is24Bit() && Size == 24);
+  Register SrcReg;
+  const char *OneLibcallName = nullptr;
+
+  if (Subtarget.is24Bit() && (Size == 32 || Size == 48 || Size == 64)) {
+    const Register LHS = MI.getOperand(1).getReg();
+    const Register RHS = MI.getOperand(2).getReg();
+    std::optional<ValueAndVReg> OneConst =
+        getIConstantVRegValWithLookThrough(RHS, MRI);
+
+    SrcReg = LHS;
+
+    if (MI.getOpcode() == G_ADD && (!OneConst || (!OneConst->Value.isOne() &&
+                                                  !OneConst->Value.isAllOnes()))) {
+      OneConst = getIConstantVRegValWithLookThrough(LHS, MRI);
+      SrcReg = RHS;
+    }
+
+    if (OneConst && (OneConst->Value.isOne() || OneConst->Value.isAllOnes())) {
+      bool IsSub = MI.getOpcode() == G_SUB ? OneConst->Value.isOne()
+                                           : OneConst->Value.isAllOnes();
+      switch (Size) {
+      case 32:
+        OneLibcallName = IsSub ? "_lsub_1" : "_ladd_1";
+        break;
+      case 48:
+        OneLibcallName = IsSub ? "_i48sub_1" : "_i48add_1";
+        break;
+      case 64:
+        OneLibcallName = IsSub ? "_llsub_1" : "_lladd_1";
+        break;
+      }
+    }
+  }
+
+  if (OneLibcallName) {
+    auto &Ctx = F.getContext();
+    Type *Ty = IntegerType::get(Ctx, Size);
+    auto &TLI = *Helper.MIRBuilder.getMF().getSubtarget().getTargetLowering();
+    
+    auto Result = createLibcall(Helper.MIRBuilder, OneLibcallName,
+                                {DstReg, Ty, 0}, {{SrcReg, Ty, 0}},
+                                TLI.getLibcallCallingConv(RTLIB::ADD_I32),
+                                LocObserver, &MI);
+    MI.eraseFromParent();
+    return Result;
+  }
+
   Register LHSReg;
   if (mi_match(MI, MRI, m_Neg(m_Reg(LHSReg)))) {
     if (!F.hasOptSize() && LegalSize)
