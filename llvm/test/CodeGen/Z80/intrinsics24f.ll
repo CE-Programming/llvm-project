@@ -5,27 +5,27 @@ declare float @llvm.powi.f32.i24(float, i24)
 define float @powi.f32.i24(float, i24) {
 ; EZ80-LABEL: powi.f32.i24:
 ; EZ80:       ; %bb.0:
-; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld ix, 0
-; EZ80-NEXT:    add ix, sp
+; EZ80-NEXT:    ld iy, 0
+; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    ld iy, (ix + 6)
-; EZ80-NEXT:    ld e, (ix + 9)
-; EZ80-NEXT:    ld bc, (ix + 12)
-; EZ80-NEXT:    ld (ix - 3), bc
-; EZ80-NEXT:    ld a, (ix - 1)
+; EZ80-NEXT:    ld bc, (iy + 9)
+; EZ80-NEXT:    ld (iy - 3), bc
+; EZ80-NEXT:    ld a, (iy - 1)
 ; EZ80-NEXT:    rlc a
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    call __ltof
 ; EZ80-NEXT:    ld l, a
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    push bc
-; EZ80-NEXT:    ld l, e
+; EZ80-NEXT:    ld a, (iy + 6)
+; EZ80-NEXT:    ld l, a
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    push iy
+; EZ80-NEXT:    ld hl, (iy + 3)
+; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _powf
-; EZ80-NEXT:    ld sp, ix
-; EZ80-NEXT:    pop ix
+; EZ80-NEXT:    ld iy, 15
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld sp, iy
 ; EZ80-NEXT:    ret
   call float @llvm.powi.f32.i24(float %0, i24 %1)
   ret float %3
@@ -34,14 +34,12 @@ declare double @llvm.powi.f64.i24(double, i24)
 define double @powi.f64.i24(double, i24) {
 ; EZ80-LABEL: powi.f64.i24:
 ; EZ80:       ; %bb.0:
-; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld ix, 0
-; EZ80-NEXT:    add ix, sp
+; EZ80-NEXT:    ld iy, 0
+; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    ld iy, (ix + 12)
-; EZ80-NEXT:    ld hl, (ix + 15)
-; EZ80-NEXT:    ld (ix - 3), hl
-; EZ80-NEXT:    ld a, (ix - 1)
+; EZ80-NEXT:    ld hl, (iy + 12)
+; EZ80-NEXT:    ld (iy - 3), hl
+; EZ80-NEXT:    ld a, (iy - 1)
 ; EZ80-NEXT:    rlc a
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ld e, a
@@ -50,14 +48,16 @@ define double @powi.f64.i24(double, i24) {
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    push iy
-; EZ80-NEXT:    ld hl, (ix + 9)
+; EZ80-NEXT:    ld hl, (iy + 9)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    ld hl, (ix + 6)
+; EZ80-NEXT:    ld hl, (iy + 6)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 3)
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _powl
-; EZ80-NEXT:    ld sp, ix
-; EZ80-NEXT:    pop ix
+; EZ80-NEXT:    ld iy, 21
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld sp, iy
 ; EZ80-NEXT:    ret
   call double @llvm.powi.f64.i24(double %0, i24 %1)
   ret double %3

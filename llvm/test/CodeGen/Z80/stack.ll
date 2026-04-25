@@ -80,11 +80,11 @@ define void @local.addr.no.fpe() "frame-pointer"="all" {
 ; Z80-NEXT:    ld hl, -6
 ; Z80-NEXT:    add hl, sp
 ; Z80-NEXT:    ld sp, hl
-; Z80-NEXT:    ld de, -6
 ; Z80-NEXT:    ex de, hl
 ; Z80-NEXT:    ld e, ixl
 ; Z80-NEXT:    ld d, ixh
 ; Z80-NEXT:    ex de, hl
+; Z80-NEXT:    ld de, -6
 ; Z80-NEXT:    add hl, de
 ; Z80-NEXT:    ld (_global), hl
 ; Z80-NEXT:    ld sp, ix
@@ -127,11 +127,11 @@ define void @local.addr.fpe() "frame-pointer"="none" {
 ; Z80-NEXT:    add iy, sp
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    push hl
-; Z80-NEXT:    ld de, -4
 ; Z80-NEXT:    ex de, hl
 ; Z80-NEXT:    ld e, iyl
 ; Z80-NEXT:    ld d, iyh
 ; Z80-NEXT:    ex de, hl
+; Z80-NEXT:    ld de, -4
 ; Z80-NEXT:    add hl, de
 ; Z80-NEXT:    ld (_global), hl
 ; Z80-NEXT:    pop hl

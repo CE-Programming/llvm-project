@@ -132,11 +132,11 @@ define void @memcpy.p0i8.p0i8.i24(i8*, i8*, i24) {
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 9)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 6)
+; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld de, (iy + 6)
-; EZ80-NEXT:    ld bc, (iy + 9)
-; EZ80-NEXT:    push bc
-; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _memcpy
 ; EZ80-NEXT:    ld hl, 9
@@ -168,11 +168,11 @@ define void @memmove.p0i8.p0i8.i24(i8*, i8*, i24) {
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 9)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 6)
+; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld de, (iy + 6)
-; EZ80-NEXT:    ld bc, (iy + 9)
-; EZ80-NEXT:    push bc
-; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _memmove
 ; EZ80-NEXT:    ld hl, 9
@@ -189,12 +189,12 @@ define void @memset.p0i8.i24(i8*, i8, i24) {
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
-; EZ80-NEXT:    ld hl, (iy + 3)
+; EZ80-NEXT:    ld hl, (iy + 9)
+; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld de, (iy + 9)
-; EZ80-NEXT:    push de
-; EZ80-NEXT:    ld e, a
-; EZ80-NEXT:    push de
+; EZ80-NEXT:    ld l, a
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 3)
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _memset
 ; EZ80-NEXT:    ld hl, 9
@@ -291,17 +291,16 @@ define i24 @fshl.i24(i24, i24, i24) {
 ; EZ80-NEXT:    push ix
 ; EZ80-NEXT:    ld ix, 0
 ; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld de, (ix + 6)
-; EZ80-NEXT:    ld hl, (ix + 12)
-; EZ80-NEXT:    ld iy, 23
+; EZ80-NEXT:    ld de, 23
 ; EZ80-NEXT:    ld bc, 24
+; EZ80-NEXT:    ld hl, (ix + 12)
 ; EZ80-NEXT:    call __iremu
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop bc
-; EZ80-NEXT:    ld a, iyl
+; EZ80-NEXT:    ld a, e
 ; EZ80-NEXT:    sub a, l
 ; EZ80-NEXT:    ld iyl, a
-; EZ80-NEXT:    ex de, hl
+; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    ; kill: def $c killed $c killed $ubc
 ; EZ80-NEXT:    call __ishl
 ; EZ80-NEXT:    ex de, hl
@@ -327,8 +326,8 @@ define i24 @fshr.i24(i24, i24, i24) {
 ; EZ80-NEXT:    ld ix, 0
 ; EZ80-NEXT:    add ix, sp
 ; EZ80-NEXT:    ld iy, (ix + 6)
-; EZ80-NEXT:    ld hl, (ix + 12)
 ; EZ80-NEXT:    ld bc, 24
+; EZ80-NEXT:    ld hl, (ix + 12)
 ; EZ80-NEXT:    call __iremu
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop de
@@ -550,9 +549,9 @@ define i24 @smul.sat.i24(i24, i24) {
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 6)
+; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld de, (iy + 6)
-; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _llvm.smul.sat.i24
 ; EZ80-NEXT:    ld iy, 6
@@ -569,9 +568,9 @@ define i24 @umul.sat.i24(i24, i24) {
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 6)
+; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld de, (iy + 6)
-; EZ80-NEXT:    push de
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    call _llvm.umul.sat.i24
 ; EZ80-NEXT:    ld iy, 6
@@ -603,8 +602,8 @@ define i8 addrspace(1)* @ptrmask.p1i8.i16(i8 addrspace(1)*, i16) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
+; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __sand
 ; EZ80-NEXT:    ret

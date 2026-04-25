@@ -23,9 +23,9 @@ define i8 @extract_mid_byte48(i48 %x) {
 ; EZ80:       ; %bb.0: ; %entry
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld c, 24
 ; EZ80-NEXT:    ld hl, (iy + 3)
 ; EZ80-NEXT:    ld de, (iy + 6)
-; EZ80-NEXT:    ld c, 24
 ; EZ80-NEXT:    call __i48shru
 ; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    ret
@@ -40,11 +40,11 @@ define i8 @extract_mid_byte64(i64 %x) {
 ; EZ80:       ; %bb.0: ; %entry
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, 24
+; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (iy + 3)
 ; EZ80-NEXT:    ld de, (iy + 6)
 ; EZ80-NEXT:    ld bc, (iy + 9)
-; EZ80-NEXT:    ld iy, 24
-; EZ80-NEXT:    push iy
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llshru
 ; EZ80-NEXT:    pop de

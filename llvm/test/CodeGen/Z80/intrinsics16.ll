@@ -8,14 +8,14 @@ define void @memcpy.p0i8.p0i8.i16(i8*, i8*, i16) {
 ; Z80:       ; %bb.0:
 ; Z80-NEXT:    ld iy, 0
 ; Z80-NEXT:    add iy, sp
+; Z80-NEXT:    ld l, (iy + 6)
+; Z80-NEXT:    ld h, (iy + 7)
+; Z80-NEXT:    push hl
+; Z80-NEXT:    ld l, (iy + 4)
+; Z80-NEXT:    ld h, (iy + 5)
+; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (iy + 2)
 ; Z80-NEXT:    ld h, (iy + 3)
-; Z80-NEXT:    ld e, (iy + 4)
-; Z80-NEXT:    ld d, (iy + 5)
-; Z80-NEXT:    ld c, (iy + 6)
-; Z80-NEXT:    ld b, (iy + 7)
-; Z80-NEXT:    push bc
-; Z80-NEXT:    push de
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    call _memcpy
 ; Z80-NEXT:    ld hl, 6
@@ -27,11 +27,11 @@ define void @memcpy.p0i8.p0i8.i16(i8*, i8*, i16) {
 ; EZ80-CODE16:       ; %bb.0:
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    add iy, sp
+; EZ80-CODE16-NEXT:    ld hl, (iy + 6)
+; EZ80-CODE16-NEXT:    push hl
+; EZ80-CODE16-NEXT:    ld hl, (iy + 4)
+; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld hl, (iy + 2)
-; EZ80-CODE16-NEXT:    ld de, (iy + 4)
-; EZ80-CODE16-NEXT:    ld bc, (iy + 6)
-; EZ80-CODE16-NEXT:    push bc
-; EZ80-CODE16-NEXT:    push de
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    call _memcpy
 ; EZ80-CODE16-NEXT:    ld hl, 6
@@ -75,14 +75,14 @@ define void @memmove.p0i8.p0i8.i16(i8*, i8*, i16) {
 ; Z80:       ; %bb.0:
 ; Z80-NEXT:    ld iy, 0
 ; Z80-NEXT:    add iy, sp
+; Z80-NEXT:    ld l, (iy + 6)
+; Z80-NEXT:    ld h, (iy + 7)
+; Z80-NEXT:    push hl
+; Z80-NEXT:    ld l, (iy + 4)
+; Z80-NEXT:    ld h, (iy + 5)
+; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (iy + 2)
 ; Z80-NEXT:    ld h, (iy + 3)
-; Z80-NEXT:    ld e, (iy + 4)
-; Z80-NEXT:    ld d, (iy + 5)
-; Z80-NEXT:    ld c, (iy + 6)
-; Z80-NEXT:    ld b, (iy + 7)
-; Z80-NEXT:    push bc
-; Z80-NEXT:    push de
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    call _memmove
 ; Z80-NEXT:    ld hl, 6
@@ -94,11 +94,11 @@ define void @memmove.p0i8.p0i8.i16(i8*, i8*, i16) {
 ; EZ80-CODE16:       ; %bb.0:
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    add iy, sp
+; EZ80-CODE16-NEXT:    ld hl, (iy + 6)
+; EZ80-CODE16-NEXT:    push hl
+; EZ80-CODE16-NEXT:    ld hl, (iy + 4)
+; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld hl, (iy + 2)
-; EZ80-CODE16-NEXT:    ld de, (iy + 4)
-; EZ80-CODE16-NEXT:    ld bc, (iy + 6)
-; EZ80-CODE16-NEXT:    push bc
-; EZ80-CODE16-NEXT:    push de
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    call _memmove
 ; EZ80-CODE16-NEXT:    ld hl, 6
@@ -115,14 +115,14 @@ define void @memset.p0i8.i16(i8*, i8, i16) {
 ; Z80:       ; %bb.0:
 ; Z80-NEXT:    ld iy, 0
 ; Z80-NEXT:    add iy, sp
+; Z80-NEXT:    ld l, (iy + 6)
+; Z80-NEXT:    ld h, (iy + 7)
+; Z80-NEXT:    push hl
+; Z80-NEXT:    ld a, (iy + 4)
+; Z80-NEXT:    ld l, a
+; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (iy + 2)
 ; Z80-NEXT:    ld h, (iy + 3)
-; Z80-NEXT:    ld a, (iy + 4)
-; Z80-NEXT:    ld e, (iy + 6)
-; Z80-NEXT:    ld d, (iy + 7)
-; Z80-NEXT:    push de
-; Z80-NEXT:    ld e, a
-; Z80-NEXT:    push de
 ; Z80-NEXT:    push hl
 ; Z80-NEXT:    call _memset
 ; Z80-NEXT:    ld hl, 6
@@ -134,12 +134,12 @@ define void @memset.p0i8.i16(i8*, i8, i16) {
 ; EZ80-CODE16:       ; %bb.0:
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    add iy, sp
-; EZ80-CODE16-NEXT:    ld hl, (iy + 2)
+; EZ80-CODE16-NEXT:    ld hl, (iy + 6)
+; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld a, (iy + 4)
-; EZ80-CODE16-NEXT:    ld de, (iy + 6)
-; EZ80-CODE16-NEXT:    push de
-; EZ80-CODE16-NEXT:    ld e, a
-; EZ80-CODE16-NEXT:    push de
+; EZ80-CODE16-NEXT:    ld l, a
+; EZ80-CODE16-NEXT:    push hl
+; EZ80-CODE16-NEXT:    ld hl, (iy + 2)
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    call _memset
 ; EZ80-CODE16-NEXT:    ld hl, 6

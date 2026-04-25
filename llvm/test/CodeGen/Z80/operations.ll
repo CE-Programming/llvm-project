@@ -62,8 +62,8 @@ define i16 @shl.i16(i16, i16) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
+; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    ; kill: def $c killed $c killed $ubc
 ; EZ80-NEXT:    call __sshl
 ; EZ80-NEXT:    ret
@@ -108,8 +108,8 @@ define i32 @shl.i32(i32, i32) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld bc, (iy + 3)
-; EZ80-NEXT:    ld hl, (iy + 9)
 ; EZ80-NEXT:    ld a, (iy + 6)
+; EZ80-NEXT:    ld hl, (iy + 9)
 ; EZ80-NEXT:    ; kill: def $l killed $l killed $uhl
 ; EZ80-NEXT:    call __lshl
 ; EZ80-NEXT:    push bc
@@ -179,11 +179,11 @@ define i64 @shl.i64(i64, i64) {
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 12)
+; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (iy + 3)
 ; EZ80-NEXT:    ld de, (iy + 6)
 ; EZ80-NEXT:    ld bc, (iy + 9)
-; EZ80-NEXT:    ld iy, (iy + 12)
-; EZ80-NEXT:    push iy
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llshl
 ; EZ80-NEXT:    pop iy
@@ -250,8 +250,8 @@ define i16 @lshr.i16(i16, i16) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
+; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    ; kill: def $c killed $c killed $ubc
 ; EZ80-NEXT:    call __sshru
 ; EZ80-NEXT:    ret
@@ -296,8 +296,8 @@ define i32 @lshr.i32(i32, i32) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld bc, (iy + 3)
-; EZ80-NEXT:    ld hl, (iy + 9)
 ; EZ80-NEXT:    ld a, (iy + 6)
+; EZ80-NEXT:    ld hl, (iy + 9)
 ; EZ80-NEXT:    ; kill: def $l killed $l killed $uhl
 ; EZ80-NEXT:    call __lshru
 ; EZ80-NEXT:    push bc
@@ -367,11 +367,11 @@ define i64 @lshr.i64(i64, i64) {
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 12)
+; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (iy + 3)
 ; EZ80-NEXT:    ld de, (iy + 6)
 ; EZ80-NEXT:    ld bc, (iy + 9)
-; EZ80-NEXT:    ld iy, (iy + 12)
-; EZ80-NEXT:    push iy
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llshru
 ; EZ80-NEXT:    pop iy
@@ -438,8 +438,8 @@ define i16 @ashr.i16(i16, i16) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
+; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    ; kill: def $c killed $c killed $ubc
 ; EZ80-NEXT:    call __sshrs
 ; EZ80-NEXT:    ret
@@ -484,8 +484,8 @@ define i32 @ashr.i32(i32, i32) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld bc, (iy + 3)
-; EZ80-NEXT:    ld hl, (iy + 9)
 ; EZ80-NEXT:    ld a, (iy + 6)
+; EZ80-NEXT:    ld hl, (iy + 9)
 ; EZ80-NEXT:    ; kill: def $l killed $l killed $uhl
 ; EZ80-NEXT:    call __lshrs
 ; EZ80-NEXT:    push bc
@@ -555,11 +555,11 @@ define i64 @ashr.i64(i64, i64) {
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 12)
+; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    ld hl, (iy + 3)
 ; EZ80-NEXT:    ld de, (iy + 6)
 ; EZ80-NEXT:    ld bc, (iy + 9)
-; EZ80-NEXT:    ld iy, (iy + 12)
-; EZ80-NEXT:    push iy
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llshrs
 ; EZ80-NEXT:    pop iy
@@ -595,9 +595,8 @@ define i8 @and.i8(i8, i8) {
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
-; EZ80-NEXT:    ld a, (iy + 3)
-; EZ80-NEXT:    ld l, (iy + 6)
-; EZ80-NEXT:    and a, l
+; EZ80-NEXT:    ld a, (iy + 6)
+; EZ80-NEXT:    and a, (iy + 3)
 ; EZ80-NEXT:    ld l, a
 ; EZ80-NEXT:    ret
   and i8 %0, %1
@@ -773,22 +772,22 @@ define i64 @and.i64(i64, i64) {
 ;
 ; EZ80-LABEL: and.i64:
 ; EZ80:       ; %bb.0:
-; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld ix, 0
-; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld bc, (ix + 12)
-; EZ80-NEXT:    ld iy, (ix + 15)
-; EZ80-NEXT:    ld de, (ix + 18)
-; EZ80-NEXT:    ld hl, (ix + 21)
+; EZ80-NEXT:    ld iy, 0
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 18)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    push de
-; EZ80-NEXT:    push iy
-; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld de, (ix + 9)
+; EZ80-NEXT:    ld hl, (iy + 15)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 12)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 3)
+; EZ80-NEXT:    ld de, (iy + 6)
+; EZ80-NEXT:    ld bc, (iy + 9)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __lland
-; EZ80-NEXT:    ld sp, ix
-; EZ80-NEXT:    pop ix
+; EZ80-NEXT:    ld iy, 9
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld sp, iy
 ; EZ80-NEXT:    ret
   and i64 %0, %1
   ret i64 %3
@@ -821,9 +820,8 @@ define i8 @or.i8(i8, i8) {
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
-; EZ80-NEXT:    ld a, (iy + 3)
-; EZ80-NEXT:    ld l, (iy + 6)
-; EZ80-NEXT:    or a, l
+; EZ80-NEXT:    ld a, (iy + 6)
+; EZ80-NEXT:    or a, (iy + 3)
 ; EZ80-NEXT:    ld l, a
 ; EZ80-NEXT:    ret
   or i8 %0, %1
@@ -999,22 +997,22 @@ define i64 @or.i64(i64, i64) {
 ;
 ; EZ80-LABEL: or.i64:
 ; EZ80:       ; %bb.0:
-; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld ix, 0
-; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld bc, (ix + 12)
-; EZ80-NEXT:    ld iy, (ix + 15)
-; EZ80-NEXT:    ld de, (ix + 18)
-; EZ80-NEXT:    ld hl, (ix + 21)
+; EZ80-NEXT:    ld iy, 0
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 18)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    push de
-; EZ80-NEXT:    push iy
-; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld de, (ix + 9)
+; EZ80-NEXT:    ld hl, (iy + 15)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 12)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 3)
+; EZ80-NEXT:    ld de, (iy + 6)
+; EZ80-NEXT:    ld bc, (iy + 9)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llor
-; EZ80-NEXT:    ld sp, ix
-; EZ80-NEXT:    pop ix
+; EZ80-NEXT:    ld iy, 9
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld sp, iy
 ; EZ80-NEXT:    ret
   or i64 %0, %1
   ret i64 %3
@@ -1047,9 +1045,8 @@ define i8 @xor.i8(i8, i8) {
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
-; EZ80-NEXT:    ld a, (iy + 3)
-; EZ80-NEXT:    ld l, (iy + 6)
-; EZ80-NEXT:    xor a, l
+; EZ80-NEXT:    ld a, (iy + 6)
+; EZ80-NEXT:    xor a, (iy + 3)
 ; EZ80-NEXT:    ld l, a
 ; EZ80-NEXT:    ret
   xor i8 %0, %1
@@ -1225,22 +1222,22 @@ define i64 @xor.i64(i64, i64) {
 ;
 ; EZ80-LABEL: xor.i64:
 ; EZ80:       ; %bb.0:
-; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld ix, 0
-; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld bc, (ix + 12)
-; EZ80-NEXT:    ld iy, (ix + 15)
-; EZ80-NEXT:    ld de, (ix + 18)
-; EZ80-NEXT:    ld hl, (ix + 21)
+; EZ80-NEXT:    ld iy, 0
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 18)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    push de
-; EZ80-NEXT:    push iy
-; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld de, (ix + 9)
+; EZ80-NEXT:    ld hl, (iy + 15)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 12)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 3)
+; EZ80-NEXT:    ld de, (iy + 6)
+; EZ80-NEXT:    ld bc, (iy + 9)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llxor
-; EZ80-NEXT:    ld sp, ix
-; EZ80-NEXT:    pop ix
+; EZ80-NEXT:    ld iy, 9
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld sp, iy
 ; EZ80-NEXT:    ret
   xor i64 %0, %1
   ret i64 %3
@@ -1273,9 +1270,8 @@ define i8 @add.i8(i8, i8) {
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
-; EZ80-NEXT:    ld a, (iy + 3)
-; EZ80-NEXT:    ld l, (iy + 6)
-; EZ80-NEXT:    add a, l
+; EZ80-NEXT:    ld a, (iy + 6)
+; EZ80-NEXT:    add a, (iy + 3)
 ; EZ80-NEXT:    ld l, a
 ; EZ80-NEXT:    ret
   add i8 %0, %1
@@ -1506,22 +1502,22 @@ define i64 @add.i64(i64, i64) {
 ;
 ; EZ80-LABEL: add.i64:
 ; EZ80:       ; %bb.0:
-; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld ix, 0
-; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld bc, (ix + 12)
-; EZ80-NEXT:    ld iy, (ix + 15)
-; EZ80-NEXT:    ld de, (ix + 18)
-; EZ80-NEXT:    ld hl, (ix + 21)
+; EZ80-NEXT:    ld iy, 0
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 18)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    push de
-; EZ80-NEXT:    push iy
-; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld de, (ix + 9)
+; EZ80-NEXT:    ld hl, (iy + 15)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 12)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 3)
+; EZ80-NEXT:    ld de, (iy + 6)
+; EZ80-NEXT:    ld bc, (iy + 9)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __lladd
-; EZ80-NEXT:    ld sp, ix
-; EZ80-NEXT:    pop ix
+; EZ80-NEXT:    ld iy, 9
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld sp, iy
 ; EZ80-NEXT:    ret
   add i64 %0, %1
   ret i64 %3
@@ -1555,8 +1551,7 @@ define i8 @sub.i8(i8, i8) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld a, (iy + 3)
-; EZ80-NEXT:    ld l, (iy + 6)
-; EZ80-NEXT:    sub a, l
+; EZ80-NEXT:    sub a, (iy + 6)
 ; EZ80-NEXT:    ld l, a
 ; EZ80-NEXT:    ret
   sub i8 %0, %1
@@ -1796,22 +1791,22 @@ define i64 @sub.i64(i64, i64) {
 ;
 ; EZ80-LABEL: sub.i64:
 ; EZ80:       ; %bb.0:
-; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld ix, 0
-; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld bc, (ix + 12)
-; EZ80-NEXT:    ld iy, (ix + 15)
-; EZ80-NEXT:    ld de, (ix + 18)
-; EZ80-NEXT:    ld hl, (ix + 21)
+; EZ80-NEXT:    ld iy, 0
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 18)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    push de
-; EZ80-NEXT:    push iy
-; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld de, (ix + 9)
+; EZ80-NEXT:    ld hl, (iy + 15)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 12)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 3)
+; EZ80-NEXT:    ld de, (iy + 6)
+; EZ80-NEXT:    ld bc, (iy + 9)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llsub
-; EZ80-NEXT:    ld sp, ix
-; EZ80-NEXT:    pop ix
+; EZ80-NEXT:    ld iy, 9
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld sp, iy
 ; EZ80-NEXT:    ret
   sub i64 %0, %1
   ret i64 %3
@@ -1875,8 +1870,8 @@ define i16 @mul.i16(i16, i16) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
+; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __smulu
 ; EZ80-NEXT:    ret
@@ -2000,22 +1995,22 @@ define i64 @mul.i64(i64, i64) {
 ;
 ; EZ80-LABEL: mul.i64:
 ; EZ80:       ; %bb.0:
-; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld ix, 0
-; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld bc, (ix + 12)
-; EZ80-NEXT:    ld iy, (ix + 15)
-; EZ80-NEXT:    ld de, (ix + 18)
-; EZ80-NEXT:    ld hl, (ix + 21)
+; EZ80-NEXT:    ld iy, 0
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 18)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    push de
-; EZ80-NEXT:    push iy
-; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld de, (ix + 9)
+; EZ80-NEXT:    ld hl, (iy + 15)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 12)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 3)
+; EZ80-NEXT:    ld de, (iy + 6)
+; EZ80-NEXT:    ld bc, (iy + 9)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llmulu
-; EZ80-NEXT:    ld sp, ix
-; EZ80-NEXT:    pop ix
+; EZ80-NEXT:    ld iy, 9
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld sp, iy
 ; EZ80-NEXT:    ret
   mul i64 %0, %1
   ret i64 %3
@@ -2077,8 +2072,8 @@ define i16 @udiv.i16(i16, i16) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
+; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __sdivu
 ; EZ80-NEXT:    ret
@@ -2202,22 +2197,22 @@ define i64 @udiv.i64(i64, i64) {
 ;
 ; EZ80-LABEL: udiv.i64:
 ; EZ80:       ; %bb.0:
-; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld ix, 0
-; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld bc, (ix + 12)
-; EZ80-NEXT:    ld iy, (ix + 15)
-; EZ80-NEXT:    ld de, (ix + 18)
-; EZ80-NEXT:    ld hl, (ix + 21)
+; EZ80-NEXT:    ld iy, 0
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 18)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    push de
-; EZ80-NEXT:    push iy
-; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld de, (ix + 9)
+; EZ80-NEXT:    ld hl, (iy + 15)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 12)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 3)
+; EZ80-NEXT:    ld de, (iy + 6)
+; EZ80-NEXT:    ld bc, (iy + 9)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __lldivu
-; EZ80-NEXT:    ld sp, ix
-; EZ80-NEXT:    pop ix
+; EZ80-NEXT:    ld iy, 9
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld sp, iy
 ; EZ80-NEXT:    ret
   udiv i64 %0, %1
   ret i64 %3
@@ -2279,8 +2274,8 @@ define i16 @sdiv.i16(i16, i16) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
+; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __sdivs
 ; EZ80-NEXT:    ret
@@ -2404,22 +2399,22 @@ define i64 @sdiv.i64(i64, i64) {
 ;
 ; EZ80-LABEL: sdiv.i64:
 ; EZ80:       ; %bb.0:
-; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld ix, 0
-; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld bc, (ix + 12)
-; EZ80-NEXT:    ld iy, (ix + 15)
-; EZ80-NEXT:    ld de, (ix + 18)
-; EZ80-NEXT:    ld hl, (ix + 21)
+; EZ80-NEXT:    ld iy, 0
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 18)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    push de
-; EZ80-NEXT:    push iy
-; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld de, (ix + 9)
+; EZ80-NEXT:    ld hl, (iy + 15)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 12)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 3)
+; EZ80-NEXT:    ld de, (iy + 6)
+; EZ80-NEXT:    ld bc, (iy + 9)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __lldivs
-; EZ80-NEXT:    ld sp, ix
-; EZ80-NEXT:    pop ix
+; EZ80-NEXT:    ld iy, 9
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld sp, iy
 ; EZ80-NEXT:    ret
   sdiv i64 %0, %1
   ret i64 %3
@@ -2481,8 +2476,8 @@ define i16 @urem.i16(i16, i16) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
+; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __sremu
 ; EZ80-NEXT:    ret
@@ -2606,22 +2601,22 @@ define i64 @urem.i64(i64, i64) {
 ;
 ; EZ80-LABEL: urem.i64:
 ; EZ80:       ; %bb.0:
-; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld ix, 0
-; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld bc, (ix + 12)
-; EZ80-NEXT:    ld iy, (ix + 15)
-; EZ80-NEXT:    ld de, (ix + 18)
-; EZ80-NEXT:    ld hl, (ix + 21)
+; EZ80-NEXT:    ld iy, 0
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 18)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    push de
-; EZ80-NEXT:    push iy
-; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld de, (ix + 9)
+; EZ80-NEXT:    ld hl, (iy + 15)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 12)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 3)
+; EZ80-NEXT:    ld de, (iy + 6)
+; EZ80-NEXT:    ld bc, (iy + 9)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llremu
-; EZ80-NEXT:    ld sp, ix
-; EZ80-NEXT:    pop ix
+; EZ80-NEXT:    ld iy, 9
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld sp, iy
 ; EZ80-NEXT:    ret
   urem i64 %0, %1
   ret i64 %3
@@ -2683,8 +2678,8 @@ define i16 @srem.i16(i16, i16) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
+; EZ80-NEXT:    ld bc, (iy + 6)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __srems
 ; EZ80-NEXT:    ret
@@ -2808,22 +2803,22 @@ define i64 @srem.i64(i64, i64) {
 ;
 ; EZ80-LABEL: srem.i64:
 ; EZ80:       ; %bb.0:
-; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld ix, 0
-; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld bc, (ix + 12)
-; EZ80-NEXT:    ld iy, (ix + 15)
-; EZ80-NEXT:    ld de, (ix + 18)
-; EZ80-NEXT:    ld hl, (ix + 21)
+; EZ80-NEXT:    ld iy, 0
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 18)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    push de
-; EZ80-NEXT:    push iy
-; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld de, (ix + 9)
+; EZ80-NEXT:    ld hl, (iy + 15)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 12)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 3)
+; EZ80-NEXT:    ld de, (iy + 6)
+; EZ80-NEXT:    ld bc, (iy + 9)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llrems
-; EZ80-NEXT:    ld sp, ix
-; EZ80-NEXT:    pop ix
+; EZ80-NEXT:    ld iy, 9
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld sp, iy
 ; EZ80-NEXT:    ret
   srem i64 %0, %1
   ret i64 %3
@@ -3053,22 +3048,22 @@ define double @fadd.f64(double, double) {
 ;
 ; EZ80-LABEL: fadd.f64:
 ; EZ80:       ; %bb.0:
-; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld ix, 0
-; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld bc, (ix + 12)
-; EZ80-NEXT:    ld iy, (ix + 15)
-; EZ80-NEXT:    ld de, (ix + 18)
-; EZ80-NEXT:    ld hl, (ix + 21)
+; EZ80-NEXT:    ld iy, 0
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 18)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    push de
-; EZ80-NEXT:    push iy
-; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld de, (ix + 9)
+; EZ80-NEXT:    ld hl, (iy + 15)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 12)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 3)
+; EZ80-NEXT:    ld de, (iy + 6)
+; EZ80-NEXT:    ld bc, (iy + 9)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __dadd
-; EZ80-NEXT:    ld sp, ix
-; EZ80-NEXT:    pop ix
+; EZ80-NEXT:    ld iy, 9
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld sp, iy
 ; EZ80-NEXT:    ret
   fadd double %0, %1
   ret double %3
@@ -3198,22 +3193,22 @@ define double @fsub.f64(double, double) {
 ;
 ; EZ80-LABEL: fsub.f64:
 ; EZ80:       ; %bb.0:
-; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld ix, 0
-; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld bc, (ix + 12)
-; EZ80-NEXT:    ld iy, (ix + 15)
-; EZ80-NEXT:    ld de, (ix + 18)
-; EZ80-NEXT:    ld hl, (ix + 21)
+; EZ80-NEXT:    ld iy, 0
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 18)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    push de
-; EZ80-NEXT:    push iy
-; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld de, (ix + 9)
+; EZ80-NEXT:    ld hl, (iy + 15)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 12)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 3)
+; EZ80-NEXT:    ld de, (iy + 6)
+; EZ80-NEXT:    ld bc, (iy + 9)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __dsub
-; EZ80-NEXT:    ld sp, ix
-; EZ80-NEXT:    pop ix
+; EZ80-NEXT:    ld iy, 9
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld sp, iy
 ; EZ80-NEXT:    ret
   fsub double %0, %1
   ret double %3
@@ -3343,22 +3338,22 @@ define double @fmul.f64(double, double) {
 ;
 ; EZ80-LABEL: fmul.f64:
 ; EZ80:       ; %bb.0:
-; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld ix, 0
-; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld bc, (ix + 12)
-; EZ80-NEXT:    ld iy, (ix + 15)
-; EZ80-NEXT:    ld de, (ix + 18)
-; EZ80-NEXT:    ld hl, (ix + 21)
+; EZ80-NEXT:    ld iy, 0
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 18)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    push de
-; EZ80-NEXT:    push iy
-; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld de, (ix + 9)
+; EZ80-NEXT:    ld hl, (iy + 15)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 12)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 3)
+; EZ80-NEXT:    ld de, (iy + 6)
+; EZ80-NEXT:    ld bc, (iy + 9)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __dmul
-; EZ80-NEXT:    ld sp, ix
-; EZ80-NEXT:    pop ix
+; EZ80-NEXT:    ld iy, 9
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld sp, iy
 ; EZ80-NEXT:    ret
   fmul double %0, %1
   ret double %3
@@ -3488,22 +3483,22 @@ define double @fdiv.f64(double, double) {
 ;
 ; EZ80-LABEL: fdiv.f64:
 ; EZ80:       ; %bb.0:
-; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld ix, 0
-; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld bc, (ix + 12)
-; EZ80-NEXT:    ld iy, (ix + 15)
-; EZ80-NEXT:    ld de, (ix + 18)
-; EZ80-NEXT:    ld hl, (ix + 21)
+; EZ80-NEXT:    ld iy, 0
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 18)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    push de
-; EZ80-NEXT:    push iy
-; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld de, (ix + 9)
+; EZ80-NEXT:    ld hl, (iy + 15)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 12)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 3)
+; EZ80-NEXT:    ld de, (iy + 6)
+; EZ80-NEXT:    ld bc, (iy + 9)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __ddiv
-; EZ80-NEXT:    ld sp, ix
-; EZ80-NEXT:    pop ix
+; EZ80-NEXT:    ld iy, 9
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld sp, iy
 ; EZ80-NEXT:    ret
   fdiv double %0, %1
   ret double %3
@@ -3633,22 +3628,22 @@ define double @frem.f64(double, double) {
 ;
 ; EZ80-LABEL: frem.f64:
 ; EZ80:       ; %bb.0:
-; EZ80-NEXT:    push ix
-; EZ80-NEXT:    ld ix, 0
-; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld bc, (ix + 12)
-; EZ80-NEXT:    ld iy, (ix + 15)
-; EZ80-NEXT:    ld de, (ix + 18)
-; EZ80-NEXT:    ld hl, (ix + 21)
+; EZ80-NEXT:    ld iy, 0
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld hl, (iy + 18)
 ; EZ80-NEXT:    push hl
-; EZ80-NEXT:    push de
-; EZ80-NEXT:    push iy
-; EZ80-NEXT:    ld hl, (ix + 6)
-; EZ80-NEXT:    ld de, (ix + 9)
+; EZ80-NEXT:    ld hl, (iy + 15)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 12)
+; EZ80-NEXT:    push hl
+; EZ80-NEXT:    ld hl, (iy + 3)
+; EZ80-NEXT:    ld de, (iy + 6)
+; EZ80-NEXT:    ld bc, (iy + 9)
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __drem
-; EZ80-NEXT:    ld sp, ix
-; EZ80-NEXT:    pop ix
+; EZ80-NEXT:    ld iy, 9
+; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    ld sp, iy
 ; EZ80-NEXT:    ret
   frem double %0, %1
   ret double %3
@@ -6495,9 +6490,9 @@ define float @uitofp.i24.f32(i24) {
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
-; EZ80-NEXT:    ld bc, (iy + 3)
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ld a, l
+; EZ80-NEXT:    ld bc, (iy + 3)
 ; EZ80-NEXT:    call __ultof
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    pop hl
@@ -6694,8 +6689,9 @@ define double @uitofp.i24.f64(i24) {
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
+; EZ80-NEXT:    sbc hl, hl
+; EZ80-NEXT:    ld e, l
 ; EZ80-NEXT:    ld hl, (iy + 3)
-; EZ80-NEXT:    ld de, 0
 ; EZ80-NEXT:    call __ultod
 ; EZ80-NEXT:    ret
   uitofp i24 %0 to double
