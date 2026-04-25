@@ -14,8 +14,10 @@
 #include "MCTargetDesc/Z80MCTargetDesc.h"
 #include "Z80.h"
 #include "Z80InstrInfo.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/CodeGen/LiveRegUnits.h"
 #include "llvm/CodeGen/MachineDominators.h"
+#include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
@@ -177,9 +179,189 @@ static bool isRegClassCompatibleForReplace(const TargetRegisterClass *DstRC,
   return DstRC->hasSubClassEq(RepRC);
 }
 
+static bool isPhysicalCopyDef(const MachineInstr &MI) {
+  if (MI.getOpcode() != TargetOpcode::COPY)
+    return false;
+  return MI.getOperand(0).getReg().isPhysical();
+}
+
+static bool isCallSetupGlue(const MachineInstr &MI) {
+  switch (MI.getOpcode()) {
+  default:
+    return false;
+  case TargetOpcode::IMPLICIT_DEF:
+  case TargetOpcode::INSERT_SUBREG:
+    return true;
+  case TargetOpcode::COPY:
+    return MI.getOperand(0).getReg().isVirtual() &&
+           MI.getOperand(1).getReg().isVirtual();
+  }
+}
+
+static bool callUsesReg(const MachineInstr &CallMI, Register Reg,
+                        const TargetRegisterInfo &TRI) {
+  for (const MachineOperand &MO : CallMI.operands())
+    if (MO.isReg() && MO.isUse() && MO.getReg() != Register() &&
+        TRI.regsOverlap(MO.getReg(), Reg))
+      return true;
+
+  return false;
+}
+
+static bool reachesCallSetupUse(MachineInstr &MI, Register PhysReg,
+                                const TargetRegisterInfo &TRI) {
+  MachineBasicBlock &MBB = *MI.getParent();
+  auto E = MBB.end();
+  for (auto I = std::next(MI.getIterator()); I != E; ++I) {
+    if (I->isDebugInstr())
+      continue;
+
+    if (I->isCall())
+      return PhysReg == Register() || callUsesReg(*I, PhysReg, TRI);
+
+    if (PhysReg != Register() && I->modifiesRegister(PhysReg, &TRI))
+      return false;
+
+    if (I->getOpcode() == Z80::PUSH16r || I->getOpcode() == Z80::PUSH24r ||
+        isPhysicalCopyDef(*I) ||
+        isCallSetupGlue(*I))
+      continue;
+
+    return false;
+  }
+
+  return false;
+}
+
+static bool isAtOrBefore(MachineInstr &MI, MachineInstr &UseMI) {
+  if (MI.getParent() != UseMI.getParent())
+    return false;
+
+  for (auto I = MachineBasicBlock::iterator(MI), E = MI.getParent()->end();
+       I != E; ++I)
+    if (&*I == &UseMI)
+      return true;
+
+  return false;
+}
+
+static bool canMoveDefBeforeUse(Register Reg, MachineInstr &UserMI,
+                                MachineInstr &InsertMI,
+                                MachineRegisterInfo &MRI) {
+  if (MRI.hasOneNonDBGUse(Reg))
+    return true;
+
+  for (MachineOperand &MO : MRI.use_nodbg_operands(Reg)) {
+    MachineInstr *OtherMI = MO.getParent();
+    if (OtherMI == &UserMI)
+      continue;
+    if (OtherMI->getParent() != InsertMI.getParent())
+      return false;
+    if (isAtOrBefore(*OtherMI, InsertMI))
+      return false;
+  }
+
+  return true;
+}
+
+static bool isImmutableFixedStackLoad(const MachineInstr &MI,
+                                      const MachineFrameInfo &MFI,
+                                      const TargetInstrInfo &TII) {
+  int FI = 0;
+  return TII.isLoadFromStackSlot(MI, FI) != Register() &&
+         MFI.isFixedObjectIndex(FI) && MFI.isImmutableObjectIndex(FI) &&
+         !MFI.isAliasedObjectIndex(FI);
+}
+
+static bool collectFixedStackArgDefChain(
+    Register Reg, MachineInstr &UserMI, MachineInstr &InsertMI,
+    MachineRegisterInfo &MRI, const MachineFrameInfo &MFI,
+    const TargetInstrInfo &TII,
+    SmallVectorImpl<MachineInstr *> &Defs,
+    SmallPtrSetImpl<MachineInstr *> &Seen, bool &HasFixedStackLoad) {
+  if (!Reg.isVirtual())
+    return false;
+
+  MachineInstr *DefMI = MRI.getUniqueVRegDef(Reg);
+  if (!DefMI || !isAtOrBefore(*DefMI, UserMI) ||
+      !canMoveDefBeforeUse(Reg, UserMI, InsertMI, MRI))
+    return false;
+
+  if (!Seen.insert(DefMI).second)
+    return true;
+
+  switch (DefMI->getOpcode()) {
+  case TargetOpcode::COPY:
+    if (!collectFixedStackArgDefChain(DefMI->getOperand(1).getReg(), *DefMI,
+                                      InsertMI, MRI, MFI, TII, Defs, Seen,
+                                      HasFixedStackLoad))
+      return false;
+    break;
+  case TargetOpcode::IMPLICIT_DEF:
+    break;
+  case TargetOpcode::INSERT_SUBREG:
+    if (!collectFixedStackArgDefChain(DefMI->getOperand(1).getReg(), *DefMI,
+                                      InsertMI, MRI, MFI, TII, Defs, Seen,
+                                      HasFixedStackLoad) ||
+        !collectFixedStackArgDefChain(DefMI->getOperand(2).getReg(), *DefMI,
+                                      InsertMI, MRI, MFI, TII, Defs, Seen,
+                                      HasFixedStackLoad))
+      return false;
+    break;
+  default:
+    if (!isImmutableFixedStackLoad(*DefMI, MFI, TII))
+      return false;
+
+    HasFixedStackLoad = true;
+    break;
+  }
+
+  Defs.push_back(DefMI);
+  return true;
+}
+
+static bool sinkFixedStackCallArgDefChain(MachineInstr &MI,
+                                          MachineRegisterInfo &MRI,
+                                          const MachineFrameInfo &MFI,
+                                          const TargetInstrInfo &TII,
+                                          const TargetRegisterInfo &TRI) {
+  Register UseReg = Register();
+  Register PhysReg = Register();
+
+  if (MI.getOpcode() == Z80::PUSH16r || MI.getOpcode() == Z80::PUSH24r) {
+    UseReg = MI.getOperand(0).getReg();
+    if (!reachesCallSetupUse(MI, Register(), TRI))
+      return false;
+  } else if (isPhysicalCopyDef(MI)) {
+    PhysReg = MI.getOperand(0).getReg();
+    UseReg = MI.getOperand(1).getReg();
+    if (!reachesCallSetupUse(MI, PhysReg, TRI))
+      return false;
+  } else {
+    return false;
+  }
+
+  SmallVector<MachineInstr *, 4> Defs;
+  SmallPtrSet<MachineInstr *, 4> Seen;
+  bool HasFixedStackLoad = false;
+  if (!collectFixedStackArgDefChain(UseReg, MI, MI, MRI, MFI, TII, Defs, Seen,
+                                    HasFixedStackLoad) ||
+      !HasFixedStackLoad)
+    return false;
+
+  MachineBasicBlock &MBB = *MI.getParent();
+  for (MachineInstr *DefMI : Defs)
+    MBB.splice(MachineBasicBlock::iterator(MI), &MBB,
+               MachineBasicBlock::iterator(*DefMI));
+
+  return true;
+}
+
 bool Z80MachinePreRAOptimization::runOnMachineFunction(MachineFunction &MF) {
   bool Changed = false;
   const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
+  const TargetRegisterInfo &TRI = *MF.getSubtarget().getRegisterInfo();
+  const MachineFrameInfo &MFI = MF.getFrameInfo();
   MachineRegisterInfo &MRI = MF.getRegInfo();
   SmallSet<Register, 16> FoldAsLoadDefCandidates;
 
@@ -218,6 +400,13 @@ bool Z80MachinePreRAOptimization::runOnMachineFunction(MachineFunction &MF) {
       Changed = true;
 
       tryEraseDeadVRegs({DstReg, SrcReg}, MRI);
+    }
+  }
+
+  for (MachineBasicBlock &MBB : MF) {
+    for (auto MII = MBB.begin(), MIE = MBB.end(); MII != MIE;) {
+      MachineInstr *MI = &*MII++;
+      Changed |= sinkFixedStackCallArgDefChain(*MI, MRI, MFI, TII, TRI);
     }
   }
 
