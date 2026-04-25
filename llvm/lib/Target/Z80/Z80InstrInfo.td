@@ -950,11 +950,23 @@ class GiselBinOp8Pseudo<SDNode opnode>
   let Defs = [A, F];
 }
 
-def ADD8_gisel : GiselBinOp8Pseudo<add>;
-def SUB8_gisel : GiselBinOp8Pseudo<sub>;
-def AND8_gisel : GiselBinOp8Pseudo<and>;
-def OR8_gisel  : GiselBinOp8Pseudo<or>;
-def XOR8_gisel : GiselBinOp8Pseudo<xor>;
+let mayLoad = true in
+class GiselBinOp8MemPseudo<Operand memop>
+    : P<(outs R8:$dst), (ins R8:$src1, memop:$src2)> {
+  let Defs = [A, F];
+}
+
+multiclass GiselBinOp8Pseudos<SDNode opnode> {
+  def "" : GiselBinOp8Pseudo<opnode>;
+  def _p : GiselBinOp8MemPseudo<aptr>;
+  def _o : GiselBinOp8MemPseudo<off>;
+}
+
+defm ADD8_gisel : GiselBinOp8Pseudos<add>;
+defm SUB8_gisel : GiselBinOp8Pseudos<sub>;
+defm AND8_gisel : GiselBinOp8Pseudos<and>;
+defm OR8_gisel  : GiselBinOp8Pseudos<or>;
+defm XOR8_gisel : GiselBinOp8Pseudos<xor>;
 
 defm ADD : BinOp8RF <         0, "add">;
 defm ADC : BinOp8RFF<         1, "adc", adde>;

@@ -1558,10 +1558,20 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
       // and implicit def A (because Z80 ALU ops always write to A)
       // after these instructions, A and the dest register hold the same value
       case Z80::ADD8_gisel:
+      case Z80::ADD8_gisel_p:
+      case Z80::ADD8_gisel_o:
       case Z80::SUB8_gisel:
+      case Z80::SUB8_gisel_p:
+      case Z80::SUB8_gisel_o:
       case Z80::AND8_gisel:
+      case Z80::AND8_gisel_p:
+      case Z80::AND8_gisel_o:
       case Z80::OR8_gisel:
-      case Z80::XOR8_gisel: {
+      case Z80::OR8_gisel_p:
+      case Z80::OR8_gisel_o:
+      case Z80::XOR8_gisel:
+      case Z80::XOR8_gisel_p:
+      case Z80::XOR8_gisel_o: {
         MCRegister ExplicitDst = MIB->getOperand(0).getReg();
         // after ALU pseudo, explicit dest and A have the same value if dest is not A itself, record that dest mirrors A
         if (ExplicitDst != Z80::A) {
@@ -1695,16 +1705,28 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
       if (ClobberedA) {
         bool isCopyFromA = Opc == TargetOpcode::COPY &&
                            MIB->getOperand(1).getReg() == Z80::A;
-        bool isALUPseudo = (Opc == Z80::ADD8_gisel || Opc == Z80::SUB8_gisel ||
-                            Opc == Z80::AND8_gisel || Opc == Z80::OR8_gisel ||
-                            Opc == Z80::XOR8_gisel);
+        bool isALUPseudo =
+            (Opc == Z80::ADD8_gisel || Opc == Z80::ADD8_gisel_p ||
+             Opc == Z80::ADD8_gisel_o || Opc == Z80::SUB8_gisel ||
+             Opc == Z80::SUB8_gisel_p || Opc == Z80::SUB8_gisel_o ||
+             Opc == Z80::AND8_gisel || Opc == Z80::AND8_gisel_p ||
+             Opc == Z80::AND8_gisel_o || Opc == Z80::OR8_gisel ||
+             Opc == Z80::OR8_gisel_p || Opc == Z80::OR8_gisel_o ||
+             Opc == Z80::XOR8_gisel || Opc == Z80::XOR8_gisel_p ||
+             Opc == Z80::XOR8_gisel_o);
         if (!isCopyFromA && !isALUPseudo)
           AMirroredInReg = Z80::NoRegister;
       }
       if (AMirroredInReg != Z80::NoRegister) {
-        bool isALUPseudoOrCopy = (Opc == Z80::ADD8_gisel || Opc == Z80::SUB8_gisel ||
-                                  Opc == Z80::AND8_gisel || Opc == Z80::OR8_gisel ||
-                                  Opc == Z80::XOR8_gisel || Opc == TargetOpcode::COPY);
+        bool isALUPseudoOrCopy =
+            (Opc == Z80::ADD8_gisel || Opc == Z80::ADD8_gisel_p ||
+             Opc == Z80::ADD8_gisel_o || Opc == Z80::SUB8_gisel ||
+             Opc == Z80::SUB8_gisel_p || Opc == Z80::SUB8_gisel_o ||
+             Opc == Z80::AND8_gisel || Opc == Z80::AND8_gisel_p ||
+             Opc == Z80::AND8_gisel_o || Opc == Z80::OR8_gisel ||
+             Opc == Z80::OR8_gisel_p || Opc == Z80::OR8_gisel_o ||
+             Opc == Z80::XOR8_gisel || Opc == Z80::XOR8_gisel_p ||
+             Opc == Z80::XOR8_gisel_o || Opc == TargetOpcode::COPY);
         if (!isALUPseudoOrCopy) {
           for (MachineOperand &MO : MIB->operands()) {
             if (MO.isReg() && MO.isDef()) {

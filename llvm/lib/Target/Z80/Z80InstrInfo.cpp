@@ -1854,32 +1854,133 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   // Expand 8-bit ALU Pseudos into physical accumulator sequence:
   //   COPY src1 → A, ALU op, COPY A → dst
   case Z80::ADD8_gisel:
+  case Z80::ADD8_gisel_p:
+  case Z80::ADD8_gisel_o:
   case Z80::SUB8_gisel:
+  case Z80::SUB8_gisel_p:
+  case Z80::SUB8_gisel_o:
   case Z80::AND8_gisel:
+  case Z80::AND8_gisel_p:
+  case Z80::AND8_gisel_o:
   case Z80::OR8_gisel:
-  case Z80::XOR8_gisel: {
+  case Z80::OR8_gisel_p:
+  case Z80::OR8_gisel_o:
+  case Z80::XOR8_gisel:
+  case Z80::XOR8_gisel_p:
+  case Z80::XOR8_gisel_o: {
     unsigned RealOpc;
     switch (Opc) {
     default: llvm_unreachable("Unknown gisel opcode");
-    case Z80::ADD8_gisel: RealOpc = Z80::ADD8ar; break;
-    case Z80::SUB8_gisel: RealOpc = Z80::SUB8ar; break;
-    case Z80::AND8_gisel: RealOpc = Z80::AND8ar; break;
-    case Z80::OR8_gisel:  RealOpc = Z80::OR8ar;  break;
-    case Z80::XOR8_gisel: RealOpc = Z80::XOR8ar; break;
+    case Z80::ADD8_gisel:   RealOpc = Z80::ADD8ar; break;
+    case Z80::ADD8_gisel_p: RealOpc = Z80::ADD8ap; break;
+    case Z80::ADD8_gisel_o: RealOpc = Z80::ADD8ao; break;
+    case Z80::SUB8_gisel:   RealOpc = Z80::SUB8ar; break;
+    case Z80::SUB8_gisel_p: RealOpc = Z80::SUB8ap; break;
+    case Z80::SUB8_gisel_o: RealOpc = Z80::SUB8ao; break;
+    case Z80::AND8_gisel:   RealOpc = Z80::AND8ar; break;
+    case Z80::AND8_gisel_p: RealOpc = Z80::AND8ap; break;
+    case Z80::AND8_gisel_o: RealOpc = Z80::AND8ao; break;
+    case Z80::OR8_gisel:    RealOpc = Z80::OR8ar;  break;
+    case Z80::OR8_gisel_p:  RealOpc = Z80::OR8ap;  break;
+    case Z80::OR8_gisel_o:  RealOpc = Z80::OR8ao;  break;
+    case Z80::XOR8_gisel:   RealOpc = Z80::XOR8ar; break;
+    case Z80::XOR8_gisel_p: RealOpc = Z80::XOR8ap; break;
+    case Z80::XOR8_gisel_o: RealOpc = Z80::XOR8ao; break;
     }
     Register DstReg = MI.getOperand(0).getReg();
     Register Src1 = MI.getOperand(1).getReg();
-    Register Src2 = MI.getOperand(2).getReg();
+
+    auto hasOtherUseOfReg = [&](MachineInstr &UseMI, Register Reg,
+                                unsigned OperandNo) {
+      for (unsigned I = 0, E = UseMI.getNumOperands(); I != E; ++I) {
+        if (I == OperandNo)
+          continue;
+        MachineOperand &MO = UseMI.getOperand(I);
+        if (MO.isReg() && MO.isUse() && MO.getReg() &&
+            TRI.regsOverlap(MO.getReg(), Reg))
+          return true;
+      }
+      return false;
+    };
+
+    if (Src1 != Z80::A && MI.getOperand(1).isKill() &&
+        !hasOtherUseOfReg(MI, Src1, 1) &&
+        MachineBasicBlock::iterator(MI) != MBB.begin()) {
+      auto PrevMI = prev_nodbg(MachineBasicBlock::iterator(MI), MBB.begin());
+      if (!PrevMI->isDebugInstr() &&
+          (PrevMI->getOpcode() == Z80::LD8gp ||
+           PrevMI->getOpcode() == Z80::LD8go) &&
+          PrevMI->getOperand(0).getReg() == Src1) {
+        PrevMI->getOperand(0).setReg(Z80::A);
+        MI.getOperand(1).setReg(Z80::A);
+        Src1 = Z80::A;
+      }
+    }
 
     // 1. Copy Src1 to Accumulator (if not already there)
     if (Src1 != Z80::A)
       copyPhysReg(MBB, MI, DL, Z80::A, Src1, true);
 
     // 2. Execute ALU Instruction (implicitly uses A, defines A and F)
-    BuildMI(MBB, MI, DL, get(RealOpc)).addReg(Src2);
+    MachineInstrBuilder Alu = BuildMI(MBB, MI, DL, get(RealOpc));
+    switch (Opc) {
+    default:
+      Alu.add(MI.getOperand(2));
+      break;
+    case Z80::ADD8_gisel_o:
+    case Z80::SUB8_gisel_o:
+    case Z80::AND8_gisel_o:
+    case Z80::OR8_gisel_o:
+    case Z80::XOR8_gisel_o:
+      Alu.add(MI.getOperand(2)).add(MI.getOperand(3));
+      break;
+    }
+    Alu.cloneMemRefs(MI);
 
     // 3. Copy Accumulator to Dst (if Dst is not A)
-    if (DstReg != Z80::A)
+    auto forwardAResultToOperand = [&](MachineInstr &UseMI, unsigned OperandNo) {
+      MachineOperand &UseMO = UseMI.getOperand(OperandNo);
+      if (UseMO.getReg() != DstReg || !UseMO.isKill() ||
+          hasOtherUseOfReg(UseMI, DstReg, OperandNo))
+        return false;
+      UseMO.setReg(Z80::A);
+      return true;
+    };
+
+    auto canForwardAResult = [&]() {
+      if (MI.getOperand(0).isDead())
+        return true;
+
+      auto NextMI = skipDebugInstructionsForward(Next, MBB.end());
+      if (NextMI == MBB.end())
+        return false;
+
+      switch (NextMI->getOpcode()) {
+      default:
+        return false;
+      case Z80::ADD8_gisel:
+      case Z80::ADD8_gisel_p:
+      case Z80::ADD8_gisel_o:
+      case Z80::SUB8_gisel:
+      case Z80::SUB8_gisel_p:
+      case Z80::SUB8_gisel_o:
+      case Z80::AND8_gisel:
+      case Z80::AND8_gisel_p:
+      case Z80::AND8_gisel_o:
+      case Z80::OR8_gisel:
+      case Z80::OR8_gisel_p:
+      case Z80::OR8_gisel_o:
+      case Z80::XOR8_gisel:
+      case Z80::XOR8_gisel_p:
+      case Z80::XOR8_gisel_o:
+      case Z80::LD8pg:
+        return forwardAResultToOperand(*NextMI, 1);
+      case Z80::LD8og:
+        return forwardAResultToOperand(*NextMI, 2);
+      }
+    };
+
+    if (DstReg != Z80::A && !canForwardAResult())
       copyPhysReg(MBB, MI, DL, DstReg, Z80::A, true);
 
     MI.eraseFromParent();
@@ -2657,6 +2758,42 @@ MachineInstr *Z80InstrInfo::foldMemoryOperandImpl(
 
   unsigned Opc;
   unsigned OpSize = 1;
+  if (OpNum == 1) {
+    unsigned CommuteOpc = 0;
+    switch (MI.getOpcode()) {
+    default:
+      break;
+    case Z80::ADD8_gisel:
+      CommuteOpc = IsOff ? Z80::ADD8_gisel_o : Z80::ADD8_gisel_p;
+      break;
+    case Z80::AND8_gisel:
+      CommuteOpc = IsOff ? Z80::AND8_gisel_o : Z80::AND8_gisel_p;
+      break;
+    case Z80::XOR8_gisel:
+      CommuteOpc = IsOff ? Z80::XOR8_gisel_o : Z80::XOR8_gisel_p;
+      break;
+    case Z80::OR8_gisel:
+      CommuteOpc = IsOff ? Z80::OR8_gisel_o : Z80::OR8_gisel_p;
+      break;
+    }
+
+    if (CommuteOpc) {
+      if (Size && Size != OpSize)
+        return nullptr;
+
+      MachineInstrBuilder MIB(
+          MF, MF.CreateMachineInstr(get(CommuteOpc), MI.getDebugLoc(), true));
+      MIB.add(MI.getOperand(0)).add(MI.getOperand(2));
+      for (auto &AddrMO : MOs)
+        MIB.add(AddrMO);
+      for (auto &MO : MI.implicit_operands())
+        MIB.add(MO);
+      updateOperandRegConstraints(MF, *MIB);
+      InsertPt->getParent()->insert(InsertPt, MIB);
+      return MIB;
+    }
+  }
+
   switch (OpNum) {
   default: return nullptr;
   case 0:
@@ -2690,6 +2827,16 @@ MachineInstr *Z80InstrInfo::foldMemoryOperandImpl(
         return nullptr;
       Opc = IsOff ? Z80::LD8ro : Z80::LD8rp;
       break;
+    }
+    break;
+  case 2:
+    switch (MI.getOpcode()) {
+    default: return nullptr;
+    case Z80::ADD8_gisel: Opc = IsOff ? Z80::ADD8_gisel_o : Z80::ADD8_gisel_p; break;
+    case Z80::SUB8_gisel: Opc = IsOff ? Z80::SUB8_gisel_o : Z80::SUB8_gisel_p; break;
+    case Z80::AND8_gisel: Opc = IsOff ? Z80::AND8_gisel_o : Z80::AND8_gisel_p; break;
+    case Z80::XOR8_gisel: Opc = IsOff ? Z80::XOR8_gisel_o : Z80::XOR8_gisel_p; break;
+    case Z80::OR8_gisel:  Opc = IsOff ? Z80::OR8_gisel_o  : Z80::OR8_gisel_p;  break;
     }
     break;
   }
