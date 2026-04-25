@@ -19,6 +19,7 @@
 #include "Z80Subtarget.h"
 #include "Z80TargetMachine.h"
 #include "llvm/ADT/Sequence.h"
+#include "llvm/CodeGen/GlobalISel/GISelKnownBits.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelector.h"
 #include "llvm/CodeGen/GlobalISel/GIMatchTableExecutorImpl.h"
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
@@ -2472,6 +2473,29 @@ Z80InstructionSelector::foldCompare(MachineInstr &I, MachineIRBuilder &MIB,
     return Z80::COND_INVALID;
   }
 
+  bool NeedSignedOverflowFix = IsSigned && OptSize;
+  if (NeedSignedOverflowFix) {
+    int64_t SignedMin = minIntN(OpSize);
+    int64_t SignedMax = maxIntN(OpSize);
+    int64_t LHSMin = SignedMin, LHSMax = SignedMax;
+    int64_t RHSMin = SignedMin, RHSMax = SignedMax;
+
+    KnownBits LHSKnown = this->KB->getKnownBits(LHSReg);
+    LHSMin = LHSKnown.getSignedMinValue().getSExtValue();
+    LHSMax = LHSKnown.getSignedMaxValue().getSExtValue();
+
+    if (ConstRHS) {
+      RHSMin = RHSMax = ConstRHS->Value.getSExtValue();
+    } else {
+      KnownBits RHSKnown = this->KB->getKnownBits(RHSReg);
+      RHSMin = RHSKnown.getSignedMinValue().getSExtValue();
+      RHSMax = RHSKnown.getSignedMaxValue().getSExtValue();
+    }
+
+    NeedSignedOverflowFix = LHSMin - RHSMax < SignedMin ||
+                            LHSMax - RHSMin > SignedMax;
+  }
+
   if (IsSigned && !OptSize) {
     int64_t Sign = minIntN(OpSize);
     if (OpSize == 8) {
@@ -2574,7 +2598,7 @@ Z80InstructionSelector::foldCompare(MachineInstr &I, MachineIRBuilder &MIB,
   auto Cmp = MIB.buildInstr(Opc, {}, Ops);
   if (!constrainSelectedInstRegOperands(*Cmp, TII, TRI, RBI))
     return Z80::COND_INVALID;
-  if (IsSigned && OptSize)
+  if (NeedSignedOverflowFix)
     STI.getCallLowering()->buildSCMP(MIB);
   return CC;
 }
