@@ -66,6 +66,6 @@ def Z80PreLegalizerCombiner
 
 def Z80PostLegalizerCombiner
     : GICombiner<"Z80PostLegalizerCombinerImpl", [
-        combine_identity, narrow_op, simplify_known_const, trunc_ext_fold,
-        unmerge_zext_to_zext,
+        combine_identity, narrow_op, select_same_val, simplify_known_const,
+        trunc_ext_fold, unmerge_zext_to_zext,
     ]>;

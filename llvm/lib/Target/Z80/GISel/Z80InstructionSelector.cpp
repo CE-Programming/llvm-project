@@ -2717,8 +2717,17 @@ Z80InstructionSelector::foldSetCC(MachineInstr &I, MachineIRBuilder &MIB,
   for (MachineBasicBlock::iterator II = I, EI = MIB.getInsertPt(); II != EI; ++II) {
     if (II == MBB.end())
       return Z80::COND_INVALID;
+
+    if (II->isDebugInstr())
+      continue;
+
+    if (II->modifiesRegister(Z80::F, &TRI))
+      return Z80::COND_INVALID;
+    
     switch (II->getOpcode()) {
     case Z80::SetCC:
+    case TargetOpcode::COPY:
+    case TargetOpcode::G_TRUNC:
       continue;
     }
     return Z80::COND_INVALID;
