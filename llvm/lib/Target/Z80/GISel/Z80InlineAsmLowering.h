@@ -24,8 +24,8 @@ class Z80InlineAsmLowering : public InlineAsmLowering {
 public:
   Z80InlineAsmLowering(const Z80TargetLowering &TLI);
 
-  bool lowerInputAsmOperandForConstraint(
-      GISelAsmOperandInfo &OpInfo, MachineInstrBuilder &Inst,
+  bool lowerAsmOperandForConstraint(
+      Value *Val, StringRef Constraint, std::vector<MachineOperand> &Ops,
       MachineIRBuilder &MIRBuilder) const override;
 };
 

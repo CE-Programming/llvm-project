@@ -12,75 +12,52 @@
 //===----------------------------------------------------------------------===//
 
 #include "Z80InlineAsmLowering.h"
-#include "MCTargetDesc/Z80MCTargetDesc.h"
 #include "Z80ISelLowering.h"
-#include "Z80InstrInfo.h"
-#include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
 #include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/CodeGen/TargetLowering.h"
 #include "llvm/IR/Constants.h"
 using namespace llvm;
-
-#define DEBUG_TYPE "z80-inline-asm-lowering"
 
 Z80InlineAsmLowering::Z80InlineAsmLowering(const Z80TargetLowering &TLI)
     : InlineAsmLowering(&TLI) {}
 
-bool Z80InlineAsmLowering::lowerInputAsmOperandForConstraint(
-    GISelAsmOperandInfo &OpInfo, MachineInstrBuilder &Inst,
+bool Z80InlineAsmLowering::lowerAsmOperandForConstraint(
+    Value *Val, StringRef Constraint, std::vector<MachineOperand> &Ops,
     MachineIRBuilder &MIRBuilder) const {
-  const StringRef Constraint = OpInfo.ConstraintCode;
-  Value *Val = OpInfo.CallOperandVal;
-  if (Constraint.size() == 1 &&
-      getTLI()->getConstraintType(Constraint) == TargetLowering::C_Immediate)
-    switch (Constraint[0]) {
-    case 'I':
-      if (ConstantInt *CI = dyn_cast<ConstantInt>(Val)) {
+  if (Constraint.size() == 1)
+    if (const auto *CI = dyn_cast<ConstantInt>(Val))
+      switch (Constraint[0]) {
+      case 'I':
         if (CI->getValue().isIntN(3)) {
-          Inst.addImm(InlineAsm::Flag(InlineAsm::Kind::Imm, 1));
-          Inst.addImm(CI->getZExtValue());
+          Ops.push_back(MachineOperand::CreateImm(CI->getZExtValue()));
           return true;
         }
-      }
-      break;
-    case 'J':
-      if (ConstantInt *CI = dyn_cast<ConstantInt>(Val)) {
+        break;
+      case 'J':
         if (CI->getValue().isIntN(8)) {
-          Inst.addImm(InlineAsm::Flag(InlineAsm::Kind::Imm, 1));
-          Inst.addImm(CI->getZExtValue());
+          Ops.push_back(MachineOperand::CreateImm(CI->getZExtValue()));
           return true;
         }
-      }
-      break;
-    case 'M':
-      if (ConstantInt *CI = dyn_cast<ConstantInt>(Val)) {
+        break;
+      case 'M':
         if (CI->getValue().ule(2)) {
-          Inst.addImm(InlineAsm::Flag(InlineAsm::Kind::Imm, 1));
-          Inst.addImm(CI->getZExtValue());
+          Ops.push_back(MachineOperand::CreateImm(CI->getZExtValue()));
           return true;
         }
-      }
-      break;
-    case 'N':
-      if (ConstantInt *CI = dyn_cast<ConstantInt>(Val)) {
+        break;
+      case 'N':
         if (CI->getValue().isIntN(6) && !(CI->getZExtValue() & 7)) {
-          Inst.addImm(InlineAsm::Flag(InlineAsm::Kind::Imm, 1));
-          Inst.addImm(CI->getZExtValue());
+          Ops.push_back(MachineOperand::CreateImm(CI->getZExtValue()));
           return true;
         }
-      }
-      break;
-    case 'O':
-      if (ConstantInt *CI = dyn_cast<ConstantInt>(Val)) {
+        break;
+      case 'O':
         if (CI->getValue().isSignedIntN(8)) {
-          Inst.addImm(InlineAsm::Flag(InlineAsm::Kind::Imm, 1));
-          Inst.addImm(CI->getSExtValue());
+          Ops.push_back(MachineOperand::CreateImm(CI->getSExtValue()));
           return true;
         }
+        break;
       }
-      break;
-    }
 
-  return InlineAsmLowering::lowerInputAsmOperandForConstraint(OpInfo, Inst,
-                                                              MIRBuilder);
+  return InlineAsmLowering::lowerAsmOperandForConstraint(
+      Val, Constraint, Ops, MIRBuilder);
 }
