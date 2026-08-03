@@ -28,7 +28,7 @@ jobs:
         run: |
           $path = vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
           cmake -E echo >> $${{env.ENV}}GITHUB_PATH "$(join-path $path 'VC\Tools\Llvm\bin')"
-          cmd /s /c >> $${{env.ENV}}GITHUB_ENV """$(join-path $path 'Common7\Tools\vsdevcmd.bat')"" > nul && set"
+          cmd /s /c >> $${{env.ENV}}GITHUB_ENV """$(join-path $path 'Common7\Tools\vsdevcmd.bat')"" -arch=amd64 -host_arch=amd64 > nul && set"
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV CC=clang-cl
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV CXX=clang-cl
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV EXE=.exe
@@ -193,7 +193,7 @@ jobs:
         run: |
           $path = vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
           cmake -E echo >> $${{env.ENV}}GITHUB_PATH "$(join-path $path 'VC\Tools\Llvm\bin')"
-          cmd /s /c >> $${{env.ENV}}GITHUB_ENV """$(join-path $path 'Common7\Tools\vsdevcmd.bat')"" > nul && set"
+          cmd /s /c >> $${{env.ENV}}GITHUB_ENV """$(join-path $path 'Common7\Tools\vsdevcmd.bat')"" -arch=amd64 -host_arch=amd64 > nul && set"
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV CC=clang-cl
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV CXX=clang-cl
           cmake -E echo >> $${{env.ENV}}GITHUB_ENV EXE=.exe

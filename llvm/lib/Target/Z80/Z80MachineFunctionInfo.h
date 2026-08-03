@@ -58,9 +58,9 @@ private:
   /// frame base
   int64_t SecondaryFrameBaseOffset = 0;
 
-  /// otional frame pointer bias (in bytes) applied per function
-  /// when nonzero, frame index offsets are adjusted by this value and
-  /// prologue/epilogue maintain equivalent address semantics  int64_t FramePointerBias = 0;
+  /// optional frame pointer bias in bytes. nonzero values adjust frame index
+  /// offsets while the prologue and epilogue preserve address semantics
+  int64_t FramePointerBias = 0;
   bool FramePointerBiasInitialized = false;
 
 public:
