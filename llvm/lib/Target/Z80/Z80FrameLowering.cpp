@@ -37,7 +37,7 @@ namespace {
 enum class FramePointerBiasPolicy : uint8_t { Off, Fixed, Auto };
 
 cl::opt<FramePointerBiasPolicy> Z80FramePointerBiasPolicy(
-    "z80-frame-bias-policy", cl::Hidden, cl::init(FramePointerBiasPolicy::Off),
+    "z80-frame-bias-policy", cl::Hidden, cl::init(FramePointerBiasPolicy::Auto),
     cl::desc("Per-function frame pointer bias policy for Z80"),
     cl::values(clEnumValN(FramePointerBiasPolicy::Off, "off",
                           "Disable frame pointer bias"),
@@ -81,7 +81,8 @@ static bool isSplitFrameOp(unsigned Opc) {
   }
 }
 
-static bool isFrameOffsetReferenceLegal(const MachineInstr &MI, int64_t Offset) {
+static bool isFrameOffsetReferenceLegal(const MachineInstr &MI,
+                                        int64_t Offset) {
   if (!isInt<8>(Offset))
     return false;
   return !isSplitFrameOp(MI.getOpcode()) || isInt<8>(Offset + 1);
@@ -96,8 +97,8 @@ static int64_t getFrameObjectBaseOffset(const MachineFunction &MF, int FI,
   return Offset;
 }
 
-static FrameBiasCost evaluateFrameBias(const MachineFunction &MF, unsigned SlotSize,
-                                       int64_t Bias) {
+static FrameBiasCost evaluateFrameBias(const MachineFunction &MF,
+                                       unsigned SlotSize, int64_t Bias) {
   const MachineFrameInfo &MFI = MF.getFrameInfo();
   FrameBiasCost Cost;
   for (const MachineBasicBlock &MBB : MF) {
@@ -138,6 +139,10 @@ static int64_t selectFramePointerBias(const MachineFunction &MF,
     return 0;
   if (!MF.getSubtarget<Z80Subtarget>().hasEZ80Ops())
     return 0;
+  const MachineFrameInfo &MFI = MF.getFrameInfo();
+  if (MF.getTarget().Options.DisableFramePointerElim(MF) ||
+      MFI.isFrameAddressTaken())
+    return 0;
 
   if (MF.needsFrameMoves()) {
     LLVM_DEBUG(dbgs() << "Z80FrameBias: disabling bias for " << MF.getName()
@@ -161,16 +166,15 @@ static int64_t selectFramePointerBias(const MachineFunction &MF,
 
   FrameBiasCost BestCost = evaluateFrameBias(MF, SlotSize, 0);
   int64_t BestBias = 0;
-  bool FoundFeasible = BestCost.FixedBadRefs <=
-                       Z80FramePointerBiasAutoMaxFixedOverflow;
+  bool FoundFeasible =
+      BestCost.FixedBadRefs <= Z80FramePointerBiasAutoMaxFixedOverflow;
 
   for (int Bias = MinBias; Bias <= MaxBias; ++Bias) {
     FrameBiasCost Cost = evaluateFrameBias(MF, SlotSize, Bias);
     if (Cost.FixedBadRefs > Z80FramePointerBiasAutoMaxFixedOverflow)
       continue;
 
-    if (!FoundFeasible ||
-        Cost.LocalBadRefs < BestCost.LocalBadRefs ||
+    if (!FoundFeasible || Cost.LocalBadRefs < BestCost.LocalBadRefs ||
         (Cost.LocalBadRefs == BestCost.LocalBadRefs &&
          (Cost.FixedBadRefs < BestCost.FixedBadRefs ||
           (Cost.FixedBadRefs == BestCost.FixedBadRefs &&
@@ -433,7 +437,8 @@ void Z80FrameLowering::emitPrologue(MachineFunction &MF,
                   MCCFIInstruction::cfiDefCfaOffset(nullptr, 2 * SlotSize)));
           BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
               .addCFIIndex(MF.addFrameInst(MCCFIInstruction::createOffset(
-                  nullptr, TRI->getDwarfRegNum(FrameReg, true), -2 * SlotSize)));
+                  nullptr, TRI->getDwarfRegNum(FrameReg, true),
+                  -2 * SlotSize)));
         }
       }
 
@@ -453,7 +458,8 @@ void Z80FrameLowering::emitPrologue(MachineFunction &MF,
                 nullptr, TRI->getDwarfRegNum(FrameReg, true))));
     }
 
-    // SFB (Secondary Frame Base) handling is disabled, see #if 0 block in Z80RegisterInfo.cpp
+    // SFB (Secondary Frame Base) handling is disabled, see #if 0 block in
+    // Z80RegisterInfo.cpp
 #if 0
     // secondary frame base (IY = IX - offset) for deep stack access
     // no push/pop needed since IY is reserved when secondary frame base is active
@@ -468,8 +474,8 @@ void Z80FrameLowering::emitPrologue(MachineFunction &MF,
     }
 #endif
 
-      if (MF.getFunction().hasOptSize())
-        return;
+    if (MF.getFunction().hasOptSize())
+      return;
   }
 
   BuildStackAdjustment(MF, MBB, MBBI, DL, ScratchReg, StackSize, FPOffset,
@@ -541,7 +547,8 @@ void Z80FrameLowering::emitEpilogue(MachineFunction &MF,
   // we therefore need +FrameBias, which corresponds to FPOffset=StackSize-Bias
   // in BuildStackAdjustment's medium path (SP = FP + (Offset - FPOffset)).
   int64_t RestoreFromFP = int64_t(StackSize) - FrameBias;
-  assert((!HasFP || isInt<32>(RestoreFromFP)) && "frame pointer bias too large");
+  assert((!HasFP || isInt<32>(RestoreFromFP)) &&
+         "frame pointer bias too large");
   BuildStackAdjustment(MF, MBB, MBBI, DL, *ScratchReg, StackSize,
                        HasFP ? int(RestoreFromFP) : -1,
                        MachineInstr::FrameDestroy, MFI.hasVarSizedObjects());
