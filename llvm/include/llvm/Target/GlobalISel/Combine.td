@@ -875,7 +875,7 @@ def unmerge_anyext_build_vector : GICombineRule<
 // Transform x,y = unmerge(zext(z)) -> x = zext z; y = 0.
 def unmerge_zext_to_zext : GICombineRule<
   (defs root:$d),
-  (match (wip_match_opcode G_UNMERGE_VALUES): $d,
+  (match (wip_match_opcode G_EXTRACT, G_UNMERGE_VALUES): $d,
   [{ return Helper.matchCombineUnmergeZExtToZExt(*${d}); }]),
   (apply [{ Helper.applyCombineUnmergeZExtToZExt(*${d}); }])
 >;
@@ -1188,6 +1188,13 @@ def constant_fold_cast_op : GICombineRule<
    [{ return Helper.matchConstantFoldCastOp(*${d}, ${matchinfo}); }]),
   (apply [{ Helper.replaceInstWithConstant(*${d}, ${matchinfo}); }])>;
 
+def constant_fold_count_bits : GICombineRule<
+  (defs root:$d, apint_matchinfo:$matchinfo),
+  (match (wip_match_opcode G_CTTZ, G_CTTZ_ZERO_UNDEF, G_CTLZ,
+                           G_CTLZ_ZERO_UNDEF, G_CTPOP):$d,
+   [{ return Helper.matchConstantFoldCountBits(*${d}, ${matchinfo}); }]),
+  (apply [{ Helper.replaceInstWithConstant(*${d}, ${matchinfo}); }])>;
+
 def mulo_by_2: GICombineRule<
   (defs root:$root, build_fn_matchinfo:$matchinfo),
   (match (wip_match_opcode G_UMULO, G_SMULO):$root,
@@ -1389,6 +1396,166 @@ def simplify_neg_minmax : GICombineRule<
   (match (wip_match_opcode G_SUB):$root,
          [{ return Helper.matchSimplifyNegMinMax(*${root}, ${matchinfo}); }]),
   (apply [{ Helper.applyBuildFn(*${root}, ${matchinfo}); }])>;
+def ptr_add_global_matchdata :
+    GIDefMatchData<"std::pair<const GlobalValue *, int64_t>">;
+def ptr_add_global_immed : GICombineRule<
+  (defs root:$mi, ptr_add_global_matchdata:$matchinfo),
+  (match (wip_match_opcode G_PTR_ADD):$mi,
+         [{ return Helper.matchPtrAddGlobalImmed(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyPtrAddGlobalImmed(*${mi}, ${matchinfo}); }])>;
+
+def ptr_add_const_matchdata : GIDefMatchData<"APInt">;
+def ptr_add_const_immed : GICombineRule<
+  (defs root:$mi, ptr_add_const_matchdata:$matchinfo),
+  (match (wip_match_opcode G_PTR_ADD):$mi,
+         [{ return Helper.matchPtrAddConstImmed(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyPtrAddConstImmed(*${mi}, ${matchinfo}); }])>;
+
+def sub_const_to_add_neg_matchdata : GIDefMatchData<"APInt">;
+def sub_const_to_add_neg : GICombineRule<
+  (defs root:$mi, sub_const_to_add_neg_matchdata:$matchinfo),
+  (match (wip_match_opcode G_SUB):$mi,
+         [{ return Helper.matchCombineSubConstToAddNeg(*${mi},
+                                                       ${matchinfo}); }]),
+  (apply [{ Helper.applyCombineSubConstToAddNeg(*${mi}, ${matchinfo}); }])>;
+
+def reassoc_fold_consts_matchdata : GIDefMatchData<"std::array<Register, 2>">;
+def reassoc_fold_consts : GICombineRule<
+  (defs root:$mi, reassoc_fold_consts_matchdata:$matchinfo),
+  (match (wip_match_opcode G_ADD, G_MUL, G_AND, G_OR, G_XOR):$mi,
+         [{ return Helper.matchReassocFoldConstants(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyReassocFoldConstants(*${mi}, ${matchinfo}); }])>;
+
+def shl_to_add_matchdata : GIDefMatchData<"unsigned">;
+def shl_to_add : GICombineRule<
+  (defs root:$mi, shl_to_add_matchdata:$matchinfo),
+  (match (wip_match_opcode G_SHL):$mi,
+         [{ return Helper.matchCombineShlToAdd(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyCombineShlToAdd(*${mi}, ${matchinfo}); }])>;
+
+def and_ext_matchdata : GIDefMatchData<"RegisterImmPair">;
+def and_ext : GICombineRule<
+  (defs root:$mi, and_ext_matchdata:$matchinfo),
+  (match (wip_match_opcode G_AND):$mi,
+         [{ return Helper.matchCombineAndExt(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyCombineAndExt(*${mi}, ${matchinfo}); }])>;
+
+def sext_to_zext : GICombineRule<
+  (defs root:$mi),
+  (match (wip_match_opcode G_SEXT):$mi,
+         [{ return Helper.matchCombineSExtToZExt(*${mi}); }]),
+  (apply [{ Helper.applyCombineSExtToZExt(*${mi}); }])>;
+
+def or_to_add : GICombineRule<
+  (defs root:$mi),
+  (match (wip_match_opcode G_OR):$mi,
+         [{ return Helper.matchCombineOrToAdd(*${mi}); }]),
+  (apply [{ Helper.applyCombineOrToAdd(*${mi}); }])>;
+
+def funnel_shift_matchdata : GIDefMatchData<"FunnelShift">;
+def funnel_shift : GICombineRule<
+  (defs root:$mi, funnel_shift_matchdata:$matchinfo),
+  (match (wip_match_opcode G_ADD):$mi,
+         [{ return Helper.matchCombineFunnelShift(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyCombineFunnelShift(*${mi}, ${matchinfo}); }])>;
+
+def combine_identity : GICombineRule<
+  (defs root:$mi),
+  (match (wip_match_opcode G_ADD, G_SUB, G_MUL, G_SDIV, G_UDIV,
+                           G_AND, G_OR, G_XOR, G_SHL, G_LSHR, G_ASHR,
+                           G_PTR_ADD, G_PTRMASK):$mi,
+         [{ return Helper.matchCombineIdentity(*${mi}); }]),
+  (apply [{ Helper.applyCombineIdentity(*${mi}); }])>;
+
+def combine_ext_or_trunc_matchdata : GIDefMatchData<"ExtOrTrunc">;
+def combine_ext_or_trunc : GICombineRule<
+  (defs root:$mi, combine_ext_or_trunc_matchdata:$matchinfo),
+  (match (wip_match_opcode G_ANYEXT, G_TRUNC, G_SEXT, G_SEXT_INREG, G_ZEXT):$mi,
+         [{ return Helper.matchCombineExtOrTrunc(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyCombineExtOrTrunc(*${mi}, ${matchinfo}); }])>;
+
+def narrow_op : GICombineRule<
+  (defs root:$mi),
+  (match (wip_match_opcode G_TRUNC):$mi,
+         [{ return Helper.matchNarrowOp(*${mi}); }]),
+  (apply [{ Helper.applyNarrowOp(*${mi}); }])>;
+
+def narrow_count_zext : GICombineRule<
+  (defs root:$mi),
+  (match (wip_match_opcode G_CTTZ_ZERO_UNDEF, G_CTLZ, G_CTLZ_ZERO_UNDEF,
+                           G_CTPOP):$mi,
+         [{ return Helper.matchNarrowCountZExt(*${mi}); }]),
+  (apply [{ Helper.applyNarrowCountZExt(*${mi}); }])>;
+
+def narrow_load_matchdata : GIDefMatchData<"InstrImmPair">;
+def narrow_load : GICombineRule<
+  (defs root:$mi, narrow_load_matchdata:$matchinfo),
+  (match (wip_match_opcode G_TRUNC):$mi,
+         [{ return Helper.matchNarrowLoad(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyNarrowLoad(*${mi}, ${matchinfo}); }])>;
+
+def narrow_icmp_matchdata : GIDefMatchData<"TypeImmPair">;
+def narrow_icmp : GICombineRule<
+  (defs root:$mi, narrow_icmp_matchdata:$matchinfo),
+  (match (wip_match_opcode G_ICMP):$mi,
+         [{ return Helper.matchNarrowICmp(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyNarrowICmp(*${mi}, ${matchinfo}); }])>;
+
+def simplify_icmp_bool_matchdata : GIDefMatchData<"RegisterImmPair">;
+def simplify_icmp_bool : GICombineRule<
+  (defs root:$mi, simplify_icmp_bool_matchdata:$matchinfo),
+  (match (wip_match_opcode G_ICMP):$mi,
+         [{ return Helper.matchSimplifyICmpBool(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applySimplifyICmpBool(*${mi}, ${matchinfo}); }])>;
+
+def split_brcond : GICombineRule<
+  (defs root:$mi),
+  (match (wip_match_opcode G_BRCOND):$mi,
+         [{ return Helper.matchSplitBrCond(*${mi}); }]),
+  (apply [{ Helper.applySplitBrCond(*${mi}); }])>;
+
+def flip_cmp_cond_matchdata : GIDefMatchData<"MachineInstr *">;
+def flip_cmp_cond : GICombineRule<
+  (defs root:$mi, flip_cmp_cond_matchdata:$matchinfo),
+  (match (wip_match_opcode G_XOR):$mi,
+         [{ return Helper.matchFlipCmpCond(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyFlipCmpCond(*${mi}, *${matchinfo}); }])>;
+
+def lower_is_power_of_two : GICombineRule<
+  (defs root:$mi),
+  (match (wip_match_opcode G_ICMP):$mi,
+         [{ return Helper.matchLowerIsPowerOfTwo(*${mi}); }]),
+  (apply [{ Helper.applyLowerIsPowerOfTwo(*${mi}); }])>;
+
+def simplify_const_matchdata : GIDefMatchData<"std::optional<ValueAndVReg>">;
+def simplify_const : GICombineRule<
+  (defs root:$mi, simplify_const_matchdata:$matchinfo),
+  (match (wip_match_opcode G_TRUNC, G_SEXT, G_ZEXT):$mi,
+         [{ ${matchinfo} = getIConstantVRegValWithLookThrough(
+                ${mi}->getOperand(0).getReg(), MRI);
+            return ${matchinfo}.has_value(); }]),
+  (apply [{ Helper.replaceInstWithConstant(*${mi}, ${matchinfo}->Value); }])>;
+
+def simplify_known_const_matchdata : GIDefMatchData<"APInt">;
+def simplify_known_const : GICombineRule<
+  (defs root:$mi, simplify_known_const_matchdata:$matchinfo),
+  (match (wip_match_opcode G_AND, G_OR):$mi,
+         [{ return Helper.matchKnownConstant(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.replaceInstWithConstant(*${mi}, ${matchinfo}); }])>;
+
+def sink_const_matchdata : GIDefMatchData<"MachineInstr *">;
+def sink_const : GICombineRule<
+  (defs root:$mi, sink_const_matchdata:$matchinfo),
+  (match (wip_match_opcode G_CONSTANT):$mi,
+         [{ return Helper.matchSinkConstant(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applySinkConstant(*${mi}, *${matchinfo}); }])>;
+
+// Compatibility alias for forks still referencing the v17 symbol.
+def constant_fold : GICombineGroup<[constant_fold_fp_ops, constant_fold_binop,
+                                    constant_fold_fp_binop,
+                                    constant_fold_cast_op,
+                                    constant_fold_count_bits,
+                                    constant_fold_fma]>;
 
 def match_selects : GICombineRule<
   (defs root:$root, build_fn_matchinfo:$matchinfo),
@@ -2021,7 +2188,7 @@ def all_combines : GICombineGroup<[integer_reassoc_combines, trivial_combines,
     shift_immed_chain, shift_of_shifted_logic_chain, load_or_combine,
     div_rem_to_divrem, funnel_shift_combines, bitreverse_shift, commute_shift,
     form_bitfield_extract, constant_fold_binops, constant_fold_fma,
-    constant_fold_cast_op, fabs_fneg_fold,
+    constant_fold_cast_op, constant_fold_count_bits, fabs_fneg_fold,
     intdiv_combines, mulh_combines, redundant_neg_operands,
     and_or_disjoint_mask, fma_combines, fold_binop_into_select,
     sub_add_reg, select_to_minmax,

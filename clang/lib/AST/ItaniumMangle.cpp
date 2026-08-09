@@ -3131,6 +3131,12 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
         Out << "u3i32";
         addSubstitution(BuiltinType::Int);
         break;
+      case 48:
+        if (mangleSubstitution(BuiltinType::Int48))
+          break;
+        Out << "u3i48";
+        addSubstitution(BuiltinType::Int48);
+        break;
       case 64:
         if (mangleSubstitution(BuiltinType::Long))
           break;
@@ -3165,6 +3171,12 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
           break;
         Out << "u3u32";
         addSubstitution(BuiltinType::UInt);
+        break;
+      case 48:
+        if (mangleSubstitution(BuiltinType::UInt48))
+          break;
+        Out << "u3u48";
+        addSubstitution(BuiltinType::UInt48);
         break;
       case 64:
         if (mangleSubstitution(BuiltinType::ULong))
@@ -3204,6 +3216,9 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
   case BuiltinType::UInt:
     Out << 'j';
     break;
+  case BuiltinType::UInt48:
+    Out << "u3u48";
+    break;
   case BuiltinType::ULong:
     Out << 'm';
     break;
@@ -3234,6 +3249,9 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
     break;
   case BuiltinType::Int:
     Out << 'i';
+    break;
+  case BuiltinType::Int48:
+    Out << "u3i48";
     break;
   case BuiltinType::Long:
     Out << 'l';

@@ -344,6 +344,9 @@ def warn_anyx86_excessive_regsave : Warning<
   " with attribute 'no_caller_saved_registers'"
   " or be compiled with '-mgeneral-regs-only'">,
   InGroup<DiagGroup<"excessive-regsave">>;
+def err_anyz80_interrupt_attribute : Error<
+  "%select{z80|ez80}0 'interrupt' attribute only applies to functions that "
+  "have %select{a 'void' return type|no parameters}1">;
 def warn_arm_interrupt_vfp_clobber : Warning<
   "interrupt service routine with vfp enabled may clobber the "
   "interruptee's vfp state">,
@@ -351,7 +354,7 @@ def warn_arm_interrupt_vfp_clobber : Warning<
 def err_arm_interrupt_called : Error<
   "interrupt service routine cannot be called directly">;
 def warn_interrupt_attribute_invalid : Warning<
-   "%select{MIPS|MSP430|RISC-V}0 'interrupt' attribute only applies to "
+   "%select{MIPS|MSP430|RISC-V|Z80}0 'interrupt' attribute only applies to "
    "functions that have %select{no parameters|a 'void' return type}1">,
    InGroup<IgnoredAttributes>;
 def warn_riscv_repeated_interrupt_attribute : Warning<

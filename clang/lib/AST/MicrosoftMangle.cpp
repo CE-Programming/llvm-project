@@ -2846,7 +2846,9 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
   case BuiltinType::SatUFract:
   case BuiltinType::SatULongFract:
   case BuiltinType::Ibm128:
-  case BuiltinType::Float128: {
+  case BuiltinType::Float128:
+  case BuiltinType::Int48:
+  case BuiltinType::UInt48: {
     Error(Range.getBegin(), "built-in type: ",
           T->getName(Context.getASTContext().getPrintingPolicy()))
         << Range;

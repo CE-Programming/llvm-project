@@ -1044,9 +1044,6 @@ void MachineCopyPropagation::ForwardCopyPropagateBlock(MachineBasicBlock &MBB) {
   // use liveness information from successors to confirm they are really dead.
   if (MBB.succ_empty() || TracksLiveness) {
     for (MachineInstr *MaybeDead : MaybeDeadCopies) {
-      LLVM_DEBUG(dbgs() << "MCP: Removing copy due to no live-out succ: ";
-                 MaybeDead->dump());
-
       std::optional<DestSourcePair> CopyOperands =
           isCopyInstr(*MaybeDead, *TII, UseCopyInstr);
       assert(CopyOperands);
@@ -1054,6 +1051,9 @@ void MachineCopyPropagation::ForwardCopyPropagateBlock(MachineBasicBlock &MBB) {
       Register SrcReg = CopyOperands->Source->getReg();
       Register DestReg = CopyOperands->Destination->getReg();
       assert(!MRI->isReserved(DestReg));
+
+      LLVM_DEBUG(dbgs() << "MCP: Removing copy due to no live-out succ: ";
+                 MaybeDead->dump());
 
       // Update matching debug values, if any.
       SmallVector<MachineInstr *> MaybeDeadDbgUsers(

@@ -607,6 +607,7 @@ void MCAsmStreamer::emitAssemblerFlag(MCAssemblerFlag Flag) {
   case MCAF_SyntaxUnified:         OS << "\t.syntax unified"; break;
   case MCAF_SubsectionsViaSymbols: OS << ".subsections_via_symbols"; break;
   case MCAF_Code16:                OS << '\t'<< MAI->getCode16Directive();break;
+  case MCAF_Code24:                OS << '\t'<< MAI->getCode24Directive();break;
   case MCAF_Code32:                OS << '\t'<< MAI->getCode32Directive();break;
   case MCAF_Code64:                OS << '\t'<< MAI->getCode64Directive();break;
   }
@@ -1240,8 +1241,18 @@ void MCAsmStreamer::PrintQuotedString(StringRef Data, raw_ostream &OS) const {
     }
   } else {
     for (unsigned char C : Data) {
-      if (C == '"' || C == '\\') {
+      if (C == '\\') {
         OS << '\\' << (char)C;
+        continue;
+      }
+
+      // Z80-FORK: external z80 gas rejects \" in .ascii strings. emit
+      // octal escapes for quotes to keep emitted assembly parseable
+      if (C == '"') {
+        OS << '\\';
+        OS << toOctal(C >> 6);
+        OS << toOctal(C >> 3);
+        OS << toOctal(C >> 0);
         continue;
       }
 
@@ -1373,6 +1384,7 @@ void MCAsmStreamer::emitValueImpl(const MCExpr *Value, unsigned Size,
   default: break;
   case 1: Directive = MAI->getData8bitsDirective();  break;
   case 2: Directive = MAI->getData16bitsDirective(); break;
+  case 3: Directive = MAI->getData24bitsDirective(); break;
   case 4: Directive = MAI->getData32bitsDirective(); break;
   case 8: Directive = MAI->getData64bitsDirective(); break;
   }

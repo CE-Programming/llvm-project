@@ -909,14 +909,13 @@ void MatcherGen::EmitResultInstructionAsOperand(
   // its result pattern, add output VTs for them.  For example, X86 has:
   //   (set AL, (mul ...))
   if (isRoot && !Pattern.getDstRegs().empty()) {
-    // If the root came from an implicit def in the instruction handling stuff,
-    // don't re-add it.
-    const Record *HandledReg = nullptr;
-    if (II.HasOneImplicitDefWithKnownVT(CGT) != MVT::Other)
-      HandledReg = II.ImplicitDefs[0];
-
     for (const Record *Reg : Pattern.getDstRegs()) {
-      if (!Reg->isSubClassOf("Register") || Reg == HandledReg)
+      if (!Reg->isSubClassOf("Register"))
+        continue;
+      // If the root came from an implicit def in the instruction handling
+      // code, don't re-add it.
+      if (II.HasImplicitDef(Reg) &&
+          CGT.getRegisterKnownVT(Reg) != MVT::Other)
         continue;
       ResultVTs.push_back(getRegisterValueType(Reg, CGT));
     }
@@ -1045,20 +1044,20 @@ void MatcherGen::EmitResultCode() {
 
   // If the pattern also has implicit results, count them as well.
   if (!Pattern.getDstRegs().empty()) {
-    // If the root came from an implicit def in the instruction handling stuff,
-    // don't re-add it.
-    const Record *HandledReg = nullptr;
-    const TreePatternNode &DstPat = Pattern.getDstPattern();
-    if (!DstPat.isLeaf() && DstPat.getOperator()->isSubClassOf("Instruction")) {
-      const CodeGenTarget &CGT = CGP.getTargetInfo();
-      CodeGenInstruction &II = CGT.getInstruction(DstPat.getOperator());
 
-      if (II.HasOneImplicitDefWithKnownVT(CGT) != MVT::Other)
-        HandledReg = II.ImplicitDefs[0];
-    }
+    const TreePatternNode &DstPat = Pattern.getDstPattern();
+    const CodeGenTarget &CGT = CGP.getTargetInfo();
+    CodeGenInstruction *II = nullptr;
+    if (!DstPat.isLeaf() && DstPat.getOperator()->isSubClassOf("Instruction"))
+      II = &CGT.getInstruction(DstPat.getOperator());
 
     for (const Record *Reg : Pattern.getDstRegs()) {
-      if (!Reg->isSubClassOf("Register") || Reg == HandledReg)
+      if (!Reg->isSubClassOf("Register"))
+        continue;
+      // If the root came from an implicit def in the instruction handling
+      // stuff, dont readd it
+      if (II && II->HasImplicitDef(Reg) &&
+          CGT.getRegisterKnownVT(Reg) != MVT::Other)
         continue;
       ++NumSrcResults;
     }

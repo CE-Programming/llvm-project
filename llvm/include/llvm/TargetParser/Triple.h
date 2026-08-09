@@ -105,7 +105,9 @@ public:
     renderscript32, // 32-bit RenderScript
     renderscript64, // 64-bit RenderScript
     ve,             // NEC SX-Aurora Vector Engine
-    LastArchType = ve
+    z80,            // Z80
+    ez80,           // eZ80
+    LastArchType = ez80
   };
   enum SubArchType {
     NoSubArch,
@@ -504,16 +506,21 @@ public:
   /// Test whether the architecture is 64-bit
   ///
   /// Note that this tests for 64-bit pointer width, and nothing else. Note
-  /// that we intentionally expose only three predicates, 64-bit, 32-bit, and
-  /// 16-bit. The inner details of pointer width for particular architectures
-  /// is not summed up in the triple, and so only a coarse grained predicate
-  /// system is provided.
+  /// that we intentionally expose only four predicates, 64-bit, 32-bit,
+  /// 24-bit, and 16-bit. The inner details of pointer width for particular
+  /// architectures is not summed up in the triple, and so only a coarse
+  /// grained predicate system is provided.
   bool isArch64Bit() const;
 
   /// Test whether the architecture is 32-bit
   ///
   /// Note that this tests for 32-bit pointer width, and nothing else.
   bool isArch32Bit() const;
+
+  /// Test whether the architecture is 24-bit
+  ///
+  /// Note that this tests for 24-bit pointer width, and nothing else.
+  bool isArch24Bit() const;
 
   /// Test whether the architecture is 16-bit
   ///
@@ -1109,10 +1116,15 @@ public:
            Env == llvm::Triple::EABIHF;
   }
 
+  /// Tests whether the target is (e)z80.
+  bool isZ80() const {
+    return getArch() == Triple::z80 || getArch() == Triple::ez80;
+  }
+
   /// Tests whether the target supports comdat
   bool supportsCOMDAT() const {
     return !(isOSBinFormatMachO() || isOSBinFormatXCOFF() ||
-             isOSBinFormatDXContainer());
+             isOSBinFormatDXContainer() || isZ80());
   }
 
   /// Tests whether the target uses emulated TLS as default.

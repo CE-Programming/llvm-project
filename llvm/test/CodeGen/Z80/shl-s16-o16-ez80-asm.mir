@@ -1,0 +1,47 @@
+# RUN: llc -mtriple=ez80-none-elf -start-after=instruction-select -verify-machineinstrs %s -o - | FileCheck %s
+
+# CHECK-LABEL: _shl_s16_o16:
+# CHECK:       ld l, e
+# CHECK-NEXT:  ld h, d
+# CHECK-NEXT:  add hl, hl
+# CHECK-NEXT:  add hl, hl
+# CHECK-NEXT:  add hl, hl
+# CHECK-NEXT:  add hl, hl
+# CHECK-NEXT:  add hl, hl
+# CHECK-NEXT:  ret
+
+--- |
+  define i16 @shl_s16_o16(i16 %x) {
+  entry:
+    ret i16 0
+  }
+
+...
+---
+name:            shl_s16_o16
+alignment:       1
+legalized:       true
+regBankSelected: true
+selected:        true
+tracksRegLiveness: true
+registers:
+  - { id: 0, class: o16, preferred-register: '' }
+  - { id: 2, class: o16, preferred-register: '' }
+  - { id: 3, class: a24, preferred-register: '' }
+body:             |
+  bb.0.entry:
+    liveins: $de
+
+    %0:o16 = COPY $de
+    %3:a24 = SUBREG_TO_REG 0, %0, %subreg.sub_short
+    $uhl = COPY %3
+    $uhl = ADD24aa $uhl, implicit-def $f
+    $uhl = ADD24aa $uhl, implicit-def $f
+    $uhl = ADD24aa $uhl, implicit-def $f
+    $uhl = ADD24aa $uhl, implicit-def $f
+    $uhl = ADD24aa $uhl, implicit-def $f
+    %2:o16 = COPY $hl
+    $hl = COPY %2
+    RET24 implicit-def $spl, implicit $spl, implicit $hl
+
+...

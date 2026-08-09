@@ -26,12 +26,10 @@ void InlineAsmLowering::anchor() {}
 
 namespace {
 
-/// GISelAsmOperandInfo - This contains information for each constraint that we
-/// are lowering.
+/// Information for an inline assembly operand being lowered.
 class GISelAsmOperandInfo : public TargetLowering::AsmOperandInfo {
 public:
-  /// Regs - If this is a register or register class operand, this
-  /// contains the set of assigned registers corresponding to the operand.
+  /// Assigned registers for a register or register-class operand.
   SmallVector<Register, 1> Regs;
 
   explicit GISelAsmOperandInfo(const TargetLowering::AsmOperandInfo &Info)
@@ -78,7 +76,6 @@ public:
 
 /// Assign virtual/physical registers for the specified register operand.
 static void getRegistersForValue(MachineFunction &MF,
-                                 MachineIRBuilder &MIRBuilder,
                                  GISelAsmOperandInfo &OpInfo,
                                  GISelAsmOperandInfo &RefOpInfo) {
 
@@ -304,7 +301,7 @@ bool InlineAsmLowering::lowerInlineAsm(
   // operands to Inst for each constraint. Used for matching input constraints.
   unsigned StartIdx = Inst->getNumOperands();
 
-  // Collects the output operands for later processing
+  // collects the output operands for later processing
   GISelAsmOperandInfoVector OutputOperands;
 
   for (auto &OpInfo : ConstraintOperands) {
@@ -314,7 +311,7 @@ bool InlineAsmLowering::lowerInlineAsm(
             : OpInfo;
 
     // Assign registers for register operands
-    getRegistersForValue(MF, MIRBuilder, OpInfo, RefOpInfo);
+    getRegistersForValue(MF, OpInfo, RefOpInfo);
 
     switch (OpInfo.Type) {
     case InlineAsm::isOutput:
@@ -342,24 +339,20 @@ bool InlineAsmLowering::lowerInlineAsm(
                OpInfo.ConstraintType == TargetLowering::C_RegisterClass ||
                OpInfo.ConstraintType == TargetLowering::C_Other);
 
-        // Find a register that we can use.
+        // Find a register that we can use
         if (OpInfo.Regs.empty()) {
           LLVM_DEBUG(dbgs()
-                     << "Couldn't allocate output register for constraint\n");
+                     << "couldnt alloc output register for constraint\n");
           return false;
         }
 
         // Add information to the INLINEASM instruction to know that this
-        // register is set.
+        // register is set
         InlineAsm::Flag Flag(OpInfo.isEarlyClobber
                                  ? InlineAsm::Kind::RegDefEarlyClobber
                                  : InlineAsm::Kind::RegDef,
                              OpInfo.Regs.size());
         if (OpInfo.Regs.front().isVirtual()) {
-          // Put the register class of the virtual registers in the flag word.
-          // That way, later passes can recompute register class constraints for
-          // inline assembly as well as normal instructions. Don't do this for
-          // tied operands that can use the regclass information from the def.
           const TargetRegisterClass *RC = MRI->getRegClass(OpInfo.Regs.front());
           Flag.setRegClass(RC->getID());
         }
@@ -372,11 +365,11 @@ bool InlineAsmLowering::lowerInlineAsm(
                           (OpInfo.isEarlyClobber ? RegState::EarlyClobber : 0));
         }
 
-        // Remember this output operand for later processing
         OutputOperands.push_back(OpInfo);
       }
 
       break;
+
     case InlineAsm::isInput:
     case InlineAsm::isLabel: {
       if (OpInfo.isMatchingInputConstraint()) {
@@ -432,7 +425,6 @@ bool InlineAsmLowering::lowerInlineAsm(
 
       if (OpInfo.ConstraintType == TargetLowering::C_Immediate ||
           OpInfo.ConstraintType == TargetLowering::C_Other) {
-
         std::vector<MachineOperand> Ops;
         if (!lowerAsmOperandForConstraint(OpInfo.CallOperandVal,
                                           OpInfo.ConstraintCode, Ops,
@@ -442,10 +434,9 @@ bool InlineAsmLowering::lowerInlineAsm(
           return false;
         }
 
-        assert(Ops.size() > 0 &&
-               "Expected constraint to be lowered to at least one operand");
+        assert(!Ops.empty() &&
+               "expected constraint to be lowered to at least one operand");
 
-        // Add information to the INLINEASM node to know about this input.
         const unsigned OpFlags =
             InlineAsm::Flag(InlineAsm::Kind::Imm, Ops.size());
         Inst.addImm(OpFlags);
@@ -454,14 +445,11 @@ bool InlineAsmLowering::lowerInlineAsm(
       }
 
       if (OpInfo.ConstraintType == TargetLowering::C_Memory) {
-
         if (!OpInfo.isIndirect) {
           LLVM_DEBUG(dbgs()
                      << "Cannot indirectify memory input operands yet\n");
           return false;
         }
-
-        assert(OpInfo.isIndirect && "Operand must be indirect to be a mem!");
 
         const InlineAsm::ConstraintCode ConstraintID =
             TLI->getInlineAsmMemConstraint(OpInfo.ConstraintCode);
@@ -498,11 +486,7 @@ bool InlineAsmLowering::lowerInlineAsm(
 
       unsigned NumRegs = OpInfo.Regs.size();
       ArrayRef<Register> SourceRegs = GetOrCreateVRegs(*OpInfo.CallOperandVal);
-      assert(NumRegs == SourceRegs.size() &&
-             "Expected the number of input registers to match the number of "
-             "source registers");
-
-      if (NumRegs > 1) {
+      if (NumRegs != 1 || SourceRegs.size() != 1) {
         LLVM_DEBUG(dbgs() << "Input operands with multiple input registers are "
                              "not supported yet\n");
         return false;
@@ -556,21 +540,16 @@ bool InlineAsmLowering::lowerInlineAsm(
   if (const MDNode *SrcLoc = Call.getMetadata("srcloc"))
     Inst.addMetadata(SrcLoc);
 
-  // All inputs are handled, insert the instruction now
   MIRBuilder.insertInstr(Inst);
 
-  // Finally, copy the output operands into the output registers
   ArrayRef<Register> ResRegs = GetOrCreateVRegs(Call);
   if (ResRegs.size() != OutputOperands.size()) {
-    LLVM_DEBUG(dbgs() << "Expected the number of output registers to match the "
+    LLVM_DEBUG(dbgs() << "expected the number of output registers to match the "
                          "number of destination registers\n");
     return false;
   }
   for (unsigned int i = 0, e = ResRegs.size(); i < e; i++) {
     GISelAsmOperandInfo &OpInfo = OutputOperands[i];
-
-    if (OpInfo.Regs.empty())
-      continue;
 
     switch (OpInfo.ConstraintType) {
     case TargetLowering::C_Register:
@@ -585,12 +564,9 @@ bool InlineAsmLowering::lowerInlineAsm(
       unsigned SrcSize = TRI->getRegSizeInBits(SrcReg, *MRI);
       LLT ResTy = MRI->getType(ResRegs[i]);
       if (ResTy.isScalar() && ResTy.getSizeInBits() < SrcSize) {
-        // First copy the non-typed virtual register into a generic virtual
-        // register
         Register Tmp1Reg =
             MRI->createGenericVirtualRegister(LLT::scalar(SrcSize));
         MIRBuilder.buildCopy(Tmp1Reg, SrcReg);
-        // Need to truncate the result of the register
         MIRBuilder.buildTrunc(ResRegs[i], Tmp1Reg);
       } else if (ResTy.getSizeInBits() == SrcSize) {
         MIRBuilder.buildCopy(ResRegs[i], SrcReg);
@@ -608,9 +584,9 @@ bool InlineAsmLowering::lowerInlineAsm(
           dbgs() << "Cannot lower target specific output constraints yet\n");
       return false;
     case TargetLowering::C_Memory:
-      break; // Already handled.
+      break; // already handled
     case TargetLowering::C_Address:
-      break; // Silence warning.
+      break; // warning
     case TargetLowering::C_Unknown:
       LLVM_DEBUG(dbgs() << "Unexpected unknown constraint\n");
       return false;
@@ -623,24 +599,26 @@ bool InlineAsmLowering::lowerInlineAsm(
 bool InlineAsmLowering::lowerAsmOperandForConstraint(
     Value *Val, StringRef Constraint, std::vector<MachineOperand> &Ops,
     MachineIRBuilder &MIRBuilder) const {
-  if (Constraint.size() > 1)
+  if (Constraint.size() != 1)
     return false;
 
-  char ConstraintLetter = Constraint[0];
+  const char ConstraintLetter = Constraint[0];
   switch (ConstraintLetter) {
   default:
     return false;
   case 'i': // Simple Integer or Relocatable Constant
   case 'n': // immediate integer with a known value.
     if (ConstantInt *CI = dyn_cast<ConstantInt>(Val)) {
-      assert(CI->getBitWidth() <= 64 &&
-             "expected immediate to fit into 64-bits");
+      if (CI->getBitWidth() > 64)
+        return false;
       // Boolean constants should be zero-extended, others are sign-extended
-      bool IsBool = CI->getBitWidth() == 1;
-      int64_t ExtVal = IsBool ? CI->getZExtValue() : CI->getSExtValue();
+      const bool IsBool = CI->getBitWidth() == 1;
+      const int64_t ExtVal =
+          IsBool ? CI->getZExtValue() : CI->getSExtValue();
       Ops.push_back(MachineOperand::CreateImm(ExtVal));
       return true;
     }
     return false;
   }
 }
+

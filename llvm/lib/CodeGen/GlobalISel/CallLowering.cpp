@@ -175,7 +175,7 @@ bool CallLowering::lowerCall(MachineIRBuilder &MIRBuilder, const CallBase &CB,
   Register ReturnHintAlignReg;
   Align ReturnHintAlign;
 
-  Info.OrigRet = ArgInfo{ResRegs, RetTy, 0, getAttributesForReturn(CB)};
+  Info.OrigRet = ArgInfo{ResRegs, CB, 0, getAttributesForReturn(CB)};
 
   if (!Info.OrigRet.Ty->isVoidTy()) {
     setArgFlags(Info.OrigRet, AttributeList::ReturnIndex, DL, CB);
@@ -196,6 +196,7 @@ bool CallLowering::lowerCall(MachineIRBuilder &MIRBuilder, const CallBase &CB,
   }
 
   Info.CB = &CB;
+  Info.CallAttributes = CB.getAttributes();
   Info.KnownCallees = CB.getMetadata(LLVMContext::MD_callees);
   Info.CallConv = CallConv;
   Info.SwiftErrorVReg = SwiftErrorVReg;
@@ -421,15 +422,50 @@ static void buildCopyFromRegs(MachineIRBuilder &B, ArrayRef<Register> OrigRegs,
   if (!LLTy.isVector() && !PartLLT.isVector()) {
     assert(OrigRegs.size() == 1);
     LLT OrigTy = MRI.getType(OrigRegs[0]);
-
-    unsigned SrcSize = PartLLT.getSizeInBits().getFixedValue() * Regs.size();
-    if (SrcSize == OrigTy.getSizeInBits())
+    unsigned OrigSize = OrigTy.getSizeInBits();
+    unsigned PartSize = PartLLT.getSizeInBits().getFixedValue();
+    unsigned SrcSize = 0;
+    bool UniformPieces = true;
+    SmallVector<unsigned, 8> PieceSizes;
+    PieceSizes.reserve(Regs.size());
+    for (Register Reg : Regs) {
+      LLT RegTy = MRI.getType(Reg);
+      assert(RegTy.isScalar() && "unexpected non-scalar piece");
+      unsigned RegSize = RegTy.getSizeInBits();
+      PieceSizes.push_back(RegSize);
+      SrcSize += RegSize;
+      UniformPieces &= (RegSize == PartSize);
+    }
+    LLVM_DEBUG(dbgs() << "buildCopyFromRegs scalar merge: orig=" << OrigTy
+                      << " llty=" << LLTy << " part=" << PartLLT
+                      << " regs=" << Regs.size() << " src-bits=" << SrcSize
+                      << " dst-bits=" << OrigSize
+                      << " uniform=" << UniformPieces << "\n");
+    if (UniformPieces && OrigSize == SrcSize) {
+      LLVM_DEBUG(dbgs() << "  -> exact-width merge-values path\n");
       B.buildMergeValues(OrigRegs[0], Regs);
-    else {
+      return;
+    }
+    // if source pieces cover more bits than destination, merge then truncate.
+    // eg: i24 value split as two i16 pieces (32 bits total)
+    if (SrcSize > OrigSize) {
+      LLVM_DEBUG(dbgs() << "  -> widen+trunc path\n");
       auto Widened = B.buildMergeLikeInstr(LLT::scalar(SrcSize), Regs);
       B.buildTrunc(OrigRegs[0], Widened);
+      return;
     }
-
+    // mixed width or smaller piece reconstruction, insert each part at its
+    // natural offset
+    LLVM_DEBUG(dbgs() << "  -> insert-pieces path\n");
+    uint64_t Index = 0;
+    Register DstReg = B.buildUndef(OrigTy).getReg(0);
+    for (int i = 0, e = Regs.size(); i != e; ++i) {
+      if (i != e - 1)
+        DstReg = B.buildInsert(OrigTy, DstReg, Regs[i], Index).getReg(0);
+      else
+        B.buildInsert(OrigRegs[0], DstReg, Regs[i], Index);
+      Index += PieceSizes[i];
+    }
     return;
   }
 
@@ -578,6 +614,66 @@ static void buildCopyToRegs(MachineIRBuilder &B, ArrayRef<Register> DstRegs,
     return;
   }
 
+  if (!SrcTy.isVector() && !PartTy.isVector()) {
+    MachineRegisterInfo &MRI = *B.getMRI();
+    assert(!PartSize.isScalable() && "scalar part size should not be scalable");
+    const unsigned SrcBits = SrcTy.getSizeInBits();
+
+    SmallVector<unsigned, 8> PieceBits;
+    PieceBits.reserve(DstRegs.size());
+    unsigned DstBits = 0;
+    bool UniformPieces = true;
+    unsigned UniformBitSize = 0;
+    for (Register DstReg : DstRegs) {
+      LLT DstRegTy = MRI.getType(DstReg);
+      assert(DstRegTy.isScalar() && "expected scalar destination piece");
+      TypeSize DstRegSize = DstRegTy.getSizeInBits();
+      assert(!DstRegSize.isScalable() &&
+             "scalar destination piece should not be scalable");
+      unsigned Bits = DstRegSize.getFixedValue();
+      PieceBits.push_back(Bits);
+      DstBits += Bits;
+      if (!UniformBitSize)
+        UniformBitSize = Bits;
+      else
+        UniformPieces &= (UniformBitSize == Bits);
+    }
+
+    auto emitExtractSequence = [&](Register ValueReg) {
+      uint64_t Offset = 0;
+      for (int I = 0, E = DstRegs.size(); I != E; ++I) {
+        if (I == E - 1)
+          B.buildExtract(DstRegs[I], ValueReg, Offset);
+        else
+          B.buildExtract(DstRegs[I], ValueReg, Offset);
+        Offset += PieceBits[I];
+      }
+    };
+
+    if (SrcBits == DstBits) {
+      if (UniformPieces)
+        B.buildUnmerge(DstRegs, SrcReg);
+      else
+        emitExtractSequence(SrcReg);
+      return;
+    }
+
+    // If source is narrower than destination pieces, widen first using the
+    // requested extension semantics, then split.
+    if (SrcBits < DstBits) {
+      Register Wide =
+          B.buildInstr(ExtendOp, {LLT::scalar(DstBits)}, {SrcReg}).getReg(0);
+      if (UniformPieces)
+        B.buildUnmerge(DstRegs, Wide);
+      else
+        emitExtractSequence(Wide);
+      return;
+    }
+
+    emitExtractSequence(SrcReg);
+    return;
+  }
+
   if (SrcTy.isVector() && PartTy.isVector() &&
       PartTy.getSizeInBits() == SrcTy.getSizeInBits() &&
       ElementCount::isKnownLT(SrcTy.getElementCount(),
@@ -709,19 +805,33 @@ bool CallLowering::determineAssignments(ValueAssigner &Assigner,
     ISD::ArgFlagsTy OrigFlags = Args[i].Flags[0];
     Args[i].Flags.clear();
 
+    bool Exact = NumParts * NewVT.getSizeInBits() == CurVT.getSizeInBits();
     for (unsigned Part = 0; Part < NumParts; ++Part) {
+      MVT PartVT = NewVT;
       ISD::ArgFlagsTy Flags = OrigFlags;
       if (Part == 0) {
         Flags.setSplit();
       } else {
         Flags.setOrigAlign(Align(1));
-        if (Part == NumParts - 1)
+        if (Part == NumParts - 1) {
           Flags.setSplitEnd();
+          if (!Exact && !CurVT.isVector())
+            PartVT = TLI->getRegisterTypeForCallingConv(
+                Ctx, CCInfo.getCallingConv(),
+                EVT::getIntegerVT(Ctx, CurVT.getSizeInBits() -
+                                           NewVT.getSizeInBits() * Part));
+        }
       }
 
+      LLVM_DEBUG(dbgs() << "determineAssignments split: arg=" << i
+                        << " part=" << Part << "/" << NumParts
+                        << " curvt=" << CurVT << " newvt=" << NewVT
+                        << " partvt=" << PartVT << " exact=" << Exact
+                        << "\n");
+
       Args[i].Flags.push_back(Flags);
-      if (Assigner.assignArg(i, CurVT, NewVT, NewVT, CCValAssign::Full, Args[i],
-                             Args[i].Flags[Part], CCInfo)) {
+      if (Assigner.assignArg(i, CurVT, PartVT, PartVT, CCValAssign::Full,
+                             Args[i], Args[i].Flags[Part], CCInfo)) {
         // Still couldn't assign this smaller part type for some reason.
         return false;
       }
@@ -807,11 +917,28 @@ bool CallLowering::handleAssignments(ValueHandler &Handler,
         if (Handler.isIncomingArgumentHandler())
           Args[i].Regs[0] = MRI.createGenericVirtualRegister(PointerTy);
       } else {
-        // For each split register, create and assign a vreg that will store
-        // the incoming component of the larger value. These will later be
-        // merged to form the final vreg.
-        for (unsigned Part = 0; Part < NumParts; ++Part)
-          Args[i].Regs[Part] = MRI.createGenericVirtualRegister(NewLLT);
+        // For incoming split args, preserve the per-part value type (for
+        // example i64 split as i24+i24+i16 on eZ80). using one uniform part
+        // type can inflate reconstruction width and force unnecessary
+        // truncation sequences later
+        const bool BigEndianPartOrdering =
+            TLI->hasBigEndianPartOrdering(OrigVT, DL);
+        for (unsigned Part = 0; Part < NumParts; ++Part) {
+          LLT PartLLT = NewLLT;
+          if (NumParts > 1) {
+            unsigned Idx = BigEndianPartOrdering ? NumParts - 1 - Part : Part;
+            const CCValAssign &PartVA = ArgLocs[j + Idx];
+            PartLLT = LLT(PartVA.getValVT());
+            LLVM_DEBUG(dbgs() << "create split reg: incoming="
+                              << Handler.isIncomingArgumentHandler()
+                              << " arg=" << i << " part=" << Part
+                              << " idx=" << Idx << " part-valvt="
+                              << PartVA.getValVT() << " part-locvt="
+                              << PartVA.getLocVT() << " part-llt=" << PartLLT
+                              << "\n");
+          }
+          Args[i].Regs[Part] = MRI.createGenericVirtualRegister(PartLLT);
+        }
       }
     }
 
@@ -822,6 +949,9 @@ bool CallLowering::handleAssignments(ValueHandler &Handler,
     if (!Handler.isIncomingArgumentHandler() && OrigTy != ValTy &&
         VA.getLocInfo() != CCValAssign::Indirect) {
       assert(Args[i].OrigRegs.size() == 1);
+      LLVM_DEBUG(dbgs() << "buildCopyToRegs: arg=" << i << " origty=" << OrigTy
+                        << " valty=" << ValTy << " numparts=" << NumParts
+                        << "\n");
       buildCopyToRegs(MIRBuilder, Args[i].Regs, Args[i].OrigRegs[0], OrigTy,
                       ValTy, extendOpFromFlags(Args[i].Flags[0]));
     }
@@ -983,7 +1113,7 @@ bool CallLowering::handleAssignments(ValueHandler &Handler,
   for (auto &Fn : DelayedOutgoingRegAssignments)
     Fn();
 
-  return true;
+  return Handler.finalize(CCInfo);
 }
 
 void CallLowering::insertSRetLoads(MachineIRBuilder &MIRBuilder, Type *RetTy,
@@ -1316,23 +1446,33 @@ Register CallLowering::ValueHandler::extendRegister(Register ValReg,
     break;
   case CCValAssign::Full:
   case CCValAssign::BCvt:
+  case CCValAssign::Indirect:
     // FIXME: bitconverting between vector types may or may not be a
     // nop in big-endian situations.
     return ValReg;
-  case CCValAssign::AExt: {
-    auto MIB = MIRBuilder.buildAnyExt(LocTy, ValReg);
-    return MIB.getReg(0);
-  }
-  case CCValAssign::SExt: {
-    Register NewReg = MRI.createGenericVirtualRegister(LocTy);
-    MIRBuilder.buildSExt(NewReg, ValReg);
-    return NewReg;
-  }
-  case CCValAssign::ZExt: {
-    Register NewReg = MRI.createGenericVirtualRegister(LocTy);
-    MIRBuilder.buildZExt(NewReg, ValReg);
-    return NewReg;
-  }
+  case CCValAssign::AExt:
+    if (MRI.getType(ValReg).getSizeInBits() == LocTy.getSizeInBits())
+      return ValReg;
+    if (TypeSize::isKnownGT(MRI.getType(ValReg).getSizeInBits(),
+                            LocTy.getSizeInBits()))
+      return MIRBuilder.buildTrunc(LocTy, ValReg).getReg(0);
+    return MIRBuilder.buildAnyExt(LocTy, ValReg).getReg(0);
+  case CCValAssign::SExt:
+    if (MRI.getType(ValReg).getSizeInBits() == LocTy.getSizeInBits())
+      return ValReg;
+    if (TypeSize::isKnownGT(MRI.getType(ValReg).getSizeInBits(),
+                            LocTy.getSizeInBits()))
+      return MIRBuilder.buildTrunc(LocTy, ValReg).getReg(0);
+    return MIRBuilder.buildSExt(LocTy, ValReg).getReg(0);
+  case CCValAssign::ZExt:
+    if (MRI.getType(ValReg).getSizeInBits() == LocTy.getSizeInBits())
+      return ValReg;
+    if (TypeSize::isKnownGT(MRI.getType(ValReg).getSizeInBits(),
+                            LocTy.getSizeInBits()))
+      return MIRBuilder.buildTrunc(LocTy, ValReg).getReg(0);
+    return MIRBuilder.buildZExt(LocTy, ValReg).getReg(0);
+  case CCValAssign::Trunc:
+    return MIRBuilder.buildTrunc(LocTy, ValReg).getReg(0);
   }
   llvm_unreachable("unable to extend register");
 }

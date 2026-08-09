@@ -1,5 +1,9 @@
 /* c-arcmt-test.c */
 
+#ifndef _WIN32
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include "clang-c/Index.h"
 #include "llvm/Support/AutoConvert.h"
 #include <stdio.h>
@@ -8,6 +12,8 @@
 #if defined(_WIN32)
 #include <io.h>
 #include <fcntl.h>
+#else
+#include <unistd.h>
 #endif
 
 static int print_remappings(const char *path) {
