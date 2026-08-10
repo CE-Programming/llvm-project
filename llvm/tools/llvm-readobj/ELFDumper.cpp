@@ -1309,6 +1309,7 @@ const EnumEntry<unsigned> ElfMachineType[] = {
   ENUM_ENT(EM_VE,            "NEC SX-Aurora Vector Engine"),
   ENUM_ENT(EM_LOONGARCH,     "LoongArch"),
   ENUM_ENT(EM_INTELGT,       "Intel Graphics Technology"),
+  ENUM_ENT(EM_Z80,           "Zilog Z80"),
 };
 // clang-format on
 
@@ -1802,6 +1803,16 @@ static const EnumEntry<unsigned> ElfHeaderXtensaFlags[] = {
   LLVM_READOBJ_ENUM_ENT(ELF, EF_XTENSA_MACH_NONE),
   LLVM_READOBJ_ENUM_ENT(ELF, EF_XTENSA_XT_INSN),
   LLVM_READOBJ_ENUM_ENT(ELF, EF_XTENSA_XT_LIT)
+};
+
+static const EnumEntry<unsigned> ElfHeaderZ80Flags[] = {
+  ENUM_ENT(EF_Z80_MACH_Z80, "Z80"),
+  ENUM_ENT(EF_Z80_MACH_Z180, "Z180"),
+  ENUM_ENT(EF_Z80_MACH_R800, "R800"),
+  ENUM_ENT(EF_Z80_MACH_EZ80_Z80, "eZ80-Z80"),
+  ENUM_ENT(EF_Z80_MACH_EZ80_ADL, "eZ80-ADL"),
+  ENUM_ENT(EF_Z80_MACH_GBZ80, "gbZ80"),
+  ENUM_ENT(EF_Z80_MACH_Z80N, "Z80N"),
 };
 
 const EnumEntry<unsigned> ElfSymOtherFlags[] = {
@@ -3767,6 +3778,8 @@ template <class ELFT> void GNUELFDumper<ELFT>::printFileHeaders() {
   else if (e.e_machine == EM_XTENSA)
     ElfFlags = printFlags(e.e_flags, ArrayRef(ElfHeaderXtensaFlags),
                           unsigned(ELF::EF_XTENSA_MACH));
+  else if (e.e_machine == EM_Z80)
+    ElfFlags = printFlags(e.e_flags, ArrayRef(ElfHeaderZ80Flags));
   else if (e.e_machine == EM_CUDA) {
     unsigned Mask = e.e_ident[ELF::EI_ABIVERSION] == ELF::ELFABIVERSION_CUDA_V1
                         ? ELF::EF_CUDA_SM
@@ -7517,6 +7530,8 @@ template <class ELFT> void LLVMELFDumper<ELFT>::printFileHeaders() {
     else if (E.e_machine == EM_XTENSA)
       W.printFlags("Flags", E.e_flags, ArrayRef(ElfHeaderXtensaFlags),
                    unsigned(ELF::EF_XTENSA_MACH));
+    else if (E.e_machine == EM_Z80)
+      W.printFlags("Flags", E.e_flags, ArrayRef(ElfHeaderZ80Flags));
     else if (E.e_machine == EM_CUDA)
       W.printFlags("Flags", E.e_flags, ArrayRef(ElfHeaderNVPTXFlags),
                    unsigned(ELF::EF_CUDA_SM));

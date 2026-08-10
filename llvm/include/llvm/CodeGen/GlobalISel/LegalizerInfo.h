@@ -17,6 +17,7 @@
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/GlobalISel/LegacyLegalizerInfo.h"
+#include "llvm/CodeGen/GlobalISel/LegalizerHelper.h"
 #include "llvm/CodeGen/MachineMemOperand.h"
 #include "llvm/CodeGen/TargetOpcodes.h"
 #include "llvm/CodeGenTypes/LowLevelType.h"
@@ -1081,19 +1082,14 @@ public:
     return minScalar(TypeIdx, Ty);
   }
 
-  /// Ensure the scalar is at least as wide as Ty if condition is met.
+  /// Conditionally limit the minimum size of the scalar.
   LegalizeRuleSet &minScalarIf(LegalityPredicate Predicate, unsigned TypeIdx,
                                const LLT Ty) {
     using namespace LegalityPredicates;
     using namespace LegalizeMutations;
     return actionIf(
         LegalizeAction::WidenScalar,
-        [=](const LegalityQuery &Query) {
-          const LLT QueryTy = Query.Types[TypeIdx];
-          return QueryTy.isScalar() &&
-                 QueryTy.getSizeInBits() < Ty.getSizeInBits() &&
-                 Predicate(Query);
-        },
+	all(scalarNarrowerThan(TypeIdx, Ty.getSizeInBits()), Predicate),
         changeTo(typeIdx(TypeIdx), Ty));
   }
 
@@ -1124,13 +1120,8 @@ public:
     using namespace LegalizeMutations;
     return actionIf(
         LegalizeAction::NarrowScalar,
-        [=](const LegalityQuery &Query) {
-          const LLT QueryTy = Query.Types[TypeIdx];
-          return QueryTy.isScalar() &&
-                 QueryTy.getSizeInBits() > Ty.getSizeInBits() &&
-                 Predicate(Query);
-        },
-        changeElementTo(typeIdx(TypeIdx), Ty));
+	all(scalarWiderThan(TypeIdx, Ty.getSizeInBits()), Predicate),
+	changeTo(typeIdx(TypeIdx), Ty));
   }
 
   /// Limit the range of scalar sizes to MinTy and MaxTy.
@@ -1413,6 +1404,12 @@ public:
                               LostDebugLocObserver &LocObserver) const {
     llvm_unreachable("must implement this if custom action is used");
   }
+
+  /// Custom legalization that can report an already legal instruction.
+  /// Called for instructions with the Custom LegalizationAction.
+  virtual LegalizerHelper::LegalizeResult
+  legalizeCustomMaybeLegal(LegalizerHelper &Helper, MachineInstr &MI,
+                           LostDebugLocObserver &LocObserver) const;
 
   /// \returns true if MI is either legal or has been legalized and false if not
   /// legal.

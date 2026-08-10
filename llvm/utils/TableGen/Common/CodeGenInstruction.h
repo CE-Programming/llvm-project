@@ -291,6 +291,10 @@ public:
   /// MVT::Other.
   MVT HasOneImplicitDefWithKnownVT(const CodeGenTarget &TargetInfo) const;
 
+  /// HasImplicitDef - If the instruction has the passed register as an
+  /// implicit def.
+  bool HasImplicitDef(const Record *Reg) const;
+
   /// FlattenAsmStringVariants - Flatten the specified AsmString to only
   /// include text from the specified variant, returning the new string.
   static std::string FlattenAsmStringVariants(StringRef AsmString,

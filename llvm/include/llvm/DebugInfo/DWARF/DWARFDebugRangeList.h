@@ -11,6 +11,9 @@
 
 #include "llvm/DebugInfo/DWARF/DWARFAddressRange.h"
 #include "llvm/Support/Compiler.h"
+#include "llvm/DebugInfo/DWARF/DWARFDataExtractor.h"
+#include "llvm/Support/MathExtras.h"
+#include <cassert>
 #include <cstdint>
 #include <vector>
 

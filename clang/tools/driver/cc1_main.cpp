@@ -30,12 +30,14 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Config/llvm-config.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/LinkAllPasses.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Option/Arg.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/Option/OptTable.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/BuryPointer.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -292,6 +294,24 @@ int cc1_main(ArrayRef<const char *> Argv, const char *Argv0, void *MainAddr) {
   if (!Success) {
     Clang->getDiagnosticClient().finish();
     return 1;
+  }
+
+  if (!Clang->getFrontendOpts().LLVMArgs.empty()) {
+    // Initialize codegen and IR passes used by llc so that the -print-after,
+    // -print-before, and -stop-after options work.
+    llvm::PassRegistry &Registry = *llvm::PassRegistry::getPassRegistry();
+    llvm::initializeCore(Registry);
+    llvm::initializeCodeGen(Registry);
+    llvm::initializeLoopStrengthReducePass(Registry);
+    llvm::initializeLowerIntrinsicsPass(Registry);
+    llvm::initializeUnreachableBlockElimLegacyPassPass(Registry);
+    llvm::initializeConstantHoistingLegacyPassPass(Registry);
+    llvm::initializeScalarOpts(Registry);
+    llvm::initializeVectorization(Registry);
+    llvm::initializeScalarizeMaskedMemIntrinLegacyPassPass(Registry);
+    llvm::initializeExpandReductionsPass(Registry);
+    llvm::initializeHardwareLoopsLegacyPass(Registry);
+    llvm::initializeTransformUtils(Registry);
   }
 
   // Execute the frontend actions.

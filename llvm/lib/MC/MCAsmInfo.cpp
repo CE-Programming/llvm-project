@@ -50,11 +50,13 @@ MCAsmInfo::MCAsmInfo() {
   LinkerPrivateGlobalPrefix = "";
   InlineAsmStart = "APP";
   InlineAsmEnd = "NO_APP";
+
   ZeroDirective = "\t.zero\t";
   AsciiDirective = "\t.ascii\t";
   AscizDirective = "\t.asciz\t";
   Data8bitsDirective = "\t.byte\t";
   Data16bitsDirective = "\t.short\t";
+  Data24bitsDirective = nullptr;
   Data32bitsDirective = "\t.long\t";
   Data64bitsDirective = "\t.quad\t";
   GlobalDirective = "\t.globl\t";

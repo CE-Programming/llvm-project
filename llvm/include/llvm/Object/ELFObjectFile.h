@@ -1324,6 +1324,25 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
       return "elf32-loongarch";
     case ELF::EM_XTENSA:
       return "elf32-xtensa";
+    case ELF::EM_Z80:
+      switch (EF.getHeader().e_flags & ELF::EF_Z80_MACH_MSK) {
+      default:
+        return "elf32-z80-unknown";
+      case ELF::EF_Z80_MACH_Z80:
+        return "elf32-z80";
+      case ELF::EF_Z80_MACH_Z180:
+        return "elf32-z180";
+      case ELF::EF_Z80_MACH_R800:
+        return "elf32-r800";
+      case ELF::EF_Z80_MACH_EZ80_Z80:
+        return "elf32-ez80-code16";
+      case ELF::EF_Z80_MACH_EZ80_ADL:
+        return "elf32-ez80";
+      case ELF::EF_Z80_MACH_GBZ80:
+        return "elf32-gbz80";
+      case ELF::EF_Z80_MACH_Z80N:
+        return "elf32-z80n";
+      }
     default:
       return "elf32-unknown";
     }
@@ -1456,6 +1475,18 @@ template <class ELFT> Triple::ArchType ELFObjectFile<ELFT>::getArch() const {
 
   case ELF::EM_XTENSA:
     return Triple::xtensa;
+
+  case ELF::EM_Z80:
+    if (!IsLittleEndian ||
+        EF.getHeader().e_ident[ELF::EI_CLASS] != ELF::ELFCLASS32)
+      return Triple::UnknownArch;
+    switch (EF.getHeader().e_flags & ELF::EF_Z80_MACH_MSK) {
+    default:
+      return Triple::z80;
+    case ELF::EF_Z80_MACH_EZ80_Z80:
+    case ELF::EF_Z80_MACH_EZ80_ADL:
+      return Triple::ez80;
+    }
 
   default:
     return Triple::UnknownArch;

@@ -17,6 +17,7 @@
 // CHECK-NEXT: AlwaysInline (SubjectMatchRule_function)
 // CHECK-NEXT: Annotate ()
 // CHECK-NEXT: AnyX86NoCfCheck (SubjectMatchRule_hasType_functionType)
+// CHECK-NEXT: AnyZ80TIFlags (SubjectMatchRule_hasType_functionType)
 // CHECK-NEXT: ArcWeakrefUnavailable (SubjectMatchRule_objc_interface)
 // CHECK-NEXT: ArmBuiltinAlias (SubjectMatchRule_function)
 // CHECK-NEXT: AssumeAligned (SubjectMatchRule_objc_method, SubjectMatchRule_function)

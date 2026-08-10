@@ -2936,6 +2936,10 @@ TEST(TripleTest, DefaultExceptionHandling) {
             Triple("m68k-unknown-unknown").getDefaultExceptionHandling());
   EXPECT_EQ(ExceptionHandling::DwarfCFI,
             Triple("csky-unknown-unknown").getDefaultExceptionHandling());
+  EXPECT_EQ(ExceptionHandling::SjLj,
+            Triple("z80-unknown-none").getDefaultExceptionHandling());
+  EXPECT_EQ(ExceptionHandling::SjLj,
+            Triple("ez80-unknown-none").getDefaultExceptionHandling());
 
   EXPECT_EQ(ExceptionHandling::AIX,
             Triple("powerpc-ibm-aix").getDefaultExceptionHandling());

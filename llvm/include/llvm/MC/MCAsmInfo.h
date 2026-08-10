@@ -174,6 +174,7 @@ protected:
   const char *InlineAsmStart;
   const char *InlineAsmEnd;
 
+
   /// Which dialect of an assembler variant to use.  Defaults to 0
   unsigned AssemblerDialect = 0;
 
@@ -229,6 +230,9 @@ protected:
   /// escape characters embedded into it.  If a target doesn't support this, it
   /// can be set to null. Defaults to "\t.ascii\t"
   const char *AsciiDirective;
+  /// Use an octal escape for double quotes in emitted string literals.
+  bool UseOctalEscapeForQuote = false;
+
 
   /// If not null, this allows for special handling of zero terminated strings
   /// on this target.  This is commonly supported as ".asciz".  If a target
@@ -243,9 +247,10 @@ protected:
   /// These directives are used to output some unit of integer data to the
   /// current section.  If a data directive is set to null, smaller data
   /// directives will be used to emit the large sizes.  Defaults to "\t.byte\t",
-  /// "\t.short\t", "\t.long\t", "\t.quad\t"
+  /// "\t.short\t", nullptr, "\t.long\t", "\t.quad\t"
   const char *Data8bitsDirective;
   const char *Data16bitsDirective;
+  const char *Data24bitsDirective;
   const char *Data32bitsDirective;
   const char *Data64bitsDirective;
 
@@ -261,6 +266,7 @@ protected:
   /// '.bss' one. It's used for PPC/Linux which doesn't support the '.bss'
   /// directive only.  Defaults to false.
   bool UsesELFSectionDirectiveForBSS = false;
+
 
   bool NeedsDwarfSectionOffsetDirective = false;
 
@@ -460,6 +466,7 @@ public:
 
   const char *getData8bitsDirective() const { return Data8bitsDirective; }
   const char *getData16bitsDirective() const { return Data16bitsDirective; }
+  const char *getData24bitsDirective() const { return Data24bitsDirective; }
   const char *getData32bitsDirective() const { return Data32bitsDirective; }
   const char *getData64bitsDirective() const { return Data64bitsDirective; }
   bool supportsSignedData() const { return SupportsSignedData; }
@@ -557,6 +564,7 @@ public:
 
   const char *getInlineAsmStart() const { return InlineAsmStart; }
   const char *getInlineAsmEnd() const { return InlineAsmEnd; }
+
   unsigned getAssemblerDialect() const { return AssemblerDialect; }
   bool doesAllowAtInName() const { return AllowAtInName; }
   void setAllowAtInName(bool V) { AllowAtInName = V; }
@@ -583,6 +591,7 @@ public:
   const char *getZeroDirective() const { return ZeroDirective; }
   const char *getAsciiDirective() const { return AsciiDirective; }
   const char *getAscizDirective() const { return AscizDirective; }
+  bool useOctalEscapeForQuote() const { return UseOctalEscapeForQuote; }
   AsmCharLiteralSyntax characterLiteralSyntax() const {
     return CharacterLiteralSyntax;
   }

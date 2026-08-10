@@ -42,22 +42,47 @@ TEST(RuntimeLibcallsTest, LibcallImplByName) {
   {
     auto SquirtleSquad =
         RTLIB::RuntimeLibcallsInfo::lookupLibcallImplName("sqrtl");
-    ASSERT_EQ(size(SquirtleSquad), 3);
+    ASSERT_EQ(size(SquirtleSquad), 4);
     auto I = SquirtleSquad.begin();
     EXPECT_EQ(*I++, RTLIB::impl_sqrtl_f128);
     EXPECT_EQ(*I++, RTLIB::impl_sqrtl_f80);
     EXPECT_EQ(*I++, RTLIB::impl_sqrtl_ppcf128);
+    EXPECT_EQ(*I++, RTLIB::impl_z80_sqrt_f64);
   }
 
   // Last libcall
   {
     auto Truncs = RTLIB::RuntimeLibcallsInfo::lookupLibcallImplName("truncl");
-    ASSERT_EQ(size(Truncs), 3);
+    ASSERT_EQ(size(Truncs), 4);
     auto I = Truncs.begin();
     EXPECT_EQ(*I++, RTLIB::impl_truncl_f128);
     EXPECT_EQ(*I++, RTLIB::impl_truncl_f80);
     EXPECT_EQ(*I++, RTLIB::impl_truncl_ppcf128);
+    EXPECT_EQ(*I++, RTLIB::impl_z80_trunc_f64);
   }
+}
+
+TEST(RuntimeLibcallsTest, Z80SystemLibrary) {
+  RTLIB::RuntimeLibcallsInfo Info(Triple("z80-unknown-none"));
+
+  EXPECT_TRUE(Info.isAvailable(RTLIB::impl_z80_zext_i16_i24));
+  EXPECT_EQ(Info.getLibcallFromImpl(RTLIB::impl_z80_zext_i16_i24),
+            RTLIB::ZEXT_I16_I24);
+  EXPECT_EQ(
+      Info.getLibcallImplCallingConv(RTLIB::impl_z80_zext_i16_i24),
+      CallingConv::Z80_LibCall);
+
+  EXPECT_TRUE(Info.isAvailable(RTLIB::impl_z80_shl_i32));
+  EXPECT_FALSE(Info.isAvailable(RTLIB::impl___ashlsi3));
+  EXPECT_EQ(Info.getLibcallImplCallingConv(RTLIB::impl_z80_shl_i32),
+            CallingConv::Z80_LibCall_L);
+
+  EXPECT_TRUE(Info.isAvailable(RTLIB::impl_z80_abs_f64));
+  EXPECT_EQ(Info.getLibcallFromImpl(RTLIB::impl_z80_abs_f64), RTLIB::ABS_F64);
+  EXPECT_EQ(Info.getLibcallImplCallingConv(RTLIB::impl_z80_abs_f64),
+            CallingConv::C);
+
+  EXPECT_TRUE(Info.isAvailable(RTLIB::impl_memcpy));
 }
 
 } // namespace

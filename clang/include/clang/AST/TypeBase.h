@@ -1929,7 +1929,7 @@ protected:
     unsigned : NumTypeBits;
 
     /// The kind (BuiltinType::Kind) of builtin type this is.
-    static constexpr unsigned NumOfBuiltinTypeBits = 9;
+    static constexpr unsigned NumOfBuiltinTypeBits = 10;
     unsigned Kind : NumOfBuiltinTypeBits;
   };
 
@@ -4580,8 +4580,8 @@ public:
     // adjust the Bits field below, and if you add bits, you'll need to adjust
     // Type::FunctionTypeBitfields::ExtInfo as well.
 
-    // |  CC  |noreturn|produces|nocallersavedregs|regparm|nocfcheck|cmsenscall|
-    // |0 .. 5|   6    |    7   |       8         |9 .. 11|    12   |    13    |
+    // |  CC  |noreturn|produces|nocallersavedregs|regparm|nocfcheck|cmsenscall|tiflags|
+    // |0 .. 5|   6    |    7   |       8         |9 .. 11|    12   |    13    |   14  |
     //
     // regparm is either 0 (no regparm attribute) or the regparm value+1.
     enum { CallConvMask = 0x3F };
@@ -4591,6 +4591,7 @@ public:
     enum { RegParmMask = 0xe00, RegParmOffset = 9 };
     enum { NoCfCheckMask = 0x1000 };
     enum { CmseNSCallMask = 0x2000 };
+    enum { TIFlagsMask = 0x4000 };
     uint16_t Bits = CC_C;
 
     ExtInfo(unsigned Bits) : Bits(static_cast<uint16_t>(Bits)) {}
@@ -4600,14 +4601,15 @@ public:
     // have all the elements (when reading an AST file for example).
     ExtInfo(bool noReturn, bool hasRegParm, unsigned regParm, CallingConv cc,
             bool producesResult, bool noCallerSavedRegs, bool NoCfCheck,
-            bool cmseNSCall) {
+            bool cmseNSCall, bool tiFlags) {
       assert((!hasRegParm || regParm < 7) && "Invalid regparm value");
       Bits = ((unsigned)cc) | (noReturn ? NoReturnMask : 0) |
              (producesResult ? ProducesResultMask : 0) |
              (noCallerSavedRegs ? NoCallerSavedRegsMask : 0) |
              (hasRegParm ? ((regParm + 1) << RegParmOffset) : 0) |
              (NoCfCheck ? NoCfCheckMask : 0) |
-             (cmseNSCall ? CmseNSCallMask : 0);
+             (cmseNSCall ? CmseNSCallMask : 0) |
+             (tiFlags ? TIFlagsMask : 0);
     }
 
     // Constructor with all defaults. Use when for example creating a
@@ -4623,6 +4625,7 @@ public:
     bool getCmseNSCall() const { return Bits & CmseNSCallMask; }
     bool getNoCallerSavedRegs() const { return Bits & NoCallerSavedRegsMask; }
     bool getNoCfCheck() const { return Bits & NoCfCheckMask; }
+    bool getTIFlags() const { return Bits & TIFlagsMask; }
     bool getHasRegParm() const { return ((Bits & RegParmMask) >> RegParmOffset) != 0; }
 
     unsigned getRegParm() const {
@@ -4679,6 +4682,13 @@ public:
         return ExtInfo(Bits & ~NoCfCheckMask);
     }
 
+    ExtInfo withTIFlags(bool tiFlags) const {
+      if (tiFlags)
+        return ExtInfo(Bits | TIFlagsMask);
+      else
+        return ExtInfo(Bits & ~TIFlagsMask);
+    }
+
     ExtInfo withRegParm(unsigned RegParm) const {
       assert(RegParm < 7 && "Invalid regparm value");
       return ExtInfo((Bits & ~RegParmMask) |
@@ -4717,11 +4727,13 @@ public:
     LLVM_PREFERRED_TYPE(bool)
     unsigned EffectsHaveConditions : 1;
     unsigned NumFunctionEffects : 4;
+    LLVM_PREFERRED_TYPE(bool)
+    unsigned TIFlags : 1;
 
     FunctionTypeExtraBitfields()
         : NumExceptionType(0), HasExtraAttributeInfo(false),
           HasArmTypeAttributes(false), EffectsHaveConditions(false),
-          NumFunctionEffects(0) {}
+          NumFunctionEffects(0), TIFlags(false) {}
   };
 
   /// A holder for extra information from attributes which aren't part of an
@@ -4791,7 +4803,7 @@ protected:
   FunctionType(TypeClass tc, QualType res, QualType Canonical,
                TypeDependence Dependence, ExtInfo Info)
       : Type(tc, Canonical, Dependence), ResultType(res) {
-    FunctionTypeBits.ExtInfo = Info.Bits;
+    FunctionTypeBits.ExtInfo = Info.Bits & ~ExtInfo::TIFlagsMask;
   }
 
   Qualifiers getFastTypeQuals() const {
@@ -4818,7 +4830,7 @@ public:
 
   bool getCmseNSCallAttr() const { return getExtInfo().getCmseNSCall(); }
   CallingConv getCallConv() const { return getExtInfo().getCC(); }
-  ExtInfo getExtInfo() const { return ExtInfo(FunctionTypeBits.ExtInfo); }
+  ExtInfo getExtInfo() const;
 
   static_assert((~Qualifiers::FastMask & Qualifiers::CVRMask) == 0,
                 "Const, volatile and restrict are assumed to be a subset of "
@@ -4846,16 +4858,19 @@ public:
 /// no information available about its arguments.
 class FunctionNoProtoType : public FunctionType, public llvm::FoldingSetNode {
   friend class ASTContext; // ASTContext creates these.
+  friend class FunctionType;
+
+  LLVM_PREFERRED_TYPE(bool)
+  unsigned TIFlags : 1;
 
   FunctionNoProtoType(QualType Result, QualType Canonical, ExtInfo Info)
       : FunctionType(FunctionNoProto, Result, Canonical,
                      Result->getDependence() &
                          ~(TypeDependence::DependentInstantiation |
                            TypeDependence::UnexpandedPack),
-                     Info) {}
+                     Info), TIFlags(Info.getTIFlags()) {}
 
 public:
-  // No additional state past what FunctionType provides.
 
   bool isSugared() const { return false; }
   QualType desugar() const { return QualType(this, 0); }
@@ -5269,6 +5284,7 @@ class FunctionProtoType final
           FunctionEffect, EffectConditionExpr> {
   friend class ASTContext; // ASTContext creates these.
   friend TrailingObjects;
+  friend class FunctionType;
 
   // FunctionProtoType is followed by several trailing objects, some of
   // which optional. They are in order:
@@ -5392,6 +5408,7 @@ public:
 
     bool requiresFunctionProtoTypeExtraBitfields() const {
       return ExceptionSpec.Type == EST_Dynamic ||
+             ExtInfo.getTIFlags() ||
              requiresFunctionProtoTypeArmAttributes() ||
              requiresFunctionProtoTypeExtraAttributeInfo() ||
              !FunctionEffects.empty();
@@ -5537,6 +5554,11 @@ private:
     return FunctionTypeBits.HasExtraBitfields &&
            getTrailingObjects<FunctionTypeExtraBitfields>()
                ->HasArmTypeAttributes;
+  }
+
+  bool hasTIFlags() const {
+    return hasExtraBitfields() &&
+           getTrailingObjects<FunctionTypeExtraBitfields>()->TIFlags;
   }
 
   bool hasExtQualifiers() const {

@@ -1,0 +1,86 @@
+# RUN: llc -mtriple=ez80 -run-pass=z80-machine-late-opt -o - %s | FileCheck %s
+
+--- |
+  declare void @external()
+
+  define void @fold_zero_16() { ret void }
+  define void @fold_neg1_16() { ret void }
+  define void @fold_zero_24() { ret void }
+  define void @no_fold_non_z_consumer() { ret void }
+...
+
+---
+# CHECK-LABEL: name:            fold_zero_16
+# CHECK:       $bc = LD16ri 0
+# CHECK-NOT:   ADD16ao
+# CHECK:       OR8ar undef $a
+# CHECK-NEXT:  ADC16ao killed $bc
+name: fold_zero_16
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $hl
+    $bc = LD16ri 0
+    $hl = ADD16ao $hl, $bc, implicit-def $f
+    OR8ar undef $a, implicit-def $f, implicit-def $a
+    SBC16ao killed $bc, implicit-def $hl, implicit-def $f, implicit $hl, implicit $f
+    CALL24CC @external, 1, csr_ez80_c, implicit $spl, implicit $f
+    RET24 implicit-def $spl, implicit $spl
+...
+
+---
+# CHECK-LABEL: name:            fold_neg1_16
+# CHECK:       $bc = LD16ri -1
+# CHECK-NOT:   ADD16ao
+# CHECK:       SCF
+# CHECK-NEXT:  ADC16ao killed $bc
+name: fold_neg1_16
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $hl
+    $bc = LD16ri -1
+    $hl = ADD16ao $hl, $bc, implicit-def $f
+    OR8ar undef $a, implicit-def $f, implicit-def $a
+    SBC16ao killed $bc, implicit-def $hl, implicit-def $f, implicit $hl, implicit $f
+    CALL24CC @external, 1, csr_ez80_c, implicit $spl, implicit $f
+    RET24 implicit-def $spl, implicit $spl
+...
+
+---
+# CHECK-LABEL: name:            fold_zero_24
+# CHECK:       $ubc = LD24ri 0
+# CHECK-NOT:   ADD24ao
+# CHECK:       OR8ar undef $a
+# CHECK-NEXT:  ADC24ao killed $ubc
+name: fold_zero_24
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl
+    $ubc = LD24ri 0
+    $uhl = ADD24ao $uhl, $ubc, implicit-def $f
+    OR8ar undef $a, implicit-def $f, implicit-def $a
+    SBC24ao killed $ubc, implicit-def $uhl, implicit-def $f, implicit $uhl, implicit $f
+    CALL24CC @external, 1, csr_ez80_c, implicit $spl, implicit $f
+    RET24 implicit-def $spl, implicit $spl
+...
+
+---
+# CHECK-LABEL: name:            no_fold_non_z_consumer
+# CHECK:       $bc = LD16ri 0
+# CHECK-NEXT:  $hl = ADD16ao $hl, $bc
+# CHECK-NEXT:  OR8ar undef $a
+# CHECK-NEXT:  SBC16ao killed $bc
+name: no_fold_non_z_consumer
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $hl
+    $bc = LD16ri 0
+    $hl = ADD16ao $hl, $bc, implicit-def $f
+    OR8ar undef $a, implicit-def $f, implicit-def $a
+    SBC16ao killed $bc, implicit-def $hl, implicit-def $f, implicit $hl, implicit $f
+    CALL24CC @external, 3, csr_ez80_c, implicit $spl, implicit $f
+    RET24 implicit-def $spl, implicit $spl
+...

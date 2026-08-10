@@ -199,7 +199,7 @@ TEST_F(AArch64GISelMITest, LowerBitCountingCTTZ0) {
   LegalizerHelper Helper(*MF, Info, Observer, B);
   // Perform Legalization
   EXPECT_EQ(LegalizerHelper::LegalizeResult::Legalized,
-            Helper.lower(*MIBCTTZ, 0, LLT::scalar(64)));
+            Helper.lower(*MIBCTTZ, 0, LLT::scalar(32)));
 
   auto CheckStr = R"(
   CHECK: [[CZU:%[0-9]+]]:_(s32) = G_CTTZ_ZERO_UNDEF %0
@@ -230,8 +230,9 @@ TEST_F(AArch64GISelMITest, LowerBitCountingCTTZ1) {
   DummyGISelObserver Observer;
   LegalizerHelper Helper(*MF, Info, Observer, B);
   // Perform Legalization
-  EXPECT_TRUE(Helper.lower(*MIBCTTZ, 0, LLT::scalar(64)) ==
-              LegalizerHelper::LegalizeResult::Legalized);
+
+  EXPECT_EQ(LegalizerHelper::LegalizeResult::Legalized,
+            Helper.lower(*MIBCTTZ, 0, LLT::scalar(64)));
 
   auto CheckStr = R"(
   CHECK: [[NEG1:%[0-9]+]]:_(s64) = G_CONSTANT i64 -1
@@ -335,8 +336,8 @@ TEST_F(AArch64GISelMITest, LowerBitCountingCTTZ2) {
   LegalizerHelper Helper(*MF, Info, Observer, B);
 
   B.setInsertPt(*EntryMBB, MIBCTTZ->getIterator());
-  EXPECT_TRUE(Helper.lower(*MIBCTTZ, 0, LLT::scalar(64)) ==
-              LegalizerHelper::LegalizeResult::Legalized);
+  EXPECT_EQ(LegalizerHelper::LegalizeResult::Legalized,
+            Helper.lower(*MIBCTTZ, 0, LLT::scalar(64)));
 
   auto CheckStr = R"(
   CHECK: [[NEG1:%[0-9]+]]:_(s64) = G_CONSTANT i64 -1
@@ -435,8 +436,8 @@ TEST_F(AArch64GISelMITest, LowerBitCountingCTTZ3) {
   AInfo Info(MF->getSubtarget());
   DummyGISelObserver Observer;
   LegalizerHelper Helper(*MF, Info, Observer, B);
-  EXPECT_TRUE(Helper.lower(*MIBCTTZ, 0, LLT::scalar(64)) ==
-              LegalizerHelper::LegalizeResult::Legalized);
+  EXPECT_EQ(LegalizerHelper::LegalizeResult::Legalized,
+            Helper.lower(*MIBCTTZ, 0, LLT::scalar(64)));
 
   auto CheckStr = R"(
   CHECK: CTTZ
@@ -462,8 +463,8 @@ TEST_F(AArch64GISelMITest, LowerBitCountingCTLZ0) {
   AInfo Info(MF->getSubtarget());
   DummyGISelObserver Observer;
   LegalizerHelper Helper(*MF, Info, Observer, B);
-  EXPECT_TRUE(Helper.lower(*MIBCTLZ, 0, LLT::scalar(64)) ==
-              LegalizerHelper::LegalizeResult::Legalized);
+  EXPECT_EQ(LegalizerHelper::LegalizeResult::Legalized,
+            Helper.lower(*MIBCTLZ, 0, LLT::scalar(64)));
 
   auto CheckStr = R"(
   CHECK: [[CZU:%[0-9]+]]:_(s64) = G_CTLZ_ZERO_UNDEF %0
@@ -526,8 +527,8 @@ TEST_F(AArch64GISelMITest, LowerBitCountingCTLZ1) {
   AInfo Info(MF->getSubtarget());
   DummyGISelObserver Observer;
   LegalizerHelper Helper(*MF, Info, Observer, B);
-  EXPECT_TRUE(Helper.lower(*MIBCTLZ, 0, s8) ==
-              LegalizerHelper::LegalizeResult::Legalized);
+  EXPECT_EQ(LegalizerHelper::LegalizeResult::Legalized,
+            Helper.lower(*MIBCTLZ, 0, s8));
 
   auto CheckStr = R"(
   CHECK: [[Trunc:%[0-9]+]]:_(s8) = G_TRUNC

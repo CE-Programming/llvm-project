@@ -15390,6 +15390,7 @@ GCCTypeClass EvaluateBuiltinClassifyType(QualType T,
     case BuiltinType::UShort:
     case BuiltinType::UInt:
     case BuiltinType::ULong:
+    case BuiltinType::UInt48:
     case BuiltinType::ULongLong:
     case BuiltinType::UInt128:
       return GCCTypeClass::Integer;

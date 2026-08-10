@@ -1,0 +1,197 @@
+# RUN: llc -mtriple=ez80 -run-pass=prologepilog -o - %s | FileCheck %s
+
+# Check that once the remaining LEA chain is large enough, PEI rewrites switch
+# to a controlled manual spill plus LDri+ADD instead of continuing to chunk the
+# address in signed-8 LEA steps.
+
+--- |
+  ; ModuleID = '<stdin>'
+  source_filename = "/tmp/ez80-large-frame-repro/repro-large.c"
+  target datalayout = "e-m:z-p:24:8-p1:16:8-p2:8:8-p3:16:8-p4:24:8-i16:8-i24:8-i32:8-i48:8-i64:8-i96:8-f32:8-f64:8-a:8-n8:16:24-S8"
+  target triple = "ez80"
+
+  @gp = dso_local local_unnamed_addr global ptr null, align 1
+  @sink = dso_local global i16 0, align 2
+
+  ; Function Attrs: minsize nofree norecurse nounwind optsize memory(readwrite, argmem: read)
+  define dso_local i16 @repro(ptr nocapture noundef readonly %p, i16 noundef %n) local_unnamed_addr #0 {
+  entry:
+    %pad = alloca [256 x i16], align 2
+    call void @llvm.lifetime.start.p0(i64 512, ptr nonnull %pad) #4
+    store ptr %pad, ptr @gp, align 1, !tbaa !2
+    %wide.trip.count = zext i16 %n to i24
+    br label %for.cond
+
+  for.cond:                                         ; preds = %for.body, %entry
+    %lsr.iv2 = phi i24 [ %lsr.iv.next3, %for.body ], [ %wide.trip.count, %entry ]
+    %lsr.iv1 = phi i16 [ %lsr.iv.next, %for.body ], [ 36, %entry ]
+    %lsr.iv = phi ptr [ %scevgep, %for.body ], [ %p, %entry ]
+    %exitcond.not = icmp eq i24 %lsr.iv2, 0
+    br i1 %exitcond.not, label %for.cond.cleanup, label %for.body
+
+  for.cond.cleanup:                                 ; preds = %for.cond
+    %0 = load volatile i16, ptr @sink, align 2, !tbaa !6
+    %arrayidx14 = getelementptr inbounds i8, ptr %pad, i24 502
+    %1 = load volatile i16, ptr %arrayidx14, align 2, !tbaa !6
+    %add16 = add i16 %1, %0
+    call void @llvm.lifetime.end.p0(i64 512, ptr nonnull %pad) #4
+    ret i16 %add16
+
+  for.body:                                         ; preds = %for.cond
+    %sunkaddr = getelementptr inbounds i8, ptr %pad, i24 506
+    store volatile i16 %lsr.iv1, ptr %sunkaddr, align 2, !tbaa !6
+    %sunkaddr4 = getelementptr inbounds i8, ptr %pad, i24 504
+    %2 = load volatile i16, ptr %sunkaddr4, align 2, !tbaa !6
+    %3 = load i16, ptr %lsr.iv, align 2, !tbaa !6
+    %add9 = add i16 %3, %2
+    %4 = load volatile i16, ptr @sink, align 2, !tbaa !6
+    %add11 = add i16 %add9, %4
+    store volatile i16 %add11, ptr @sink, align 2, !tbaa !6
+    %scevgep = getelementptr i8, ptr %lsr.iv, i24 2
+    %lsr.iv.next = add i16 %lsr.iv1, 1
+    %lsr.iv.next3 = add nsw i24 %lsr.iv2, -1
+    br label %for.cond, !llvm.loop !8
+  }
+
+  ; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
+  declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture) #1
+
+  ; Function Attrs: nocallback nofree nosync nounwind willreturn memory(argmem: readwrite)
+  declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture) #1
+
+  declare void @_Unwind_SjLj_Register(ptr)
+
+  declare void @_Unwind_SjLj_Unregister(ptr)
+
+  ; Function Attrs: nocallback nofree nosync nounwind willreturn memory(none)
+  declare ptr @llvm.frameaddress.p0(i32 immarg) #2
+
+  ; Function Attrs: nocallback nofree nosync nounwind willreturn
+  declare ptr @llvm.stacksave.p0() #3
+
+  ; Function Attrs: nocallback nofree nosync nounwind willreturn
+  declare void @llvm.stackrestore.p0(ptr) #3
+
+  ; Function Attrs: nounwind
+  declare void @llvm.eh.sjlj.setup.dispatch() #4
+
+  ; Function Attrs: nounwind memory(none)
+  declare ptr @llvm.eh.sjlj.lsda() #5
+
+  ; Function Attrs: nounwind memory(none)
+  declare void @llvm.eh.sjlj.callsite(i32 immarg) #5
+
+  ; Function Attrs: nounwind
+  declare void @llvm.eh.sjlj.functioncontext(ptr) #4
+
+  attributes #0 = { minsize nofree norecurse nounwind optsize memory(readwrite, argmem: read) "no-trapping-math"="true" "stack-protector-buffer-size"="8" }
+  attributes #1 = { nocallback nofree nosync nounwind willreturn memory(argmem: readwrite) }
+  attributes #2 = { nocallback nofree nosync nounwind willreturn memory(none) }
+  attributes #3 = { nocallback nofree nosync nounwind willreturn }
+  attributes #4 = { nounwind }
+  attributes #5 = { nounwind memory(none) }
+
+  !llvm.module.flags = !{!0}
+  !llvm.ident = !{!1}
+
+  !0 = !{i32 1, !"wchar_size", i32 2}
+  !1 = !{!"clang version 19.1.0 (git@github.com:Sightem/llvm-project.git ff9761906b160716d7d53f5641d52d409fdb8766)"}
+  !2 = !{!3, !3, i64 0}
+  !3 = !{!"any pointer", !4, i64 0}
+  !4 = !{!"omnipotent char", !5, i64 0}
+  !5 = !{!"Simple C/C++ TBAA"}
+  !6 = !{!7, !7, i64 0}
+  !7 = !{!"short", !4, i64 0}
+  !8 = distinct !{!8, !9}
+  !9 = !{!"llvm.loop.mustprogress"}
+
+...
+---
+# CHECK-LABEL: name:            repro
+name:            repro
+alignment:       1
+legalized:       true
+regBankSelected: true
+selected:        true
+tracksRegLiveness: true
+tracksDebugUserValues: true
+frameInfo:
+  maxAlignment:    2
+  localFrameSize:  512
+fixedStack:
+  - { id: 0, offset: 3, size: 2, alignment: 1, isImmutable: true }
+  - { id: 1, size: 3, alignment: 1, isImmutable: true }
+stack:
+  - { id: 0, name: pad, size: 512, alignment: 2, local-offset: -512 }
+  - { id: 1, type: spill-slot, size: 3, alignment: 1 }
+  - { id: 2, type: spill-slot, size: 2, alignment: 1 }
+machineFunctionInfo: {}
+body:             |
+  bb.0.entry:
+    $uhl = LD24ro %fixed-stack.1, 0 :: (invariant load (p0) from %fixed-stack.1, align 1)
+    LD24or %stack.1, 0, killed $uhl
+    $uhl = LD24ro %fixed-stack.0, 0 :: (invariant load (s16) from %fixed-stack.0, align 1)
+    $iy = LD16ri 36
+    $ude = LEA24ro %stack.0.pad, 0
+    LD24mr @gp, killed $ude :: (store (p0) into @gp, align 1, !tbaa !2)
+    $ubc = LD24r0 implicit-def dead $f
+    $bc = COPY $hl, implicit killed $uhl, implicit killed $ubc, implicit-def $ubc
+    JQ %bb.1
+
+  bb.1.for.cond:
+    successors: %bb.2, %bb.3
+    liveins: $iy, $ubc
+
+    Cmp24a0 $ubc, implicit-def $f, implicit-def dead $uhl
+    JQCC %bb.3, 0, implicit killed $f
+    JQ %bb.2
+
+  bb.2.for.cond.cleanup:
+    $uhl = LD24ri @sink
+    $de = LD88rp killed $uhl :: (volatile dereferenceable load (s16) from @sink, !tbaa !6)
+    $hl = LD88ro %stack.0.pad, 502 :: (volatile dereferenceable load (s16) from %ir.arrayidx14, !tbaa !6)
+    $hl = ADD16ao killed $hl, killed $de, implicit-def dead $f
+    RET24 implicit-def $spl, implicit $spl, implicit $hl
+
+  bb.3.for.body:
+    liveins: $iy, $ubc
+
+    LD88or %stack.0.pad, 506, $iy :: (volatile store (s16) into %ir.sunkaddr, !tbaa !6)
+    $de = LD88ro %stack.0.pad, 504 :: (volatile dereferenceable load (s16) from %ir.sunkaddr4, !tbaa !6)
+    LD88or %stack.2, 0, killed $iy
+    $uhl = LD24ro %stack.1, 0
+    $uiy = LD24rp killed $uhl :: (load (s16) from %ir.lsr.iv, !tbaa !6)
+    $uhl = COPY killed $uiy
+    $hl = ADD16ao $hl, killed $de, implicit-def dead $f, implicit killed $uhl, implicit-def $uhl
+    $uiy = LD24ri @sink
+    $de = LD88rp killed $uiy :: (volatile dereferenceable load (s16) from @sink, !tbaa !6)
+    $hl = ADD16ao $hl, killed $de, implicit-def dead $f, implicit killed $uhl, implicit-def $uhl
+    $ude = COPY killed $uhl
+    $uhl = LD24ri @sink
+    LD88pr killed $uhl, $de, implicit killed $ude :: (volatile store (s16) into @sink, !tbaa !6)
+    $uiy = LD24ro %stack.1, 0
+    $uiy = LEA24ro killed $uiy, 2
+    LD24or %stack.1, 0, killed $uiy
+    $iy = LD88ro %stack.2, 0
+    $iy = INC16r killed $iy
+    $ubc = DEC24r killed $ubc
+    JQ %bb.1
+
+...
+
+# CHECK:      bb.3.for.body:
+# CHECK-NEXT:   successors: %bb.1(0x80000000)
+# CHECK-NEXT:   liveins: $iy, $ubc
+# CHECK:        PUSH24r $uix, implicit-def $spl, implicit $spl
+# CHECK-NEXT:   PUSH24r $ude, implicit-def $spl, implicit $spl
+# CHECK-NEXT:   $ude = LD24ri -524
+# CHECK-NEXT:   $uix = ADD24ao $uix, killed $ude, implicit-def dead $f
+# CHECK-NEXT:   $ude = POP24r implicit-def $spl, implicit $spl
+# CHECK-NEXT:   LD88or $uix, -128, killed $iy
+# CHECK-NEXT:   $uix = POP24r implicit-def $spl, implicit $spl
+# CHECK:        $uiy = LEA24ro $uix, 0
+# CHECK-NEXT:   PUSH24r $ude, implicit-def $spl, implicit $spl
+# CHECK-NEXT:   $ude = LD24ri -522
+# CHECK-NEXT:   $uiy = ADD24ao $uiy, killed $ude, implicit-def dead $f
+# CHECK-NEXT:   $ude = POP24r implicit-def $spl, implicit $spl
+# CHECK-NEXT:   $uhl = LD24ro $uiy, 0

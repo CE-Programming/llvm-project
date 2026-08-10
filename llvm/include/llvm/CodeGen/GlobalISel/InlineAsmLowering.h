@@ -44,9 +44,9 @@ public:
   /// \p Constraint is the user supplied constraint string
   /// \p Ops is the vector to be filled with the lowered operands
   /// \return True if the lowering succeeds, false otherwise.
-  virtual bool lowerAsmOperandForConstraint(Value *Val, StringRef Constraint,
-                                            std::vector<MachineOperand> &Ops,
-                                            MachineIRBuilder &MIRBuilder) const;
+  virtual bool lowerAsmOperandForConstraint(
+      Value *Val, StringRef Constraint, std::vector<MachineOperand> &Ops,
+      MachineIRBuilder &MIRBuilder) const;
 
 protected:
   /// Getter for generic TargetLowering class.

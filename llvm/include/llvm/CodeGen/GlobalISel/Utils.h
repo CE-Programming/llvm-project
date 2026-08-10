@@ -238,14 +238,16 @@ struct DefinitionAndSourceRegister {
 ///
 /// Also walks through hints such as G_ASSERT_ZEXT.
 LLVM_ABI std::optional<DefinitionAndSourceRegister>
-getDefSrcRegIgnoringCopies(Register Reg, const MachineRegisterInfo &MRI);
+getDefSrcRegIgnoringCopies(Register Reg, const MachineRegisterInfo &MRI,
+                           bool HasOneNonDBGUse = false);
 
 /// Find the def instruction for \p Reg, folding away any trivial copies. May
 /// return nullptr if \p Reg is not a generic virtual register.
 ///
 /// Also walks through hints such as G_ASSERT_ZEXT.
-LLVM_ABI MachineInstr *getDefIgnoringCopies(Register Reg,
-                                            const MachineRegisterInfo &MRI);
+LLVM_ABI MachineInstr *getDefIgnoringCopies(
+    Register Reg, const MachineRegisterInfo &MRI,
+    bool HasOneNonDBGUse = false);
 
 /// Find the source register for \p Reg, folding away any trivial copies. It
 /// will be an output register of the instruction that getDefIgnoringCopies
@@ -253,8 +255,9 @@ LLVM_ABI MachineInstr *getDefIgnoringCopies(Register Reg,
 /// register.
 ///
 /// Also walks through hints such as G_ASSERT_ZEXT.
-LLVM_ABI Register getSrcRegIgnoringCopies(Register Reg,
-                                          const MachineRegisterInfo &MRI);
+LLVM_ABI Register getSrcRegIgnoringCopies(
+    Register Reg, const MachineRegisterInfo &MRI,
+    bool HasOneNonDBGUse = false);
 
 /// Helper function to split a wide generic register into bitwise blocks with
 /// the given Type (which implies the number of blocks needed). The generic

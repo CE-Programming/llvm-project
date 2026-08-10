@@ -77,6 +77,7 @@ void MCELFStreamer::emitLabelAtPos(MCSymbol *S, SMLoc Loc, MCFragment &F,
     Symbol->setType(ELF::STT_TLS);
 }
 
+
 void MCELFStreamer::changeSection(MCSection *Section, uint32_t Subsection) {
   MCAssembler &Asm = getAssembler();
   auto *SectionELF = static_cast<const MCSectionELF *>(Section);

@@ -272,8 +272,9 @@ public:
     ZR,
     ZS,
     ZT,
+    V,
 
-    Max = ZT,
+    Max = V,
   };
 
   // This class is intentionally packed into a 32b value as it is used as a
@@ -484,6 +485,8 @@ public:
       return "o";
     case ConstraintCode::v:
       return "v";
+    case ConstraintCode::V:
+      return "V";
     case ConstraintCode::A:
       return "A";
     case ConstraintCode::Q:

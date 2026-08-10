@@ -78,6 +78,7 @@ def i2      : VTInt<2>;   // 2-bit integer value
 def i4      : VTInt<4>;   // 4-bit integer value
 def i8      : VTInt<8>;   // 8-bit integer value
 def i16     : VTInt<16>;  // 16-bit integer value
+def i24     : VTInt<24>;  // 24-bit integer value
 def i32     : VTInt<32>;  // 32-bit integer value
 def i64     : VTInt<64>;  // 64-bit integer value
 def i128    : VTInt<128>; // 128-bit integer value

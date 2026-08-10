@@ -52,6 +52,7 @@ enum MCSymbolAttr {
   MCSA_XPLinkage,               ///< symbol uses XP linkage (GOFF)
 };
 
+
 enum MCDataRegionType {
   MCDR_DataRegion,            ///< .data_region
   MCDR_DataRegionJT8,         ///< .data_region jt8

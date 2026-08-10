@@ -166,6 +166,7 @@ void MCWinCOFFStreamer::emitLabel(MCSymbol *S, SMLoc Loc) {
   MCObjectStreamer::emitLabel(Symbol, Loc);
 }
 
+
 bool MCWinCOFFStreamer::emitSymbolAttribute(MCSymbol *S,
                                             MCSymbolAttr Attribute) {
   auto *Symbol = static_cast<MCSymbolCOFF *>(S);

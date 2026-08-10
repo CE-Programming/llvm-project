@@ -22,6 +22,8 @@ static StringRef getManglingComponent(const Triple &T) {
     return T.getArch() == Triple::x86 ? "-m:x" : "-m:w";
   if (T.isOSBinFormatXCOFF())
     return "-m:a";
+  if (T.isZ80())
+    return "-m:z";
   return "-m:e";
 }
 
@@ -538,6 +540,23 @@ static std::string computeVEDataLayout(const Triple &T) {
   return Ret;
 }
 
+static std::string computeZ80DataLayout(const Triple &T) {
+  const bool IsEZ80 = T.getArch() == Triple::ez80;
+  const bool Is16Bit = T.isArch16Bit() || T.getEnvironment() == Triple::CODE16;
+  std::string Ret = "e";
+  Ret += getManglingComponent(T);
+  Ret += Is16Bit ? "-p:16:8" : "-p:24:8";
+  if (IsEZ80)
+    Ret += Is16Bit ? "-p1:24:8" : "-p1:16:8";
+  Ret += "-p2:8:8-p3:16:8";
+  if (IsEZ80)
+    Ret += "-p4:24:8";
+  Ret += "-i16:8-i24:8-i32:8-i48:8-i64:8-i96:8-f32:8-f64:8-a:8-n8:16";
+  if (!Is16Bit)
+    Ret += ":24";
+  return Ret + "-S8";
+}
+
 std::string Triple::computeDataLayout(StringRef ABIName) const {
   switch (getArch()) {
   case Triple::arm:
@@ -609,6 +628,9 @@ std::string Triple::computeDataLayout(StringRef ABIName) const {
     return "e-m:e-p:32:32-i1:8:32-i8:8:32-i16:16:32-i64:32-f64:32-a:0:32-n32";
   case Triple::xtensa:
     return "e-m:e-p:32:32-i8:8:32-i16:16:32-i64:64-n32";
+  case Triple::z80:
+  case Triple::ez80:
+    return computeZ80DataLayout(*this);
   case Triple::nvptx:
   case Triple::nvptx64:
     return computeNVPTXDataLayout(*this, ABIName);

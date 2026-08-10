@@ -673,6 +673,8 @@ public:
   }
 
   virtual bool hasMustTail() const { return HasMustTail; }
+  /// Determine whether the __int48 type is supported on this target.
+  virtual bool hasInt48Type() const { return false; }
 
   /// Determine whether the __int128 type is supported on this target.
   virtual bool hasInt128Type() const {

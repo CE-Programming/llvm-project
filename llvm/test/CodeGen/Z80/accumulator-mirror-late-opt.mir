@@ -1,0 +1,40 @@
+# RUN: llc -mtriple=ez80 -run-pass=z80-machine-late-opt -o - %s | FileCheck %s
+
+--- |
+  define void @mirror_live_after_copy() { ret void }
+  define void @mirror_dead_after_copy() { ret void }
+...
+
+---
+# CHECK-LABEL: name:            mirror_live_after_copy
+# CHECK:       $l = ADD8_gisel $h, killed $l, implicit-def $a, implicit-def dead $f
+# CHECK-NEXT:  CP8ai 5
+# CHECK-NEXT:  $e = COPY killed $l
+name: mirror_live_after_copy
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $h
+    $l = LD8ri -91
+    $l = ADD8_gisel $h, killed $l, implicit-def dead $a, implicit-def dead $f
+    $a = COPY $l
+    CP8ai 5, implicit-def $f, implicit $a
+    $e = COPY killed $l
+    RET24 implicit-def $spl, implicit $spl
+...
+
+---
+# CHECK-LABEL: name:            mirror_dead_after_copy
+# CHECK:       dead $l = ADD8_gisel $h, killed $l, implicit-def $a, implicit-def dead $f
+# CHECK-NEXT:  CP8ai 5
+name: mirror_dead_after_copy
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $h
+    $l = LD8ri -91
+    $l = ADD8_gisel $h, killed $l, implicit-def dead $a, implicit-def dead $f
+    $a = COPY killed $l
+    CP8ai 5, implicit-def $f, implicit $a
+    RET24 implicit-def $spl, implicit $spl
+...

@@ -47,10 +47,12 @@ Register llvm::constrainRegToClass(MachineRegisterInfo &MRI,
                                    const TargetInstrInfo &TII,
                                    const RegisterBankInfo &RBI, Register Reg,
                                    const TargetRegisterClass &RegClass) {
-  if (!RBI.constrainGenericRegister(Reg, RegClass, MRI))
-    return MRI.createVirtualRegister(&RegClass);
+  if (RBI.constrainGenericRegister(Reg, RegClass, MRI))
+    return Reg;
 
-  return Reg;
+  Register NewReg = MRI.createVirtualRegister(&RegClass);
+  MRI.setType(NewReg, MRI.getType(Reg));
+  return NewReg;
 }
 
 Register llvm::constrainOperandRegClass(
@@ -105,6 +107,24 @@ Register llvm::constrainOperandRegClass(
   return ConstrainedReg;
 }
 
+static const TargetRegisterClass *
+getMatchingSuperRegClass(unsigned MinWidth, const TargetRegisterClass *RC,
+                         unsigned Idx, const TargetRegisterInfo &TRI) {
+  assert(RC && "Missing register class");
+  assert(Idx && "Bad sub-register index");
+  for (SuperRegClassIterator RCI(RC, &TRI, true); RCI.isValid(); ++RCI) {
+    if (RCI.getSubReg() != Idx)
+      continue;
+    for (BitMaskClassIterator MCI(RCI.getMask(), TRI); MCI.isValid(); ++MCI) {
+      const TargetRegisterClass *SuperRC = TRI.getRegClass(MCI.getID());
+      if (TRI.getRegSizeInBits(*SuperRC) >= MinWidth)
+        return SuperRC;
+    }
+    break;
+  }
+  return nullptr;
+}
+
 Register llvm::constrainOperandRegClass(
     const MachineFunction &MF, const TargetRegisterInfo &TRI,
     MachineRegisterInfo &MRI, const TargetInstrInfo &TII,
@@ -148,6 +168,16 @@ Register llvm::constrainOperandRegClass(
     // and they never reach this function.
     return Reg;
   }
+
+  if (unsigned SubReg = RegMO.getSubReg()) {
+    if (auto *OldRegRC = MRI.getRegClassOrNull(Reg))
+      OpRC = TRI.getMatchingSuperRegClass(OldRegRC, OpRC, SubReg);
+    else
+      OpRC = getMatchingSuperRegClass(MRI.getType(Reg).getSizeInBits(), OpRC,
+                                      SubReg, TRI);
+    assert(OpRC && "Failed to find a superclass of subreg operand constraint");
+  }
+
   return constrainOperandRegClass(MF, TRI, MRI, TII, RBI, InsertPt, *OpRC,
                                   RegMO);
 }
@@ -467,7 +497,12 @@ llvm::getConstantFPVRegVal(Register VReg, const MachineRegisterInfo &MRI) {
 }
 
 std::optional<DefinitionAndSourceRegister>
-llvm::getDefSrcRegIgnoringCopies(Register Reg, const MachineRegisterInfo &MRI) {
+llvm::getDefSrcRegIgnoringCopies(Register Reg, const MachineRegisterInfo &MRI,
+                                 bool HasOneNonDBGUse) {
+  if (HasOneNonDBGUse && !MRI.hasOneNonDBGUse(Reg))
+    return std::nullopt;
+  if (!Reg.isVirtual() || !MRI.hasOneDef(Reg))
+    return std::nullopt;
   Register DefSrcReg = Reg;
   // This assumes that the code is in SSA form, so there should only be one
   // definition.
@@ -482,8 +517,10 @@ llvm::getDefSrcRegIgnoringCopies(Register Reg, const MachineRegisterInfo &MRI) {
   unsigned Opc = DefMI->getOpcode();
   while (Opc == TargetOpcode::COPY || isPreISelGenericOptimizationHint(Opc)) {
     Register SrcReg = DefMI->getOperand(1).getReg();
+    if (HasOneNonDBGUse && !MRI.hasOneNonDBGUse(SrcReg))
+      break;
     auto SrcTy = MRI.getType(SrcReg);
-    if (!SrcTy.isValid())
+    if (!SrcTy.isValid() || !SrcReg.isVirtual() || !MRI.hasOneDef(SrcReg))
       break;
     DefMI = MRI.getVRegDef(SrcReg);
     DefSrcReg = SrcReg;
@@ -493,16 +530,18 @@ llvm::getDefSrcRegIgnoringCopies(Register Reg, const MachineRegisterInfo &MRI) {
 }
 
 MachineInstr *llvm::getDefIgnoringCopies(Register Reg,
-                                         const MachineRegisterInfo &MRI) {
+                                         const MachineRegisterInfo &MRI,
+                                         bool HasOneNonDBGUse) {
   std::optional<DefinitionAndSourceRegister> DefSrcReg =
-      getDefSrcRegIgnoringCopies(Reg, MRI);
+      getDefSrcRegIgnoringCopies(Reg, MRI, HasOneNonDBGUse);
   return DefSrcReg ? DefSrcReg->MI : nullptr;
 }
 
 Register llvm::getSrcRegIgnoringCopies(Register Reg,
-                                       const MachineRegisterInfo &MRI) {
+                                       const MachineRegisterInfo &MRI,
+                                       bool HasOneNonDBGUse) {
   std::optional<DefinitionAndSourceRegister> DefSrcReg =
-      getDefSrcRegIgnoringCopies(Reg, MRI);
+      getDefSrcRegIgnoringCopies(Reg, MRI, HasOneNonDBGUse);
   return DefSrcReg ? DefSrcReg->Reg : Register();
 }
 
@@ -710,19 +749,19 @@ std::optional<APInt> llvm::ConstantFoldBinOp(unsigned Opcode,
   case TargetOpcode::G_XOR:
     return C1 ^ C2;
   case TargetOpcode::G_UDIV:
-    if (!C2.getBoolValue())
+    if (C2.isZero())
       break;
     return C1.udiv(C2);
   case TargetOpcode::G_SDIV:
-    if (!C2.getBoolValue())
+    if (C2.isZero())
       break;
     return C1.sdiv(C2);
   case TargetOpcode::G_UREM:
-    if (!C2.getBoolValue())
+    if (C2.isZero())
       break;
     return C1.urem(C2);
   case TargetOpcode::G_SREM:
-    if (!C2.getBoolValue())
+    if (C2.isZero())
       break;
     return C1.srem(C2);
   case TargetOpcode::G_SMIN:

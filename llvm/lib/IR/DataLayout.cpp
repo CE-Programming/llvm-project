@@ -174,6 +174,7 @@ struct LessPointerAddrSpace {
 };
 } // namespace
 
+
 // Default primitive type specifications.
 // NOTE: These arrays must be sorted by type bit width.
 constexpr DataLayout::PrimitiveSpec DefaultIntSpecs[] = {
@@ -654,6 +655,9 @@ Error DataLayout::parseSpecification(
       break;
     case 'a':
       ManglingMode = MM_XCOFF;
+      break;
+    case 'z':
+      ManglingMode = MM_Z80;
       break;
     }
     break;

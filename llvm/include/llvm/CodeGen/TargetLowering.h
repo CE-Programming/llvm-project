@@ -54,6 +54,7 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/KnownFPClass.h"
+#include "llvm/Support/MathExtras.h"
 #include <algorithm>
 #include <cassert>
 #include <climits>
@@ -2073,7 +2074,10 @@ public:
   /// example, on X86 targets without SSE2 f64 load / store are done with fldl /
   /// fstpl which also does type conversion. Note the specified type doesn't
   /// have to be legal as the hook is used before type legalization.
-  virtual bool isSafeMemOpType(MVT /*VT*/) const { return true; }
+  virtual bool isSafeMemOpType(MVT VT) const {
+    TypeSize Size = VT.getSizeInBits();
+    return Size.isScalable() ? false : isPowerOf2_64(Size.getFixedValue());
+  }
 
   /// Return lower limit for number of blocks in a jump table.
   virtual unsigned getMinimumJumpTableEntries() const;
@@ -4595,6 +4599,15 @@ public:
   /// BIC on ARM/AArch64). By default, it returns true.
   virtual bool isDesirableToCommuteXorWithShift(const SDNode *N) const {
     return true;
+  }
+
+  /// Return true if the target has native support for the specified value type
+  /// and it is desirable to use the type for the given generic opcode.
+  /// On x86 i16 is legal, but undesirable since i16 instruction encodings are
+  /// longer and some i16 instructions are slow
+  virtual bool isTypeDesirableForGOp(unsigned /*Opc*/, LLT Ty) const {
+    // By default, assume all legal types are desirable.
+    return isTypeLegal(getMVTForLLT(Ty));
   }
 
   /// Return true if the target has native support for the specified value type

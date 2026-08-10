@@ -1050,6 +1050,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   if (LangOpts.FastMath)
     Builder.defineMacro("__FAST_MATH__");
 
+
   // Initialize target-specific preprocessor defines.
 
   // __BYTE_ORDER__ was added in GCC 4.6. It's analogous
@@ -1110,6 +1111,8 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   DefineTypeSize("__INT_MAX__", TargetInfo::SignedInt, TI, Builder);
   DefineTypeSize("__LONG_MAX__", TargetInfo::SignedLong, TI, Builder);
   DefineTypeSize("__LONG_LONG_MAX__", TargetInfo::SignedLongLong, TI, Builder);
+
+
   DefineTypeSizeAndWidth("__WCHAR", TI.getWCharType(), TI, Builder);
   DefineTypeSizeAndWidth("__WINT", TI.getWIntType(), TI, Builder);
   DefineTypeSizeAndWidth("__INTMAX", TI.getIntMaxType(), TI, Builder);
@@ -1139,6 +1142,8 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
                    TI.getTypeWidth(TI.getWCharType()), TI, Builder);
   DefineTypeSizeof("__SIZEOF_WINT_T__",
                    TI.getTypeWidth(TI.getWIntType()), TI, Builder);
+  if (TI.hasInt48Type())
+    DefineTypeSizeof("__SIZEOF_INT48__", 48, TI, Builder);
   if (TI.hasInt128Type())
     DefineTypeSizeof("__SIZEOF_INT128__", 128, TI, Builder);
 
@@ -1484,6 +1489,11 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
 
     if (TI.getTriple().isSPIR() || TI.getTriple().isSPIRV())
       Builder.defineMacro("__IMAGE_SUPPORT__");
+  }
+
+  if (TI.hasInt48Type() && LangOpts.CPlusPlus && LangOpts.GNUMode) {
+    Builder.defineMacro("__GLIBCXX_TYPE_INT_N_0", "__int48");
+    Builder.defineMacro("__GLIBCXX_BITSIZE_INT_N_0", "48");
   }
 
   if (TI.hasInt128Type() && LangOpts.CPlusPlus && LangOpts.GNUMode) {

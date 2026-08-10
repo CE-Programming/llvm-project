@@ -83,6 +83,12 @@ enum PredefinedDeclIDs {
 #define BuiltinTemplate(BTName) PREDEF_DECL##BTName##_ID,
 #include "clang/Basic/BuiltinTemplates.inc"
 
+  /// The signed 48-bit integer type.
+  PREDEF_DECL_INT_48_ID,
+
+  /// The unsigned 48-bit integer type.
+  PREDEF_DECL_UNSIGNED_INT_48_ID,
+
   /// The number of declaration IDs that are predefined.
   NUM_PREDEF_DECL_IDS
 };
