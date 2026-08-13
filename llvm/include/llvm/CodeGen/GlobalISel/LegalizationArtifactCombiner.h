@@ -1635,31 +1635,40 @@ public:
         // intervals are disjoint, extract from insert source instead
         Builder.buildExtract(DstReg, InsertSrcReg, ExtractOffset);
       else if (InsertOffset >= ExtractOffset &&
-               InsertOffset + InsertSize <= ExtractOffset + ExtractSize)
+               InsertOffset + InsertSize <= ExtractOffset + ExtractSize) {
         // insert interval subset of extract interval
         // insert into extract from insert source instead
-        Builder.buildInsert(
-            DstReg,
-            Builder.buildExtract(ExtractTy, InsertSrcReg, ExtractOffset),
-            InsertReg, InsertOffset - ExtractOffset);
-      else if (InsertOffset < ExtractOffset)
+        Register ExtractSrc =
+            Builder.buildExtract(ExtractTy, InsertSrcReg, ExtractOffset)
+                .getReg(0);
+        Builder.buildInsert(DstReg, ExtractSrc, InsertReg,
+                            InsertOffset - ExtractOffset);
+      } else if (InsertOffset < ExtractOffset) {
         // top of insert interval intersects bottom of extract interval
-        Builder.buildInsert(
-            DstReg,
-            Builder.buildExtract(ExtractTy, InsertSrcReg, ExtractOffset),
-            Builder.buildExtract(
-                LLT::scalar(InsertOffset + InsertSize - ExtractOffset),
-                InsertReg, ExtractOffset - InsertOffset),
-            0);
-      else
+        Register ExtractSrc =
+            Builder.buildExtract(ExtractTy, InsertSrcReg, ExtractOffset)
+                .getReg(0);
+        Register ExtractInsert =
+            Builder
+                .buildExtract(
+                    LLT::scalar(InsertOffset + InsertSize - ExtractOffset),
+                    InsertReg, ExtractOffset - InsertOffset)
+                .getReg(0);
+        Builder.buildInsert(DstReg, ExtractSrc, ExtractInsert, 0);
+      } else {
         // bottom of insert interval intersects top of extract interval
-        Builder.buildInsert(
-            DstReg,
-            Builder.buildExtract(ExtractTy, InsertSrcReg, ExtractOffset),
-            Builder.buildExtract(
-                LLT::scalar(ExtractOffset + ExtractSize - InsertOffset),
-                InsertReg, 0),
-            InsertOffset - ExtractOffset);
+        Register ExtractSrc =
+            Builder.buildExtract(ExtractTy, InsertSrcReg, ExtractOffset)
+                .getReg(0);
+        Register ExtractInsert =
+            Builder
+                .buildExtract(
+                    LLT::scalar(ExtractOffset + ExtractSize - InsertOffset),
+                    InsertReg, 0)
+                .getReg(0);
+        Builder.buildInsert(DstReg, ExtractSrc, ExtractInsert,
+                            InsertOffset - ExtractOffset);
+      }
       break;
     }
     case TargetOpcode::G_MERGE_VALUES:

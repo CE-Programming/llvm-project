@@ -1347,39 +1347,37 @@ Z80LegalizerInfo::legalizeFixedMultiply(LegalizerHelper &Helper,
   if (Shift >= WideSize)
     return LegalizerHelper::UnableToLegalize;
 
+  Register WideLHS =
+      MIRBuilder.buildInstr(Signed ? G_SEXT : G_ZEXT, {WideTy}, {LHSReg})
+          .getReg(0);
+  Register WideRHS =
+      MIRBuilder.buildInstr(Signed ? G_SEXT : G_ZEXT, {WideTy}, {RHSReg})
+          .getReg(0);
+  Register Product = MIRBuilder.buildMul(WideTy, WideLHS, WideRHS).getReg(0);
+  Register ShiftReg = MIRBuilder.buildConstant(WideTy, Shift).getReg(0);
   Register WideDstReg =
       MIRBuilder
-          .buildInstr(Signed ? G_ASHR : G_LSHR, {WideTy},
-                      {MIRBuilder.buildMul(
-                           WideTy,
-                           MIRBuilder.buildInstr(Signed ? G_SEXT : G_ZEXT,
-                                                 {WideTy}, {LHSReg}),
-                           MIRBuilder.buildInstr(Signed ? G_SEXT : G_ZEXT,
-                                                 {WideTy}, {RHSReg})),
-                       MIRBuilder.buildConstant(WideTy, Shift)})
+          .buildInstr(Signed ? G_ASHR : G_LSHR, {WideTy}, {Product, ShiftReg})
           .getReg(0);
   if (Sat) {
     unsigned MinOpc;
     APInt Max;
     if (Signed) {
-      WideDstReg =
+      Register Min =
           MIRBuilder
-              .buildSMax(
-                  WideTy, WideDstReg,
-                  MIRBuilder.buildConstant(
-                      WideTy, APInt::getSignedMinValue(OpSize).sext(WideSize)))
+              .buildConstant(WideTy,
+                             APInt::getSignedMinValue(OpSize).sext(WideSize))
               .getReg(0);
+      WideDstReg = MIRBuilder.buildSMax(WideTy, WideDstReg, Min).getReg(0);
       MinOpc = G_SMIN;
       Max = APInt::getSignedMaxValue(OpSize).sext(WideSize);
     } else {
       MinOpc = G_UMIN;
       Max = APInt::getMaxValue(OpSize).zext(WideSize);
     }
+    Register MaxReg = MIRBuilder.buildConstant(WideTy, Max).getReg(0);
     WideDstReg =
-        MIRBuilder
-            .buildInstr(MinOpc, {WideTy},
-                        {WideDstReg, MIRBuilder.buildConstant(WideTy, Max)})
-            .getReg(0);
+        MIRBuilder.buildInstr(MinOpc, {WideTy}, {WideDstReg, MaxReg}).getReg(0);
   }
   MIRBuilder.buildTrunc(DstReg, WideDstReg);
 
@@ -1412,44 +1410,52 @@ Z80LegalizerInfo::legalizeFixedDivide(LegalizerHelper &Helper,
     auto DivRemI = MIRBuilder.buildInstr(Signed ? G_SDIVREM : G_UDIVREM,
                                          {OpTy, OpTy}, {LHSReg, RHSReg});
     Register PosReg = DivRemI.getReg(1);
-    if (Signed)
-      PosReg = MIRBuilder
-                   .buildXor(OpTy, PosReg,
-                             MIRBuilder.buildAShr(
-                                 OpTy, PosReg,
-                                 MIRBuilder.buildConstant(OpTy, OpSize - 1)))
-                   .getReg(0);
-    Register ScaleReg =
+    if (Signed) {
+      Register SignShift = MIRBuilder.buildConstant(OpTy, OpSize - 1).getReg(0);
+      Register SignMask =
+          MIRBuilder.buildAShr(OpTy, PosReg, SignShift).getReg(0);
+      PosReg = MIRBuilder.buildXor(OpTy, PosReg, SignMask).getReg(0);
+    }
+    Register Threshold =
         MIRBuilder
-            .buildSelect(
-                OpTy,
-                MIRBuilder.buildICmp(
-                    CmpInst::ICMP_ULT, LLT::scalar(1), PosReg,
-                    MIRBuilder.buildConstant(
-                        OpTy, APInt::getOneBitSet(OpSize, Shift - Signed))),
-                MIRBuilder.buildConstant(OpTy, Shift - Signed),
-                MIRBuilder.buildAdd(
-                    OpTy,
-                    MIRBuilder.buildInstr(G_CTLZ_ZERO_UNDEF, {OpTy}, {PosReg}),
-                    MIRBuilder.buildConstant(OpTy, -Signed)))
+            .buildConstant(OpTy, APInt::getOneBitSet(OpSize, Shift - Signed))
             .getReg(0);
+    Register IsSmall =
+        MIRBuilder
+            .buildICmp(CmpInst::ICMP_ULT, LLT::scalar(1), PosReg, Threshold)
+            .getReg(0);
+    Register SmallScale =
+        MIRBuilder.buildConstant(OpTy, Shift - Signed).getReg(0);
+    Register LeadingZeros =
+        MIRBuilder.buildInstr(G_CTLZ_ZERO_UNDEF, {OpTy}, {PosReg}).getReg(0);
+    Register ScaleBias = MIRBuilder.buildConstant(OpTy, -Signed).getReg(0);
+    Register LargeScale =
+        MIRBuilder.buildAdd(OpTy, LeadingZeros, ScaleBias).getReg(0);
+    Register ScaleReg =
+        MIRBuilder.buildSelect(OpTy, IsSmall, SmallScale, LargeScale).getReg(0);
     Register ShiftReg = MIRBuilder.buildConstant(OpTy, Shift).getReg(0);
     Register InvScaleReg =
         MIRBuilder.buildSub(OpTy, ShiftReg, ScaleReg).getReg(0);
     Register OneReg = MIRBuilder.buildConstant(OpTy, 1).getReg(0);
-    MIRBuilder.buildAdd(
-        DstReg, MIRBuilder.buildShl(OpTy, DivRemI.getReg(0), ShiftReg),
-        MIRBuilder.buildInstr(
-            Signed ? G_ASHR : G_LSHR, {OpTy},
-            {MIRBuilder.buildInstr(
-                 Signed ? G_SDIV : G_UDIV, {OpTy},
-                 {MIRBuilder.buildShl(OpTy, DivRemI.getReg(1), ScaleReg),
-                  MIRBuilder.buildAdd(
-                      OpTy, RHSReg,
-                      MIRBuilder.buildLShr(
-                          OpTy, MIRBuilder.buildShl(OpTy, OneReg, InvScaleReg),
-                          OneReg))}),
-             InvScaleReg}));
+    Register ScaledQuotient =
+        MIRBuilder.buildShl(OpTy, DivRemI.getReg(0), ShiftReg).getReg(0);
+    Register ScaledRemainder =
+        MIRBuilder.buildShl(OpTy, DivRemI.getReg(1), ScaleReg).getReg(0);
+    Register RoundingBit =
+        MIRBuilder.buildShl(OpTy, OneReg, InvScaleReg).getReg(0);
+    Register Rounding =
+        MIRBuilder.buildLShr(OpTy, RoundingBit, OneReg).getReg(0);
+    Register AdjustedRHS =
+        MIRBuilder.buildAdd(OpTy, RHSReg, Rounding).getReg(0);
+    Register Quotient = MIRBuilder
+                            .buildInstr(Signed ? G_SDIV : G_UDIV, {OpTy},
+                                        {ScaledRemainder, AdjustedRHS})
+                            .getReg(0);
+    Register Correction = MIRBuilder
+                              .buildInstr(Signed ? G_ASHR : G_LSHR, {OpTy},
+                                          {Quotient, InvScaleReg})
+                              .getReg(0);
+    MIRBuilder.buildAdd(DstReg, ScaledQuotient, Correction);
     MI.eraseFromParent();
     return LegalizerHelper::Legalized;
   }
@@ -1457,39 +1463,38 @@ Z80LegalizerInfo::legalizeFixedDivide(LegalizerHelper &Helper,
   if (Shift >= WideSize)
     return LegalizerHelper::UnableToLegalize;
 
+  Register WideLHS =
+      MIRBuilder.buildInstr(Signed ? G_SEXT : G_ZEXT, {WideTy}, {LHSReg})
+          .getReg(0);
+  Register ShiftReg = MIRBuilder.buildConstant(WideTy, Shift).getReg(0);
+  Register ShiftedLHS =
+      MIRBuilder.buildShl(WideTy, WideLHS, ShiftReg).getReg(0);
+  Register WideRHS =
+      MIRBuilder.buildInstr(Signed ? G_SEXT : G_ZEXT, {WideTy}, {RHSReg})
+          .getReg(0);
   Register WideDstReg =
       MIRBuilder
-          .buildInstr(Signed ? G_SDIV : G_UDIV, {WideTy},
-                      {MIRBuilder.buildShl(
-                           WideTy,
-                           MIRBuilder.buildInstr(Signed ? G_SEXT : G_ZEXT,
-                                                 {WideTy}, {LHSReg}),
-                           MIRBuilder.buildConstant(WideTy, Shift)),
-                       MIRBuilder.buildInstr(Signed ? G_SEXT : G_ZEXT, {WideTy},
-                                             {RHSReg})})
+          .buildInstr(Signed ? G_SDIV : G_UDIV, {WideTy}, {ShiftedLHS, WideRHS})
           .getReg(0);
   if (Sat) {
     unsigned MinOpc;
     APInt Max;
     if (Signed) {
-      WideDstReg =
+      Register Min =
           MIRBuilder
-              .buildSMax(
-                  WideTy, WideDstReg,
-                  MIRBuilder.buildConstant(
-                      WideTy, APInt::getSignedMinValue(OpSize).sext(WideSize)))
+              .buildConstant(WideTy,
+                             APInt::getSignedMinValue(OpSize).sext(WideSize))
               .getReg(0);
+      WideDstReg = MIRBuilder.buildSMax(WideTy, WideDstReg, Min).getReg(0);
       MinOpc = G_SMIN;
       Max = APInt::getSignedMaxValue(OpSize).sext(WideSize);
     } else {
       MinOpc = G_UMIN;
       Max = APInt::getMaxValue(OpSize).zext(WideSize);
     }
+    Register MaxReg = MIRBuilder.buildConstant(WideTy, Max).getReg(0);
     WideDstReg =
-        MIRBuilder
-            .buildInstr(MinOpc, {WideTy},
-                        {WideDstReg, MIRBuilder.buildConstant(WideTy, Max)})
-            .getReg(0);
+        MIRBuilder.buildInstr(MinOpc, {WideTy}, {WideDstReg, MaxReg}).getReg(0);
   }
   MIRBuilder.buildTrunc(DstReg, WideDstReg);
 
