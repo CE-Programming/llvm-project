@@ -63,7 +63,7 @@ static MCInstrInfo *createZ80MCInstrInfo() {
 
 static MCRegisterInfo *createZ80MCRegisterInfo(const Triple &TT) {
   MCRegisterInfo *X = new MCRegisterInfo;
-  InitZ80MCRegisterInfo(X, 0, 0, 0, Z80::PC);
+  InitZ80MCRegisterInfo(X, Z80::PC, 0, 0, Z80::PC);
   return X;
 }
 

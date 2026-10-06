@@ -83,7 +83,7 @@ define void @frame_spill() nounwind {
 ; CHECK-NEXT:    add hl, bc
 ; CHECK-NEXT:    or a, a
 ; CHECK-NEXT:    sbc hl, bc
-; CHECK-NEXT:    jp nz, BB0_2
+; CHECK-NEXT:    jr nz, BB0_2
 ; CHECK-NEXT:    private BB0_3
 ; CHECK-NEXT:  BB0_3: ; %exit
 ; CHECK-NEXT:    ld sp, ix

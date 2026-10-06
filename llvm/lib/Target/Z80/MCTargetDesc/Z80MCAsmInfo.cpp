@@ -39,6 +39,11 @@ Z80MCAsmInfoELF::Z80MCAsmInfoELF(const Triple &T) {
   HasIdentDirective = Z80GasStyle;
 
   if (Z80GasStyle) {
+    // Emit CFI for debugging independently of runtime exception handling.
+    // SjLj suppresses debug CFI in AsmPrinter; retain it for legacy fasmg.
+    ExceptionsType = ExceptionHandling::None;
+    UsesCFIWithoutEH = true;
+    DwarfRegNumForCFI = true;
     AsciiDirective = "\t.ascii\t";
     AscizDirective = "\t.asciz\t";
     ZeroDirective = "\t.zero\t";

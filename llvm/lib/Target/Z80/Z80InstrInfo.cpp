@@ -94,10 +94,13 @@ MachineInstr &Z80InstrInfo::applySPAdjust(MachineInstr &MI) const {
   auto MBBI = std::next(MachineBasicBlock::iterator(MI));
   MachineFunction &MF = *MBB.getParent();
   int Adjust = getSPAdjust(MI);
-  // Frame instructions are already handled in BuildStackAdjustment.
+  // Track real SP changes, including IY teardown after switching to SP.
+  // Call-frame pseudos are replaced by instructions with their own CFI.
   if ((MBBI == MBB.end() || !MBBI->isCFIInstruction()) && !isFrameInstr(MI) &&
       Adjust && MF.needsFrameMoves() &&
-      !Subtarget.getFrameLowering()->hasFP(MF))
+      (!Subtarget.getFrameLowering()->hasFP(MF) ||
+       (MI.getFlag(MachineInstr::FrameDestroy) &&
+        !Subtarget.getFrameLowering()->isFPSaved(MF))))
     BuildMI(MBB, std::next(MachineBasicBlock::iterator(MI)),
             MBB.findDebugLoc(MI), get(TargetOpcode::CFI_INSTRUCTION))
         .addCFIIndex(MF.addFrameInst(
@@ -117,6 +120,8 @@ static bool isIndex(const MachineOperand &MO, const MCRegisterInfo &RI) {
 }
 
 unsigned Z80InstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
+  if (MI.isMetaInstruction())
+    return 0;
   unsigned Size = 0;
   auto TSFlags = MI.getDesc().TSFlags;
 

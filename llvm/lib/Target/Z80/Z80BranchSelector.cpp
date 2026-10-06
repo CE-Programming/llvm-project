@@ -108,6 +108,8 @@ bool Z80BranchSelector::runOnMachineFunction(MachineFunction &MF) {
   const unsigned LongestInstructionSize =
       4 + STI.hasEZ80Ops() + STI.is24Bit();
   const auto getSize = [&](const MachineInstr &MI) {
+    if (MI.isMetaInstruction())
+      return 0U;
     if (!MI.isPseudo())
       return TII.getInstSizeInBytes(MI);
     switch (MI.getOpcode()) {

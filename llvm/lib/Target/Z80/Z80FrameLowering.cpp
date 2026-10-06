@@ -23,6 +23,7 @@
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
 #include "llvm/MC/MCDwarf.h"
+#include "llvm/MC/MCAsmInfo.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Target/TargetMachine.h"
@@ -370,10 +371,11 @@ void Z80FrameLowering::BuildStackAdjustment(
   BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::LD24sa : Z80::LD16sa))
       .addReg(ResultReg, RegState::Kill)
       .setMIFlag(Flag);
-  if (MF.needsFrameMoves() && !hasFP(MF))
+  if (MF.needsFrameMoves() &&
+      (!hasFP(MF) || (Flag == MachineInstr::FrameDestroy && !isFPSaved(MF))))
     BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
         .addCFIIndex(MF.addFrameInst(
-            MCCFIInstruction::createAdjustCfaOffset(nullptr, Offset)));
+            MCCFIInstruction::createAdjustCfaOffset(nullptr, -Offset)));
 }
 
 /// emitPrologue - Push callee-saved registers onto the stack, which
@@ -391,6 +393,21 @@ void Z80FrameLowering::emitPrologue(MachineFunction &MF,
   int StackSize = -int(MFI.getStackSize());
   MCRegister ScratchReg = Is24Bit ? Z80::UHL : Z80::HL;
   int64_t FrameBias = hasFP(MF) ? ensureFramePointerBias(MF) : 0;
+
+  // GAS's default .cfi_startproc state does not describe a Z80 CALL. Emit
+  // explicit entry rules so frameless functions and partial prologues work.
+  if (MF.needsFrameMoves()) {
+    BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
+        .addCFIIndex(MF.addFrameInst(MCCFIInstruction::cfiDefCfa(
+            nullptr, TRI->getDwarfRegNum(TRI->getStackRegister(), true),
+            SlotSize)));
+    BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
+        .addCFIIndex(MF.addFrameInst(MCCFIInstruction::createOffset(
+            nullptr, TRI->getDwarfRegNum(Z80::PC, true), -int(SlotSize))));
+    BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
+        .addCFIIndex(MF.addFrameInst(MCCFIInstruction::createSameValue(
+            nullptr, TRI->getDwarfRegNum(Is24Bit ? Z80::UIX : Z80::IX, true))));
+  }
 
   auto emitFrameRegAdjust = [&](Register FrameReg, int64_t Adj) {
     if (!Adj)
@@ -437,7 +454,8 @@ void Z80FrameLowering::emitPrologue(MachineFunction &MF,
                 nullptr, TRI->getDwarfRegNum(FrameReg, true), 2 * SlotSize)));
         BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
             .addCFIIndex(MF.addFrameInst(MCCFIInstruction::createOffset(
-                nullptr, TRI->getDwarfRegNum(FrameReg, true), -2 * SlotSize)));
+                nullptr, TRI->getDwarfRegNum(FrameReg, true),
+                -2 * int64_t(SlotSize))));
       }
       emitFrameRegAdjust(FrameReg, -FrameBias);
     } else {
@@ -452,7 +470,7 @@ void Z80FrameLowering::emitPrologue(MachineFunction &MF,
           BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
               .addCFIIndex(MF.addFrameInst(MCCFIInstruction::createOffset(
                   nullptr, TRI->getDwarfRegNum(FrameReg, true),
-                  -2 * SlotSize)));
+                  -2 * int64_t(SlotSize))));
         }
       }
 
@@ -494,10 +512,12 @@ void Z80FrameLowering::emitEpilogue(MachineFunction &MF,
   const TargetRegisterClass *ScratchRC =
       Is24Bit ? &Z80::A24RegClass : &Z80::A16RegClass;
   TargetRegisterClass::iterator ScratchReg = ScratchRC->begin();
-  for (; MBBI->readsRegister(TRI->getSubReg(*ScratchReg, Z80::sub_low), TRI);
-       ++ScratchReg)
-    assert(ScratchReg != ScratchRC->end() &&
-           "Could not allocate a scratch register!");
+  for (; ScratchReg != ScratchRC->end(); ++ScratchReg) {
+    if (!MBBI->readsRegister(TRI->getSubReg(*ScratchReg, Z80::sub_low), TRI))
+      break;
+  }
+  assert(ScratchReg != ScratchRC->end() &&
+         "Could not allocate a scratch register!");
   bool HasFP = hasFP(MF);
   int64_t FrameBias = HasFP ? ensureFramePointerBias(MF) : 0;
   assert((HasFP || *ScratchReg != TRI->getFrameRegister(MF)) &&
@@ -547,9 +567,28 @@ void Z80FrameLowering::emitEpilogue(MachineFunction &MF,
   int64_t RestoreFromFP = int64_t(StackSize) - FrameBias;
   assert((!HasFP || isInt<32>(RestoreFromFP)) &&
          "frame pointer bias too large");
+  auto NextBlock = std::next(MBB.getIterator());
+  bool RememberState = MF.needsFrameMoves() && NextBlock != MF.end();
+  if (RememberState)
+    BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
+        .addCFIIndex(MF.addFrameInst(
+            MCCFIInstruction::createRememberState(nullptr)));
+  // IY is caller-clobbered and may be the deallocation scratch register.
+  // Switch to SP before the first epilogue instruction can overwrite it;
+  // unsaved IY frames never contain variable-sized objects.
+  if (MF.needsFrameMoves() && HasFP && !isFPSaved(MF))
+    BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
+        .addCFIIndex(MF.addFrameInst(MCCFIInstruction::cfiDefCfa(
+            nullptr, TRI->getDwarfRegNum(TRI->getStackRegister(), true),
+            StackSize + SlotSize)));
   BuildStackAdjustment(MF, MBB, MBBI, DL, *ScratchReg, StackSize,
                        HasFP ? int(RestoreFromFP) : -1,
                        MachineInstr::FrameDestroy, MFI.hasVarSizedObjects());
+  if (MF.needsFrameMoves())
+    BuildMI(MBB, MBBI, DL, TII.get(TargetOpcode::CFI_INSTRUCTION))
+        .addCFIIndex(MF.addFrameInst(MCCFIInstruction::cfiDefCfa(
+            nullptr, TRI->getDwarfRegNum(TRI->getStackRegister(), true),
+            SlotSize * (1 + isFPSaved(MF)))));
 
   if (isFPSaved(MF)) {
     Register FrameReg = TRI->getFrameRegister(MF);
@@ -566,6 +605,13 @@ void Z80FrameLowering::emitEpilogue(MachineFunction &MF,
               nullptr, TRI->getDwarfRegNum(FrameReg, true))));
     }
   }
+  // Restore the body rules at the next block's entry: CFI instructions must
+  // precede terminators, so they cannot be placed after this block's RET.
+  if (RememberState)
+    BuildMI(*NextBlock, NextBlock->begin(), DL,
+            TII.get(TargetOpcode::CFI_INSTRUCTION))
+        .addCFIIndex(MF.addFrameInst(
+            MCCFIInstruction::createRestoreState(nullptr)));
 }
 
 // Only non-nested non-nmi interrupts can use shadow registers.
@@ -609,6 +655,20 @@ shouldUseAltFP(MachineFunction &MF, MCRegister AltFPReg,
   if (MF.getFunction().hasOptSize() || MF.getFrameInfo().hasVarSizedObjects() ||
       MF.getTarget().Options.DisableFramePointerElim(MF))
     return Z80MachineFunctionInfo::AFPM_None;
+  // Debug locations and CFA rules keep referring to the frame base for the
+  // whole function. The partial-IY optimization may clobber it after the last
+  // machine frame-index access, so it is unsuitable when frame moves exist.
+  if (MF.getFunction().getSubprogram() ||
+      (MF.needsFrameMoves() &&
+       MF.getTarget().getMCAsmInfo()->usesCFIWithoutEH())) {
+    if (MF.getRegInfo().isPhysRegUsed(AltFPReg))
+      return Z80MachineFunctionInfo::AFPM_None;
+    for (const MachineBasicBlock &MBB : MF)
+      for (const MachineInstr &MI : MBB)
+        if (MI.modifiesRegister(AltFPReg, TRI))
+          return Z80MachineFunctionInfo::AFPM_None;
+    return Z80MachineFunctionInfo::AFPM_Full;
+  }
   if (!MF.getRegInfo().isPhysRegUsed(Z80::UIY))
     return Z80MachineFunctionInfo::AFPM_Full;
   MachineBasicBlock::iterator LastFrameIdx;
