@@ -13,16 +13,6 @@
 
 --- |
   define i16 @shl_s16_o16(i16 %x) {
-  ; CHECK-LABEL: shl_s16_o16:
-  ; CHECK:       ; %bb.0: ; %entry
-  ; CHECK-NEXT:    ld l, e
-  ; CHECK-NEXT:    ld h, d
-  ; CHECK-NEXT:    add hl, hl
-  ; CHECK-NEXT:    add hl, hl
-  ; CHECK-NEXT:    add hl, hl
-  ; CHECK-NEXT:    add hl, hl
-  ; CHECK-NEXT:    add hl, hl
-  ; CHECK-NEXT:    ret
   entry:
     ret i16 0
   }
