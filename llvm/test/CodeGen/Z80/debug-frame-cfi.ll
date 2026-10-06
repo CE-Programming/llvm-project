@@ -1,3 +1,4 @@
+; NOTE: Do not autogenerate
 ; RUN: llc -mtriple=ez80 -O0 -z80-gas-style -verify-machineinstrs < %S/debug-frame-locations.ll | FileCheck %s --check-prefixes=FRAME,ADL
 ; RUN: llc -mtriple=z80 -O0 -z80-gas-style -verify-machineinstrs < %S/debug-frame-locations.ll | FileCheck %s --check-prefixes=FRAME,Z80
 ; RUN: llc -mtriple=ez80 -O0 -verify-machineinstrs < %S/debug-frame-locations.ll | FileCheck %s --check-prefix=LEGACY --implicit-check-not=.cfi_

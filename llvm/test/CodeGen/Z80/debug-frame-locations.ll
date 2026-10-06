@@ -1,3 +1,4 @@
+; NOTE: Do not autogenerate
 ; RUN: llc -mtriple=ez80 -O0 -z80-gas-style -verify-machineinstrs < %s | FileCheck %s --check-prefixes=ADL,DWARF
 ; RUN: llc -mtriple=z80 -O0 -z80-gas-style -verify-machineinstrs < %s | FileCheck %s --check-prefixes=Z80,DWARF
 ;
