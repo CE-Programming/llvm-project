@@ -198,6 +198,20 @@ Z80FrameLowering::Z80FrameLowering(const Z80Subtarget &STI)
       STI(STI), TII(*STI.getInstrInfo()), TRI(STI.getRegisterInfo()),
       Is24Bit(STI.is24Bit()), SlotSize(Is24Bit ? 3 : 2) {}
 
+StackOffset Z80FrameLowering::getFrameIndexReference(
+    const MachineFunction &MF, int FI, Register &FrameReg) const {
+  FrameReg = TRI->getFrameRegister(MF);
+  // Use the same base and displacement as eliminateFrameIndex. The generic
+  // implementation adds the stack size even when IX/IY is the frame base,
+  // which describes a different address and shifts locals during calls.
+  int64_t Offset = getFrameObjectBaseOffset(MF, FI, SlotSize);
+  if (hasFP(MF))
+    Offset += MF.getInfo<Z80MachineFunctionInfo>()->getFramePointerBias();
+  else
+    Offset += MF.getFrameInfo().getStackSize();
+  return StackOffset::getFixed(Offset);
+}
+
 /// hasFP - Return true if the specified function should have a dedicated frame
 /// pointer register.  This is true if the function has variable sized allocas
 /// or if frame pointer elimination is disabled.

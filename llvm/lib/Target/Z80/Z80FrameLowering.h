@@ -65,6 +65,9 @@ public:
   bool isFPSaved(const MachineFunction &MF) const;
   bool hasReservedCallFrame(const MachineFunction &MF) const override;
   bool needsFrameIndexResolution(const MachineFunction &MF) const override;
+  StackOffset getFrameIndexReference(const MachineFunction &MF, int FI,
+                                    Register &FrameReg) const override;
+
   unsigned getSlotSize() const { return SlotSize; }
   int64_t ensureFramePointerBias(MachineFunction &MF) const;
 

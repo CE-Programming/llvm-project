@@ -95,16 +95,18 @@ def UHLU : Z80Reg<"uhlu">;
 def UIXU : Z80Reg<"uixu">;
 def UIYU : Z80Reg<"uiyu">;
 
+// DWARF uses the GDB/GAS Z80 register numbering, independently of the
+// instruction encoding. Extended registers alias their 16-bit counterpart.
 // 16-bit registers
-def AF : Z80RegPair<A, F, 3>;
-def BC : Z80RegPair<B, C, 0>;
-def DE : Z80RegPair<D, E, 1>;
-def HL : Z80RegPair<H, L, 2>;
+def AF : Z80RegPair<A, F, 3, 0>;
+def BC : Z80RegPair<B, C, 0, 1>;
+def DE : Z80RegPair<D, E, 1, 2>;
+def HL : Z80RegPair<H, L, 2, 3>;
 
 // 16-bit index registers
 let CostPerUse = [1] in {
-  def IX : Z80RegPair<IXH, IXL, 2, 4>;
-  def IY : Z80RegPair<IYH, IYL, 2, 5>;
+  def IX : Z80RegPair<IXH, IXL, 2, 6>;
+  def IY : Z80RegPair<IYH, IYL, 2, 7>;
 }
 
 
@@ -119,9 +121,9 @@ let CostPerUse = [1] in {
 }
 
 // misc registers
-def SPS : Z80Reg<"sp", 3>, DwarfRegNum<[6]>;
-def SPL : Z80Reg<"sp", 3>, DwarfRegNum<[7]>;
-def PC : Z80Reg<"pc">, DwarfRegNum<[8]>;
+def SPS : Z80Reg<"sp", 3>, DwarfRegNum<[4]>;
+def SPL : Z80Reg<"sp", 3>, DwarfRegNum<[4]>;
+def PC : Z80Reg<"pc">, DwarfRegNum<[5]>;
 def I  : Z80Reg<"i">;
 let SubRegs = [I], SubRegIndices = [sub_low] in
 def UI : Z80Reg<"i">;
