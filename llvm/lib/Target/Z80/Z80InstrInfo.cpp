@@ -1674,7 +1674,7 @@ bool Z80InstrInfo::rewriteFrameIndex(MachineInstr &MI, unsigned FIOperandNum,
           if (SpillableOffset) {
             LLVM_DEBUG(dbgs() << "Z80FrameIndex: Using manual spill/add with "
                               << printReg(SpillableOffset, &TRI) << "\n");
-            emitOffsetAdd(BaseReg, SpillableOffset, NewOffset,
+            emitOffsetAdd(BaseReg, SpillableOffset, LEAAdjust,
                           /*SpillOffsetReg=*/true);
           } else {
             LLVM_DEBUG(dbgs() << "Z80FrameIndex: Scavenging failed, falling "

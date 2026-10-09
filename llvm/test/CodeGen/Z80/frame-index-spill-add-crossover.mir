@@ -185,7 +185,7 @@ body:             |
 # CHECK-NEXT:   liveins: $iy, $ubc
 # CHECK:        PUSH24r $uix, implicit-def $spl, implicit $spl
 # CHECK-NEXT:   PUSH24r $ude, implicit-def $spl, implicit $spl
-# CHECK-NEXT:   $ude = LD24ri -524
+# CHECK-NEXT:   $ude = LD24ri -396
 # CHECK-NEXT:   $uix = ADD24ao $uix, killed $ude, implicit-def dead $f
 # CHECK-NEXT:   $ude = POP24r implicit-def $spl, implicit $spl
 # CHECK-NEXT:   LD88or $uix, -128, killed $iy
