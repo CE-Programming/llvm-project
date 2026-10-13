@@ -1,0 +1,42 @@
+# NOTE: Do not autogenerate
+# RUN: llc -mtriple=ez80-code16 -run-pass=z80-machine-address-opt -verify-machineinstrs -o - %s | FileCheck %s
+
+---
+name: lea_chain16
+tracksRegLiveness: true
+# CHECK-LABEL: name: lea_chain16
+# CHECK: $hl = LEA16ro $ix, 50
+# CHECK-NOT: $iy = LEA16ro
+body: |
+  bb.0:
+    liveins: $ix
+    $iy = LEA16ro $ix, 30
+    $hl = LEA16ro killed $iy, 20
+    RET16 implicit $hl, implicit-def $sps, implicit $sps
+...
+---
+name: indexed_load16
+tracksRegLiveness: true
+# CHECK-LABEL: name: indexed_load16
+# CHECK: $hl = LD16ro $ix, 10
+# CHECK-NOT: LEA16ro
+body: |
+  bb.0:
+    liveins: $ix
+    $iy = LEA16ro $ix, -30
+    $hl = LD16ro killed $iy, 40
+    RET16 implicit $hl, implicit-def $sps, implicit $sps
+...
+---
+name: small_add16
+tracksRegLiveness: true
+# CHECK-LABEL: name: small_add16
+# CHECK: $iy = LEA16ro $iy, -1
+# CHECK-NOT: ADD16ao
+body: |
+  bb.0:
+    liveins: $iy
+    $de = LD16ri 65535
+    $iy = ADD16ao $iy, killed $de, implicit-def dead $f
+    RET16 implicit $iy, implicit-def $sps, implicit $sps
+...
