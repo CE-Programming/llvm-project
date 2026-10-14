@@ -23,8 +23,9 @@ define i16 @cmp0_o16(i16 %x, ptr nocapture readonly %p) {
 ; EZ80-NEXT:    ld e, a
 ; EZ80-NEXT:    ld hl, (ix + 9)
 ; EZ80-NEXT:    add hl, de
-; EZ80-NEXT:    ld e, (hl)
-; EZ80-NEXT:    add.sis iy, de
+; EZ80-NEXT:    ld a, (hl)
+; EZ80-NEXT:    ld e, a
+; EZ80-NEXT:    add iy, de
 ; EZ80-NEXT:    dec.sis bc
 ; EZ80-NEXT:    jr BB0_1
 ; EZ80-NEXT:    private BB0_3

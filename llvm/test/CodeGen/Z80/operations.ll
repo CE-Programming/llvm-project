@@ -1300,7 +1300,7 @@ define i16 @add.i16(i16, i16) {
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
 ; EZ80-NEXT:    ld de, (iy + 6)
-; EZ80-NEXT:    add.sis hl, de
+; EZ80-NEXT:    add hl, de
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
 ; EZ80-NEXT:    ret
   add i16 %0, %1
@@ -1579,8 +1579,8 @@ define i16 @sub.i16(i16, i16) {
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld hl, (iy + 3)
 ; EZ80-NEXT:    ld de, (iy + 6)
+; EZ80-NEXT:    sbc hl, de
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
-; EZ80-NEXT:    sbc.sis hl, de
 ; EZ80-NEXT:    ret
   sub i16 %0, %1
   ret i16 %3
