@@ -31,6 +31,9 @@ using namespace TargetOpcode;
 using namespace LegalizeActions;
 using namespace MIPatternMatch;
 
+static cl::opt<bool> EnableConstantBitwise("z80-constant-bitwise", cl::Hidden,
+                                          cl::init(true));
+
 static cl::opt<bool> EnableConstantMultiply("z80-constant-mul", cl::Hidden,
                                             cl::init(true));
 
@@ -694,6 +697,71 @@ Z80LegalizerInfo::legalizeBitwise(LegalizerHelper &Helper, MachineInstr &MI,
   MachineRegisterInfo &MRI = *Helper.MIRBuilder.getMRI();
   Register DstReg = MI.getOperand(0).getReg();
   unsigned Size = MRI.getType(DstReg).getSizeInBits();
+  // The two low bytes are directly addressable even in ADL mode. Keep
+  // constant operations on those bytes instead of materializing a whole-word
+  // helper operand. INSERT preserves every untouched byte, including bit 23.
+  const unsigned Opc = MI.getOpcode();
+  if (EnableConstantBitwise && (Size == 16 || Size == 24) &&
+      (Size != 24 || Subtarget.is24Bit())) {
+    Register SrcReg = MI.getOperand(1).getReg();
+    auto C = getIConstantVRegValWithLookThrough(MI.getOperand(2).getReg(), MRI);
+    if (!C && Opc != G_PTRMASK) {
+      C = getIConstantVRegValWithLookThrough(SrcReg, MRI);
+      SrcReg = MI.getOperand(2).getReg();
+    }
+    if (C) {
+      auto &B = Helper.MIRBuilder;
+      APInt Mask = C->Value.zextOrTrunc(Size);
+      LLT Ty = LLT::scalar(Size), ByteTy = LLT::scalar(8);
+      const unsigned BitOpc = Opc == G_PTRMASK ? G_AND : Opc;
+      Register Value = SrcReg;
+      if (Opc == G_PTRMASK)
+        Value = B.buildPtrToInt(Ty, SrcReg).getReg(0);
+      auto Finish = [&](Register Result) {
+        if (Opc == G_PTRMASK)
+          B.buildIntToPtr(DstReg, Result);
+        else
+          B.buildCopy(DstReg, Result);
+        MI.eraseFromParent();
+        return LegalizerHelper::Legalized;
+      };
+      // A top-bit clear is (x << 1) >>u 1. The dedicated one-bit helper
+      // avoids accessing the hidden upper byte and preserves the full result.
+      if (BitOpc == G_AND && Size == 24 && Mask.isMaxSignedValue()) {
+        auto One = B.buildConstant(LLT::scalar(8), 1);
+        auto Shifted = B.buildShl(Ty, Value, One);
+        return Finish(B.buildLShr(Ty, Shifted, One).getReg(0));
+      }
+      // AND with a low-byte mask also proves all higher result bytes zero.
+      if (BitOpc == G_AND && Mask.getActiveBits() <= 8) {
+        auto Low = B.buildTrunc(ByteTy, Value);
+        auto Masked = B.buildAnd(ByteTy, Low,
+                                B.buildConstant(ByteTy, Mask.getZExtValue()));
+        return Finish(B.buildZExt(Ty, Masked).getReg(0));
+      }
+      // Changing one addressable byte costs at most two moves plus a byte
+      // operation. Never extract the hidden upper byte via a stack spill.
+      APInt Changed = BitOpc == G_AND ? ~Mask : Mask;
+      if (Changed.getActiveBits() <= 16) {
+        unsigned Offset = Changed.getActiveBits() <= 8 ? 0 : 8;
+        if ((Changed.lshr(Offset).getZExtValue() & ~uint64_t(255)) == 0 &&
+            (Offset == 0 || Changed.extractBits(8, 0).isZero())) {
+          auto Byte = B.buildExtract(ByteTy, Value, Offset);
+          auto K = B.buildConstant(ByteTy, Mask.extractBits(8, Offset));
+          auto Result = B.buildInstr(BitOpc, {ByteTy}, {Byte, K});
+          return Finish(B.buildInsert(Ty, Value, Result, Offset).getReg(0));
+        }
+      }
+      // Clearing the hidden upper byte is a native zero extension. Reuse
+      // the word path so masks with only one changed low byte remain cheap.
+      if (BitOpc == G_AND && Size == 24 && Mask.getActiveBits() <= 16) {
+        auto Low = B.buildTrunc(LLT::scalar(16), Value);
+        auto Masked = B.buildAnd(LLT::scalar(16), Low,
+                                B.buildConstant(LLT::scalar(16), Mask.trunc(16)));
+        return Finish(B.buildZExt(Ty, Masked).getReg(0));
+      }
+    }
+  }
   if (!OptSize && Size == 16)
     if (Helper.narrowScalar(MI, 0, LLT::scalar(8)) ==
         LegalizerHelper::Legalized)

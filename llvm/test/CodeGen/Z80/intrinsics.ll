@@ -3074,16 +3074,15 @@ define i8 @fshl.i8(i8, i8, i8) {
 ; Z80-NEXT:    ld iy, 0
 ; Z80-NEXT:    add iy, sp
 ; Z80-NEXT:    ld e, (iy + 6)
-; Z80-NEXT:    ld c, 7
 ; Z80-NEXT:    ld a, e
-; Z80-NEXT:    and a, c
+; Z80-NEXT:    and a, 7
 ; Z80-NEXT:    ld b, a
 ; Z80-NEXT:    ld a, (iy + 2)
 ; Z80-NEXT:    call __bshl
 ; Z80-NEXT:    ld l, a
 ; Z80-NEXT:    xor a, a
 ; Z80-NEXT:    sub a, e
-; Z80-NEXT:    and a, c
+; Z80-NEXT:    and a, 7
 ; Z80-NEXT:    ld b, a
 ; Z80-NEXT:    ld a, (iy + 4)
 ; Z80-NEXT:    call __bshru
@@ -3097,16 +3096,15 @@ define i8 @fshl.i8(i8, i8, i8) {
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    add iy, sp
 ; EZ80-CODE16-NEXT:    ld e, (iy + 6)
-; EZ80-CODE16-NEXT:    ld c, 7
 ; EZ80-CODE16-NEXT:    ld a, e
-; EZ80-CODE16-NEXT:    and a, c
+; EZ80-CODE16-NEXT:    and a, 7
 ; EZ80-CODE16-NEXT:    ld b, a
 ; EZ80-CODE16-NEXT:    ld a, (iy + 2)
 ; EZ80-CODE16-NEXT:    call __bshl
 ; EZ80-CODE16-NEXT:    ld l, a
 ; EZ80-CODE16-NEXT:    xor a, a
 ; EZ80-CODE16-NEXT:    sub a, e
-; EZ80-CODE16-NEXT:    and a, c
+; EZ80-CODE16-NEXT:    and a, 7
 ; EZ80-CODE16-NEXT:    ld b, a
 ; EZ80-CODE16-NEXT:    ld a, (iy + 4)
 ; EZ80-CODE16-NEXT:    call __bshru
@@ -3120,16 +3118,15 @@ define i8 @fshl.i8(i8, i8, i8) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld e, (iy + 9)
-; EZ80-NEXT:    ld c, 7
 ; EZ80-NEXT:    ld a, e
-; EZ80-NEXT:    and a, c
+; EZ80-NEXT:    and a, 7
 ; EZ80-NEXT:    ld b, a
 ; EZ80-NEXT:    ld a, (iy + 3)
 ; EZ80-NEXT:    call __bshl
 ; EZ80-NEXT:    ld l, a
 ; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    sub a, e
-; EZ80-NEXT:    and a, c
+; EZ80-NEXT:    and a, 7
 ; EZ80-NEXT:    ld b, a
 ; EZ80-NEXT:    ld a, (iy + 6)
 ; EZ80-NEXT:    call __bshru
@@ -3147,32 +3144,26 @@ define i16 @fshl.i16(i16, i16, i16) {
 ; Z80-NEXT:    push ix
 ; Z80-NEXT:    ld ix, 0
 ; Z80-NEXT:    add ix, sp
+; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix + 8)
 ; Z80-NEXT:    ld h, (ix + 9)
-; Z80-NEXT:    ld e, 15
-; Z80-NEXT:    ld a, l
-; Z80-NEXT:    and a, e
-; Z80-NEXT:    ld c, a
-; Z80-NEXT:    ld a, e
-; Z80-NEXT:    ex de, hl
-; Z80-NEXT:    ld iyl, e
-; Z80-NEXT:    ld iyh, d
-; Z80-NEXT:    ex de, hl
+; Z80-NEXT:    ex (sp), hl
+; Z80-NEXT:    pop iy
+; Z80-NEXT:    ld a, iyl
+; Z80-NEXT:    and a, 15
 ; Z80-NEXT:    ld l, (ix + 4)
 ; Z80-NEXT:    ld h, (ix + 5)
+; Z80-NEXT:    ld c, a
 ; Z80-NEXT:    call __sshl
 ; Z80-NEXT:    ex de, hl
 ; Z80-NEXT:    ld hl, 0
 ; Z80-NEXT:    ld c, iyl
-; Z80-NEXT:    ld b, iyh
-; Z80-NEXT:    or a, a
-; Z80-NEXT:    sbc hl, bc
-; Z80-NEXT:    ld c, a
 ; Z80-NEXT:    ld a, l
-; Z80-NEXT:    and a, c
-; Z80-NEXT:    ld c, a
+; Z80-NEXT:    sub a, c
+; Z80-NEXT:    and a, 15
 ; Z80-NEXT:    ld l, (ix + 6)
 ; Z80-NEXT:    ld h, (ix + 7)
+; Z80-NEXT:    ld c, a
 ; Z80-NEXT:    call __sshru
 ; Z80-NEXT:    ld c, l
 ; Z80-NEXT:    ld b, h
@@ -3190,28 +3181,20 @@ define i16 @fshl.i16(i16, i16, i16) {
 ; EZ80-CODE16-NEXT:    push ix
 ; EZ80-CODE16-NEXT:    ld ix, 0
 ; EZ80-CODE16-NEXT:    add ix, sp
-; EZ80-CODE16-NEXT:    ld hl, (ix + 8)
-; EZ80-CODE16-NEXT:    ld e, 15
-; EZ80-CODE16-NEXT:    ld a, l
-; EZ80-CODE16-NEXT:    and a, e
-; EZ80-CODE16-NEXT:    ld c, a
-; EZ80-CODE16-NEXT:    ld a, e
-; EZ80-CODE16-NEXT:    ex de, hl
-; EZ80-CODE16-NEXT:    ld iyl, e
-; EZ80-CODE16-NEXT:    ld iyh, d
-; EZ80-CODE16-NEXT:    ex de, hl
+; EZ80-CODE16-NEXT:    ld iy, (ix + 8)
+; EZ80-CODE16-NEXT:    ld a, iyl
+; EZ80-CODE16-NEXT:    and a, 15
 ; EZ80-CODE16-NEXT:    ld hl, (ix + 4)
+; EZ80-CODE16-NEXT:    ld c, a
 ; EZ80-CODE16-NEXT:    call __sshl
 ; EZ80-CODE16-NEXT:    ex de, hl
 ; EZ80-CODE16-NEXT:    ld hl, 0
-; EZ80-CODE16-NEXT:    lea bc, iy + 0
-; EZ80-CODE16-NEXT:    or a, a
-; EZ80-CODE16-NEXT:    sbc hl, bc
-; EZ80-CODE16-NEXT:    ld c, a
+; EZ80-CODE16-NEXT:    ld c, iyl
 ; EZ80-CODE16-NEXT:    ld a, l
-; EZ80-CODE16-NEXT:    and a, c
-; EZ80-CODE16-NEXT:    ld c, a
+; EZ80-CODE16-NEXT:    sub a, c
+; EZ80-CODE16-NEXT:    and a, 15
 ; EZ80-CODE16-NEXT:    ld hl, (ix + 6)
+; EZ80-CODE16-NEXT:    ld c, a
 ; EZ80-CODE16-NEXT:    call __sshru
 ; EZ80-CODE16-NEXT:    ld c, l
 ; EZ80-CODE16-NEXT:    ld b, h
@@ -3229,28 +3212,22 @@ define i16 @fshl.i16(i16, i16, i16) {
 ; EZ80-NEXT:    push ix
 ; EZ80-NEXT:    ld ix, 0
 ; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld hl, (ix + 12)
-; EZ80-NEXT:    ld e, 15
-; EZ80-NEXT:    ld a, l
-; EZ80-NEXT:    and a, e
-; EZ80-NEXT:    ld c, a
-; EZ80-NEXT:    ld a, e
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop iy
+; EZ80-NEXT:    ld iy, (ix + 12)
+; EZ80-NEXT:    ld a, iyl
+; EZ80-NEXT:    and a, 15
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
+; EZ80-NEXT:    ld c, a
 ; EZ80-NEXT:    call __sshl
 ; EZ80-NEXT:    ex.sis de, hl
 ; EZ80-NEXT:    ld.sis hl, 0
-; EZ80-NEXT:    lea bc, iy + 0
-; EZ80-NEXT:    or a, a
-; EZ80-NEXT:    sbc.sis hl, bc
-; EZ80-NEXT:    ld c, a
+; EZ80-NEXT:    ld c, iyl
 ; EZ80-NEXT:    ld a, l
-; EZ80-NEXT:    and a, c
-; EZ80-NEXT:    ld c, a
+; EZ80-NEXT:    sub a, c
+; EZ80-NEXT:    and a, 15
 ; EZ80-NEXT:    ld hl, (ix + 9)
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
+; EZ80-NEXT:    ld c, a
 ; EZ80-NEXT:    call __sshru
 ; EZ80-NEXT:    ld c, l
 ; EZ80-NEXT:    ld b, h
@@ -3681,16 +3658,15 @@ define i8 @fshr.i8(i8, i8, i8) {
 ; Z80-NEXT:    ld iy, 0
 ; Z80-NEXT:    add iy, sp
 ; Z80-NEXT:    ld e, (iy + 6)
-; Z80-NEXT:    ld c, 7
 ; Z80-NEXT:    ld a, e
-; Z80-NEXT:    and a, c
+; Z80-NEXT:    and a, 7
 ; Z80-NEXT:    ld b, a
 ; Z80-NEXT:    ld a, (iy + 4)
 ; Z80-NEXT:    call __bshru
 ; Z80-NEXT:    ld l, a
 ; Z80-NEXT:    xor a, a
 ; Z80-NEXT:    sub a, e
-; Z80-NEXT:    and a, c
+; Z80-NEXT:    and a, 7
 ; Z80-NEXT:    ld b, a
 ; Z80-NEXT:    ld a, (iy + 2)
 ; Z80-NEXT:    call __bshl
@@ -3704,16 +3680,15 @@ define i8 @fshr.i8(i8, i8, i8) {
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    add iy, sp
 ; EZ80-CODE16-NEXT:    ld e, (iy + 6)
-; EZ80-CODE16-NEXT:    ld c, 7
 ; EZ80-CODE16-NEXT:    ld a, e
-; EZ80-CODE16-NEXT:    and a, c
+; EZ80-CODE16-NEXT:    and a, 7
 ; EZ80-CODE16-NEXT:    ld b, a
 ; EZ80-CODE16-NEXT:    ld a, (iy + 4)
 ; EZ80-CODE16-NEXT:    call __bshru
 ; EZ80-CODE16-NEXT:    ld l, a
 ; EZ80-CODE16-NEXT:    xor a, a
 ; EZ80-CODE16-NEXT:    sub a, e
-; EZ80-CODE16-NEXT:    and a, c
+; EZ80-CODE16-NEXT:    and a, 7
 ; EZ80-CODE16-NEXT:    ld b, a
 ; EZ80-CODE16-NEXT:    ld a, (iy + 2)
 ; EZ80-CODE16-NEXT:    call __bshl
@@ -3727,16 +3702,15 @@ define i8 @fshr.i8(i8, i8, i8) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld e, (iy + 9)
-; EZ80-NEXT:    ld c, 7
 ; EZ80-NEXT:    ld a, e
-; EZ80-NEXT:    and a, c
+; EZ80-NEXT:    and a, 7
 ; EZ80-NEXT:    ld b, a
 ; EZ80-NEXT:    ld a, (iy + 6)
 ; EZ80-NEXT:    call __bshru
 ; EZ80-NEXT:    ld l, a
 ; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    sub a, e
-; EZ80-NEXT:    and a, c
+; EZ80-NEXT:    and a, 7
 ; EZ80-NEXT:    ld b, a
 ; EZ80-NEXT:    ld a, (iy + 3)
 ; EZ80-NEXT:    call __bshl
@@ -3754,32 +3728,26 @@ define i16 @fshr.i16(i16, i16, i16) {
 ; Z80-NEXT:    push ix
 ; Z80-NEXT:    ld ix, 0
 ; Z80-NEXT:    add ix, sp
+; Z80-NEXT:    push hl
 ; Z80-NEXT:    ld l, (ix + 8)
 ; Z80-NEXT:    ld h, (ix + 9)
-; Z80-NEXT:    ld e, 15
-; Z80-NEXT:    ld a, l
-; Z80-NEXT:    and a, e
-; Z80-NEXT:    ld c, a
-; Z80-NEXT:    ld a, e
-; Z80-NEXT:    ex de, hl
-; Z80-NEXT:    ld iyl, e
-; Z80-NEXT:    ld iyh, d
-; Z80-NEXT:    ex de, hl
+; Z80-NEXT:    ex (sp), hl
+; Z80-NEXT:    pop iy
+; Z80-NEXT:    ld a, iyl
+; Z80-NEXT:    and a, 15
 ; Z80-NEXT:    ld l, (ix + 6)
 ; Z80-NEXT:    ld h, (ix + 7)
+; Z80-NEXT:    ld c, a
 ; Z80-NEXT:    call __sshru
 ; Z80-NEXT:    ex de, hl
 ; Z80-NEXT:    ld hl, 0
 ; Z80-NEXT:    ld c, iyl
-; Z80-NEXT:    ld b, iyh
-; Z80-NEXT:    or a, a
-; Z80-NEXT:    sbc hl, bc
-; Z80-NEXT:    ld c, a
 ; Z80-NEXT:    ld a, l
-; Z80-NEXT:    and a, c
-; Z80-NEXT:    ld c, a
+; Z80-NEXT:    sub a, c
+; Z80-NEXT:    and a, 15
 ; Z80-NEXT:    ld l, (ix + 4)
 ; Z80-NEXT:    ld h, (ix + 5)
+; Z80-NEXT:    ld c, a
 ; Z80-NEXT:    call __sshl
 ; Z80-NEXT:    ld c, l
 ; Z80-NEXT:    ld b, h
@@ -3797,28 +3765,20 @@ define i16 @fshr.i16(i16, i16, i16) {
 ; EZ80-CODE16-NEXT:    push ix
 ; EZ80-CODE16-NEXT:    ld ix, 0
 ; EZ80-CODE16-NEXT:    add ix, sp
-; EZ80-CODE16-NEXT:    ld hl, (ix + 8)
-; EZ80-CODE16-NEXT:    ld e, 15
-; EZ80-CODE16-NEXT:    ld a, l
-; EZ80-CODE16-NEXT:    and a, e
-; EZ80-CODE16-NEXT:    ld c, a
-; EZ80-CODE16-NEXT:    ld a, e
-; EZ80-CODE16-NEXT:    ex de, hl
-; EZ80-CODE16-NEXT:    ld iyl, e
-; EZ80-CODE16-NEXT:    ld iyh, d
-; EZ80-CODE16-NEXT:    ex de, hl
+; EZ80-CODE16-NEXT:    ld iy, (ix + 8)
+; EZ80-CODE16-NEXT:    ld a, iyl
+; EZ80-CODE16-NEXT:    and a, 15
 ; EZ80-CODE16-NEXT:    ld hl, (ix + 6)
+; EZ80-CODE16-NEXT:    ld c, a
 ; EZ80-CODE16-NEXT:    call __sshru
 ; EZ80-CODE16-NEXT:    ex de, hl
 ; EZ80-CODE16-NEXT:    ld hl, 0
-; EZ80-CODE16-NEXT:    lea bc, iy + 0
-; EZ80-CODE16-NEXT:    or a, a
-; EZ80-CODE16-NEXT:    sbc hl, bc
-; EZ80-CODE16-NEXT:    ld c, a
+; EZ80-CODE16-NEXT:    ld c, iyl
 ; EZ80-CODE16-NEXT:    ld a, l
-; EZ80-CODE16-NEXT:    and a, c
-; EZ80-CODE16-NEXT:    ld c, a
+; EZ80-CODE16-NEXT:    sub a, c
+; EZ80-CODE16-NEXT:    and a, 15
 ; EZ80-CODE16-NEXT:    ld hl, (ix + 4)
+; EZ80-CODE16-NEXT:    ld c, a
 ; EZ80-CODE16-NEXT:    call __sshl
 ; EZ80-CODE16-NEXT:    ld c, l
 ; EZ80-CODE16-NEXT:    ld b, h
@@ -3836,28 +3796,22 @@ define i16 @fshr.i16(i16, i16, i16) {
 ; EZ80-NEXT:    push ix
 ; EZ80-NEXT:    ld ix, 0
 ; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld hl, (ix + 12)
-; EZ80-NEXT:    ld e, 15
-; EZ80-NEXT:    ld a, l
-; EZ80-NEXT:    and a, e
-; EZ80-NEXT:    ld c, a
-; EZ80-NEXT:    ld a, e
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop iy
+; EZ80-NEXT:    ld iy, (ix + 12)
+; EZ80-NEXT:    ld a, iyl
+; EZ80-NEXT:    and a, 15
 ; EZ80-NEXT:    ld hl, (ix + 9)
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
+; EZ80-NEXT:    ld c, a
 ; EZ80-NEXT:    call __sshru
 ; EZ80-NEXT:    ex.sis de, hl
 ; EZ80-NEXT:    ld.sis hl, 0
-; EZ80-NEXT:    lea bc, iy + 0
-; EZ80-NEXT:    or a, a
-; EZ80-NEXT:    sbc.sis hl, bc
-; EZ80-NEXT:    ld c, a
+; EZ80-NEXT:    ld c, iyl
 ; EZ80-NEXT:    ld a, l
-; EZ80-NEXT:    and a, c
-; EZ80-NEXT:    ld c, a
+; EZ80-NEXT:    sub a, c
+; EZ80-NEXT:    and a, 15
 ; EZ80-NEXT:    ld hl, (ix + 6)
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
+; EZ80-NEXT:    ld c, a
 ; EZ80-NEXT:    call __sshl
 ; EZ80-NEXT:    ld c, l
 ; EZ80-NEXT:    ld b, h
