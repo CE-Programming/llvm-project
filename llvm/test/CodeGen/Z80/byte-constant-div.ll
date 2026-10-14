@@ -165,10 +165,16 @@ define i24 @urem24_255(i8 %a) {
   ret i24 %r
 }
 
-; Rejected cases retain the previous runtime lowering.
+; Seven requires the exact unsigned-magic add correction after the MLT.
 ; EZ80-LABEL: _inexact7:
-; EZ80-NOT: mlt
-; EZ80: call
+; EZ80: mlt
+; EZ80-NOT: call
+; EZ80: ret
+; MIR-LABEL: name: inexact7
+; MIR: MLT16r
+; MIR: G_SUB
+; MIR: G_LSHR
+; MIR: G_ADD
 
 define i24 @inexact7(i8 %a) {
   %n = zext i8 %a to i24
@@ -315,4 +321,59 @@ define i24 @size_boolean_remainder(i8 %a) minsize optsize {
   %n = zext i8 %a to i24
   %r = urem i24 %n, 129
   ret i24 %r
+}
+
+; Even divisors can use the LLVM magic plan's pre-shift. The original input
+; must remain available for remainder reconstruction.
+; EZ80-LABEL: _corrected_remainder14:
+; EZ80: mlt
+; EZ80: mlt
+; EZ80-NOT: call
+; EZ80: ret
+; MIR-LABEL: name: corrected_remainder14
+; MIR: G_LSHR
+; MIR: MLT16r
+; MIR: MLT16r
+
+define i24 @corrected_remainder14(i8 %a) {
+  %n = zext i8 %a to i24
+  %r = urem i24 %n, 14
+  ret i24 %r
+}
+
+; The add correction also applies at the end of the lower-divisor range.
+; EZ80-LABEL: _corrected_remainder127:
+; EZ80: mlt
+; EZ80: mlt
+; EZ80-NOT: call
+; EZ80: ret
+; MIR-LABEL: name: corrected_remainder127
+; MIR: MLT16r
+; MIR: G_SUB
+; MIR: G_LSHR
+; MIR: G_ADD
+; MIR: MLT16r
+
+define i24 @corrected_remainder127(i8 %a) {
+  %n = zext i8 %a to i24
+  %r = urem i24 %n, 127
+  ret i24 %r
+}
+
+; Both boolean-quotient expansions fit the size policy; use comparisons and
+; byte subtraction for the pair instead of runtime division.
+; EZ80-LABEL: _size_pair255:
+; EZ80-NOT: mlt
+; EZ80-NOT: call __idivu
+; EZ80-NOT: call __iremu
+; EZ80: ret
+; MIR-LABEL: name: size_pair255
+; MIR: G_ICMP intpred(uge)
+
+define i24 @size_pair255(i8 %a) minsize optsize {
+  %n = zext i8 %a to i24
+  %q = udiv i24 %n, 255
+  %r = urem i24 %n, 255
+  %sum = add i24 %q, %r
+  ret i24 %sum
 }

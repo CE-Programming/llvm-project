@@ -25,6 +25,7 @@
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/DivisionByConstantInfo.h"
 #include <functional>
 #include <initializer_list>
 using namespace llvm;
@@ -2178,11 +2179,15 @@ Z80LegalizerInfo::legalizeMultiply(LegalizerHelper &Helper, MachineInstr &MI,
   return LegalizerHelper::Legalized;
 }
 
-// Find an 8-bit reciprocal that is exact for every possible byte dividend.
-// Several divisors (such as 7) need correction or a ninth reciprocal bit; leave
-// those to the runtime rather than silently accepting an inexact formula.
-static std::optional<std::pair<unsigned, unsigned>>
-getByteReciprocal(unsigned Divisor) {
+struct ByteDivisionInfo {
+  unsigned Magic, PreShift, PostShift;
+  bool IsAdd;
+};
+
+// Prefer a simple byte reciprocal that is exact over the complete dividend
+// domain. Otherwise use LLVM's unsigned magic number and correction algorithm,
+// operating on the byte range instead of the original widened integer type.
+static ByteDivisionInfo getByteDivisionInfo(unsigned Divisor) {
   for (unsigned Shift = 8; Shift != 16; ++Shift) {
     unsigned Multiplier = divideCeil(1U << Shift, Divisor);
     if (Multiplier > 255)
@@ -2194,9 +2199,12 @@ getByteReciprocal(unsigned Divisor) {
         break;
       }
     if (Exact)
-      return std::pair(Multiplier, Shift);
+      return {Multiplier, 0, Shift - 8, false};
   }
-  return std::nullopt;
+  auto Magic = UnsignedDivisionByConstantInfo::get(APInt(8, Divisor));
+  assert((!Magic.IsAdd || Magic.PreShift == 0) && "Unexpected pre-shift");
+  return {static_cast<unsigned>(Magic.Magic.getZExtValue()), Magic.PreShift,
+          Magic.PostShift, Magic.IsAdd};
 }
 
 bool Z80LegalizerInfo::canLowerByteDivide(MachineInstr &MI,
@@ -2215,18 +2223,16 @@ bool Z80LegalizerInfo::canLowerByteDivide(MachineInstr &MI,
     return false;
   if (C->Value.uge(128) || C->Value.isOne() || C->Value.isPowerOf2())
     return true;
-  auto Reciprocal = getByteReciprocal(C->Value.getZExtValue());
-  if (!Reciprocal)
-    return false;
-  auto [Multiplier, Shift] = *Reciprocal;
-  (void)Multiplier;
+  auto Info = getByteDivisionInfo(C->Value.getZExtValue());
   // Byte setup, constant, MLT, high-byte extraction, and result extension.
   // Remainder additionally needs a second MLT and subtraction. Avoid long
   // shift sequences in size functions while allowing them in speed builds.
   unsigned Prefix = Subtarget.is24Bit();
-  unsigned EstimatedBytes = 6 + Prefix + 2 * (Shift - 8) +
-                            (Ty.getSizeInBits() > 8 ? 3 : 0) +
-                            (MI.getOpcode() == G_UREM ? 6 + Prefix : 0);
+  // Register MLT has no short-mode prefix, including in ADL mode. The add
+  // correction costs a byte subtraction, one right shift, and a byte addition.
+  unsigned EstimatedBytes =
+      6 + 2 * (Info.PreShift + Info.PostShift) + (Info.IsAdd ? 4 : 0) +
+      (Ty.getSizeInBits() > 8 ? 3 : 0) + (MI.getOpcode() == G_UREM ? 6 : 0);
   unsigned CallBytes = Prefix ? 8 : 6;
   const auto &MF = *MI.getMF();
   bool OptSize = MF.getFunction().hasOptSize() ||
@@ -2286,18 +2292,27 @@ Z80LegalizerInfo::legalizeByteDivide(LegalizerHelper &Helper, MachineInstr &MI,
         Result = Builder.buildLShr(ByteTy, Result, One).getReg(0);
     }
   } else {
-    auto Reciprocal = getByteReciprocal(Divisor);
-    if (!Reciprocal)
-      return Helper.libcall(MI, LocObserver);
-    auto [Multiplier, Shift] = *Reciprocal;
-    auto Magic = Builder.buildConstant(ByteTy, Multiplier);
-    auto Product = buildByteProduct(Builder, LLT::scalar(16), N.getReg(0),
-                                    Magic.getReg(0));
+    auto Info = getByteDivisionInfo(Divisor);
+    auto One = Builder.buildConstant(ByteTy, 1);
+    auto ByteShift = [&](Register Value, unsigned Amount) {
+      for (unsigned I = 0; I != Amount; ++I)
+        Value = Builder.buildLShr(ByteTy, Value, One).getReg(0);
+      return Value;
+    };
+    Register ShiftedN = ByteShift(N.getReg(0), Info.PreShift);
+    auto Magic = Builder.buildConstant(ByteTy, Info.Magic);
+    auto Product =
+        buildByteProduct(Builder, LLT::scalar(16), ShiftedN, Magic.getReg(0));
     auto Bytes = Builder.buildUnmerge(ByteTy, Product);
     Register Quotient = Bytes.getReg(1);
-    auto One = Builder.buildConstant(ByteTy, 1);
-    for (unsigned I = 8; I != Shift; ++I)
-      Quotient = Builder.buildLShr(ByteTy, Quotient, One).getReg(0);
+    if (Info.IsAdd) {
+      // high(n * magic) <= n. Therefore (n - q) does not underflow and
+      // ((n - q) >> 1) + q <= n, so the correction never overflows a byte.
+      auto Difference = Builder.buildSub(ByteTy, ShiftedN, Quotient);
+      Register HalfDifference = ByteShift(Difference.getReg(0), 1);
+      Quotient = Builder.buildAdd(ByteTy, HalfDifference, Quotient).getReg(0);
+    }
+    Quotient = ByteShift(Quotient, Info.PostShift);
     Result = Quotient;
     if (IsRemainder) {
       auto D = Builder.buildConstant(ByteTy, Divisor);

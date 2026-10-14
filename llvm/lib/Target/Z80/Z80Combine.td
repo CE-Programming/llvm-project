@@ -61,8 +61,9 @@ def z80_udiv_by_pow2 : GICombineRule<
 def z80_div_rem_to_divrem : GICombineRule<
   (defs root:$root, div_rem_to_divrem_matchdata:$matchinfo),
   (match (wip_match_opcode G_SDIV, G_UDIV, G_SREM, G_UREM):$root, [{
-    return !canLowerByteDivide(*${root}) &&
-           Helper.matchCombineDivRem(*${root}, ${matchinfo});
+    return Helper.matchCombineDivRem(*${root}, ${matchinfo}) &&
+           (!canLowerByteDivide(*${root}) ||
+            !canLowerByteDivide(*${matchinfo}));
   }]),
   (apply [{ Helper.applyCombineDivRem(*${root}, ${matchinfo}); }])>;
 
