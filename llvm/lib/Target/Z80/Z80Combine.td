@@ -11,6 +11,13 @@
 
 include "llvm/Target/GlobalISel/Combine.td"
 
+def masked_xor_compare_matchdata : GIDefMatchData<"MaskedXorCompareInfo">;
+def masked_xor_compare : GICombineRule<
+  (defs root:$mi, masked_xor_compare_matchdata:$matchinfo),
+  (match (wip_match_opcode G_ICMP):$mi,
+         [{ return matchMaskedXorCompare(*${mi}, MRI, STI, ${matchinfo}); }]),
+  (apply [{ applyMaskedXorCompare(*${mi}, B, Observer, ${matchinfo}); }])>;
+
 def combine_trunc_shift_matchdata : GIDefMatchData<"Register">;
 def combine_trunc_shift : GICombineRule<
   (defs root:$mi, combine_trunc_shift_matchdata:$matchinfo),
@@ -109,7 +116,7 @@ def z80_mul_by_3 : GICombineRule<
 def Z80PreLegalizerCombiner
     : GICombiner<"Z80PreLegalizerCombinerImpl", [
         and_ext, and_or_disjoint_mask, cast_combines, combine_ext_or_trunc,
-        combine_identity,
+        combine_identity, masked_xor_compare,
         combine_trunc_shift, constant_fold, z80_const_combines,
         z80_div_rem_to_divrem,
         flip_cmp_cond,
