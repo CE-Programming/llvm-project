@@ -1127,6 +1127,9 @@ def MLT16r  : I   <EDPre, 0x4C, "mlt", "\t$dst", "$imp = $dst",
                    (outs G16:$dst), (ins G16:$imp),
                    [(set G16:$dst, (Z80mlt G16:$imp))]>,
               Requires<[HaveZ180Ops]>;
+// In ADL mode MLT writes the complete register, clearing its upper byte.
+def MLT24r : I24<EDPre, 0x4C, "mlt", "\t$dst", "$imp = $dst",
+                  (outs G24:$dst), (ins G24:$imp)>;
 let Defs = [SPS], Uses = [SPS] in
 def MLT16s : I16<EDPre, 0x7C, "mlt", "\tsp", "", (outs), (ins)>,
              Requires<[HaveZ180Ops]>;
