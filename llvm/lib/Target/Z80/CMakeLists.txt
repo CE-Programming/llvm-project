@@ -48,14 +48,17 @@ set(sources
 
 add_llvm_target(Z80CodeGen ${sources}
   LINK_COMPONENTS
+  Analysis
   AsmPrinter
   CodeGen
   Core
   GlobalISel
   MC
+  ScalarOpts
   SelectionDAG
   Support
   Target
+  TransformUtils
   Z80Desc
   Z80Info
 
