@@ -1,0 +1,54 @@
+# NOTE: Do not autogenerate
+# RUN: llc -mtriple=ez80 -start-before=machine-outliner -z80-machine-outliner-min-sequence-bytes=11 -verify-machineinstrs -o - %s | FileCheck %s
+# RUN: llc -mtriple=ez80 -start-before=machine-outliner -z80-machine-outliner-min-sequence-bytes=1000 -verify-machineinstrs -o - %s | FileCheck %s --check-prefix=OFF
+
+# The return from an outlined function must keep its observable outputs live
+# for target optimizations which run after outlining. Otherwise the address
+# optimizer deletes LD DE,17 and changes ADD IY,DE to LEA: caller DE and flags
+# change, despite the outlined call's correct implicit-def summary.
+
+# CHECK-LABEL: _one:
+# CHECK: call _OUTLINED_FUNCTION_0
+# CHECK-LABEL: _two:
+# CHECK: call _OUTLINED_FUNCTION_0
+# CHECK-LABEL: _OUTLINED_FUNCTION_0:
+# CHECK: ld bc, 1193046
+# CHECK-NEXT: ld de, 17
+# CHECK-NEXT: add iy, de
+# CHECK-NEXT: ld c, 23
+# CHECK-NEXT: ret
+# OFF-LABEL: _one:
+# OFF: ld de, 17
+# OFF-NEXT: add iy, de
+# OFF-LABEL: _two:
+# OFF: ld de, 17
+# OFF-NEXT: add iy, de
+
+--- |
+  define void @one() minsize nounwind { ret void }
+  define void @two() minsize nounwind { ret void }
+...
+---
+name: one
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uiy
+    $ubc = LD24ri 1193046
+    $ude = LD24ri 17
+    $uiy = ADD24ao $uiy, $ude, implicit-def $f
+    $c = LD8ri 23
+    RET24 implicit $ubc, implicit $ude, implicit $uiy, implicit $f, implicit-def $spl, implicit $spl
+...
+---
+name: two
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uiy
+    $ubc = LD24ri 1193046
+    $ude = LD24ri 17
+    $uiy = ADD24ao $uiy, $ude, implicit-def $f
+    $c = LD8ri 23
+    RET24 implicit $ubc, implicit $ude, implicit $uiy, implicit $f, implicit-def $spl, implicit $spl
+...
