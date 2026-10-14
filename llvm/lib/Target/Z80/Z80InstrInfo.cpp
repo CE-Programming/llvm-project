@@ -18,8 +18,10 @@
 #include "llvm/ADT/Sequence.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/MachineOutliner.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
+#include "llvm/IR/Function.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/MC/MCDwarf.h"
 #include "llvm/MC/MCExpr.h"
@@ -2894,4 +2896,81 @@ Z80InstrInfo::foldMemoryOperandImpl(MachineFunction &MF, MachineInstr &MI,
   auto MOs = LoadMI.explicit_uses();
   return foldMemoryOperandImpl(MF, MI, Ops[0], {MOs.begin(), MOs.end()},
                                InsertPt);
+}
+
+static cl::opt<unsigned> Z80OutlineMinBytes(
+    "z80-machine-outliner-min-sequence-bytes", cl::Hidden, cl::init(16),
+    cl::desc("Minimum bytes in an eZ80 outlined sequence"));
+
+// ADL CALL/RET preserve every register and flag except the temporary stack
+// return address. Therefore a straight-line, stack-independent sequence needs
+// no save/restore frame and no ordinary C ABI clobber mask.
+std::optional<std::unique_ptr<outliner::OutlinedFunction>>
+Z80InstrInfo::getOutliningCandidateInfo(
+    const MachineModuleInfo &MMI,
+    std::vector<outliner::Candidate> &RepeatedSequenceLocs,
+    unsigned MinRepeats) const {
+  if (RepeatedSequenceLocs.size() < MinRepeats)
+    return std::nullopt;
+  unsigned SequenceSize = 0;
+  for (const MachineInstr &MI : RepeatedSequenceLocs.front())
+    if (!MI.isMetaInstruction())
+      SequenceSize += getInstSizeInBytes(MI);
+  if (SequenceSize < Z80OutlineMinBytes)
+    return std::nullopt;
+  for (outliner::Candidate &C : RepeatedSequenceLocs)
+    C.setCallInfo(0, 4); // Native ADL CALL, including the 24-bit target.
+  return std::make_unique<outliner::OutlinedFunction>(
+      RepeatedSequenceLocs, SequenceSize, 1, 0); // Native RET.
+}
+
+bool Z80InstrInfo::isFunctionSafeToOutlineFrom(
+    MachineFunction &MF, bool OutlineFromLinkOnceODRs) const {
+  const Function &F = MF.getFunction();
+  return Subtarget.is24Bit() && !MF.needsFrameMoves() && !F.hasSection() &&
+         !F.hasFnAttribute("interrupt") &&
+         (OutlineFromLinkOnceODRs || !F.hasLinkOnceODRLinkage());
+}
+
+bool Z80InstrInfo::shouldOutlineFromFunctionByDefault(MachineFunction &MF) const {
+  // Sharing code adds a CALL/RET pair. Keep this a size-first policy; ordinary
+  // speed-optimized functions remain untouched unless explicitly requested.
+  return MF.getFunction().hasMinSize();
+}
+
+outliner::InstrType Z80InstrInfo::getOutliningTypeImpl(
+    const MachineModuleInfo &MMI, MachineBasicBlock::iterator &MIT,
+    unsigned Flags) const {
+  const MachineInstr &MI = *MIT;
+  if (MI.isCall() || MI.isTerminator() || MI.isInlineAsm() ||
+      MI.isCFIInstruction() || MI.isBundled() || MI.getDesc().isPseudo() ||
+      MI.getFlag(MachineInstr::FrameSetup) ||
+      MI.getFlag(MachineInstr::FrameDestroy) ||
+      MI.hasUnmodeledSideEffects() || MI.getOpcode() == Z80::EXAF ||
+      MI.getOpcode() == Z80::EXX16 || MI.getOpcode() == Z80::EXX24)
+    return outliner::InstrType::Illegal;
+  // Inspect descriptors as well: some existing late instructions omit their
+  // implicit register operands. CALL changes both stack views, PC and R;
+  // also keep interrupt/memory-base state outside outlined regions.
+  for (MCRegister Reg :
+       {Z80::SPL, Z80::SPS, Z80::PC, Z80::R, Z80::I, Z80::MB})
+    if (MI.readsRegister(Reg, &RI) || MI.modifiesRegister(Reg, &RI) ||
+        MI.getDesc().hasImplicitUseOfPhysReg(Reg) ||
+        MI.getDesc().hasImplicitDefOfPhysReg(Reg))
+      return outliner::InstrType::Illegal;
+  return outliner::InstrType::Legal;
+}
+
+void Z80InstrInfo::buildOutlinedFrame(
+    MachineBasicBlock &MBB, MachineFunction &MF,
+    const outliner::OutlinedFunction &OF) const {
+  BuildMI(MBB, MBB.end(), DebugLoc(), get(Z80::RET24));
+}
+
+MachineBasicBlock::iterator Z80InstrInfo::insertOutlinedCall(
+    Module &M, MachineBasicBlock &MBB, MachineBasicBlock::iterator &It,
+    MachineFunction &MF, outliner::Candidate &C) const {
+  It = BuildMI(MBB, It, DebugLoc(), get(Z80::CALL24))
+           .addGlobalAddress(&MF.getFunction());
+  return It;
 }
