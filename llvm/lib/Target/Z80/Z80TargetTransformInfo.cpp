@@ -246,6 +246,10 @@ InstructionCost Z80TTIImpl::getMemoryOpCost(unsigned Opcode, Type *Ty,
                                             TTI::TargetCostKind Kind,
                                             TTI::OperandValueInfo OpInfo,
                                             const Instruction *I) const {
+  if ((isa_and_nonnull<LoadInst>(I) && cast<LoadInst>(I)->isAtomic()) ||
+      (isa_and_nonnull<StoreInst>(I) && cast<StoreInst>(I)->isAtomic()))
+    return BaseT::getMemoryOpCost(Opcode, Ty, Alignment, AddressSpace, Kind,
+                                  OpInfo, I);
   if (!ST->hasEZ80Ops() || AddressSpace != 0 ||
       !(Ty->isIntegerTy() || Ty->isPointerTy()))
     return BaseT::getMemoryOpCost(Opcode, Ty, Alignment, AddressSpace, Kind,
@@ -284,6 +288,32 @@ InstructionCost Z80TTIImpl::getInstructionCost(const User *U,
                                                ArrayRef<const Value *> Operands,
                                                TTI::TargetCostKind Kind) const {
   if (ST->hasEZ80Ops()) {
+    auto NativeMemoryType = [&](Type *Ty) {
+      if (!(Ty->isIntegerTy() || Ty->isPointerTy()))
+        return false;
+      unsigned Bits = DL.getTypeSizeInBits(Ty).getFixedValue();
+      return Bits == 8 || Bits == 16 || (Bits == 24 && ST->is24Bit());
+    };
+    // The generic User-cost path gives every load a fixed latency of four.
+    // Dispatch native memory operations here so all cost kinds use the same
+    // target table. Preserve generic pricing for atomic/other-width accesses.
+    if (auto *LI = dyn_cast<LoadInst>(U); LI && !LI->isAtomic() &&
+                                          LI->getPointerAddressSpace() == 0 &&
+                                          NativeMemoryType(LI->getType())) {
+      Type *LoadTy = LI->getType();
+      // Retain the generic single-use truncating-load size estimate.
+      if (Kind == TTI::TCK_CodeSize && LI->hasOneUse())
+        if (auto *Trunc = dyn_cast<TruncInst>(*LI->user_begin()))
+          LoadTy = Trunc->getDestTy();
+      return getMemoryOpCost(Instruction::Load, LoadTy, LI->getAlign(), 0, Kind,
+                             {TTI::OK_AnyValue, TTI::OP_None}, LI);
+    }
+    if (auto *SI = dyn_cast<StoreInst>(U);
+        SI && !SI->isAtomic() && SI->getPointerAddressSpace() == 0 &&
+        NativeMemoryType(Operands[0]->getType()))
+      return getMemoryOpCost(Instruction::Store, Operands[0]->getType(),
+                             SI->getAlign(), 0, Kind,
+                             TTI::getOperandInfo(Operands[0]), SI);
     if (auto *CB = dyn_cast<CallBase>(U); CB && !isa<IntrinsicInst>(CB)) {
       if (Function *Callee = CB->getCalledFunction();
           Callee &&

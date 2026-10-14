@@ -111,3 +111,29 @@ define i24 @fast_stack_abi(i24 %a, i24 %b) {
   %r = call fastcc i24 @fast_callee(i24 %a, i24 %b)
   ret i24 %r
 }
+
+
+define void @atomic_fallback(ptr %p, i8 %v) {
+; ADL-LABEL: function 'atomic_fallback'
+; ADL: costs of RThru:1 CodeSize:1 Lat:4 SizeLat:1 for: %r = load atomic i8
+; ADL: costs of 1 for: store atomic i8
+  %r = load atomic i8, ptr %p acquire, align 1
+  store atomic i8 %v, ptr %p release, align 1
+  ret void
+}
+
+
+define i8 @truncating_load(ptr %p) {
+; ADL-LABEL: function 'truncating_load'
+; ADL: costs of RThru:5 CodeSize:1 Lat:5 SizeLat:5 for: %word_load = load i16
+  %word_load = load i16, ptr %p, align 1
+  %v = trunc i16 %word_load to i8
+  ret i8 %v
+}
+
+define i8 @other_address_space(ptr addrspace(1) %p) {
+; ADL-LABEL: function 'other_address_space'
+; ADL: costs of RThru:1 CodeSize:1 Lat:4 SizeLat:1 for: %v = load i8
+  %v = load i8, ptr addrspace(1) %p, align 1
+  ret i8 %v
+}
