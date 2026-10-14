@@ -1,4 +1,5 @@
-//===-- Z80InternalRegArgs.cpp - Internal register arguments ---------------===//
+//===-- Z80InternalRegArgs.cpp - Internal register arguments
+//---------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -7,9 +8,10 @@
 //===----------------------------------------------------------------------===//
 //
 // At the end of LTO, internal functions whose entire call graph is visible can
-// pass up to three scalar arguments in HL/DE/BC instead of on the stack. Keep
-// exported functions, escaped pointers and calls with special ABI requirements
-// on the public C convention. Keep the same returns and IX preservation.
+// pass the first three scalar arguments in HL/DE/BC, with others on the stack.
+// Keep exported functions, escaped pointers and calls with special ABI
+// requirements on the public C convention. Keep the same returns and IX
+// preservation.
 //
 //===----------------------------------------------------------------------===//
 
@@ -36,14 +38,19 @@ static cl::opt<bool> InternalRegArgsMergedIR(
     cl::desc("Enable internal register arguments in ordinary optimization of "
              "externally merged LTO IR"));
 
+static cl::opt<bool> InternalRegArgsProfile(
+    "z80-internal-regargs-profile", cl::Hidden, cl::init(false),
+    cl::desc(
+        "Report private register-argument eligibility and call-site counts"));
+
 namespace {
 
 bool hasSpecialABIAttrs(const AttributeList &Attrs) {
   for (Attribute::AttrKind Kind :
        {Attribute::ByVal, Attribute::ByRef, Attribute::InAlloca,
         Attribute::InReg, Attribute::Nest, Attribute::Preallocated,
-        Attribute::StructRet, Attribute::SwiftSelf, Attribute::SwiftError,
-        Attribute::SwiftAsync, Attribute::Returned})
+        Attribute::SwiftSelf, Attribute::SwiftError, Attribute::SwiftAsync,
+        Attribute::Returned})
     if (Attrs.hasAttrSomewhere(Kind))
       return true;
   return false;
@@ -79,14 +86,10 @@ class Z80InternalRegArgsPass : public PassInfoMixin<Z80InternalRegArgsPass> {
         F.hasOptNone() || F.hasFnAttribute("interrupt") ||
         F.hasFnAttribute(Attribute::Naked) ||
         F.hasFnAttribute(Attribute::ReturnsTwice) || hasModeOverride(F) ||
-        F.arg_empty() || F.arg_size() > 3 ||
-        hasSpecialABIAttrs(F.getAttributes()))
+        F.arg_empty() || hasSpecialABIAttrs(F.getAttributes()))
       return false;
 
     unsigned NativeBits = TM.getSubtargetImpl(F)->is24Bit() ? 24 : 16;
-    if (!F.getReturnType()->isVoidTy() &&
-        !isSupportedScalar(F.getReturnType(), NativeBits))
-      return false;
     for (Argument &Arg : F.args())
       if (!isSupportedScalar(Arg.getType(), NativeBits))
         return false;
@@ -123,15 +126,43 @@ public:
     if (!EnableInternalRegArgs)
       return PreservedAnalyses::all();
     bool Changed = false;
+    unsigned Functions = 0, CallSites = 0, WideArgs = 0, WideArgCalls = 0;
+    unsigned WideReturn = 0, WideReturnCalls = 0, SRet = 0, SRetCalls = 0,
+             Existing = 0;
     for (Function &F : M) {
+      if (F.getCallingConv() == CallingConv::Z80_Internal)
+        ++Existing;
       SmallVector<CallInst *, 8> Calls;
       if (!isEligible(F, Calls))
         continue;
+      ++Functions;
+      CallSites += Calls.size();
+      if (F.arg_size() > 3) {
+        ++WideArgs;
+        WideArgCalls += Calls.size();
+      }
+      unsigned NativeBits = TM.getSubtargetImpl(F)->is24Bit() ? 24 : 16;
+      if (!F.getReturnType()->isVoidTy() &&
+          !isSupportedScalar(F.getReturnType(), NativeBits)) {
+        ++WideReturn;
+        WideReturnCalls += Calls.size();
+      }
+      if (F.getAttributes().hasAttrSomewhere(Attribute::StructRet)) {
+        ++SRet;
+        SRetCalls += Calls.size();
+      }
       F.setCallingConv(CallingConv::Z80_Internal);
       for (CallInst *Call : Calls)
         Call->setCallingConv(CallingConv::Z80_Internal);
       Changed = true;
     }
+    if (InternalRegArgsProfile)
+      errs() << "Z80 internal register args: existing=" << Existing
+             << " converted=" << Functions << " calls=" << CallSites
+             << " args>3=" << WideArgs << " wide-arg-calls=" << WideArgCalls
+             << " wide-return=" << WideReturn
+             << " wide-return-calls=" << WideReturnCalls << " sret=" << SRet
+             << " sret-calls=" << SRetCalls << '\n';
     return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
   }
 };
