@@ -27,9 +27,9 @@ class Z80TTIImpl final : public BasicTTIImplBase<Z80TTIImpl> {
   const Z80Subtarget *getST() const { return ST; }
   const Z80TargetLowering *getTLI() const { return TLI; }
 
-  // Costs are bytes for size and RAM bus-transfer units for speed. The latter
-  // are normalized to a native register ADD (four RAM cycles in CEmu).
-  InstructionCost cost(unsigned Bytes, unsigned Transfers,
+  // Costs are bytes for size and normalized RAM cycle units for speed. These
+  // use a native register ADD (four RAM cycles in CEmu) as the unit.
+  InstructionCost cost(unsigned Bytes, unsigned Units,
                        TTI::TargetCostKind Kind) const;
   std::optional<unsigned> stackSlots(ArrayRef<Type *> Args) const;
   InstructionCost helperCost(TTI::TargetCostKind Kind,

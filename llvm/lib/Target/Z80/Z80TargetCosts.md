@@ -8,12 +8,14 @@ vector registers. The arithmetic and memory tables currently specialize eZ80;
 ordinary Z80 arithmetic retains the generic fallback.
 
 For code-size queries, local instruction sequences are estimated in bytes.
-For speed queries, the unit is a RAM bus transfer: a native `ADD HL,rr` has one
+For speed queries, the unit is four RAM cycles: a native `ADD HL,rr` has one
 unit, or four CEmu RAM cycles. A two-byte `MLT` adds four internal cycles, so it
 has three speed units before operand packing. Native short calculations inside
-ADL code include their mode-prefix byte. CEmu models each RAM access with four
-cycles (`sched_process_pending_dma(4)`); actual calculator flash fetches and
-peripheral accesses have different timings. These are relative transformation
+ADL code include their mode-prefix byte. CEmu models RAM reads/fetches with four
+cycles and writes with two. The table rounds each local sequence up to whole
+ADD units: a three-byte PUSH/POP copy takes 26 cycles (seven units), and a native
+CALL/RET dispatch takes 43 (eleven units), excluding the callee body. Actual
+calculator flash fetches and peripheral accesses have different timings. These are relative transformation
 costs, not whole-function performance predictions.
 
 The model handles native additions/subtractions, constant shifts, hardware
