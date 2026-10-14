@@ -1523,17 +1523,17 @@ bool Z80InstructionSelector::selectLoadStore(MachineInstr &I,
         ValMI->getNumDefs() == 1 && ValLastOpIdx >= 2) {
       Register LoadReg = ValMI->getOperand(1).getReg();
       if (MachineInstr *LoadMI = MRI.getVRegDef(LoadReg)) {
+        // Ordered RMW folding must consume both scalar values completely:
+        // otherwise removing the load loses its value, or reloading the result
+        // introduces another ordered memory access.
+        bool Ordered = I.hasOrderedMemoryRef() || LoadMI->hasOrderedMemoryRef();
         if (LoadMI->getOpcode() == TargetOpcode::G_LOAD &&
             LoadMI->getOperand(1).getReg() == PtrReg &&
-            canFoldLoad(*LoadMI, *ValMI, MRI, RMWOrdered)) {
+            canFoldLoad(*LoadMI, *ValMI, MRI, Ordered)) {
           assert(LoadMI->hasOneMemOperand() &&
                  "Expected load to have one MMO.");
           MemMOs.push_back(LoadMI);
-          for (MachineInstr *MemMI : MemMOs)
-            if (!llvm::all_of(MemMI->memoperands(), [](MachineMemOperand *MMO) {
-                  return MMO->isUnordered();
-                }))
-              RMWOrdered = true;
+          RMWOrdered = Ordered;
           Register ImmReg = ValMI->getOperand(ValLastOpIdx).getReg();
           if (auto ImmConst = getIConstantVRegVal(ImmReg, MRI)) {
             switch (ValMI->getOpcode()) {
