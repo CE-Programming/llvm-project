@@ -1,0 +1,56 @@
+# NOTE: Do not autogenerate
+# RUN: llc -mtriple=ez80 -start-before=machine-outliner -z80-machine-outliner-min-sequence-bytes=11 -verify-machineinstrs -o - %s | FileCheck %s
+# RUN: llc -mtriple=ez80 -start-before=machine-outliner -z80-machine-outliner-min-sequence-bytes=1000 -verify-machineinstrs -o - %s | FileCheck %s --check-prefix=OFF
+
+# The final byte peephole may fold LD A,C; RES bit,A; LD C,A only when A is
+# dead. An outlined body's return must keep A live when its caller observes A.
+# CHECK-LABEL: _one:
+# CHECK: call _OUTLINED_FUNCTION_0
+# CHECK-LABEL: _two:
+# CHECK: call _OUTLINED_FUNCTION_0
+# CHECK-LABEL: _OUTLINED_FUNCTION_0:
+# CHECK: ld hl, 1193046
+# CHECK-NEXT: ld de, 6636321
+# CHECK-NEXT: ld a, c
+# CHECK-NEXT: res 0, a
+# CHECK-NEXT: ld c, a
+# CHECK-NEXT: ret
+# OFF-LABEL: _one:
+# OFF: ld a, c
+# OFF-NEXT: res 0, a
+# OFF-NEXT: ld c, a
+# OFF-LABEL: _two:
+# OFF: ld a, c
+# OFF-NEXT: res 0, a
+# OFF-NEXT: ld c, a
+
+--- |
+  define void @one() minsize nounwind { ret void }
+  define void @two() minsize nounwind { ret void }
+...
+---
+name: one
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $ubc, $af
+    $uhl = LD24ri 1193046
+    $ude = LD24ri 6636321
+    $a = LD8gg $c
+    $a = RES8gb $a, 0
+    $c = LD8gg $a
+    RET24 implicit $ubc, implicit $ude, implicit $uhl, implicit $a, implicit $f, implicit-def $spl, implicit $spl
+...
+---
+name: two
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $ubc, $af
+    $uhl = LD24ri 1193046
+    $ude = LD24ri 6636321
+    $a = LD8gg $c
+    $a = RES8gb $a, 0
+    $c = LD8gg $a
+    RET24 implicit $ubc, implicit $ude, implicit $uhl, implicit $a, implicit $f, implicit-def $spl, implicit $spl
+...

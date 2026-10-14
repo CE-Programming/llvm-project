@@ -16,6 +16,7 @@
 #include "Z80.h"
 #include "Z80Subtarget.h"
 #include "llvm/ADT/Sequence.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineOutliner.h"
@@ -2928,7 +2929,7 @@ bool Z80InstrInfo::isFunctionSafeToOutlineFrom(
     MachineFunction &MF, bool OutlineFromLinkOnceODRs) const {
   const Function &F = MF.getFunction();
   return Subtarget.is24Bit() && !MF.needsFrameMoves() && !F.hasSection() &&
-         !F.hasFnAttribute("interrupt") &&
+         !F.hasFnAttribute("interrupt") && !F.hasFnAttribute(Attribute::Naked) &&
          (OutlineFromLinkOnceODRs || !F.hasLinkOnceODRLinkage());
 }
 
@@ -2964,7 +2965,31 @@ outliner::InstrType Z80InstrInfo::getOutliningTypeImpl(
 void Z80InstrInfo::buildOutlinedFrame(
     MachineBasicBlock &MBB, MachineFunction &MF,
     const outliner::OutlinedFunction &OF) const {
-  BuildMI(MBB, MBB.end(), DebugLoc(), get(Z80::RET24));
+  // The target's final address/peephole passes run after outlining. Model
+  // both results and live-through state at RET, rather than letting those
+  // passes treat the void IR helper as having no observable output. For
+  // example, ADD IY,DE must not become LEA while its DE/F outputs are live.
+  SmallSet<Register, 32> ReturnRegs;
+  for (const auto &LI : MBB.liveins())
+    ReturnRegs.insert(LI.PhysReg);
+  for (MachineInstr &MI : MBB) {
+    for (MachineOperand &MO : MI.operands()) {
+      if (!MO.isReg() || !MO.getReg())
+        continue;
+      if (MO.isDef()) {
+        ReturnRegs.insert(MO.getReg());
+        MO.setIsDead(false);
+      } else {
+        MO.setIsKill(false);
+      }
+    }
+    for (MCPhysReg Reg : MI.getDesc().implicit_defs())
+      ReturnRegs.insert(Reg);
+  }
+  auto Ret = BuildMI(MBB, MBB.end(), DebugLoc(), get(Z80::RET24));
+  for (Register Reg : ReturnRegs)
+    if (Reg && Reg != Z80::SPL && Reg != Z80::SPS && Reg != Z80::PC)
+      Ret.addReg(Reg, RegState::Implicit);
 }
 
 MachineBasicBlock::iterator Z80InstrInfo::insertOutlinedCall(

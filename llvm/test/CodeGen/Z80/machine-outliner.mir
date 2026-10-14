@@ -26,6 +26,8 @@
   define void @hot1() nounwind { ret void }
   define void @excluded0() minsize nounwind "nooutline" { ret void }
   define void @excluded1() minsize nounwind "nooutline" { ret void }
+  define void @naked0() minsize naked nounwind { ret void }
+  define void @naked1() minsize naked nounwind { ret void }
 ...
 ---
 name: first
@@ -360,6 +362,38 @@ body: |
 name: excluded1
 tracksRegLiveness: true
 # TOO-SHORT-LABEL: name: excluded1
+# TOO-SHORT-NOT: CALL24
+body: |
+  bb.0:
+    $uhl = LD24ri 1193046
+    $ude = LD24ri 6636321
+    $uhl = ADD24ao $uhl, $ude, implicit-def $f
+    $c = LD8ri 17
+    RET24 implicit $uhl, implicit $f, implicit-def $spl, implicit $spl
+...
+---
+name: naked0
+tracksRegLiveness: true
+# CHECK-LABEL: name: naked0
+# CHECK-NOT: CALL24
+# CHECK: LD24ri 1193046
+# TOO-SHORT-LABEL: name: naked0
+# TOO-SHORT-NOT: CALL24
+body: |
+  bb.0:
+    $uhl = LD24ri 1193046
+    $ude = LD24ri 6636321
+    $uhl = ADD24ao $uhl, $ude, implicit-def $f
+    $c = LD8ri 17
+    RET24 implicit $uhl, implicit $f, implicit-def $spl, implicit $spl
+...
+---
+name: naked1
+tracksRegLiveness: true
+# CHECK-LABEL: name: naked1
+# CHECK-NOT: CALL24
+# CHECK: LD24ri 1193046
+# TOO-SHORT-LABEL: name: naked1
 # TOO-SHORT-NOT: CALL24
 body: |
   bb.0:
