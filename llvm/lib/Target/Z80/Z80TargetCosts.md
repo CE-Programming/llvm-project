@@ -11,7 +11,9 @@ For code-size queries, local instruction sequences are estimated in bytes.
 For speed queries, the unit is four RAM cycles: a native `ADD HL,rr` has one
 unit, or four CEmu RAM cycles. A two-byte `MLT` adds four internal cycles, so it
 has three speed units before operand packing. Native short calculations inside
-ADL code include their mode-prefix byte. CEmu models RAM reads/fetches with four
+ADL code include their mode-prefix byte where lowering needs it. Ordinary
+16-bit add/sub and short constant left shifts can use native ADL arithmetic
+and truncate, so their estimates omit those prefixes when enabled. CEmu models RAM reads/fetches with four
 cycles and writes with two. The table rounds each local sequence up to whole
 ADD units: a three-byte PUSH/POP copy takes 26 cycles (seven units), and a native
 CALL/RET dispatch takes 43 (eleven units), excluding the callee body. Actual
@@ -20,7 +22,11 @@ costs, not whole-function performance predictions.
 
 The model handles native additions/subtractions, constant shifts, hardware
 unsigned-byte products, constant multiplication under the existing size/speed
-budgets, scalar register-indirect loads/stores and direct C calls. Constant
+budgets, scalar register-indirect loads/stores and direct C/FastCC calls (both use
+the public stack ABI). Known constant bit masks follow the byte/zero-extension
+lowering; mapped 32-/48-/64-bit helpers retain conservative dispatch costs
+rather than generic unit prices. The target lowering switches are shared with
+TTI so comparison builds cost the sequences they actually select. Constant
 multiplication includes the memory traffic of preserving the original value
 with PUSH/POP. Calls account for argument words promoted/split by the native C
 ABI and return-address traffic. Unknown addresses, vectors and types outside

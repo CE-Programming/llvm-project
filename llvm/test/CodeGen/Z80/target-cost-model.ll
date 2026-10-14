@@ -1,6 +1,7 @@
 ; NOTE: Do not autogenerate
 ; RUN: opt -mtriple=ez80 -passes='print<cost-model>' -cost-kind=all -disable-output %s 2>&1 | FileCheck %s --check-prefix=ADL
 ; RUN: opt -mtriple=ez80 -passes='print<cost-model>' -cost-kind=all -z80-target-cost-model=false -disable-output %s 2>&1 | FileCheck %s --check-prefix=OFF
+; RUN: opt -mtriple=ez80 -z80-native-word-arith=false -z80-constant-bitwise=false -z80-byte-immediates=false -passes='print<cost-model>' -cost-kind=all -disable-output %s 2>&1 | FileCheck %s --check-prefix=LOWERING-OFF
 ; RUN: opt -mtriple=ez80-code16 -passes='print<cost-model>' -cost-kind=all -disable-output %s 2>&1 | FileCheck %s --check-prefix=SHORT
 
 ; These are local register-resident instruction estimates. Size counts bytes;
@@ -12,11 +13,11 @@ declare i24 @callee(i24, i24)
 define void @arithmetic(i8 %a, i8 %b, i16 %x, i16 %y, i24 %u, i24 %v, ptr %p) {
 ; ADL-LABEL: function 'arithmetic'
 ; ADL: costs of 1 for: %add24 = add i24
-; ADL: costs of 2 for: %add16 = add i16
+; ADL: costs of 1 for: %add16 = add i16
 ; ADL: costs of RThru:11 CodeSize:4 Lat:11 SizeLat:11 for: %mul24 = mul i24
 ; ADL: costs of RThru:5 CodeSize:4 Lat:5 SizeLat:5 for: %byte_product = mul i24
 ; ADL: costs of 4 for: %shift24 = shl i24
-; ADL: costs of 6 for: %shift16 = shl i16
+; ADL: costs of 3 for: %shift16 = shl i16
 ; ADL: costs of RThru:11 CodeSize:4 Lat:11 SizeLat:11 for: %divide = udiv i24
 ; ADL: costs of RThru:2 CodeSize:1 Lat:2 SizeLat:2 for: %load8 = load i8
 ; ADL: costs of RThru:5 CodeSize:3 Lat:5 SizeLat:5 for: %load16 = load i16
@@ -26,6 +27,9 @@ define void @arithmetic(i8 %a, i8 %b, i16 %x, i16 %y, i24 %u, i24 %v, ptr %p) {
 ; OFF-LABEL: function 'arithmetic'
 ; OFF: costs of 1 for: %add24 = add i24
 ; OFF: costs of 1 for: %add16 = add i16
+; LOWERING-OFF-LABEL: function 'arithmetic'
+; LOWERING-OFF: costs of 2 for: %add16 = add i16
+; LOWERING-OFF: costs of 6 for: %shift16 = shl i16
 ; SHORT-LABEL: function 'arithmetic'
 ; SHORT: costs of 1 for: %add16 = add i16
 ; SHORT: costs of 3 for: %shift16 = shl i16
@@ -59,4 +63,51 @@ define i24 @multiply_size(i24 %u) optsize minsize {
 ; ADL: costs of RThru:15 CodeSize:8 Lat:15 SizeLat:15 for: %v = mul i24 %u, 255
   %v = mul i24 %u, 255
   ret i24 %v
+}
+
+define void @masks(i24 %x, i8 %byte) minsize optsize {
+; ADL-LABEL: function 'masks'
+; ADL: costs of RThru:12 CodeSize:5 Lat:12 SizeLat:12 for: %top = and i24
+; ADL: costs of 7 for: %low = and i24
+; ADL: costs of 5 for: %word = and i24
+; ADL: costs of 2 for: %clear = and i24
+; ADL: costs of 2 for: %set = or i24
+; ADL: costs of 4 for: %toggle = xor i24
+; ADL: costs of 2 for: %byte_mask = and i8
+; LOWERING-OFF-LABEL: function 'masks'
+; LOWERING-OFF: costs of RThru:15 CodeSize:8 Lat:15 SizeLat:15 for: %top = and i24
+; LOWERING-OFF: costs of RThru:15 CodeSize:8 Lat:15 SizeLat:15 for: %low = and i24
+; LOWERING-OFF: costs of RThru:15 CodeSize:8 Lat:15 SizeLat:15 for: %word = and i24
+; LOWERING-OFF: costs of 3 for: %byte_mask = and i8
+  %top = and i24 %x, 8388607
+  %low = and i24 %x, 31
+  %word = and i24 %x, 65535
+  %clear = and i24 %x, -2
+  %set = or i24 %x, 256
+  %toggle = xor i24 %x, 31
+  %byte_mask = and i8 %byte, 31
+  ret void
+}
+
+define void @wide_helpers(i32 %a, i32 %b, i48 %c, i48 %d, i64 %x, i64 %y) {
+; ADL-LABEL: function 'wide_helpers'
+; ADL: costs of RThru:11 CodeSize:4 Lat:11 SizeLat:11 for: %add32 = add i32
+; ADL: costs of RThru:11 CodeSize:4 Lat:11 SizeLat:11 for: %mul48 = mul i48
+; ADL: costs of 3 for: %add48 = add i48
+; ADL: costs of RThru:11 CodeSize:4 Lat:11 SizeLat:11 for: %div64 = udiv i64
+; ADL: costs of RThru:11 CodeSize:4 Lat:11 SizeLat:11 for: %and64 = and i64
+  %add32 = add i32 %a, %b
+  %mul48 = mul i48 %c, %d
+  %add48 = add i48 %c, %d
+  %div64 = udiv i64 %x, %y
+  %and64 = and i64 %x, %y
+  ret void
+}
+
+declare fastcc i24 @fast_callee(i24, i24)
+define i24 @fast_stack_abi(i24 %a, i24 %b) {
+; ADL-LABEL: function 'fast_stack_abi'
+; ADL: costs of RThru:25 CodeSize:8 Lat:25 SizeLat:25 for: %r = call fastcc
+  %r = call fastcc i24 @fast_callee(i24 %a, i24 %b)
+  ret i24 %r
 }

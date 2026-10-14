@@ -14,6 +14,7 @@
 #include "GISel/Z80CallLowering.h"
 #include "MCTargetDesc/Z80MCTargetDesc.h"
 #include "Z80.h"
+#include "Z80CodeGenOptions.h"
 #include "Z80MachineFunctionInfo.h"
 #include "Z80RegisterBankInfo.h"
 #include "Z80Subtarget.h"
@@ -162,6 +163,9 @@ private:
 };
 
 } // end anonymous namespace
+
+bool llvm::z80UseNativeWordArithmetic() { return EnableNativeWordArithmetic; }
+bool llvm::z80UseByteImmediates() { return EnableByteImmediates; }
 
 #define GET_GLOBALISEL_IMPL
 #include "Z80GenGlobalISel.inc"
