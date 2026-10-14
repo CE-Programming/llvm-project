@@ -37,6 +37,9 @@ static cl::opt<bool> EnableConstantBitwise("z80-constant-bitwise", cl::Hidden,
 static cl::opt<bool> EnableConstantMultiply("z80-constant-mul", cl::Hidden,
                                             cl::init(true));
 
+static cl::opt<bool> EnableByteConstantDivide("z80-byte-constant-div",
+                                              cl::Hidden, cl::init(true));
+
 static cl::opt<bool> EnableWideByteMultiply("z80-wide-byte-mul", cl::Hidden,
                                         cl::init(true));
 
@@ -258,7 +261,15 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .minScalar(0, s64)
       .maxScalar(0, s32);
 
-  getActionDefinitionsBuilder({G_SDIV, G_UDIV, G_SREM, G_UREM})
+  getActionDefinitionsBuilder({G_SDIV, G_SREM})
+      .libcallFor(LegalLibcallScalars)
+      .clampScalar(0, s8, s32);
+
+  getActionDefinitionsBuilder({G_UDIV, G_UREM})
+      .customFor({s8, s16})
+      .customIf([this, s24](const LegalityQuery &Q) {
+        return Subtarget.has24BitEZ80Ops() && Q.Types[0] == s24;
+      })
       .libcallFor(LegalLibcallScalars)
       .clampScalar(0, s8, s32);
 
@@ -457,6 +468,9 @@ bool Z80LegalizerInfo::legalizeCustom(LegalizerHelper &Helper, MachineInstr &MI,
     return handleResult(legalizeBitwise(Helper, MI, LocObserver));
   case G_MUL:
     return handleResult(legalizeMultiply(Helper, MI, LocObserver));
+  case G_UDIV:
+  case G_UREM:
+    return handleResult(legalizeByteDivide(Helper, MI, LocObserver));
   case G_SEXT:
     return handleResult(legalizeSExt(Helper, MI, LocObserver));
   case G_EXTRACT:
@@ -2155,6 +2169,130 @@ Z80LegalizerInfo::legalizeMultiply(LegalizerHelper &Helper, MachineInstr &MI,
   auto High = Builder.buildTrunc(LLT::scalar(8), LHS);
   Builder.buildCopy(
       Dst, buildByteProduct(Builder, Ty, Low.getReg(0), High.getReg(0)));
+  MI.eraseFromParent();
+  return LegalizerHelper::Legalized;
+}
+
+// Find an 8-bit reciprocal that is exact for every possible byte dividend.
+// Several divisors (such as 7) need correction or a ninth reciprocal bit; leave
+// those to the runtime rather than silently accepting an inexact formula.
+static std::optional<std::pair<unsigned, unsigned>>
+getByteReciprocal(unsigned Divisor) {
+  for (unsigned Shift = 8; Shift != 16; ++Shift) {
+    unsigned Multiplier = divideCeil(1U << Shift, Divisor);
+    if (Multiplier > 255)
+      break;
+    bool Exact = true;
+    for (unsigned N = 0; N != 256; ++N)
+      if ((N * Multiplier >> Shift) != N / Divisor) {
+        Exact = false;
+        break;
+      }
+    if (Exact)
+      return std::pair(Multiplier, Shift);
+  }
+  return std::nullopt;
+}
+
+bool Z80LegalizerInfo::canLowerByteDivide(MachineInstr &MI,
+                                          GISelValueTracking &VT) const {
+  if (MI.getOpcode() != G_UDIV && MI.getOpcode() != G_UREM)
+    return false;
+  auto &MRI = MI.getMF()->getRegInfo();
+  LLT Ty = MRI.getType(MI.getOperand(0).getReg());
+  if (Ty != LLT::scalar(8) && Ty != LLT::scalar(16) &&
+      !(Ty == LLT::scalar(24) && Subtarget.has24BitEZ80Ops()))
+    return false;
+  auto C = getIConstantVRegValWithLookThrough(MI.getOperand(2).getReg(), MRI);
+  if (!EnableByteConstantDivide || !Subtarget.hasZ180Ops() || !C ||
+      C->Value.isZero() ||
+      VT.getKnownBits(MI.getOperand(1).getReg()).countMaxActiveBits() > 8)
+    return false;
+  if (C->Value.ugt(255) || C->Value.isOne() || C->Value.isPowerOf2())
+    return true;
+  auto Reciprocal = getByteReciprocal(C->Value.getZExtValue());
+  if (!Reciprocal)
+    return false;
+  auto [Multiplier, Shift] = *Reciprocal;
+  (void)Multiplier;
+  // Byte setup, constant, MLT, high-byte extraction, and result extension.
+  // Remainder additionally needs a second MLT and subtraction. Avoid long
+  // shift sequences in size functions while allowing them in speed builds.
+  unsigned Prefix = Subtarget.is24Bit();
+  unsigned EstimatedBytes = 6 + Prefix + 2 * (Shift - 8) +
+                            (Ty.getSizeInBits() > 8 ? 3 : 0) +
+                            (MI.getOpcode() == G_UREM ? 6 + Prefix : 0);
+  unsigned CallBytes = Prefix ? 8 : 6;
+  const auto &MF = *MI.getMF();
+  bool OptSize = MF.getFunction().hasOptSize() ||
+                 MF.getTarget().getOptLevel() == CodeGenOptLevel::None;
+  return EstimatedBytes <= (OptSize ? CallBytes : 4 * CallBytes);
+}
+
+LegalizerHelper::LegalizeResult
+Z80LegalizerInfo::legalizeByteDivide(LegalizerHelper &Helper, MachineInstr &MI,
+                                     LostDebugLocObserver &LocObserver) const {
+  auto &Builder = Helper.MIRBuilder;
+  auto &MRI = *Builder.getMRI();
+  Register Dst = MI.getOperand(0).getReg();
+  Register Numerator = MI.getOperand(1).getReg();
+  Register Denominator = MI.getOperand(2).getReg();
+  auto C = getIConstantVRegValWithLookThrough(Denominator, MRI);
+  GISelValueTracking LocalVT(Builder.getMF());
+  auto *VT = Helper.getValueTracking();
+  if (!VT)
+    VT = &LocalVT;
+  if (!canLowerByteDivide(MI, *VT))
+    return Helper.libcall(MI, LocObserver);
+
+  bool IsRemainder = MI.getOpcode() == G_UREM;
+  if (C->Value.ugt(255) || C->Value.isOne()) {
+    bool CopyInput = IsRemainder == C->Value.ugt(255);
+    if (CopyInput)
+      Builder.buildCopy(Dst, Numerator);
+    else
+      Builder.buildConstant(Dst, 0);
+    MI.eraseFromParent();
+    return LegalizerHelper::Legalized;
+  }
+
+  unsigned Divisor = C->Value.getZExtValue();
+  LLT ByteTy = LLT::scalar(8);
+  auto N = Builder.buildZExtOrTrunc(ByteTy, Numerator);
+  Register Result;
+  if (isPowerOf2_32(Divisor)) {
+    if (IsRemainder) {
+      auto Mask = Builder.buildConstant(ByteTy, Divisor - 1);
+      Result = Builder.buildAnd(ByteTy, N, Mask).getReg(0);
+    } else {
+      Result = N.getReg(0);
+      auto One = Builder.buildConstant(ByteTy, 1);
+      for (unsigned I = 0; I != Log2_32(Divisor); ++I)
+        Result = Builder.buildLShr(ByteTy, Result, One).getReg(0);
+    }
+  } else {
+    auto Reciprocal = getByteReciprocal(Divisor);
+    if (!Reciprocal)
+      return Helper.libcall(MI, LocObserver);
+    auto [Multiplier, Shift] = *Reciprocal;
+    auto Magic = Builder.buildConstant(ByteTy, Multiplier);
+    auto Product = buildByteProduct(Builder, LLT::scalar(16), N.getReg(0),
+                                    Magic.getReg(0));
+    auto Bytes = Builder.buildUnmerge(ByteTy, Product);
+    Register Quotient = Bytes.getReg(1);
+    auto One = Builder.buildConstant(ByteTy, 1);
+    for (unsigned I = 8; I != Shift; ++I)
+      Quotient = Builder.buildLShr(ByteTy, Quotient, One).getReg(0);
+    Result = Quotient;
+    if (IsRemainder) {
+      auto D = Builder.buildConstant(ByteTy, Divisor);
+      auto QD =
+          buildByteProduct(Builder, LLT::scalar(16), Quotient, D.getReg(0));
+      auto Low = Builder.buildTrunc(ByteTy, QD);
+      Result = Builder.buildSub(ByteTy, N, Low).getReg(0);
+    }
+  }
+  Builder.buildZExtOrTrunc(Dst, Result);
   MI.eraseFromParent();
   return LegalizerHelper::Legalized;
 }
