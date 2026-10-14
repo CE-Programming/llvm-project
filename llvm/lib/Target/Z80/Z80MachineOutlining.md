@@ -109,3 +109,13 @@ cost; outlining itself is a size optimization, not a speed optimization.
 Timing spans guest evaluator entry through its original return PC/SP, excludes
 keyboard waits, and retains the real CEmu scheduler/interrupt behavior. Repeated
 factor/gcd/powmod measurements were deterministic; hardware timing is unmeasured.
+
+A same-compiler run with outlining disabled isolates the conservative policies:
+core evaluator overhead is approximately 0-0.13% in these nine cases. The
+aggressive policy adds 4.31-11.44% core evaluator cycles relative to the same
+compiler without outlining. Read-only IRQ instrumentation confirmed that a few
+negative conservative deltas (notably gcd) came from one fewer timer interrupt,
+not intrinsic acceleration of the outlined code. Every measured interval was
+repeatable, with no NMI/trap, and all 36 changed-app output comparisons (including
+the disabled build) matched the baseline. The nine-case evidence does not imply
+that hot loops in other workloads have the same overhead.
