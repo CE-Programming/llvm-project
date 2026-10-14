@@ -11,9 +11,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Z80.h"
 #include "MCTargetDesc/Z80MCTargetDesc.h"
+#include "Z80.h"
 #include "Z80InstrInfo.h"
+#include "Z80LegalizerInfo.h"
 #include "Z80Subtarget.h"
 #include "llvm/CodeGen/GlobalISel/Combiner.h"
 #include "llvm/CodeGen/GlobalISel/CombinerHelper.h"
@@ -59,6 +60,11 @@ public:
   bool tryCombineAll(MachineInstr &I) const override;
 
 private:
+  bool canLowerByteDivide(MachineInstr &MI) const {
+    return static_cast<const Z80LegalizerInfo *>(STI.getLegalizerInfo())
+        ->canLowerByteDivide(MI, *VT);
+  }
+
 #define GET_GICOMBINER_CLASS_MEMBERS
 #include "Z80GenPreLegalizeGICombiner.inc"
 #undef GET_GICOMBINER_CLASS_MEMBERS

@@ -33,6 +33,10 @@ private:
 public:
   Z80LegalizerInfo(const Z80Subtarget &STI, const Z80TargetMachine &TM);
 
+  // Preserve these operations for hardware lowering before generic constant
+  // division expands them into larger multiply/shift libcalls.
+  bool canLowerByteDivide(MachineInstr &MI, GISelValueTracking &VT) const;
+
   bool legalizeCustom(LegalizerHelper &Helper, MachineInstr &MI,
                       LostDebugLocObserver &LocObserver) const override;
 
@@ -75,6 +79,9 @@ private:
   LegalizerHelper::LegalizeResult
   legalizeMultiply(LegalizerHelper &Helper, MachineInstr &MI,
                    LostDebugLocObserver &LocObserver) const;
+  LegalizerHelper::LegalizeResult
+  legalizeByteDivide(LegalizerHelper &Helper, MachineInstr &MI,
+                     LostDebugLocObserver &LocObserver) const;
   LegalizerHelper::LegalizeResult
   legalizeMultiplyWithOverflow(LegalizerHelper &Helper, MachineInstr &MI,
                                LostDebugLocObserver &LocObserver) const;
