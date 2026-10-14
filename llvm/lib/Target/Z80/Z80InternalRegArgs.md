@@ -8,6 +8,9 @@ public C ABI and the existing `fastcc` lowering stay unchanged.
 24-bit register pairs in ADL mode). Smaller integer arguments are promoted as
 in the C convention, with `signext`/`zeroext` respected. Return values, IX
 preservation, flags clobbers and caller stack cleanup follow the C convention.
+Functions using the private convention create their frame inline, preserving
+incoming HL/DE/BC and using IY as allocation scratch. The usual frameset
+size-oriented libcalls consume argument registers, so cannot be used there.
 The lowering has ordinary stack fallback, but the automatic pass only selects
 functions whose arguments all fit the three registers.
 
