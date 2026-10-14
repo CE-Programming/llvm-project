@@ -13,8 +13,8 @@ define i1 @tagged_equal_live_input(i24 %a, i24 %b, ptr %out) minsize optsize {
 ; OPT-NEXT:    pop hl
 ; OPT-NEXT:    ld bc, (ix + 9)
 ; OPT-NEXT:    call __ixor
-; OPT-NEXT:    ld bc, 8388607
-; OPT-NEXT:    call __iand
+; OPT-NEXT:    add hl, hl
+; OPT-NEXT:    call __ishru_1
 ; OPT-NEXT:    ld (iy), de
 ; OPT-NEXT:    add hl, bc
 ; OPT-NEXT:    or a, a
@@ -47,8 +47,8 @@ define i1 @tagged_equal_shared_xor(i24 %a, i24 %b, ptr %out) minsize optsize {
 ; OPT-NEXT:    ld bc, (ix + 9)
 ; OPT-NEXT:    call __ixor
 ; OPT-NEXT:    ld (iy), hl
-; OPT-NEXT:    ld bc, 8388607
-; OPT-NEXT:    call __iand
+; OPT-NEXT:    add hl, hl
+; OPT-NEXT:    call __ishru_1
 ; OPT-NEXT:    add hl, bc
 ; OPT-NEXT:    or a, a
 ; OPT-NEXT:    sbc hl, bc
