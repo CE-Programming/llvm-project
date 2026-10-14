@@ -21,6 +21,7 @@
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/CommandLine.h"
 
@@ -125,7 +126,12 @@ public:
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &) {
     if (!EnableInternalRegArgs)
       return PreservedAnalyses::all();
-    bool Changed = false;
+    // The optimizer-last callback precedes MergeFunctions in ordinary and
+    // ThinLTO pipelines. Mark postlink eligibility so the legacy codegen IR
+    // pass can also convert newly created private merged bodies afterwards.
+    bool Changed = !M.getNamedMetadata("z80.internal.regargs.postlink");
+    if (Changed)
+      M.getOrInsertNamedMetadata("z80.internal.regargs.postlink");
     unsigned Functions = 0, CallSites = 0, WideArgs = 0, WideArgCalls = 0;
     unsigned WideReturn = 0, WideReturnCalls = 0, SRet = 0, SRetCalls = 0,
              Existing = 0;
@@ -167,7 +173,37 @@ public:
   }
 };
 
+class Z80InternalRegArgsLatePass : public ModulePass {
+  const Z80TargetMachine &TM;
+
+public:
+  static char ID;
+  explicit Z80InternalRegArgsLatePass(const Z80TargetMachine &TM)
+      : ModulePass(ID), TM(TM) {}
+
+  StringRef getPassName() const override {
+    return "Z80 Internal Register Arguments After IR Merging";
+  }
+
+  bool runOnModule(Module &M) override {
+    if (!EnableInternalRegArgs ||
+        (!InternalRegArgsMergedIR &&
+         !M.getNamedMetadata("z80.internal.regargs.postlink")))
+      return false;
+    if (TM.getOptLevel() == CodeGenOptLevel::None)
+      return false;
+    ModuleAnalysisManager AM;
+    return !Z80InternalRegArgsPass(TM).run(M, AM).areAllPreserved();
+  }
+};
+
+char Z80InternalRegArgsLatePass::ID = 0;
+
 } // namespace
+
+ModulePass *llvm::createZ80InternalRegArgsLatePass(const Z80TargetMachine &TM) {
+  return new Z80InternalRegArgsLatePass(TM);
+}
 
 void llvm::registerZ80InternalRegArgsCallbacks(PassBuilder &PB,
                                                const Z80TargetMachine &TM) {

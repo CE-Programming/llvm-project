@@ -13,9 +13,9 @@
 ; OFF-LABEL: define internal i24 @six(
 ; MIR-LABEL: name: six
 ; MIR: fixedStack:
-; MIR: size: 3
-; MIR: size: 3
-; MIR: size: 3
+; MIR: offset: 6, size: 2
+; MIR: offset: 3, size: 1
+; MIR: offset: 0, size: 3
 ; MIR: liveins: $ubc, $ude, $uhl
 define internal i24 @six(i24 %a,i24 %b,i24 %c,i24 %d,i8 %e,i16 %f) noinline {
  %small = zext i8 %e to i24
