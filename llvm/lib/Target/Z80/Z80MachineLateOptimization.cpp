@@ -1545,8 +1545,21 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
                      MIB->dump());
           if (AMirrorDef) {
             assert(AMirrorDef->getOperand(0).getReg() == CopySrc);
-            if (MIB->getOperand(1).isKill())
-              AMirrorDef->getOperand(0).setIsDead();
+            assert(AMirrorDef->getParent() == &MBB);
+            if (MIB->getOperand(1).isKill()) {
+              // The removed COPY is the final use, but earlier instructions
+              // may still need the pseudo's explicit result (including aliases).
+              bool HasInterveningUse = false;
+              for (auto J = std::next(AMirrorDef->getIterator()),
+                        JE = MIB->getIterator(); J != JE; ++J) {
+                if (!J->isDebugInstr() && J->readsRegister(CopySrc, TRI)) {
+                  HasInterveningUse = true;
+                  break;
+                }
+              }
+              if (!HasInterveningUse)
+                AMirrorDef->getOperand(0).setIsDead();
+            }
             AMirrorDef->clearRegisterDeads(Z80::A);
           }
           MIB->eraseFromParent();

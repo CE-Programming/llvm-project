@@ -1,0 +1,77 @@
+# NOTE: Do not autogenerate
+# RUN: llc -mtriple=ez80 -run-pass=z80-machine-late-opt -verify-machineinstrs -o - %s | FileCheck %s
+#
+# A killed source on the last COPY into A is still read by the preceding
+# store. Removing the COPY must keep both the stored result and A live.
+--- |
+  target triple = "ez80"
+  define i8 @invert(ptr %p) { ret i8 0 }
+  define i8 @return_only(ptr %p) { ret i8 0 }
+  define i8 @store_at_alias(ptr %p) { ret i8 0 }
+...
+---
+name: invert
+tracksRegLiveness: true
+selected: true
+legalized: true
+regBankSelected: true
+body: |
+  bb.0:
+    liveins: $uiy
+
+    $l = LD8ri -1
+    $l = XOR8_gisel_p killed $l, $uiy, implicit-def dead $a, implicit-def dead $f
+    LD8pg killed $uiy, $l
+    $a = COPY killed $l
+    RET24 implicit-def $spl, implicit $spl, implicit $a
+
+# CHECK-LABEL: name: invert
+# CHECK:      $l = XOR8_gisel_p killed $l, $uiy, implicit-def $a, implicit-def dead $f
+# CHECK-NEXT: LD8pg killed $uiy, $l
+# CHECK-NOT:  COPY
+# CHECK:      RET24
+...
+---
+name: return_only
+tracksRegLiveness: true
+selected: true
+legalized: true
+regBankSelected: true
+body: |
+  bb.0:
+    liveins: $uiy
+
+    $l = LD8ri -1
+    $l = XOR8_gisel_p killed $l, killed $uiy, implicit-def dead $a, implicit-def dead $f
+    $a = COPY killed $l
+    RET24 implicit-def $spl, implicit $spl, implicit $a
+
+# With no intervening use, the register result can still be discarded.
+# CHECK-LABEL: name: return_only
+# CHECK:      dead $l = XOR8_gisel_p killed $l, killed $uiy, implicit-def $a, implicit-def dead $f
+# CHECK-NOT:  COPY
+# CHECK:      RET24
+...
+---
+name: store_at_alias
+tracksRegLiveness: true
+selected: true
+legalized: true
+regBankSelected: true
+body: |
+  bb.0:
+    liveins: $uiy, $uhl
+
+    $l = LD8ri -1
+    $l = XOR8_gisel_p killed $l, killed $uiy, implicit-def $a, implicit-def dead $f
+    LD8pg $uhl, $a
+    $a = COPY killed $l
+    RET24 implicit-def $spl, implicit $spl, implicit $a
+
+# Reading the enclosing pointer register also needs its low-byte result.
+# CHECK-LABEL: name: store_at_alias
+# CHECK:      $l = XOR8_gisel_p killed $l, killed $uiy, implicit-def $a, implicit-def dead $f
+# CHECK-NEXT: LD8pg $uhl, $a
+# CHECK-NOT:  COPY
+# CHECK:      RET24
+...
