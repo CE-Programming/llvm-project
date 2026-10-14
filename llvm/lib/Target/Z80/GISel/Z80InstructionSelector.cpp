@@ -2548,6 +2548,38 @@ Z80InstructionSelector::foldCompare(MachineInstr &I, MachineIRBuilder &MIB,
     return Z80::COND_INVALID;
   }
 
+  // Equality modulo 2^23 can be tested as (LHS - RHS) << 1 == 0.
+  // ADD HL,HL does not update Z, so explicitly clear carry and use ADC
+  // after the native subtraction. Both arithmetic operations wrap to 24 bits.
+  // One-use guards leave live arithmetic results to the ordinary selector.
+  if (OpSize == 24 && STI.has24BitEZ80Ops() && ConstRHS &&
+      ConstRHS->Value.isZero() && (CC == Z80::COND_Z || CC == Z80::COND_NZ)) {
+    Register A, B;
+    int64_t Shift;
+    if (mi_match(LHSReg, MRI,
+                 m_OneUse(m_GShl(m_OneUse(m_GSub(m_Reg(A), m_Reg(B))),
+                                 m_ICst(Shift)))) &&
+        Shift == 1) {
+      // A live RHS may already require HL/IY for another operation. Keep
+      // its original class and give the subtraction a separate BC/DE copy.
+      auto RHS = MIB.buildCopy(OpTy, B);
+      if (!RBI.constrainGenericRegister(RHS.getReg(0), Z80::O24RegClass, MRI))
+        return Z80::COND_INVALID;
+      auto LHS = MIB.buildCopy(Register(Z80::UHL), A);
+      if (!constrainSelectedInstRegOperands(*LHS, TII, TRI, RBI))
+        return Z80::COND_INVALID;
+      MIB.buildInstr(Z80::RCF);
+      auto Sub = MIB.buildInstr(Z80::SBC24ao, {}, {RHS});
+      if (!constrainSelectedInstRegOperands(*Sub, TII, TRI, RBI))
+        return Z80::COND_INVALID;
+      MIB.buildInstr(Z80::RCF);
+      auto Double = MIB.buildInstr(Z80::ADC24aa);
+      if (!constrainSelectedInstRegOperands(*Double, TII, TRI, RBI))
+        return Z80::COND_INVALID;
+      return CC;
+    }
+  }
+
   if (OpSize == 8 && IsSigned && ConstRHS && !ConstRHS->Value &&
       (CC == Z80::COND_P || CC == Z80::COND_M)) {
     auto Bit = MIB.buildInstr(Z80::BIT8gb, {}, {LHSReg, uint64_t(7)});
