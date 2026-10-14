@@ -30,7 +30,7 @@ STATISTIC(NumIndexedAddresses,
           "Number of eZ80 temporary indexed addresses folded");
 STATISTIC(NumSmallAdds, "Number of eZ80 small index-register additions folded");
 
-static cl::opt<bool> EnableAddressOpt("z80-machine-address-opt", cl::Hidden,
+static cl::opt<bool> EnableAddressOpt("z80-enable-machine-address-opt", cl::Hidden,
                                       cl::init(true));
 static cl::opt<bool> EnableLEAChains("z80-address-opt-lea-chains", cl::Hidden,
                                      cl::init(true));

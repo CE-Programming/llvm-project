@@ -40,7 +40,7 @@ STATISTIC(NumSignExtensions,
 STATISTIC(NumBooleanTests,
           "Number of final redundant eZ80 boolean tests removed");
 
-static cl::opt<bool> EnablePeepholeOpt("z80-machine-peephole-opt", cl::Hidden,
+static cl::opt<bool> EnablePeepholeOpt("z80-enable-machine-peephole-opt", cl::Hidden,
                                        cl::init(true));
 
 namespace {

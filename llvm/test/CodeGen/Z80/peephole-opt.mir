@@ -1,6 +1,6 @@
 # NOTE: Do not autogenerate
 # RUN: llc -mtriple=ez80 -run-pass=z80-machine-peephole-opt -verify-machineinstrs -o - %s | FileCheck %s
-# RUN: llc -mtriple=ez80 -run-pass=z80-machine-peephole-opt -z80-machine-peephole-opt=false -verify-machineinstrs -o - %s | FileCheck %s --check-prefix=OFF
+# RUN: llc -mtriple=ez80 -run-pass=z80-machine-peephole-opt -z80-enable-machine-peephole-opt=false -verify-machineinstrs -o - %s | FileCheck %s --check-prefix=OFF
 
 ---
 name: lea_inc

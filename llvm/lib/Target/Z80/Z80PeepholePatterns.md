@@ -10,7 +10,7 @@ The pass runs after pseudo expansion and address folding, before branch
 selection. Exchange and stack-copy folds also support ordinary Z80 targets;
 the remaining patterns currently support eZ80 only. It respects `optnone` and
 is omitted at `-O0`.
-`-mllvm -z80-machine-peephole-opt=false` disables it for comparisons.
+`-mllvm -z80-enable-machine-peephole-opt=false` disables it for comparisons.
 
 Supported patterns:
 
