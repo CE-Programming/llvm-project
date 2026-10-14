@@ -1,0 +1,99 @@
+# NOTE: Do not autogenerate
+# RUN: llc -mtriple=ez80 -start-before=prologepilog -O0 -z80-frame-bias-policy=off -verify-machineinstrs -o - %s | FileCheck %s --check-prefixes=ALL,ZERO
+# RUN: llc -mtriple=ez80 -start-before=prologepilog -O2 -z80-frame-bias-policy=fixed -z80-frame-bias=127 -verify-machineinstrs -o - %s | FileCheck %s --check-prefixes=ALL,SHORT,BIASED
+# RUN: llc -mtriple=ez80 -start-before=prologepilog -O0 -z80-frame-bias-policy=fixed -z80-frame-bias=300 -verify-machineinstrs -o - %s | FileCheck %s --check-prefixes=ALL,PLUS,BIASED
+# RUN: llc -mtriple=ez80 -start-before=prologepilog -O2 -z80-frame-bias-policy=fixed -z80-frame-bias=-300 -verify-machineinstrs -o - %s | FileCheck %s --check-prefixes=ALL,MINUS,BIASED
+#
+# A variable-sized object requires restoring SP from the saved frame base even
+# when there are no fixed local bytes. The explicit body allocation makes an
+# omitted restore observable; normal, size and optnone functions must all work.
+# Large positive/negative biases also exercise legal IX-based LEA chains.
+--- |
+  define i8 @dynamic_zero() nounwind { ret i8 37 }
+  define i8 @dynamic_zero_size() nounwind minsize { ret i8 37 }
+  define i8 @dynamic_zero_optnone() nounwind noinline optnone { ret i8 37 }
+...
+---
+name: dynamic_zero
+# ALL-LABEL: _dynamic_zero:
+# ALL: ld a, 37
+# ZERO-NEXT: ld sp, ix
+# SHORT-NEXT: lea hl, ix + 127
+# PLUS-NEXT: lea ix, ix + 127
+# PLUS-NEXT: lea ix, ix + 127
+# PLUS-NEXT: lea hl, ix + 46
+# MINUS-NEXT: lea ix, ix - 128
+# MINUS-NEXT: lea ix, ix - 128
+# MINUS-NEXT: lea hl, ix - 44
+# BIASED-NEXT: ld sp, hl
+# ALL-NEXT: pop ix
+# ALL-NEXT: ret
+tracksRegLiveness: true
+frameInfo:
+  stackSize: 0
+stack:
+  - { id: 0, type: variable-sized, offset: 0, alignment: 1 }
+body: |
+  bb.0:
+    $uhl = LD24ri -17
+    $uhl = ADD24as $uhl, implicit-def dead $f, implicit $spl
+    LD24sa killed $uhl, implicit-def $spl
+    $a = LD8ri 37
+    RET24 implicit $a, implicit-def $spl, implicit $spl
+...
+---
+name: dynamic_zero_size
+# ALL-LABEL: _dynamic_zero_size:
+# ALL: ld a, 37
+# ZERO-NEXT: ld sp, ix
+# SHORT-NEXT: lea hl, ix + 127
+# PLUS-NEXT: lea ix, ix + 127
+# PLUS-NEXT: lea ix, ix + 127
+# PLUS-NEXT: lea hl, ix + 46
+# MINUS-NEXT: lea ix, ix - 128
+# MINUS-NEXT: lea ix, ix - 128
+# MINUS-NEXT: lea hl, ix - 44
+# BIASED-NEXT: ld sp, hl
+# ALL-NEXT: pop ix
+# ALL-NEXT: ret
+tracksRegLiveness: true
+frameInfo:
+  stackSize: 0
+stack:
+  - { id: 0, type: variable-sized, offset: 0, alignment: 1 }
+body: |
+  bb.0:
+    $uhl = LD24ri -17
+    $uhl = ADD24as $uhl, implicit-def dead $f, implicit $spl
+    LD24sa killed $uhl, implicit-def $spl
+    $a = LD8ri 37
+    RET24 implicit $a, implicit-def $spl, implicit $spl
+...
+---
+name: dynamic_zero_optnone
+# ALL-LABEL: _dynamic_zero_optnone:
+# ALL: ld a, 37
+# ZERO-NEXT: ld sp, ix
+# SHORT-NEXT: lea hl, ix + 127
+# PLUS-NEXT: lea ix, ix + 127
+# PLUS-NEXT: lea ix, ix + 127
+# PLUS-NEXT: lea hl, ix + 46
+# MINUS-NEXT: lea ix, ix - 128
+# MINUS-NEXT: lea ix, ix - 128
+# MINUS-NEXT: lea hl, ix - 44
+# BIASED-NEXT: ld sp, hl
+# ALL-NEXT: pop ix
+# ALL-NEXT: ret
+tracksRegLiveness: true
+frameInfo:
+  stackSize: 0
+stack:
+  - { id: 0, type: variable-sized, offset: 0, alignment: 1 }
+body: |
+  bb.0:
+    $uhl = LD24ri -17
+    $uhl = ADD24as $uhl, implicit-def dead $f, implicit $spl
+    LD24sa killed $uhl, implicit-def $spl
+    $a = LD8ri 37
+    RET24 implicit $a, implicit-def $spl, implicit $spl
+...

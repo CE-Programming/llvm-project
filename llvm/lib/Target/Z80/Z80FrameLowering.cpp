@@ -246,6 +246,18 @@ Z80FrameLowering::getOptimalStackAdjustmentMethod(MachineFunction &MF,
                                                   int Offset, int FPOffset,
                                                   bool ScratchIsIndex,
                                                   bool UnknownOffset) const {
+  if (UnknownOffset) {
+    // A dynamic allocation makes the current SP unrelated to the fixed
+    // frame size. Restore from the saved frame base even with no fixed locals
+    // or at -O0. The prologue biases FP by -Bias, so its restoration address
+    // is FP + (Offset - FPOffset), not necessarily FP itself.
+    assert(isFPSaved(MF) && "dynamic frames require a saved frame pointer");
+    if (Offset == FPOffset)
+      return SAM_All;
+    assert(STI.hasEZ80Ops() && "frame pointer bias requires eZ80 ops");
+    return SAM_Medium;
+  }
+
   if (!Offset)
     return SAM_None;
 
@@ -269,7 +281,7 @@ Z80FrameLowering::getOptimalStackAdjustmentMethod(MachineFunction &MF,
   unsigned BestCost = PopPushCount * PopPushCost + IncDecCount * IncDecCost;
 
   if (isFPSaved(MF)) {
-    if (UnknownOffset || (FPOffset >= 0 && FPOffset == Offset)) {
+    if (FPOffset >= 0 && FPOffset == Offset) {
       // Optimal if we are trying to set SP = FP, except for tiny Offset
       unsigned AllCost = 0;
       //   LD SP, FP
@@ -346,14 +358,32 @@ void Z80FrameLowering::BuildStackAdjustment(
     // Just store FP to SP
     ResultReg = FrameReg;
     break;
-  case SAM_Medium:
+  case SAM_Medium: {
+    // Unknown-SP restoration may require a bias outside one LEA's range.
+    // Compute the address without changing SP or writing stack memory; using
+    // PUSH/POP here could overwrite the saved frame pointer/return address.
+    int64_t Remaining = int64_t(Offset) - FPOffset;
+    while (!isInt<8>(Remaining)) {
+      assert(UnknownOffset && "known-SP medium adjustment must fit one LEA");
+      // LEA's base must be IX/IY; the scratch register may instead be HL.
+      // It is safe to move the saved frame base here: the epilogue restores
+      // its original caller value immediately after setting SP.
+      int64_t Step = std::clamp<int64_t>(Remaining, -128, 127);
+      BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::LEA24ro : Z80::LEA16ro),
+              FrameReg)
+          .addReg(FrameReg)
+          .addImm(Step)
+          .setMIFlag(Flag);
+      Remaining -= Step;
+    }
     BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::LEA24ro : Z80::LEA16ro),
             ScratchReg)
         .addReg(FrameReg)
-        .addImm(Offset - FPOffset)
+        .addImm(Remaining)
         .setMIFlag(Flag);
     ResultReg = ScratchReg;
     break;
+  }
   case SAM_Large:
     BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::LD24ri : Z80::LD16ri),
             ScratchReg)
