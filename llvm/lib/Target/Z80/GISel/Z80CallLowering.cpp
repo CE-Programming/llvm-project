@@ -357,6 +357,7 @@ static bool canGuaranteeTCO(CallingConv::ID CC) {
 static bool mayTailCallThisCC(CallingConv::ID CC) {
   switch (CC) {
   case CallingConv::C:
+  case CallingConv::Z80_Internal:
   case CallingConv::PreserveMost:
   case CallingConv::Z80_LibCall:
   case CallingConv::Z80_LibCall_AB:

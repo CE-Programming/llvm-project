@@ -32,6 +32,7 @@ set(sources
   Z80FrameLowering.cpp
   Z80ISelLowering.cpp
   Z80InstrInfo.cpp
+  Z80InternalRegArgs.cpp
   Z80MCInstLower.cpp
   Z80MachineAddressOptimization.cpp
   Z80MachineEarlyOptimization.cpp

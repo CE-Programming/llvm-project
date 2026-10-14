@@ -109,6 +109,7 @@ Z80RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
     llvm_unreachable("Unsupported calling convention");
   case CallingConv::C:
   case CallingConv::Fast:
+  case CallingConv::Z80_Internal:
     return Is24Bit ? CSR_EZ80_C_SaveList : CSR_Z80_C_SaveList;
   case CallingConv::Z80_LibCall:
   case CallingConv::Z80_LibCall_AB:
@@ -134,6 +135,7 @@ Z80RegisterInfo::getCallPreservedMask(const MachineFunction &MF,
   default: llvm_unreachable("Unsupported calling convention");
   case CallingConv::C:
   case CallingConv::Fast:
+  case CallingConv::Z80_Internal:
     return Is24Bit ? CSR_EZ80_C_RegMask : CSR_Z80_C_RegMask;
   case CallingConv::PreserveAll:
   case CallingConv::Z80_LibCall:

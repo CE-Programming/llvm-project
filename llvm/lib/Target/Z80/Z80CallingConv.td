@@ -49,6 +49,22 @@ def CC_EZ80_C : CallingConv<[
   CCIfType<[ i24 ], CCAssignToStack<3, 1>>,
 ]>;
 
+// The internal convention uses three caller-clobbered native-width
+// register pairs for scalar arguments, keeping the C return and save rules.
+// Promoting narrow arguments as for C also prevents subregister overlap.
+def CC_Z80_Internal : CallingConv<[
+  CCIfByVal<CCPassByVal<2, 1>>,
+  CCIfType<[ i1, i8 ], CCPromoteToType<i16>>,
+  CCIfType<[ i16 ], CCAssignToReg<[ HL, DE, BC ]>>,
+  CCDelegateTo<CC_Z80_C>
+]>;
+def CC_EZ80_Internal : CallingConv<[
+  CCIfByVal<CCPassByVal<3, 1>>,
+  CCIfType<[ i1, i8, i16 ], CCPromoteToType<i24>>,
+  CCIfType<[ i24 ], CCAssignToReg<[ UHL, UDE, UBC ]>>,
+  CCDelegateTo<CC_EZ80_C>
+]>;
+
 def CC_Z80_LC : CallingConv<[
   CCDelegateTo<CC_Z80_Reg>,
   CCIfType<[ i8  ], CCAssignToReg<[ L, C ]>>
@@ -87,6 +103,10 @@ def CC_Z80 : CallingConv<[
   CCIfCC<"CallingConv::Z80_LibCall_L", CCDelegateTo<CC_Z80_LC_L>>,
   CCIfCC<"CallingConv::Z80_LibCall_F", CCDelegateTo<CC_Z80_LC_F>>,
   CCIfCC<"CallingConv::Z80_LibCall_16", CCDelegateTo<CC_Z80_LC>>,
+  CCIfCC<"CallingConv::Z80_Internal",
+         CCIfSubtarget<"is16Bit()", CCDelegateTo<CC_Z80_Internal>>>,
+  CCIfCC<"CallingConv::Z80_Internal",
+         CCIfSubtarget<"is24Bit()", CCDelegateTo<CC_EZ80_Internal>>>,
   CCIfSubtarget<"is16Bit()", CCDelegateTo<CC_Z80_C>>,
   CCIfSubtarget<"is24Bit()", CCDelegateTo<CC_EZ80_C>>
 ]>;
