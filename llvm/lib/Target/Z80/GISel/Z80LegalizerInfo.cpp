@@ -2022,6 +2022,25 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeMemIntrinsic(
   return Result;
 }
 
+// MLT consumes the low and high bytes and ignores any upper input byte.
+// Its ADL result defines all 24 bits, including the zero upper byte.
+static Register buildByteProduct(MachineIRBuilder &Builder, LLT Ty,
+                                 Register LHS, Register RHS) {
+  auto &MRI = *Builder.getMRI();
+  auto Packed = Builder.buildMergeValues(LLT::scalar(16), {LHS, RHS});
+  MRI.setRegClass(Packed.getReg(0), &Z80::G16RegClass);
+  if (Ty == LLT::scalar(24)) {
+    auto Packed24 = Builder.buildAnyExt(Ty, Packed);
+    auto Product = Builder.buildInstr(Z80::MLT24r, {Ty}, {Packed24});
+    MRI.setRegClass(Packed24.getReg(0), &Z80::G24RegClass);
+    MRI.setRegClass(Product.getReg(0), &Z80::G24RegClass);
+    return Product.getReg(0);
+  }
+  auto Product = Builder.buildInstr(Z80::MLT16r, {Ty}, {Packed});
+  MRI.setRegClass(Product.getReg(0), &Z80::G16RegClass);
+  return Product.getReg(0);
+}
+
 // MLT produces the complete unsigned byte product in a 16-bit register.
 // Wider G_MUL operations normally become libcalls before instruction selection
 // can see the byte operands. Prefer hardware byte products, then consider a
@@ -2088,27 +2107,54 @@ Z80LegalizerInfo::legalizeMultiply(LegalizerHelper &Helper, MachineInstr &MI,
         return LegalizerHelper::Legalized;
       }
     }
+    // Decompose a proven unsigned byte times unsigned word into two hardware
+    // products. The result is exact at 24 bits and wraps correctly at 16 bits.
+    // Two MLTs and their byte setup exceed the call-size budget; use this
+    // expansion for speed functions while preserving size-oriented libcalls.
+    const auto &MF = Builder.getMF();
+    bool OptSize = MF.getFunction().hasOptSize() ||
+                   MF.getTarget().getOptLevel() == CodeGenOptLevel::None;
+    if (EnableWideByteMultiply && Subtarget.hasZ180Ops() && !OptSize) {
+      Register Byte = LHS, Word = RHS;
+      if (!IsByte(Byte))
+        std::swap(Byte, Word);
+      if (IsByte(Byte) && VT->getKnownBits(Word).countMaxActiveBits() <= 16) {
+        LLT ByteTy = LLT::scalar(8);
+        auto B = Builder.buildTrunc(ByteTy, Byte);
+        auto W = Builder.buildZExtOrTrunc(LLT::scalar(16), Word);
+        auto Parts = Builder.buildUnmerge(ByteTy, W);
+        auto LowProduct =
+            buildByteProduct(Builder, Ty, B.getReg(0), Parts.getReg(0));
+        auto HighProduct =
+            buildByteProduct(Builder, Ty, B.getReg(0), Parts.getReg(1));
+        // Extract only accessible bytes. Unmerging a 24-bit product also
+        // requests its unused upper byte and can force an avoidable spill.
+        auto HighLow = Builder.buildExtract(ByteTy, HighProduct, 0);
+        auto HighHigh = Builder.buildExtract(ByteTy, HighProduct, 8);
+        auto Zero = Builder.buildConstant(ByteTy, 0);
+        Register Shifted;
+        if (Ty == LLT::scalar(24))
+          Shifted =
+              Builder
+                  .buildMergeValues(Ty, {Zero.getReg(0), HighLow.getReg(0),
+                                         HighHigh.getReg(0)})
+                  .getReg(0);
+        else
+          Shifted =
+              Builder.buildMergeValues(Ty, {Zero.getReg(0), HighLow.getReg(0)})
+                  .getReg(0);
+        Builder.buildAdd(Dst, LowProduct, Shifted);
+        MI.eraseFromParent();
+        return LegalizerHelper::Legalized;
+      }
+    }
     return Helper.libcall(MI, LocObserver);
   }
 
   auto Low = Builder.buildTrunc(LLT::scalar(8), RHS);
   auto High = Builder.buildTrunc(LLT::scalar(8), LHS);
-  auto Packed = Builder.buildMergeValues(LLT::scalar(16),
-                                        {Low.getReg(0), High.getReg(0)});
-  MRI.setRegClass(Packed.getReg(0), &Z80::G16RegClass);
-  if (Ty == LLT::scalar(24)) {
-    // MLT ignores the upper input byte and clears the upper output byte.
-    // Model that full-width definition instead of inserting a separate zext.
-    auto Packed24 = Builder.buildAnyExt(Ty, Packed);
-    auto Product = Builder.buildInstr(Z80::MLT24r, {Ty}, {Packed24});
-    MRI.setRegClass(Packed24.getReg(0), &Z80::G24RegClass);
-    MRI.setRegClass(Product.getReg(0), &Z80::G24RegClass);
-    Builder.buildCopy(Dst, Product);
-  } else {
-    auto Product = Builder.buildInstr(Z80::MLT16r, {Ty}, {Packed});
-    MRI.setRegClass(Product.getReg(0), &Z80::G16RegClass);
-    Builder.buildCopy(Dst, Product);
-  }
+  Builder.buildCopy(
+      Dst, buildByteProduct(Builder, Ty, Low.getReg(0), High.getReg(0)));
   MI.eraseFromParent();
   return LegalizerHelper::Legalized;
 }
