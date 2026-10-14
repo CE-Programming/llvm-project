@@ -135,11 +135,11 @@ define i24 @urem24_10(i8 %a) {
 }
 
 ; EZ80-LABEL: _udiv24_255:
-; EZ80: mlt
+; EZ80-NOT: mlt
 ; EZ80-NOT: call
 ; EZ80: ret
 ; MIR-LABEL: name: udiv24_255
-; MIR: MLT16r
+; MIR: G_ICMP intpred(uge)
 ; OFF-LABEL: _udiv24_255:
 ; OFF-NOT: mlt
 ; OFF: call
@@ -151,13 +151,11 @@ define i24 @udiv24_255(i8 %a) {
 }
 
 ; EZ80-LABEL: _urem24_255:
-; EZ80: mlt
-; EZ80: mlt
+; EZ80-NOT: mlt
 ; EZ80-NOT: call
 ; EZ80: ret
 ; MIR-LABEL: name: urem24_255
-; MIR: MLT16r
-; MIR: MLT16r
+; MIR: G_ICMP intpred(uge)
 ; OFF-LABEL: _urem24_255:
 ; OFF: call __iremu
 
@@ -285,5 +283,36 @@ define i24 @variable_divisor(i8 %a, i24 %b) {
 define i24 @nine_bit_dividend(i24 %a) {
   %n = and i24 %a, 511
   %r = udiv i24 %n, 3
+  ret i24 %r
+}
+
+; A byte divided by a value in 128..255 has a boolean quotient. This comparison
+; is compact enough for a size build, even when a reciprocal would need seven
+; shifts; the remainder selects the unchanged input or one subtraction.
+; EZ80-LABEL: _size_boolean_quotient:
+; EZ80-NOT: mlt
+; EZ80-NOT: call __idivu
+; EZ80-NOT: call __i48mulu
+; EZ80: ret
+; MIR-LABEL: name: size_boolean_quotient
+; MIR: G_ICMP intpred(uge)
+
+define i24 @size_boolean_quotient(i8 %a) minsize optsize {
+  %n = zext i8 %a to i24
+  %r = udiv i24 %n, 129
+  ret i24 %r
+}
+
+; EZ80-LABEL: _size_boolean_remainder:
+; EZ80-NOT: mlt
+; EZ80-NOT: call __iremu
+; EZ80: ret
+; MIR-LABEL: name: size_boolean_remainder
+; MIR: G_ICMP intpred(uge)
+; MIR: G_SELECT
+
+define i24 @size_boolean_remainder(i8 %a) minsize optsize {
+  %n = zext i8 %a to i24
+  %r = urem i24 %n, 129
   ret i24 %r
 }

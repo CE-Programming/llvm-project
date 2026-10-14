@@ -26,11 +26,13 @@ hardware expansions.
 For a dividend proven to be in `0..255`, the target preserves constant unsigned
 division before generic combines turn it into full-width multiply/shift calls.
 An unsigned divisor of one or greater than 255 gives a direct input or constant
-zero. Power-of-two divisors use byte shifts or masks. Signed division/remainder
+zero. Divisors in `128..255` have quotient at most one and use a direct byte
+comparison; their remainders select between the input and input minus divisor.
+Smaller power-of-two divisors use byte shifts or masks. Signed division/remainder
 is unchanged, and unknown dividend ranges, zero divisors and variable divisors
 retain the previous lowering.
 
-For other divisors, the legalizer finds an unsigned-byte multiplier `m` and
+For other divisors below 128, the legalizer finds an unsigned-byte multiplier `m` and
 shift `s >= 8` such that:
 
 ```
@@ -41,9 +43,11 @@ r = n - q * divisor
 The formula is accepted only when it is exact for **all 256 byte dividends**.
 The quotient uses the high byte of an `MLT` result and byte right shifts; the
 remainder uses a second byte multiply and subtraction. The result is explicitly
-zero-extended to its requested 16- or 24-bit width. This finds reciprocals for
-192 non-power-of-two divisors in `1..255`. Divisors requiring a correction or a
-ninth reciprocal bit (including 7, 11 and 31) retain fallback.
+zero-extended to its requested 16- or 24-bit width. The exact reciprocal search
+finds 86 non-power-of-two divisors below 128, subject to the size budget below.
+Larger byte divisors use the comparison
+form above. Divisors requiring a correction or a ninth reciprocal bit (including
+7, 11 and 31) retain fallback.
 
 For example, division by three uses multiplier 171 and shift nine. Dividing a
 24-bit value whose range is known to fit in a byte no longer needs the generic
