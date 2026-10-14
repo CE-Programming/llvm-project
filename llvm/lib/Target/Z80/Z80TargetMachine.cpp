@@ -49,6 +49,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializeZ80Target() {
   initializeZ80R64SpillPassPass(PR);
   initializeZ80MachineLateOptimizationPass(PR);
   initializeZ80MachineAddressOptimizationPass(PR);
+  initializeZ80MachinePeepholeOptimizationPass(PR);
   initializeZ80BranchSelectorPass(PR);
 }
 
@@ -218,6 +219,8 @@ void Z80PassConfig::addPreEmitPass2() {
   TargetPassConfig::addPreEmitPass2();
   if (getOptLevel() != CodeGenOptLevel::None)
     addPass(createZ80MachineAddressOptimizationPass());
+  if (getOptLevel() != CodeGenOptLevel::None)
+    addPass(createZ80MachinePeepholeOptimizationPass());
   addPass(createZ80BranchSelectorPass());
 }
 

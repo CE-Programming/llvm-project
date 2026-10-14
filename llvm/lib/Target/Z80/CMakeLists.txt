@@ -36,6 +36,7 @@ set(sources
   Z80MachineAddressOptimization.cpp
   Z80MachineEarlyOptimization.cpp
   Z80MachineLateOptimization.cpp
+  Z80MachinePeepholeOptimization.cpp
   Z80MachinePreRAOptimization.cpp
   Z80PostSelectCombiner.cpp
   Z80R64SpillPass.cpp

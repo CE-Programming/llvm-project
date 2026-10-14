@@ -1,0 +1,443 @@
+# NOTE: Do not autogenerate
+# RUN: llc -mtriple=ez80 -run-pass=z80-machine-peephole-opt -verify-machineinstrs -o - %s | FileCheck %s
+# RUN: llc -mtriple=ez80 -run-pass=z80-machine-peephole-opt -z80-machine-peephole-opt=false -verify-machineinstrs -o - %s | FileCheck %s --check-prefix=OFF
+
+---
+name: lea_inc
+tracksRegLiveness: true
+# CHECK-LABEL: name: lea_inc
+# CHECK: $uhl = LEA24ro $uix, 31
+# CHECK-NOT: INC24r
+body: |
+  bb.0:
+    liveins: $uix
+    $uhl = LEA24ro $uix, 30
+    $uhl = INC24r $uhl
+    RET24 implicit $uhl, implicit-def $spl, implicit $spl
+...
+# OFF-LABEL: name: lea_inc
+# OFF: $uhl = LEA24ro $uix, 30
+# OFF-NEXT: $uhl = INC24r $uhl
+---
+name: lea_dec
+tracksRegLiveness: true
+# CHECK-LABEL: name: lea_dec
+# CHECK: $uhl = LEA24ro $uix, -128
+# CHECK-NOT: DEC24r
+body: |
+  bb.0:
+    liveins: $uix
+    $uhl = LEA24ro $uix, -127
+    $uhl = DEC24r $uhl
+    RET24 implicit $uhl, implicit-def $spl, implicit $spl
+...
+---
+name: lea_inc_range
+tracksRegLiveness: true
+# CHECK-LABEL: name: lea_inc_range
+# CHECK: $uhl = LEA24ro $uix, 127
+# CHECK-NEXT: $uhl = INC24r $uhl
+body: |
+  bb.0:
+    liveins: $uix
+    $uhl = LEA24ro $uix, 127
+    $uhl = INC24r $uhl
+    RET24 implicit $uhl, implicit-def $spl, implicit $spl
+...
+---
+name: lea_dec_range
+tracksRegLiveness: true
+# CHECK-LABEL: name: lea_dec_range
+# CHECK: $uhl = LEA24ro $uix, -128
+# CHECK-NEXT: $uhl = DEC24r $uhl
+body: |
+  bb.0:
+    liveins: $uix
+    $uhl = LEA24ro $uix, -128
+    $uhl = DEC24r $uhl
+    RET24 implicit $uhl, implicit-def $spl, implicit $spl
+...
+---
+name: lea_other_register
+tracksRegLiveness: true
+# CHECK-LABEL: name: lea_other_register
+# CHECK: $uhl = LEA24ro $uix, 0
+# CHECK-NEXT: $ude = INC24r $ude
+body: |
+  bb.0:
+    liveins: $uix, $ude
+    $uhl = LEA24ro $uix, 0
+    $ude = INC24r $ude
+    RET24 implicit $uhl, implicit $ude, implicit-def $spl, implicit $spl
+...
+---
+name: cancel_exchanges
+tracksRegLiveness: true
+# CHECK-LABEL: name: cancel_exchanges
+# CHECK-NOT: EX24DE
+# CHECK: RET24
+body: |
+  bb.0:
+    liveins: $uhl, $ude
+    EX24DE implicit-def $uhl, implicit-def $ude, implicit $uhl, implicit $ude
+    EX24DE implicit-def $uhl, implicit-def $ude, implicit $uhl, implicit $ude
+    RET24 implicit $uhl, implicit $ude, implicit-def $spl, implicit $spl
+...
+---
+name: mixed_width_exchanges
+tracksRegLiveness: true
+# CHECK-LABEL: name: mixed_width_exchanges
+# CHECK: EX24DE
+# CHECK-NEXT: EX16DE
+body: |
+  bb.0:
+    liveins: $uhl, $ude
+    EX24DE implicit-def $uhl, implicit-def $ude, implicit $uhl, implicit $ude
+    EX16DE implicit-def $hl, implicit-def $de, implicit $hl, implicit $de
+    RET24 implicit $uhl, implicit $ude, implicit-def $spl, implicit $spl
+...
+---
+name: stack_copy_dead_source
+tracksRegLiveness: true
+# CHECK-LABEL: name: stack_copy_dead_source
+# CHECK-NOT: PUSH24r
+# CHECK: EX24DE
+# CHECK-NOT: POP24r
+body: |
+  bb.0:
+    liveins: $uhl
+    PUSH24r killed $uhl, implicit-def $spl, implicit $spl
+    $ude = POP24r implicit-def $spl, implicit $spl
+    RET24 implicit $ude, implicit-def $spl, implicit $spl
+...
+---
+name: stack_copy_dead_source_reverse
+tracksRegLiveness: true
+# CHECK-LABEL: name: stack_copy_dead_source_reverse
+# CHECK-NOT: PUSH24r
+# CHECK: EX24DE
+# CHECK-NOT: POP24r
+body: |
+  bb.0:
+    liveins: $ude
+    PUSH24r killed $ude, implicit-def $spl, implicit $spl
+    $uhl = POP24r implicit-def $spl, implicit $spl
+    RET24 implicit $uhl, implicit-def $spl, implicit $spl
+...
+---
+name: stack_copy_without_kill
+tracksRegLiveness: true
+# CHECK-LABEL: name: stack_copy_without_kill
+# CHECK: PUSH24r $uhl
+# CHECK-NEXT: $ude = POP24r
+body: |
+  bb.0:
+    liveins: $uhl
+    PUSH24r $uhl, implicit-def $spl, implicit $spl
+    $ude = POP24r implicit-def $spl, implicit $spl
+    RET24 implicit $ude, implicit-def $spl, implicit $spl
+...
+---
+# The index-half copy expansion restores DE through HL, but undef operands
+# hide that dependency from backwards liveness. The original copy did not
+# kill DE, so it must not turn into an exchange that overwrites DE.
+name: stack_copy_exchange_carrier
+tracksRegLiveness: true
+# CHECK-LABEL: name: stack_copy_exchange_carrier
+# CHECK: PUSH24r $ude
+# CHECK-NEXT: $uhl = POP24r
+# CHECK-NEXT: EX24DE
+# CHECK-NEXT: $e = LD8yy $iyl
+# CHECK-NEXT: $d = LD8yy $iyh
+# CHECK-NEXT: EX24DE
+body: |
+  bb.0:
+    liveins: $ude, $uhl, $uiy
+    PUSH24r $ude, implicit-def $spl, implicit $spl
+    $uhl = POP24r implicit-def $spl, implicit $spl
+    EX24DE implicit-def $ude, implicit-def $uhl, implicit undef $ude, implicit undef $uhl
+    $e = LD8yy $iyl
+    $d = LD8yy $iyh
+    EX24DE implicit-def $ude, implicit-def $uhl, implicit $ude, implicit undef $uhl, implicit $uhl, implicit-def $uhl
+    RET24 implicit $ude, implicit $uhl, implicit-def $spl, implicit $spl
+...
+---
+name: stack_copy_live_source
+tracksRegLiveness: true
+# CHECK-LABEL: name: stack_copy_live_source
+# CHECK: PUSH24r $uhl
+# CHECK-NEXT: $ude = POP24r
+body: |
+  bb.0:
+    liveins: $uhl
+    PUSH24r $uhl, implicit-def $spl, implicit $spl
+    $ude = POP24r implicit-def $spl, implicit $spl
+    RET24 implicit $ude, implicit $uhl, implicit-def $spl, implicit $spl
+...
+---
+name: stack_copy_live_alias
+tracksRegLiveness: true
+# CHECK-LABEL: name: stack_copy_live_alias
+# CHECK: PUSH24r $uhl
+# CHECK-NEXT: $ude = POP24r
+body: |
+  bb.0:
+    liveins: $uhl
+    PUSH24r $uhl, implicit-def $spl, implicit $spl
+    $ude = POP24r implicit-def $spl, implicit $spl
+    RET24 implicit $ude, implicit $hl, implicit-def $spl, implicit $spl
+...
+---
+name: stack_copy_noop
+tracksRegLiveness: true
+# CHECK-LABEL: name: stack_copy_noop
+# CHECK-NOT: PUSH24r
+# CHECK-NOT: POP24r
+# CHECK: RET24
+body: |
+  bb.0:
+    liveins: $uhl
+    PUSH24r $uhl, implicit-def $spl, implicit $spl
+    $uhl = POP24r implicit-def $spl, implicit $spl
+    RET24 implicit $uhl, implicit-def $spl, implicit $spl
+...
+---
+name: stack_copy_frame
+tracksRegLiveness: true
+# CHECK-LABEL: name: stack_copy_frame
+# CHECK: frame-setup PUSH24r
+# CHECK-NEXT: $ude = POP24r
+body: |
+  bb.0:
+    liveins: $uhl
+    frame-setup PUSH24r $uhl, implicit-def $spl, implicit $spl
+    $ude = POP24r implicit-def $spl, implicit $spl
+    RET24 implicit $ude, implicit-def $spl, implicit $spl
+...
+---
+name: stack_copy_volatile
+tracksRegLiveness: true
+# CHECK-LABEL: name: stack_copy_volatile
+# CHECK: PUSH24r
+# CHECK-NEXT: $ude = POP24r
+body: |
+  bb.0:
+    liveins: $uhl
+    PUSH24r $uhl, implicit-def $spl, implicit $spl :: (volatile store (s24))
+    $ude = POP24r implicit-def $spl, implicit $spl
+    RET24 implicit $ude, implicit-def $spl, implicit $spl
+...
+---
+name: rlc_carry
+tracksRegLiveness: true
+# CHECK-LABEL: name: rlc_carry
+# CHECK: RLCA
+# CHECK-NOT: RLC8g
+# CHECK: SBC8ar
+body: |
+  bb.0:
+    liveins: $a
+    $a = RLC8g $a, implicit-def $f
+    SBC8ar $a, implicit-def $a, implicit-def $f, implicit $a, implicit $f
+    RET24 implicit $a, implicit $f, implicit-def $spl, implicit $spl
+...
+---
+name: rrc_carry
+tracksRegLiveness: true
+# CHECK-LABEL: name: rrc_carry
+# CHECK: RRCA
+# CHECK-NOT: RRC8g
+# CHECK: SBC8ar
+body: |
+  bb.0:
+    liveins: $a
+    $a = RRC8g $a, implicit-def $f
+    SBC8ar $a, implicit-def $a, implicit-def $f, implicit $a, implicit $f
+    RET24 implicit $a, implicit $f, implicit-def $spl, implicit $spl
+...
+---
+name: rotate_other_consumer
+tracksRegLiveness: true
+# CHECK-LABEL: name: rotate_other_consumer
+# CHECK: $a = RLC8g $a
+# CHECK-NOT: RLCA
+body: |
+  bb.0:
+    liveins: $a
+    $a = RLC8g $a, implicit-def $f
+    RET24 implicit $a, implicit $f, implicit-def $spl, implicit $spl
+...
+---
+name: sign_extend
+tracksRegLiveness: true
+# CHECK-LABEL: name: sign_extend
+# CHECK: RLCA
+# CHECK-NEXT: RRCA
+# CHECK-NEXT: SBC24aa
+# CHECK-NOT: LD8gg
+body: |
+  bb.0:
+    liveins: $a
+    $l = LD8gg $a
+    $l = RLC8g $l, implicit-def $f
+    SBC24aa implicit-def $uhl, implicit-def $f, implicit undef $uhl, implicit $f
+    RET24 implicit $uhl, implicit $a, implicit $f, implicit-def $spl, implicit $spl
+...
+---
+name: sign_extend_wrong_source
+tracksRegLiveness: true
+# CHECK-LABEL: name: sign_extend_wrong_source
+# CHECK: $l = LD8gg $b
+# CHECK-NEXT: $l = RLC8g $l
+# CHECK-NEXT: SBC24aa
+body: |
+  bb.0:
+    liveins: $b
+    $l = LD8gg $b
+    $l = RLC8g $l, implicit-def $f
+    SBC24aa implicit-def $uhl, implicit-def $f, implicit undef $uhl, implicit $f
+    RET24 implicit $uhl, implicit $f, implicit-def $spl, implicit $spl
+...
+---
+name: bool_and_bit
+tracksRegLiveness: true
+# CHECK-LABEL: name: bool_and_bit
+# CHECK-NOT: BIT8gb
+# CHECK: JQCC
+body: |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $a, $f
+    AND8ai 1, implicit-def $a, implicit-def dead $f, implicit $a
+    BIT8gb $a, 0, implicit-def $f
+    JQCC %bb.1, 1, implicit $f
+    JQ %bb.2
+  bb.1:
+    liveins: $a
+    RET24 implicit $a, implicit-def $spl, implicit $spl
+  bb.2:
+    liveins: $a
+    RET24 implicit $a, implicit-def $spl, implicit $spl
+...
+---
+name: bool_sbc_bit
+tracksRegLiveness: true
+# CHECK-LABEL: name: bool_sbc_bit
+# CHECK-NOT: BIT8gb
+# CHECK: JQCC
+body: |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $a, $f
+    SBC8ar $a, implicit $f, implicit-def $a, implicit-def $f, implicit $a
+    BIT8gb $a, 0, implicit-def $f
+    JQCC %bb.1, 0, implicit $f
+    JQ %bb.2
+  bb.1:
+    liveins: $a
+    RET24 implicit $a, implicit-def $spl, implicit $spl
+  bb.2:
+    liveins: $a
+    RET24 implicit $a, implicit-def $spl, implicit $spl
+...
+---
+name: bool_and_or
+tracksRegLiveness: true
+# CHECK-LABEL: name: bool_and_or
+# CHECK-NOT: OR8ar
+# CHECK: JQCC
+body: |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $a, $f
+    AND8ai 1, implicit-def $a, implicit-def dead $f, implicit $a
+    OR8ar $a, implicit-def $a, implicit-def $f
+    JQCC %bb.1, 0, implicit $f
+    JQ %bb.2
+  bb.1:
+    liveins: $a
+    RET24 implicit $a, implicit-def $spl, implicit $spl
+  bb.2:
+    liveins: $a
+    RET24 implicit $a, implicit-def $spl, implicit $spl
+...
+---
+name: bool_non_boolean
+tracksRegLiveness: true
+# CHECK-LABEL: name: bool_non_boolean
+# CHECK: BIT8gb
+# CHECK: JQCC
+body: |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $a, $f
+    AND8ai 3, implicit-def $a, implicit-def $f, implicit $a
+    BIT8gb $a, 0, implicit-def $f
+    JQCC %bb.1, 1, implicit $f
+    JQ %bb.2
+  bb.1:
+    liveins: $a
+    RET24 implicit $a, implicit-def $spl, implicit $spl
+  bb.2:
+    liveins: $a
+    RET24 implicit $a, implicit-def $spl, implicit $spl
+...
+---
+name: bool_other_flag
+tracksRegLiveness: true
+# CHECK-LABEL: name: bool_other_flag
+# CHECK: BIT8gb
+# CHECK: JQCC
+body: |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $a, $f
+    AND8ai 1, implicit-def $a, implicit-def dead $f, implicit $a
+    BIT8gb $a, 0, implicit-def $f
+    JQCC %bb.1, 5, implicit $f
+    JQ %bb.2
+  bb.1:
+    liveins: $a
+    RET24 implicit $a, implicit-def $spl, implicit $spl
+  bb.2:
+    liveins: $a
+    RET24 implicit $a, implicit-def $spl, implicit $spl
+...
+---
+name: bool_live_flags
+tracksRegLiveness: true
+# CHECK-LABEL: name: bool_live_flags
+# CHECK: BIT8gb
+# CHECK: JQCC
+body: |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $a, $f
+    AND8ai 1, implicit-def $a, implicit-def dead $f, implicit $a
+    BIT8gb $a, 0, implicit-def $f
+    JQCC %bb.1, 1, implicit $f
+    JQ %bb.2
+  bb.1:
+    liveins: $a, $f
+    RET24 implicit $a, implicit $f, implicit-def $spl, implicit $spl
+  bb.2:
+    liveins: $a, $f
+    RET24 implicit $a, implicit $f, implicit-def $spl, implicit $spl
+...
+---
+name: stack_copy_successor_live
+tracksRegLiveness: true
+# CHECK-LABEL: name: stack_copy_successor_live
+# CHECK: PUSH24r $uhl
+# CHECK-NEXT: $ude = POP24r
+body: |
+  bb.0:
+    successors: %bb.1
+    liveins: $uhl
+    PUSH24r $uhl, implicit-def $spl, implicit $spl
+    $ude = POP24r implicit-def $spl, implicit $spl
+    JQ %bb.1
+  bb.1:
+    liveins: $uhl, $ude
+    RET24 implicit $uhl, implicit $ude, implicit-def $spl, implicit $spl
+...

@@ -1,0 +1,84 @@
+# NOTE: Do not autogenerate
+# RUN: llc -mtriple=ez80-code16 -run-pass=z80-machine-peephole-opt -verify-machineinstrs -o - %s | FileCheck %s
+
+---
+name: lea_step16
+tracksRegLiveness: true
+# CHECK-LABEL: name: lea_step16
+# CHECK: $hl = LEA16ro $ix, 9
+# CHECK-NOT: DEC16r
+body: |
+  bb.0:
+    liveins: $ix
+    $hl = LEA16ro $ix, 10
+    $hl = DEC16r $hl
+    RET16 implicit $hl, implicit-def $sps, implicit $sps
+...
+---
+name: sign_extend16
+tracksRegLiveness: true
+# CHECK-LABEL: name: sign_extend16
+# CHECK: RLCA
+# CHECK-NEXT: RRCA
+# CHECK-NEXT: SBC16aa
+body: |
+  bb.0:
+    liveins: $a
+    $l = LD8gg $a
+    $l = RLC8g $l, implicit-def $f
+    SBC16aa implicit-def $hl, implicit-def $f, implicit undef $hl, implicit $f
+    RET16 implicit $hl, implicit $a, implicit $f, implicit-def $sps, implicit $sps
+...
+---
+name: preserve_short_exchanges
+tracksRegLiveness: true
+# CHECK-LABEL: name: preserve_short_exchanges
+# CHECK: EX16DE
+# CHECK-NEXT: EX16DE
+body: |
+  bb.0:
+    liveins: $uhl, $ude
+    EX16DE implicit-def $hl, implicit-def $de, implicit $hl, implicit $de
+    EX16DE implicit-def $hl, implicit-def $de, implicit $hl, implicit $de
+    RET16 implicit $uhl, implicit $ude, implicit-def $sps, implicit $sps
+...
+---
+name: preserve_short_self_copy
+tracksRegLiveness: true
+# CHECK-LABEL: name: preserve_short_self_copy
+# CHECK: PUSH16r $bc
+# CHECK-NEXT: $bc = POP16r
+body: |
+  bb.0:
+    liveins: $ubc
+    PUSH16r $bc, implicit-def $sps, implicit $sps
+    $bc = POP16r implicit-def $sps, implicit $sps
+    RET16 implicit $ubc, implicit-def $sps, implicit $sps
+...
+---
+name: stack_copy_killed_source16
+tracksRegLiveness: true
+# CHECK-LABEL: name: stack_copy_killed_source16
+# CHECK-NOT: PUSH16r
+# CHECK: EX16DE
+# CHECK-NOT: POP16r
+body: |
+  bb.0:
+    liveins: $hl
+    PUSH16r killed $hl, implicit-def $sps, implicit $sps
+    $de = POP16r implicit-def $sps, implicit $sps
+    RET16 implicit $de, implicit-def $sps, implicit $sps
+...
+---
+name: stack_copy_without_kill16
+tracksRegLiveness: true
+# CHECK-LABEL: name: stack_copy_without_kill16
+# CHECK: PUSH16r $hl
+# CHECK-NEXT: $de = POP16r
+body: |
+  bb.0:
+    liveins: $hl
+    PUSH16r $hl, implicit-def $sps, implicit $sps
+    $de = POP16r implicit-def $sps, implicit $sps
+    RET16 implicit $de, implicit-def $sps, implicit $sps
+...

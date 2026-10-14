@@ -165,8 +165,8 @@ define float @powi.f32.i8(float, i8) {
 ; EZ80-CODE16-NEXT:    ld ix, 0
 ; EZ80-CODE16-NEXT:    add ix, sp
 ; EZ80-CODE16-NEXT:    ld a, (ix + 8)
-; EZ80-CODE16-NEXT:    ld l, a
-; EZ80-CODE16-NEXT:    rlc l
+; EZ80-CODE16-NEXT:    rlca
+; EZ80-CODE16-NEXT:    rrca
 ; EZ80-CODE16-NEXT:    sbc hl, hl
 ; EZ80-CODE16-NEXT:    ld c, l
 ; EZ80-CODE16-NEXT:    ld b, h
@@ -194,13 +194,13 @@ define float @powi.f32.i8(float, i8) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld a, (iy + 9)
-; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    rlc l
+; EZ80-NEXT:    rlca
+; EZ80-NEXT:    rrca
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop bc
 ; EZ80-NEXT:    ld c, a
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    call __ltof
 ; EZ80-NEXT:    ld l, a
@@ -274,8 +274,8 @@ define double @powi.f64.i8(double, i8) {
 ; EZ80-CODE16-NEXT:    add ix, sp
 ; EZ80-CODE16-NEXT:    push hl
 ; EZ80-CODE16-NEXT:    ld a, (ix + 12)
-; EZ80-CODE16-NEXT:    ld l, a
-; EZ80-CODE16-NEXT:    rlc l
+; EZ80-CODE16-NEXT:    rlca
+; EZ80-CODE16-NEXT:    rrca
 ; EZ80-CODE16-NEXT:    sbc hl, hl
 ; EZ80-CODE16-NEXT:    ld c, l
 ; EZ80-CODE16-NEXT:    ld b, h
@@ -313,11 +313,11 @@ define double @powi.f64.i8(double, i8) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld a, (iy + 12)
-; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    rlc l
+; EZ80-NEXT:    rlca
+; EZ80-NEXT:    rrca
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ld e, a
 ; EZ80-NEXT:    call __ltod
@@ -409,7 +409,7 @@ define float @powi.f32.i16(float, i16) {
 ; EZ80-NEXT:    ld c, e
 ; EZ80-NEXT:    ld b, d
 ; EZ80-NEXT:    ld a, d
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    call __ltof
 ; EZ80-NEXT:    ld l, a
@@ -521,7 +521,7 @@ define double @powi.f64.i16(double, i16) {
 ; EZ80-NEXT:    ld l, e
 ; EZ80-NEXT:    ld h, d
 ; EZ80-NEXT:    ld a, d
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ld e, a
 ; EZ80-NEXT:    call __ltod
