@@ -39,15 +39,24 @@ define i24 @byte_word_product(i8 %a, i16 %b) {
 ; OPT:       ; %bb.0:
 ; OPT-NEXT:    ld iy, 0
 ; OPT-NEXT:    add iy, sp
-; OPT-NEXT:    ld a, (iy + 3)
-; OPT-NEXT:    ld de, (iy + 6)
-; OPT-NEXT:    ld bc, 0
-; OPT-NEXT:    push bc
+; OPT-NEXT:    dec sp
+; OPT-NEXT:    ld e, (iy + 3)
+; OPT-NEXT:    ld bc, (iy + 6)
+; OPT-NEXT:    ld d, c
+; OPT-NEXT:    push de
 ; OPT-NEXT:    pop hl
-; OPT-NEXT:    ld l, a
-; OPT-NEXT:    ld c, e
-; OPT-NEXT:    ld b, d
-; OPT-NEXT:    call __imulu
+; OPT-NEXT:    mlt hl
+; OPT-NEXT:    ld d, b
+; OPT-NEXT:    mlt de
+; OPT-NEXT:    ld a, e
+; OPT-NEXT:    ld e, d
+; OPT-NEXT:    ld c, 0
+; OPT-NEXT:    ld (iy - 1), e
+; OPT-NEXT:    ld de, (iy - 3)
+; OPT-NEXT:    ld d, a
+; OPT-NEXT:    ld e, c
+; OPT-NEXT:    add hl, de
+; OPT-NEXT:    inc sp
 ; OPT-NEXT:    ret
 ;
 ; BASELINE-LABEL: byte_word_product:

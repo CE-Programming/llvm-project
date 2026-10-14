@@ -92,7 +92,9 @@ define i24 @one_unknown_operand(i8 %a, i24 %b) {
 ; EZ80-NOT: mlt
 ; EZ80: call __imulu
 
-define i24 @nine_bit_operand(i24 %a, i8 %b) {
+; Keep this byte/byte range guard in size mode; speed mode now supports
+; a byte times a full word with two MLTs, covered separately.
+define i24 @nine_bit_operand(i24 %a, i8 %b) optsize {
   %aa = and i24 %a, 511
   %bb = zext i8 %b to i24
   %r = mul i24 %aa, %bb
