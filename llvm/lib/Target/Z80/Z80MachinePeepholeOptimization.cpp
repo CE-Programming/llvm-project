@@ -9,8 +9,8 @@
 // Selected peepholes inspired by ZERICO2005/ez80_optimizer, implemented on
 // machine instructions with register, width, and flag checks. See
 // Z80PeepholePatterns.md for upstream attribution and supported patterns.
-// In particular,
-// two exchanges cancel entirely; they must not be replaced by one exchange.
+// Full-width exchanges cancel entirely. Short eZ80 exchanges also clear upper
+// register bytes; shortening their pair must preserve that effect.
 // Run after pseudo expansion and address folding, before branch selection.
 //
 //===----------------------------------------------------------------------===//
@@ -30,8 +30,9 @@ using namespace llvm;
 
 #define DEBUG_TYPE "z80-machine-peephole-opt"
 STATISTIC(NumLEASteps, "Number of eZ80 LEA increment/decrement folds");
-STATISTIC(NumExchanges, "Number of cancelling eZ80 exchange pairs removed");
-STATISTIC(NumStackCopies, "Number of final eZ80 stack copies folded");
+STATISTIC(NumExchanges, "Number of cancelling exchange pairs removed");
+STATISTIC(NumShortExchanges, "Number of eZ80 short exchange pairs shortened");
+STATISTIC(NumStackCopies, "Number of final stack copies folded");
 STATISTIC(NumCarryRotates,
           "Number of carry-only eZ80 accumulator rotates folded");
 STATISTIC(NumSignExtensions,
@@ -84,7 +85,7 @@ static bool isBooleanProducer(const MachineInstr &MI) {
 
 bool Z80MachinePeepholeOptimization::runOnMachineFunction(MachineFunction &MF) {
   const auto &STI = MF.getSubtarget<Z80Subtarget>();
-  if (!EnablePeepholeOpt || !STI.hasEZ80Ops() || skipFunction(MF.getFunction()))
+  if (!EnablePeepholeOpt || skipFunction(MF.getFunction()))
     return false;
   const auto &TII = *STI.getInstrInfo();
   const auto &TRI = *STI.getRegisterInfo();
@@ -111,7 +112,7 @@ bool Z80MachinePeepholeOptimization::runOnMachineFunction(MachineFunction &MF) {
 
       // Both instructions leave flags unchanged, including carry.
       bool Is24LEA = First.getOpcode() == Z80::LEA24ro;
-      if ((Is24LEA || First.getOpcode() == Z80::LEA16ro) &&
+      if (STI.hasEZ80Ops() && (Is24LEA || First.getOpcode() == Z80::LEA16ro) &&
           (Last.getOpcode() == (Is24LEA ? Z80::INC24r : Z80::INC16r) ||
            Last.getOpcode() == (Is24LEA ? Z80::DEC24r : Z80::DEC16r)) &&
           isReg(Last.getOperand(0), First.getOperand(0).getReg()) &&
@@ -131,15 +132,38 @@ bool Z80MachinePeepholeOptimization::runOnMachineFunction(MachineFunction &MF) {
         }
       }
 
-      // Short exchanges also clear upper bytes on eZ80. Two such
-      // exchanges are not an identity for a later mixed-width observer.
-      if (Last.getOpcode() == Z80::EX24DE &&
+      bool IsShortExchange = Last.getOpcode() == Z80::EX16DE;
+      if ((IsShortExchange || Last.getOpcode() == Z80::EX24DE) &&
           First.getOpcode() == Last.getOpcode()) {
-        First.eraseFromParent();
-        I = MBB.erase(I);
-        ++NumExchanges;
-        Changed = true;
-        continue;
+        if (!IsShortExchange || !STI.hasEZ80Ops()) {
+          First.eraseFromParent();
+          I = MBB.erase(I);
+          ++NumExchanges;
+          Changed = true;
+          continue;
+        }
+        // In ADL mode EX16DE needs a prefix. A full-width exchange followed
+        // by the original short exchange preserves both low words and clears
+        // both upper bytes, saving the first prefix. In native short mode the
+        // full-width form would need a prefix instead, so retain the pair.
+        if (STI.is24Bit()) {
+          auto Ex =
+              BuildMI(MBB, FirstI, First.getDebugLoc(), TII.get(Z80::EX24DE));
+          // The upper inputs do not affect the pair's result. Retain explicit
+          // short uses for liveness without requiring undefined upper lanes.
+          for (Register Reg : {Z80::UHL, Z80::UDE})
+            Ex->findRegisterUseOperand(Reg, nullptr)->setIsUndef();
+          for (Register Reg : {Z80::HL, Z80::DE}) {
+            auto *Use = First.findRegisterUseOperand(Reg, nullptr);
+            Ex.addReg(Reg, RegState::Implicit | getKillRegState(Use->isKill()) |
+                               getUndefRegState(Use->isUndef()));
+          }
+          First.eraseFromParent();
+          ++NumShortExchanges;
+          Changed = true;
+          Live.stepBackward(Last);
+          continue;
+        }
       }
 
       bool Is24Push = First.getOpcode() == Z80::PUSH24r;
@@ -150,7 +174,7 @@ bool Z80MachinePeepholeOptimization::runOnMachineFunction(MachineFunction &MF) {
         Register Dst = Last.getOperand(0).getReg();
         Register HL = Is24Push ? Z80::UHL : Z80::HL;
         Register DE = Is24Push ? Z80::UDE : Z80::DE;
-        if (Is24Push && Src == Dst) {
+        if ((Is24Push || !STI.hasEZ80Ops()) && Src == Dst) {
           First.eraseFromParent();
           I = MBB.erase(I);
           ++NumStackCopies;
@@ -181,6 +205,12 @@ bool Z80MachinePeepholeOptimization::runOnMachineFunction(MachineFunction &MF) {
           Live.stepBackward(*I);
           continue;
         }
+      }
+
+      // The remaining patterns are currently enabled only for eZ80.
+      if (!STI.hasEZ80Ops()) {
+        Live.stepBackward(Last);
+        continue;
       }
 
       // SBC A,A consumes only carry and overwrites all flags, so the S/Z/PV

@@ -7,19 +7,26 @@ The implementation uses LLVM machine instructions and physical-register liveness
 it does not invoke the upstream text rewriter or depend on its executable.
 
 The pass runs after pseudo expansion and address folding, before branch
-selection. It supports eZ80 only, respects `optnone`, and is omitted at `-O0`.
+selection. Exchange and stack-copy folds also support ordinary Z80 targets;
+the remaining patterns currently support eZ80 only. It respects `optnone` and
+is omitted at `-O0`.
 `-mllvm -z80-machine-peephole-opt=false` disables it for comparisons.
 
 Supported patterns:
 
 - Fold LEA followed by an increment/decrement of the same register, within the
   signed displacement range and with matching operand widths.
-- Remove two cancelling 24-bit DE/HL exchanges. Short exchanges clear upper
-  bytes and are deliberately retained, even when their short values cancel.
+- Remove two cancelling 24-bit DE/HL exchanges, or ordinary Z80 16-bit exchanges.
+  In eZ80 ADL mode, two short exchanges become a long exchange followed by the
+  original short exchange. This saves one prefix byte while preserving both low
+  words and the clearing of both upper bytes. In native short mode the long form
+  would need a prefix, so the original short pair is retained.
 - Fold final PUSH/POP DE/HL copies into an exchange only when the pushed source
   is marked killed and the source and all its aliases are dead. The kill proof
   is required because index-half copy expansion can hide live carrier values
-  behind undef exchange operands. Remove a 24-bit self-copy.
+  behind undef exchange operands. Remove a 24-bit self-copy or an ordinary Z80
+  self-copy.
+  eZ80 short self-copies are retained to preserve upper-byte clearing.
   Exclude frame setup/destroy and
   explicit memory operands, including volatile stack accesses.
 - Use RLCA/RRCA for an accumulator rotate immediately followed by SBC A,A.

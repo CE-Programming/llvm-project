@@ -1,0 +1,68 @@
+# NOTE: Do not autogenerate
+# RUN: llc -mtriple=ez80 -start-before=z80-machine-peephole-opt -verify-machineinstrs -o - %s | FileCheck %s --check-prefix=ASM
+# RUN: llc -mtriple=ez80 -run-pass=z80-machine-peephole-opt -verify-machineinstrs -o - %s | FileCheck %s
+# RUN: llc -mtriple=ez80 -run-pass=z80-machine-peephole-opt -z80-machine-peephole-opt=false -verify-machineinstrs -o - %s | FileCheck %s --check-prefix=OFF
+
+---
+name: short_pair_in_adl
+tracksRegLiveness: true
+# ASM-LABEL: _short_pair_in_adl:
+# ASM: ex de, hl
+# ASM-NEXT: ex.sis de, hl
+# ASM-NEXT: ret
+# CHECK-LABEL: name: short_pair_in_adl
+# CHECK: EX24DE
+# CHECK-SAME: implicit undef $ude
+# CHECK-SAME: implicit undef $uhl
+# CHECK-SAME: implicit $hl
+# CHECK-SAME: implicit $de
+# CHECK-NEXT: EX16DE
+# OFF-LABEL: name: short_pair_in_adl
+# OFF: EX16DE
+# OFF-NEXT: EX16DE
+body: |
+  bb.0:
+    liveins: $hl, $de
+    EX16DE implicit-def $hl, implicit-def $de, implicit $hl, implicit $de
+    EX16DE implicit-def $hl, implicit-def $de, implicit $hl, implicit $de
+    RET24 implicit $hl, implicit $de, implicit-def $spl, implicit $spl
+...
+---
+name: short_pair_live_upper_bytes
+tracksRegLiveness: true
+# CHECK-LABEL: name: short_pair_live_upper_bytes
+# CHECK: EX24DE
+# CHECK-NEXT: EX16DE
+body: |
+  bb.0:
+    liveins: $uhl, $ude
+    EX16DE implicit-def $hl, implicit-def $de, implicit $hl, implicit $de
+    EX16DE implicit-def $hl, implicit-def $de, implicit $hl, implicit $de
+    RET24 implicit $uhl, implicit $ude, implicit-def $spl, implicit $spl
+...
+---
+name: frame_exchange_pair
+tracksRegLiveness: true
+# CHECK-LABEL: name: frame_exchange_pair
+# CHECK: frame-setup EX16DE
+# CHECK-NEXT: EX16DE
+body: |
+  bb.0:
+    liveins: $hl, $de
+    frame-setup EX16DE implicit-def $hl, implicit-def $de, implicit $hl, implicit $de
+    EX16DE implicit-def $hl, implicit-def $de, implicit $hl, implicit $de
+    RET24 implicit $hl, implicit $de, implicit-def $spl, implicit $spl
+...
+---
+name: mixed_exchange_pair
+tracksRegLiveness: true
+# CHECK-LABEL: name: mixed_exchange_pair
+# CHECK: EX24DE
+# CHECK-NEXT: EX16DE
+body: |
+  bb.0:
+    liveins: $uhl, $ude
+    EX24DE implicit-def $uhl, implicit-def $ude, implicit $uhl, implicit $ude
+    EX16DE implicit-def $hl, implicit-def $de, implicit $hl, implicit $de
+    RET24 implicit $uhl, implicit $ude, implicit-def $spl, implicit $spl
+...
