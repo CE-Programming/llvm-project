@@ -12,7 +12,10 @@
 
 namespace llvm {
 class PassBuilder;
+class ModulePass;
 class Z80TargetMachine;
+
+ModulePass *createZ80InternalRegArgsLatePass(const Z80TargetMachine &TM);
 
 void registerZ80InternalRegArgsCallbacks(PassBuilder &PB,
                                          const Z80TargetMachine &TM);

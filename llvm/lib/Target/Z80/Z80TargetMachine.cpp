@@ -267,6 +267,7 @@ public:
     return getTM<Z80TargetMachine>();
   }
 
+  void addIRPasses() override;
   bool addIRTranslator() override;
   void addPreLegalizeMachineIR() override;
   bool addLegalizeMachineIR() override;
@@ -292,6 +293,11 @@ MachineFunctionInfo *Z80TargetMachine::createMachineFunctionInfo(
     const TargetSubtargetInfo *STI) const {
   return Z80MachineFunctionInfo::create<Z80MachineFunctionInfo>(Allocator, F,
                                                                 STI);
+}
+
+void Z80PassConfig::addIRPasses() {
+  TargetPassConfig::addIRPasses();
+  addPass(createZ80InternalRegArgsLatePass(getZ80TargetMachine()));
 }
 
 bool Z80PassConfig::addIRTranslator() {
