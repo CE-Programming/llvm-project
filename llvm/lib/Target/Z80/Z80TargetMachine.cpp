@@ -17,6 +17,7 @@
 #include "Z80MachineFunctionInfo.h"
 #include "Z80Subtarget.h"
 #include "Z80TargetObjectFile.h"
+#include "Z80TargetTransformInfo.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
@@ -123,6 +124,16 @@ Z80TargetMachine::getSubtargetImpl(const Function &F) const {
     I = std::make_unique<Z80Subtarget>(TargetTriple, CPU, TuneCPU, FS, *this);
   }
   return I.get();
+}
+
+static cl::opt<bool> EnableTargetCostModel("z80-target-cost-model", cl::Hidden,
+                                         cl::init(true));
+
+TargetTransformInfo
+Z80TargetMachine::getTargetTransformInfo(const Function &F) const {
+  if (!EnableTargetCostModel)
+    return CodeGenTargetMachineImpl::getTargetTransformInfo(F);
+  return TargetTransformInfo(std::make_unique<Z80TTIImpl>(this, F));
 }
 
 static cl::opt<bool> EnableSizeLoopIdioms("z80-size-loop-idioms", cl::Hidden,
