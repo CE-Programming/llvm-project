@@ -28,8 +28,9 @@ exit:
 }
 
 ; OPT-LABEL: define{{.*}} @fill(
-; OPT-NOT: @llvm.mem
-; OPT: store i8
+; OPT: icmp eq i24 %n, 0
+; OPT: br i1
+; OPT: call void @llvm.memset
 ; OFF-LABEL: define{{.*}} @fill(
 ; OFF-NOT: @llvm.mem
 ; OFF: store i8
@@ -141,6 +142,97 @@ body:
   %sp = getelementptr inbounds i8, ptr %s, i24 %j
   %x = load i8, ptr %sp, align 1
   store i8 %x, ptr %dp, align 1
+  %next = add i24 %i, 1
+  br label %header
+exit:
+  ret void
+}
+
+; OPT-LABEL: define{{.*}} @volatile_fill(
+; OPT-NOT: @llvm.mem
+; OPT: store volatile i8
+; OFF-LABEL: define{{.*}} @volatile_fill(
+; OFF-NOT: @llvm.mem
+; OFF: store volatile i8
+define void @volatile_fill(ptr %d, i24 %n, i8 %v) minsize optsize {
+entry:
+  br label %header
+header:
+  %i = phi i24 [0, %entry], [%next, %body]
+  %test = icmp ult i24 %i, %n
+  br i1 %test, label %body, label %exit
+body:
+  %dp = getelementptr inbounds i8, ptr %d, i24 %i
+  store volatile i8 %v, ptr %dp, align 1
+  %next = add i24 %i, 1
+  br label %header
+exit:
+  ret void
+}
+
+; OPT-LABEL: define{{.*}} @changing_fill(
+; OPT-NOT: @llvm.mem
+; OPT: store i8
+; OFF-LABEL: define{{.*}} @changing_fill(
+; OFF-NOT: @llvm.mem
+; OFF: store i8
+define void @changing_fill(ptr %d, i24 %n, i8 %v) minsize optsize {
+entry:
+  br label %header
+header:
+  %i = phi i24 [0, %entry], [%next, %body]
+  %test = icmp ult i24 %i, %n
+  br i1 %test, label %body, label %exit
+body:
+  %dp = getelementptr inbounds i8, ptr %d, i24 %i
+  %x = trunc i24 %i to i8
+  store i8 %x, ptr %dp, align 1
+  %next = add i24 %i, 1
+  br label %header
+exit:
+  ret void
+}
+
+; OPT-LABEL: define{{.*}} @strided_fill(
+; OPT-NOT: @llvm.mem
+; OPT: store i8
+; OFF-LABEL: define{{.*}} @strided_fill(
+; OFF-NOT: @llvm.mem
+; OFF: store i8
+define void @strided_fill(ptr %d, i24 %n, i8 %v) minsize optsize {
+entry:
+  br label %header
+header:
+  %i = phi i24 [0, %entry], [%next, %body]
+  %test = icmp ult i24 %i, %n
+  br i1 %test, label %body, label %exit
+body:
+  %j = shl i24 %i, 1
+  %dp = getelementptr inbounds i8, ptr %d, i24 %j
+  store i8 %v, ptr %dp, align 1
+  %next = add i24 %i, 1
+  br label %header
+exit:
+  ret void
+}
+
+; A statically empty fill does not become an LDIR with a wrapped count.
+; OPT-LABEL: define{{.*}} @zero_fill(
+; OPT-NEXT: entry:
+; OPT-NEXT: ret void
+; OFF-LABEL: define{{.*}} @zero_fill(
+; OFF-NEXT: entry:
+; OFF-NEXT: ret void
+define void @zero_fill(ptr %d, i8 %v) minsize optsize {
+entry:
+  br label %header
+header:
+  %i = phi i24 [0, %entry], [%next, %body]
+  %test = icmp ult i24 %i, 0
+  br i1 %test, label %body, label %exit
+body:
+  %dp = getelementptr inbounds i8, ptr %d, i24 %i
+  store i8 %v, ptr %dp, align 1
   %next = add i24 %i, 1
   br label %header
 exit:

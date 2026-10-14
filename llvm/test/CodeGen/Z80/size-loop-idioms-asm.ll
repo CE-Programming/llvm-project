@@ -81,23 +81,22 @@ define void @fill_bytes(ptr %dst, i24 %n, i8 %v) minsize optsize {
 ; OPT-LABEL: fill_bytes:
 ; OPT:       ; %bb.0: ; %entry
 ; OPT-NEXT:    call __frameset0
-; OPT-NEXT:    ld iy, (ix + 6)
 ; OPT-NEXT:    ld de, (ix + 9)
-; OPT-NEXT:    ld a, (ix + 12)
-; OPT-NEXT:    private BB1_1
-; OPT-NEXT:  BB1_1: ; %header
-; OPT-NEXT:    ; =>This Inner Loop Header: Depth=1
 ; OPT-NEXT:    sbc hl, hl
 ; OPT-NEXT:    adc hl, de
-; OPT-NEXT:    jr z, BB1_3
-; OPT-NEXT:  ; %bb.2: ; %body
-; OPT-NEXT:    ; in Loop: Header=BB1_1 Depth=1
-; OPT-NEXT:    ld (iy), a
-; OPT-NEXT:    inc iy
-; OPT-NEXT:    dec de
-; OPT-NEXT:    jr BB1_1
-; OPT-NEXT:    private BB1_3
-; OPT-NEXT:  BB1_3: ; %exit
+; OPT-NEXT:    jr z, BB1_2
+; OPT-NEXT:  ; %bb.1: ; %body.lr.ph
+; OPT-NEXT:    push de
+; OPT-NEXT:    ld hl, (ix + 12)
+; OPT-NEXT:    push hl
+; OPT-NEXT:    ld hl, (ix + 6)
+; OPT-NEXT:    push hl
+; OPT-NEXT:    call _memset
+; OPT-NEXT:    pop hl
+; OPT-NEXT:    pop hl
+; OPT-NEXT:    pop hl
+; OPT-NEXT:    private BB1_2
+; OPT-NEXT:  BB1_2: ; %exit
 ; OPT-NEXT:    pop ix
 ; OPT-NEXT:    ret
 ;
