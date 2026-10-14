@@ -264,7 +264,8 @@ void EZ80TargetInfo::getTargetDefines(const LangOptions &Opts,
   Z80TargetInfoBase::getTargetDefines(Opts, Builder);
   defineCPUMacros(Builder, "ez80", /*Tuning=*/false);
   Builder.defineMacro("_EZ80");
-  Builder.defineMacro("__UINT_MAX__", "16777215U");
+  Builder.defineMacro("__UINT_MAX__",
+                      getIntWidth() == 16 ? "65535U" : "16777215U");
 }
 
 llvm::SmallVector<Builtin::InfosShard>
