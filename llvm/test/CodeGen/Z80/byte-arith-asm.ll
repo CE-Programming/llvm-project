@@ -187,11 +187,9 @@ define i24 @size_boolean_quotient(i8 %a) minsize optsize {
 ; OPT:       ; %bb.0:
 ; OPT-NEXT:    call __frameset0
 ; OPT-NEXT:    ld a, (ix + 6)
-; OPT-NEXT:    or a, a
+; OPT-NEXT:    cp a, -127
 ; OPT-NEXT:    sbc hl, hl
-; OPT-NEXT:    ld l, a
-; OPT-NEXT:    ld bc, 129
-; OPT-NEXT:    call __idivu
+; OPT-NEXT:    inc hl
 ; OPT-NEXT:    pop ix
 ; OPT-NEXT:    ret
 ;
