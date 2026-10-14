@@ -15,6 +15,7 @@
 #include "TargetInfo/Z80TargetInfo.h"
 #include "Z80.h"
 #include "Z80MachineFunctionInfo.h"
+#include "Z80InternalRegArgs.h"
 #include "Z80Subtarget.h"
 #include "Z80TargetObjectFile.h"
 #include "Z80TargetTransformInfo.h"
@@ -239,6 +240,7 @@ struct Z80SizeLoopIdiomPass : PassInfoMixin<Z80SizeLoopIdiomPass> {
 } // namespace
 
 void Z80TargetMachine::registerPassBuilderCallbacks(PassBuilder &PB) {
+  registerZ80InternalRegArgsCallbacks(PB, *this);
   PB.registerLateLoopOptimizationsEPCallback(
       [](LoopPassManager &LPM, OptimizationLevel Level) {
         if (EnableSizeLoopIdioms &&
