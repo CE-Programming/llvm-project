@@ -4622,8 +4622,8 @@ define i16 @sext.i8.i16(i8) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld a, (iy + 3)
-; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    rlc l
+; EZ80-NEXT:    rlca
+; EZ80-NEXT:    rrca
 ; EZ80-NEXT:    sbc.sis hl, hl
 ; EZ80-NEXT:    ld l, a
 ; EZ80-NEXT:    ret
@@ -4662,8 +4662,8 @@ define i24 @sext.i8.i24(i8) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld a, (iy + 3)
-; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    rlc l
+; EZ80-NEXT:    rlca
+; EZ80-NEXT:    rrca
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ld l, a
 ; EZ80-NEXT:    ret
@@ -4704,11 +4704,11 @@ define i32 @sext.i8.i32(i8) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld a, (iy + 3)
-; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    rlc l
+; EZ80-NEXT:    rlca
+; EZ80-NEXT:    rrca
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ld e, a
 ; EZ80-NEXT:    ret
@@ -4753,8 +4753,8 @@ define i48 @sext.i8.i48(i8) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld a, (iy + 3)
-; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    rlc l
+; EZ80-NEXT:    rlca
+; EZ80-NEXT:    rrca
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop bc
@@ -4810,8 +4810,8 @@ define i64 @sext.i8.i64(i8) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld a, (iy + 3)
-; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    rlc l
+; EZ80-NEXT:    rlca
+; EZ80-NEXT:    rrca
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ld e, a
@@ -4910,7 +4910,7 @@ define i32 @sext.i16.i32(i16) {
 ; EZ80-NEXT:    ld l, e
 ; EZ80-NEXT:    ld h, d
 ; EZ80-NEXT:    ld a, d
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ld e, a
 ; EZ80-NEXT:    ret
@@ -5079,7 +5079,7 @@ define i32 @sext.i24.i32(i24) {
 ; EZ80-NEXT:    ld hl, (iy + 3)
 ; EZ80-NEXT:    ld (iy - 3), hl
 ; EZ80-NEXT:    ld a, (iy - 1)
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ld e, a
 ; EZ80-NEXT:    pop iy
@@ -5237,8 +5237,8 @@ define i48 @sext.i32.i48(i32) {
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld bc, (iy + 3)
 ; EZ80-NEXT:    ld a, (iy + 6)
-; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    rlc l
+; EZ80-NEXT:    rlca
+; EZ80-NEXT:    rrca
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ld e, a
@@ -5304,8 +5304,8 @@ define i64 @sext.i32.i64(i32) {
 ; EZ80-NEXT:    ld (ix - 1), a
 ; EZ80-NEXT:    ld iy, (ix - 4)
 ; EZ80-NEXT:    ld a, (ix - 1)
-; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    rlc l
+; EZ80-NEXT:    rlca
+; EZ80-NEXT:    rrca
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ld e, a
@@ -6810,13 +6810,13 @@ define float @sitofp.i8.f32(i8) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld a, (iy + 3)
-; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    rlc l
+; EZ80-NEXT:    rlca
+; EZ80-NEXT:    rrca
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop bc
 ; EZ80-NEXT:    ld c, a
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    call __ltof
 ; EZ80-NEXT:    push bc
@@ -6877,7 +6877,7 @@ define float @sitofp.i16.f32(i16) {
 ; EZ80-NEXT:    ld c, e
 ; EZ80-NEXT:    ld b, d
 ; EZ80-NEXT:    ld a, d
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    call __ltof
 ; EZ80-NEXT:    push bc
@@ -6929,7 +6929,7 @@ define float @sitofp.i24.f32(i24) {
 ; EZ80-NEXT:    ld bc, (iy + 3)
 ; EZ80-NEXT:    ld (iy - 3), bc
 ; EZ80-NEXT:    ld a, (iy - 1)
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    call __ltof
 ; EZ80-NEXT:    push bc
@@ -7061,11 +7061,11 @@ define double @sitofp.i8.f64(i8) {
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld a, (iy + 3)
-; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    rlc l
+; EZ80-NEXT:    rlca
+; EZ80-NEXT:    rrca
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ld e, a
 ; EZ80-NEXT:    call __ltod
@@ -7122,7 +7122,7 @@ define double @sitofp.i16.f64(i16) {
 ; EZ80-NEXT:    ld l, e
 ; EZ80-NEXT:    ld h, d
 ; EZ80-NEXT:    ld a, d
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ld e, a
 ; EZ80-NEXT:    call __ltod
@@ -7168,7 +7168,7 @@ define double @sitofp.i24.f64(i24) {
 ; EZ80-NEXT:    ld hl, (iy + 3)
 ; EZ80-NEXT:    ld (iy - 3), hl
 ; EZ80-NEXT:    ld a, (iy - 1)
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ld e, a
 ; EZ80-NEXT:    call __ltod

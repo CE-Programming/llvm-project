@@ -52,7 +52,7 @@ define i8 @sadd.sat.i8(i8, i8) {
 ; EZ80-CODE16-NEXT:    private BB0_3
 ; EZ80-CODE16-NEXT:  BB0_3:
 ; EZ80-CODE16-NEXT:    ld a, l
-; EZ80-CODE16-NEXT:    rlc a
+; EZ80-CODE16-NEXT:    rlca
 ; EZ80-CODE16-NEXT:    sbc a, a
 ; EZ80-CODE16-NEXT:    bit 0, e
 ; EZ80-CODE16-NEXT:    jr z, BB0_5
@@ -82,7 +82,7 @@ define i8 @sadd.sat.i8(i8, i8) {
 ; EZ80-NEXT:    private BB0_3
 ; EZ80-NEXT:  BB0_3:
 ; EZ80-NEXT:    ld a, l
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    bit 0, e
 ; EZ80-NEXT:    jr z, BB0_5
@@ -863,7 +863,6 @@ define i32 @uadd.sat.i32(i32, i32) {
 ; EZ80-NEXT:    ld e, a
 ; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
-; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB6_3
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    bit 0, a
@@ -1134,7 +1133,7 @@ define i8 @ssub.sat.i8(i8, i8) {
 ; EZ80-CODE16-NEXT:    private BB8_3
 ; EZ80-CODE16-NEXT:  BB8_3:
 ; EZ80-CODE16-NEXT:    ld a, l
-; EZ80-CODE16-NEXT:    rlc a
+; EZ80-CODE16-NEXT:    rlca
 ; EZ80-CODE16-NEXT:    sbc a, a
 ; EZ80-CODE16-NEXT:    bit 0, e
 ; EZ80-CODE16-NEXT:    jr z, BB8_5
@@ -1164,7 +1163,7 @@ define i8 @ssub.sat.i8(i8, i8) {
 ; EZ80-NEXT:    private BB8_3
 ; EZ80-NEXT:  BB8_3:
 ; EZ80-NEXT:    ld a, l
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    bit 0, e
 ; EZ80-NEXT:    jr z, BB8_5
@@ -1964,7 +1963,6 @@ define i32 @usub.sat.i32(i32, i32) {
 ; EZ80-NEXT:    ld e, a
 ; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
-; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB14_3
 ; EZ80-NEXT:  ; %bb.1:
 ; EZ80-NEXT:    bit 0, a
@@ -4417,8 +4415,8 @@ define i8 @smul.fix.sat.i8.7(i8, i8) {
 ; EZ80-CODE16-NEXT:    add iy, sp
 ; EZ80-CODE16-NEXT:    ld a, (iy + 2)
 ; EZ80-CODE16-NEXT:    ld c, (iy + 4)
-; EZ80-CODE16-NEXT:    ld l, a
-; EZ80-CODE16-NEXT:    rlc l
+; EZ80-CODE16-NEXT:    rlca
+; EZ80-CODE16-NEXT:    rrca
 ; EZ80-CODE16-NEXT:    sbc hl, hl
 ; EZ80-CODE16-NEXT:    ex de, hl
 ; EZ80-CODE16-NEXT:    ld e, a
@@ -4468,8 +4466,8 @@ define i8 @smul.fix.sat.i8.7(i8, i8) {
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld a, (iy + 3)
 ; EZ80-NEXT:    ld c, (iy + 6)
-; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    rlc l
+; EZ80-NEXT:    rlca
+; EZ80-NEXT:    rrca
 ; EZ80-NEXT:    sbc.sis hl, hl
 ; EZ80-NEXT:    ex.sis de, hl
 ; EZ80-NEXT:    ld e, a
@@ -4712,7 +4710,7 @@ define i16 @smul.fix.sat.i16.7(i16, i16) {
 ; EZ80-NEXT:    ld e, c
 ; EZ80-NEXT:    ld d, b
 ; EZ80-NEXT:    ld a, b
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ld iyl, a
 ; EZ80-NEXT:    ld hl, (ix + 9)
@@ -4725,7 +4723,7 @@ define i16 @smul.fix.sat.i16.7(i16, i16) {
 ; EZ80-NEXT:    ld c, l
 ; EZ80-NEXT:    ld b, h
 ; EZ80-NEXT:    ld a, h
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ld e, iyl
@@ -4991,7 +4989,7 @@ define i16 @smul.fix.sat.i16.15(i16, i16) {
 ; EZ80-NEXT:    ld e, c
 ; EZ80-NEXT:    ld d, b
 ; EZ80-NEXT:    ld a, b
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ld iyl, a
 ; EZ80-NEXT:    ld hl, (ix + 9)
@@ -5004,7 +5002,7 @@ define i16 @smul.fix.sat.i16.15(i16, i16) {
 ; EZ80-NEXT:    ld c, l
 ; EZ80-NEXT:    ld b, h
 ; EZ80-NEXT:    ld a, h
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ld e, iyl
@@ -5419,8 +5417,8 @@ define i32 @smul.fix.sat.i32.15(i32, i32) {
 ; EZ80-NEXT:    ld hl, (ix - 8)
 ; EZ80-NEXT:    ld (ix - 11), hl
 ; EZ80-NEXT:    ld a, (ix - 5)
-; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    rlc l
+; EZ80-NEXT:    rlca
+; EZ80-NEXT:    rrca
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ld e, a
@@ -5435,8 +5433,8 @@ define i32 @smul.fix.sat.i32.15(i32, i32) {
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    ld bc, (ix - 4)
 ; EZ80-NEXT:    ld a, (ix - 1)
-; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    rlc l
+; EZ80-NEXT:    rlca
+; EZ80-NEXT:    rrca
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop iy
@@ -5900,8 +5898,8 @@ define i32 @smul.fix.sat.i32.31(i32, i32) {
 ; EZ80-NEXT:    ld hl, (ix - 8)
 ; EZ80-NEXT:    ld (ix - 11), hl
 ; EZ80-NEXT:    ld a, (ix - 5)
-; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    rlc l
+; EZ80-NEXT:    rlca
+; EZ80-NEXT:    rrca
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ld e, a
@@ -5916,8 +5914,8 @@ define i32 @smul.fix.sat.i32.31(i32, i32) {
 ; EZ80-NEXT:    pop af
 ; EZ80-NEXT:    ld bc, (ix - 4)
 ; EZ80-NEXT:    ld a, (ix - 1)
-; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    rlc l
+; EZ80-NEXT:    rlca
+; EZ80-NEXT:    rrca
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop iy
@@ -7796,7 +7794,7 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld (iy + 0), bc
 ; EZ80-NEXT:    ld a, (iy + 2)
 ; EZ80-NEXT:    ld a, h
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ld c, a
 ; EZ80-NEXT:    push ix
@@ -7822,7 +7820,7 @@ define i64 @smul.fix.sat.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld (iy + 4), de
 ; EZ80-NEXT:    ld a, (iy + 6)
 ; EZ80-NEXT:    ld a, l
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ld c, a
 ; EZ80-NEXT:    push ix
@@ -13067,8 +13065,8 @@ define i8 @sdiv.fix.sat.i8.7(i8, i8) {
 ; EZ80-CODE16-NEXT:    ld c, 7
 ; EZ80-CODE16-NEXT:    call __sshl
 ; EZ80-CODE16-NEXT:    ex de, hl
-; EZ80-CODE16-NEXT:    ld l, a
-; EZ80-CODE16-NEXT:    rlc l
+; EZ80-CODE16-NEXT:    rlca
+; EZ80-CODE16-NEXT:    rrca
 ; EZ80-CODE16-NEXT:    sbc hl, hl
 ; EZ80-CODE16-NEXT:    ld c, l
 ; EZ80-CODE16-NEXT:    ld b, h
@@ -13117,8 +13115,8 @@ define i8 @sdiv.fix.sat.i8.7(i8, i8) {
 ; EZ80-NEXT:    ld c, 7
 ; EZ80-NEXT:    call __sshl
 ; EZ80-NEXT:    ex.sis de, hl
-; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    rlc l
+; EZ80-NEXT:    rlca
+; EZ80-NEXT:    rrca
 ; EZ80-NEXT:    sbc.sis hl, hl
 ; EZ80-NEXT:    ld c, l
 ; EZ80-NEXT:    ld b, h
@@ -13361,7 +13359,7 @@ define i16 @sdiv.fix.sat.i16.7(i16, i16) {
 ; EZ80-NEXT:    ld c, e
 ; EZ80-NEXT:    ld b, d
 ; EZ80-NEXT:    ld a, d
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ld l, 7
 ; EZ80-NEXT:    call __lshl
@@ -13377,7 +13375,7 @@ define i16 @sdiv.fix.sat.i16.7(i16, i16) {
 ; EZ80-NEXT:    ld iyh, d
 ; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ld a, h
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    pop hl
@@ -13649,7 +13647,7 @@ define i16 @sdiv.fix.sat.i16.15(i16, i16) {
 ; EZ80-NEXT:    ld c, e
 ; EZ80-NEXT:    ld b, d
 ; EZ80-NEXT:    ld a, d
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ld l, 15
 ; EZ80-NEXT:    call __lshl
@@ -13665,7 +13663,7 @@ define i16 @sdiv.fix.sat.i16.15(i16, i16) {
 ; EZ80-NEXT:    ld iyh, d
 ; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    ld a, h
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    push bc
 ; EZ80-NEXT:    pop hl
@@ -14089,8 +14087,8 @@ define i32 @sdiv.fix.sat.i32.15(i32, i32) {
 ; EZ80-NEXT:    ld (ix - 1), a
 ; EZ80-NEXT:    ld de, (ix - 4)
 ; EZ80-NEXT:    ld a, (ix - 1)
-; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    rlc l
+; EZ80-NEXT:    rlca
+; EZ80-NEXT:    rrca
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop iy
@@ -14560,8 +14558,8 @@ define i32 @sdiv.fix.sat.i32.31(i32, i32) {
 ; EZ80-NEXT:    ld (ix - 1), a
 ; EZ80-NEXT:    ld de, (ix - 4)
 ; EZ80-NEXT:    ld a, (ix - 1)
-; EZ80-NEXT:    ld l, a
-; EZ80-NEXT:    rlc l
+; EZ80-NEXT:    rlca
+; EZ80-NEXT:    rrca
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    push hl
 ; EZ80-NEXT:    pop iy

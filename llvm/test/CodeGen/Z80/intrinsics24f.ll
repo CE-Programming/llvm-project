@@ -11,7 +11,7 @@ define float @powi.f32.i24(float, i24) {
 ; EZ80-NEXT:    ld bc, (iy + 9)
 ; EZ80-NEXT:    ld (iy - 3), bc
 ; EZ80-NEXT:    ld a, (iy - 1)
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    call __ltof
 ; EZ80-NEXT:    ld l, a
@@ -39,7 +39,7 @@ define double @powi.f64.i24(double, i24) {
 ; EZ80-NEXT:    ld hl, (iy + 12)
 ; EZ80-NEXT:    ld (iy - 3), hl
 ; EZ80-NEXT:    ld a, (iy - 1)
-; EZ80-NEXT:    rlc a
+; EZ80-NEXT:    rlca
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ld e, a
 ; EZ80-NEXT:    call __ltod
