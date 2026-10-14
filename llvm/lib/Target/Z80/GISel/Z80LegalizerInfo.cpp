@@ -13,6 +13,7 @@
 #include "Z80LegalizerInfo.h"
 #include "MCTargetDesc/Z80MCTargetDesc.h"
 #include "Z80.h"
+#include "Z80CodeGenOptions.h"
 #include "Z80MachineFunctionInfo.h"
 #include "Z80Subtarget.h"
 #include "Z80TargetMachine.h"
@@ -42,6 +43,10 @@ static cl::opt<bool> EnableByteConstantDivide("z80-byte-constant-div",
 
 static cl::opt<bool> EnableWideByteMultiply("z80-wide-byte-mul", cl::Hidden,
                                         cl::init(true));
+
+bool llvm::z80UseConstantBitwise() { return EnableConstantBitwise; }
+bool llvm::z80UseConstantMultiply() { return EnableConstantMultiply; }
+bool llvm::z80UseWideByteMultiply() { return EnableWideByteMultiply; }
 
 Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
                                    const Z80TargetMachine &TM)

@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Z80TargetTransformInfo.h"
+#include "Z80CodeGenOptions.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -69,10 +70,41 @@ InstructionCost Z80TTIImpl::getArithmeticInstrCost(
     return BaseT::getArithmeticInstrCost(Opcode, Ty, Kind, Op1Info, Op2Info,
                                          Args, I);
   unsigned Bits = Ty->getIntegerBitWidth();
-  if (Bits != 8 && Bits != 16 && !(Bits == 24 && ST->is24Bit()))
+  bool NativeWidth = Bits == 8 || Bits == 16 || (Bits == 24 && ST->is24Bit());
+  if (!NativeWidth) {
+    // These scalar operations map to software helpers. Do not inherit the
+    // generic one-instruction price simply because their IR type is scalar.
+    if (Bits == 32 || Bits == 64 || (Bits == 48 && ST->is24Bit())) {
+      switch (Opcode) {
+      case Instruction::Add:
+      case Instruction::Sub:
+        // ADL 48-bit add/sub are instead narrowed to two native words with
+        // carry. Register moves and spills remain outside this local estimate.
+        if (Bits == 48)
+          return cost(Opcode == Instruction::Add ? 3 : 5,
+                      Opcode == Instruction::Add ? 3 : 5, Kind);
+        [[fallthrough]];
+      case Instruction::Mul:
+      case Instruction::And:
+      case Instruction::Or:
+      case Instruction::Xor:
+      case Instruction::Shl:
+      case Instruction::LShr:
+      case Instruction::AShr:
+      case Instruction::UDiv:
+      case Instruction::SDiv:
+      case Instruction::URem:
+      case Instruction::SRem:
+        return helperCost(Kind);
+      default:
+        break;
+      }
+    }
     return BaseT::getArithmeticInstrCost(Opcode, Ty, Kind, Op1Info, Op2Info,
                                          Args, I);
+  }
   unsigned Prefix = ST->is24Bit() && Bits == 16;
+  unsigned NativePrefix = z80UseNativeWordArithmetic() ? 0 : Prefix;
   const ConstantInt *C =
       Args.size() == 2 ? dyn_cast<ConstantInt>(Args[1]) : nullptr;
   if (!C && Args.size() == 2 && Instruction::isCommutative(Opcode))
@@ -86,10 +118,10 @@ InstructionCost Z80TTIImpl::getArithmeticInstrCost(
     if (C && (C->isOne() || C->isMinusOne()))
       return cost(1 + Prefix, 1 + Prefix, Kind);
     // Native pair subtraction clears carry with OR A then uses SBC HL,rr.
-    unsigned Bytes =
-        Opcode == Instruction::Sub && Bits != 8 ? 3 + Prefix : 1 + Prefix;
+    unsigned Bytes = Opcode == Instruction::Sub && Bits != 8 ? 3 + NativePrefix
+                                                             : 1 + NativePrefix;
     if (C)
-      Bytes += Bits == 8 ? 1 : 1 + Bits / 8;
+      Bytes += Bits == 8 ? 1 : 1 + ((Prefix && !NativePrefix) ? 3 : Bits / 8);
     return cost(Bytes, Bytes, Kind);
   }
   case Instruction::Mul: {
@@ -98,12 +130,13 @@ InstructionCost Z80TTIImpl::getArithmeticInstrCost(
       ByteOperands = llvm::all_of(Args, [&](const Value *V) {
         return computeKnownBits(V, DL).countMaxActiveBits() <= 8;
       });
-    if (ByteOperands) {
+    if (ByteOperands && ST->hasZ180Ops() &&
+        (Bits == 8 || z80UseWideByteMultiply())) {
       // Two byte moves pack the operands, followed by MLT (two fetched bytes
       // and four internal cycles). MLT itself needs no short-mode prefix.
       return cost(4, 5, Kind);
     }
-    if (C && !C->getValue().isNegative()) {
+    if (z80UseConstantMultiply() && C && !C->getValue().isNegative()) {
       const APInt &V = C->getValue();
       if (V.isZero() || V.isOne())
         return cost(V.isZero() ? 1 + Bits / 8 : 0,
@@ -114,8 +147,11 @@ InstructionCost Z80TTIImpl::getArithmeticInstrCost(
       unsigned CallBytes = ST->is24Bit() ? 8 : 6;
       if (Bytes <= (F.hasOptSize() ? CallBytes : 2 * CallBytes)) {
         // PUSH/POP preserves the original value when addition needs it.
+        // Lowering keeps its conservative prefix budget; once selected,
+        // native ADL arithmetic can remove those prefixes from the sequence.
+        Bytes = (Doubles + Adds) * (1 + NativePrefix) + (Adds ? 2 : 0);
         unsigned Units =
-            (Doubles + Adds) * (1 + Prefix) +
+            (Doubles + Adds) * (1 + NativePrefix) +
             (Adds ? 2 + divideCeil(3 * (ST->is24Bit() ? 3 : 2), 2) : 0);
         return cost(Bytes, Units, Kind);
       }
@@ -124,7 +160,7 @@ InstructionCost Z80TTIImpl::getArithmeticInstrCost(
   }
   case Instruction::Shl:
     if (C && C->getValue().uge(1) && C->getValue().ule(6) && Bits != 8) {
-      unsigned Bytes = C->getZExtValue() * (1 + Prefix);
+      unsigned Bytes = C->getZExtValue() * (1 + NativePrefix);
       return cost(Bytes, Bytes, Kind);
     }
     [[fallthrough]];
@@ -142,8 +178,52 @@ InstructionCost Z80TTIImpl::getArithmeticInstrCost(
   case Instruction::And:
   case Instruction::Or:
   case Instruction::Xor:
-    if (Bits == 8)
-      return cost(C ? 2 : 1, C ? 2 : 1, Kind);
+    if (Bits == 8) {
+      // A byte immediate occupies two bytes; without the comparison switch,
+      // the imported pattern materializes a constant register first.
+      unsigned Bytes = C ? (z80UseByteImmediates() ? 2 : 3) : 1;
+      return cost(Bytes, Bytes, Kind);
+    }
+    if (C && z80UseConstantBitwise()) {
+      const APInt &Mask = C->getValue();
+      APInt Changed = Opcode == Instruction::And ? ~Mask : Mask;
+      if (Changed.isZero())
+        return 0;
+      if (Opcode == Instruction::And && Bits == 24 &&
+          Mask == APInt::getSignedMaxValue(24))
+        return cost(1, 1, Kind) + helperCost(Kind);
+      if (Opcode == Instruction::And && Mask.getActiveBits() <= 8) {
+        // Zero extension is five caller bytes in ADL, three in native short
+        // mode; a nonidentity byte mask adds a two-byte immediate operation.
+        unsigned Bytes = Bits == 24 ? 5 : 3;
+        if (!Mask.isMask(8))
+          Bytes += z80UseByteImmediates() ? 2 : 3;
+        return cost(Bytes, Bytes, Kind);
+      }
+      unsigned Offset = Changed.getActiveBits() <= 8 ? 0 : 8;
+      if (Changed.getActiveBits() <= 16 &&
+          (Changed.lshr(Offset).getZExtValue() & ~uint64_t(255)) == 0 &&
+          (!Offset || Changed.extractBits(8, 0).isZero())) {
+        // SET/RES preserves the complete register and avoids the accumulator.
+        // Other immediates may need two moves through A. Ignore coalesced
+        // moves for a single bit, include them in the ordinary byte estimate.
+        bool Bit = Opcode != Instruction::Xor && Changed.isPowerOf2() &&
+                   z80UseByteImmediates();
+        unsigned Bytes = Bit ? 2 : (z80UseByteImmediates() ? 4 : 5);
+        return cost(Bytes, Bytes, Kind);
+      }
+      if (Opcode == Instruction::And && Bits == 24 &&
+          Mask.getActiveBits() <= 16) {
+        if (Mask.isMask(16))
+          return cost(5, 5, Kind);
+        Type *WordTy = IntegerType::get(F.getContext(), 16);
+        const Value *WordArgs[] = {PoisonValue::get(WordTy),
+                                   ConstantInt::get(WordTy, Mask.trunc(16))};
+        return cost(5, 5, Kind) + getArithmeticInstrCost(Opcode, WordTy, Kind,
+                                                         Op1Info, Op2Info,
+                                                         WordArgs, I);
+      }
+    }
     // Full-width logical operations use helpers in size builds. Speed builds
     // currently expand 16-bit operations into their byte operations and moves.
     if (Bits == 16 && !F.hasOptSize())
@@ -187,7 +267,8 @@ InstructionCost Z80TTIImpl::getCallInstrCost(Function *Callee, Type *RetTy,
                                              ArrayRef<Type *> Args,
                                              TTI::TargetCostKind Kind) const {
   if (!ST->hasEZ80Ops() || !Callee ||
-      Callee->getCallingConv() != CallingConv::C)
+      (Callee->getCallingConv() != CallingConv::C &&
+       Callee->getCallingConv() != CallingConv::Fast))
     return BaseT::getCallInstrCost(Callee, RetTy, Args, Kind);
   auto Slots = stackSlots(Args);
   if (!Slots)
@@ -205,7 +286,9 @@ InstructionCost Z80TTIImpl::getInstructionCost(const User *U,
   if (ST->hasEZ80Ops()) {
     if (auto *CB = dyn_cast<CallBase>(U); CB && !isa<IntrinsicInst>(CB)) {
       if (Function *Callee = CB->getCalledFunction();
-          Callee && CB->getCallingConv() == CallingConv::C &&
+          Callee &&
+          (CB->getCallingConv() == CallingConv::C ||
+           CB->getCallingConv() == CallingConv::Fast) &&
           isLoweredToCall(Callee)) {
         SmallVector<Type *> Types;
         for (const Value *Arg : CB->args())
@@ -224,7 +307,8 @@ unsigned Z80TTIImpl::getInlineCallPenalty(const Function *Caller,
   // For speed, account for native C stack traffic relative to one-register
   // arithmetic; generic inlining already charges one instruction per argument.
   if (!ST->hasEZ80Ops() || !Caller || Caller->hasOptSize() ||
-      Call.getCallingConv() != CallingConv::C ||
+      (Call.getCallingConv() != CallingConv::C &&
+       Call.getCallingConv() != CallingConv::Fast) ||
       Call.hasFnAttr(Attribute::Cold) ||
       (Call.getCalledFunction() &&
        Call.getCalledFunction()->hasFnAttribute(Attribute::Cold)))
