@@ -81,7 +81,7 @@ define internal i24 @callback(i24 %x) { ret i24 %x }
 define internal i24 @varargs(i24 %x, ...) { ret i24 %x }
 ; CHECK-LABEL: define internal i32 @wide(
 define internal i32 @wide(i32 %x) { ret i32 %x }
-; CHECK-LABEL: define internal i24 @four(
+; CHECK-LABEL: define internal cc136 i24 @four(
 define internal i24 @four(i24 %a, i24 %b, i24 %c, i24 %d) { ret i24 %a }
 ; CHECK-LABEL: define internal i24 @noargs(
 define internal i24 @noargs() { ret i24 0 }

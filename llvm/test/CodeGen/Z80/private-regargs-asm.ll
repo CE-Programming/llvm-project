@@ -13,15 +13,14 @@ define internal i24 @private_with_frame(i24 %a, i24 %b, i24 %c, i24 %d) noinline
 ; REG-NEXT:    push ix
 ; REG-NEXT:    ld ix, 0
 ; REG-NEXT:    add ix, sp
-; REG-NEXT:    lea hl, ix - 24
-; REG-NEXT:    ld sp, hl
-; REG-NEXT:    ld hl, (ix + 6)
-; REG-NEXT:    ld bc, (ix + 9)
-; REG-NEXT:    ld iy, (ix + 12)
-; REG-NEXT:    lea de, ix - 24
-; REG-NEXT:    ld (_escaped_frame), de
-; REG-NEXT:    add hl, bc
-; REG-NEXT:    ld de, (ix + 15)
+; REG-NEXT:    lea iy, ix - 24
+; REG-NEXT:    ld sp, iy
+; REG-NEXT:    push bc
+; REG-NEXT:    pop iy
+; REG-NEXT:    lea bc, ix - 24
+; REG-NEXT:    ld (_escaped_frame), bc
+; REG-NEXT:    add hl, de
+; REG-NEXT:    ld de, (ix + 6)
 ; REG-NEXT:    add iy, de
 ; REG-NEXT:    lea de, iy + 0
 ; REG-NEXT:    add hl, de
@@ -64,16 +63,11 @@ define i24 @public_caller(i24 %a, i24 %b, i24 %c, i24 %d) {
 ; REG-NEXT:    add iy, sp
 ; REG-NEXT:    ld hl, (iy + 12)
 ; REG-NEXT:    push hl
-; REG-NEXT:    ld hl, (iy + 9)
-; REG-NEXT:    push hl
-; REG-NEXT:    ld hl, (iy + 6)
-; REG-NEXT:    push hl
 ; REG-NEXT:    ld hl, (iy + 3)
-; REG-NEXT:    push hl
+; REG-NEXT:    ld de, (iy + 6)
+; REG-NEXT:    ld bc, (iy + 9)
 ; REG-NEXT:    call _private_with_frame
-; REG-NEXT:    ld iy, 12
-; REG-NEXT:    add iy, sp
-; REG-NEXT:    ld sp, iy
+; REG-NEXT:    pop iy
 ; REG-NEXT:    ret
 ;
 ; STACK-LABEL: public_caller:
