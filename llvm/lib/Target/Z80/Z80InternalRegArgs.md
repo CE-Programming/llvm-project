@@ -53,3 +53,11 @@ applications with large callees or many values live across calls.
 Use `-mllvm -z80-internal-regargs-profile=true` to report converted function
 and static call-site counts, including functions with additional stack arguments,
 wide return values and explicit `sret` pointers.
+
+The optimizer-last extension runs before `MergeFunctions` in ordinary and
+ThinLTO optimization. A late codegen module pass repeats eligibility checks so
+new private merged bodies can use the private convention too. Actual postlink
+runs mark the module with `z80.internal.regargs.postlink` metadata. That marker
+or the explicit merged-IR option is required; ordinary unmarked modules,
+prelink modules and O0 codegen retain their existing ABI behavior. Public
+forwarding wrappers created by function merging keep their C convention.
