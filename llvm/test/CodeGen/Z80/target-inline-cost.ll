@@ -22,9 +22,6 @@ entry:
   %p4 = getelementptr i24, ptr %p, i24 4
   %e = add i24 %x, 9
   store i24 %e, ptr %p4, align 1
-  %p5 = getelementptr i24, ptr %p, i24 5
-  %f = add i24 %x, 10
-  store i24 %f, ptr %p5, align 1
   ret void
 }
 

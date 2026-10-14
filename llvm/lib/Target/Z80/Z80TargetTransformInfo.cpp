@@ -15,13 +15,13 @@
 
 using namespace llvm;
 
-InstructionCost Z80TTIImpl::cost(unsigned Bytes, unsigned Transfers,
+InstructionCost Z80TTIImpl::cost(unsigned Bytes, unsigned Units,
                                  TTI::TargetCostKind Kind) const {
   if (Kind == TTI::TCK_CodeSize)
     return Bytes;
   if (Kind == TTI::TCK_SizeAndLatency)
-    return std::max(Bytes, Transfers);
-  return Transfers;
+    return std::max(Bytes, Units);
+  return Units;
 }
 
 TypeSize Z80TTIImpl::getRegisterBitWidth(TTI::RegisterKind K) const {
@@ -114,9 +114,10 @@ InstructionCost Z80TTIImpl::getArithmeticInstrCost(
       unsigned CallBytes = ST->is24Bit() ? 8 : 6;
       if (Bytes <= (F.hasOptSize() ? CallBytes : 2 * CallBytes)) {
         // PUSH/POP preserves the original value when addition needs it.
-        unsigned Transfers = (Doubles + Adds) * (1 + Prefix) +
-                             (Adds ? 2 + 2 * (ST->is24Bit() ? 3 : 2) : 0);
-        return cost(Bytes, Transfers, Kind);
+        unsigned Units =
+            (Doubles + Adds) * (1 + Prefix) +
+            (Adds ? 2 + divideCeil(3 * (ST->is24Bit() ? 3 : 2), 2) : 0);
+        return cost(Bytes, Units, Kind);
       }
     }
     return helperCost(Kind, C != nullptr);
@@ -177,7 +178,9 @@ InstructionCost Z80TTIImpl::getMemoryOpCost(unsigned Opcode, Type *Ty,
   // Add a prefix for a short pair in ADL mode. This excludes address setup,
   // which is costed separately, and assumes register-indirect accesses.
   unsigned Bytes = Bits == 8 ? 1 : 2 + (ST->is24Bit() && Bits == 16);
-  return cost(Bytes, Bytes + Bits / 8, Kind);
+  unsigned AccessUnits =
+      Opcode == Instruction::Store ? divideCeil(Bits / 8, 2) : Bits / 8;
+  return cost(Bytes, Bytes + AccessUnits, Kind);
 }
 
 InstructionCost Z80TTIImpl::getCallInstrCost(Function *Callee, Type *RetTy,
@@ -193,7 +196,7 @@ InstructionCost Z80TTIImpl::getCallInstrCost(Function *Callee, Type *RetTy,
   // A PUSH per C argument word plus one POP per word for a small cleanup.
   // Larger cleanups may use arithmetic instead; this is a local estimate.
   return helperCost(Kind) +
-         cost(2 * *Slots, 2 * *Slots * (1 + WordBytes), Kind);
+         cost(2 * *Slots, *Slots * (2 + divideCeil(3 * WordBytes, 2)), Kind);
 }
 
 InstructionCost Z80TTIImpl::getInstructionCost(const User *U,
@@ -235,5 +238,6 @@ unsigned Z80TTIImpl::getInlineCallPenalty(const Function *Caller,
   unsigned WordBytes = ST->is24Bit() ? 3 : 2;
   // InlineCost's instruction unit is five. Charge only return-address and
   // argument stack traffic here; no runtime helper or callee-body estimate.
-  return DefaultPenalty + 5 * WordBytes * (2 + *Slots);
+  return DefaultPenalty +
+         5 * (divideCeil(3 * WordBytes, 2) + *Slots * divideCeil(WordBytes, 2));
 }
