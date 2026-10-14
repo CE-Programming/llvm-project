@@ -19,9 +19,9 @@ define void @arithmetic(i8 %a, i8 %b, i16 %x, i16 %y, i24 %u, i24 %v, ptr %p) {
 ; ADL: costs of 4 for: %shift24 = shl i24
 ; ADL: costs of 3 for: %shift16 = shl i16
 ; ADL: costs of RThru:11 CodeSize:4 Lat:11 SizeLat:11 for: %divide = udiv i24
-; ADL: costs of RThru:2 CodeSize:1 Lat:4 SizeLat:2 for: %load8 = load i8
-; ADL: costs of RThru:5 CodeSize:3 Lat:4 SizeLat:5 for: %load16 = load i16
-; ADL: costs of RThru:5 CodeSize:2 Lat:4 SizeLat:5 for: %load24 = load i24
+; ADL: costs of RThru:2 CodeSize:1 Lat:2 SizeLat:2 for: %load8 = load i8
+; ADL: costs of RThru:5 CodeSize:3 Lat:5 SizeLat:5 for: %load16 = load i16
+; ADL: costs of RThru:5 CodeSize:2 Lat:5 SizeLat:5 for: %load24 = load i24
 ; ADL: costs of RThru:4 CodeSize:2 Lat:4 SizeLat:4 for: store i24
 ; ADL: costs of RThru:25 CodeSize:8 Lat:25 SizeLat:25 for: %call = call i24
 ; OFF-LABEL: function 'arithmetic'
@@ -110,4 +110,30 @@ define i24 @fast_stack_abi(i24 %a, i24 %b) {
 ; ADL: costs of RThru:25 CodeSize:8 Lat:25 SizeLat:25 for: %r = call fastcc
   %r = call fastcc i24 @fast_callee(i24 %a, i24 %b)
   ret i24 %r
+}
+
+
+define void @atomic_fallback(ptr %p, i8 %v) {
+; ADL-LABEL: function 'atomic_fallback'
+; ADL: costs of RThru:1 CodeSize:1 Lat:4 SizeLat:1 for: %r = load atomic i8
+; ADL: costs of 1 for: store atomic i8
+  %r = load atomic i8, ptr %p acquire, align 1
+  store atomic i8 %v, ptr %p release, align 1
+  ret void
+}
+
+
+define i8 @truncating_load(ptr %p) {
+; ADL-LABEL: function 'truncating_load'
+; ADL: costs of RThru:5 CodeSize:1 Lat:5 SizeLat:5 for: %word_load = load i16
+  %word_load = load i16, ptr %p, align 1
+  %v = trunc i16 %word_load to i8
+  ret i8 %v
+}
+
+define i8 @other_address_space(ptr addrspace(1) %p) {
+; ADL-LABEL: function 'other_address_space'
+; ADL: costs of RThru:1 CodeSize:1 Lat:4 SizeLat:1 for: %v = load i8
+  %v = load i8, ptr addrspace(1) %p, align 1
+  ret i8 %v
 }
