@@ -37,6 +37,9 @@ using namespace MIPatternMatch;
 
 namespace {
 
+static cl::opt<bool> EnableByteImmediates("z80-byte-immediates", cl::Hidden,
+                                        cl::init(true));
+
 static cl::opt<unsigned>
     Z80TrapRstVector("z80-trap-rst-vector", cl::Hidden, cl::init(0),
                      cl::desc("RST vector for G_TRAP/G_DEBUGTRAP lowering "
@@ -424,6 +427,46 @@ bool Z80InstructionSelector::select(MachineInstr &I) const {
   if (I.getOpcode() == TargetOpcode::G_LOAD ||
       I.getOpcode() == TargetOpcode::G_STORE)
     return selectLoadStore(I, MRI, MF);
+
+  // Imported byte ALU patterns use a register for every constant. Prefer
+  // immediate ALU operations, or SET/RES for one changed bit. The latter
+  // also avoids accumulator traffic for addressable low/high bytes.
+  if (EnableByteImmediates &&
+      (Opc == TargetOpcode::G_AND || Opc == TargetOpcode::G_OR ||
+       Opc == TargetOpcode::G_XOR) &&
+      MRI.getType(I.getOperand(0).getReg()) == LLT::scalar(8)) {
+    Register DstReg = I.getOperand(0).getReg();
+    Register SrcReg = I.getOperand(1).getReg();
+    auto C = getIConstantVRegValWithLookThrough(I.getOperand(2).getReg(), MRI);
+    if (!C) {
+      C = getIConstantVRegValWithLookThrough(SrcReg, MRI);
+      SrcReg = I.getOperand(2).getReg();
+    }
+    if (C) {
+      APInt Value = C->Value.zextOrTrunc(8);
+      APInt Changed = Opc == TargetOpcode::G_AND ? ~Value : Value;
+      MachineIRBuilder MIB(I);
+      if (Opc != TargetOpcode::G_XOR && Changed.isPowerOf2()) {
+        auto Bit = MIB.buildInstr(
+            Opc == TargetOpcode::G_AND ? Z80::RES8gb : Z80::SET8gb,
+            {DstReg}, {SrcReg, uint64_t(Changed.logBase2())});
+        if (!constrainSelectedInstRegOperands(*Bit, TII, TRI, RBI))
+          return false;
+      } else {
+        if (!RBI.constrainGenericRegister(SrcReg, Z80::R8RegClass, MRI) ||
+            !RBI.constrainGenericRegister(DstReg, Z80::R8RegClass, MRI))
+          return false;
+        MIB.buildCopy(Register(Z80::A), SrcReg);
+        unsigned AluOpc = Opc == TargetOpcode::G_AND ? Z80::AND8ai
+                          : Opc == TargetOpcode::G_OR ? Z80::OR8ai
+                                                     : Z80::XOR8ai;
+        MIB.buildInstr(AluOpc).addImm(Value.getZExtValue());
+        MIB.buildCopy(DstReg, Register(Z80::A));
+      }
+      I.eraseFromParent();
+      return true;
+    }
+  }
 
   if (selectImpl(I, *CoverageInfo))
     return true;

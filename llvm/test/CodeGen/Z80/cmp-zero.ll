@@ -7,44 +7,32 @@ define i16 @cmp0_o16(i16 %x, ptr nocapture readonly %p) {
 ; EZ80-NEXT:    push ix
 ; EZ80-NEXT:    ld ix, 0
 ; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    dec sp
-; EZ80-NEXT:    dec sp
-; EZ80-NEXT:    ld de, (ix + 6)
-; EZ80-NEXT:    ld.sis hl, 0
-; EZ80-NEXT:    ld (ix - 2), l
-; EZ80-NEXT:    ld (ix - 1), h
-; EZ80-NEXT:    ld iyh, 0
+; EZ80-NEXT:    ld bc, (ix + 6)
+; EZ80-NEXT:    ld.sis iy, 0
 ; EZ80-NEXT:    private BB0_1
 ; EZ80-NEXT:  BB0_1: ; %loop
 ; EZ80-NEXT:    ; =>This Inner Loop Header: Depth=1
 ; EZ80-NEXT:    sbc.sis hl, hl
-; EZ80-NEXT:    adc.sis hl, de
+; EZ80-NEXT:    adc.sis hl, bc
 ; EZ80-NEXT:    jr z, BB0_3
 ; EZ80-NEXT:  ; %bb.2: ; %body
 ; EZ80-NEXT:    ; in Loop: Header=BB0_1 Depth=1
-; EZ80-NEXT:    ld l, 15
-; EZ80-NEXT:    ld a, e
-; EZ80-NEXT:    and a, l
-; EZ80-NEXT:    ld iyl, a
-; EZ80-NEXT:    ld bc, 0
-; EZ80-NEXT:    ld c, iyl
-; EZ80-NEXT:    ld b, iyh
+; EZ80-NEXT:    ld a, c
+; EZ80-NEXT:    and a, 15
+; EZ80-NEXT:    ld de, 0
+; EZ80-NEXT:    ld e, a
 ; EZ80-NEXT:    ld hl, (ix + 9)
-; EZ80-NEXT:    add hl, bc
-; EZ80-NEXT:    ld c, (hl)
-; EZ80-NEXT:    ld b, iyh
-; EZ80-NEXT:    ld l, (ix - 2)
-; EZ80-NEXT:    ld h, (ix - 1)
-; EZ80-NEXT:    add.sis hl, bc
-; EZ80-NEXT:    ld (ix - 2), l
-; EZ80-NEXT:    ld (ix - 1), h
-; EZ80-NEXT:    dec.sis de
+; EZ80-NEXT:    add hl, de
+; EZ80-NEXT:    ld e, (hl)
+; EZ80-NEXT:    add.sis iy, de
+; EZ80-NEXT:    dec.sis bc
 ; EZ80-NEXT:    jr BB0_1
 ; EZ80-NEXT:    private BB0_3
 ; EZ80-NEXT:  BB0_3: ; %exit
-; EZ80-NEXT:    ld l, (ix - 2)
-; EZ80-NEXT:    ld h, (ix - 1)
-; EZ80-NEXT:    ld sp, ix
+; EZ80-NEXT:    ex de, hl
+; EZ80-NEXT:    ld e, iyl
+; EZ80-NEXT:    ld d, iyh
+; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
 entry:
@@ -76,29 +64,25 @@ define i24 @cmp0_o24(i24 %x, ptr nocapture readonly %p) {
 ; EZ80-NEXT:    push ix
 ; EZ80-NEXT:    ld ix, 0
 ; EZ80-NEXT:    add ix, sp
-; EZ80-NEXT:    ld de, (ix + 6)
+; EZ80-NEXT:    ld bc, (ix + 6)
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    private BB1_1
 ; EZ80-NEXT:  BB1_1: ; %loop
 ; EZ80-NEXT:    ; =>This Inner Loop Header: Depth=1
 ; EZ80-NEXT:    sbc hl, hl
-; EZ80-NEXT:    adc hl, de
+; EZ80-NEXT:    adc hl, bc
 ; EZ80-NEXT:    jr z, BB1_3
 ; EZ80-NEXT:  ; %bb.2: ; %body
 ; EZ80-NEXT:    ; in Loop: Header=BB1_1 Depth=1
-; EZ80-NEXT:    push de
-; EZ80-NEXT:    pop hl
-; EZ80-NEXT:    ld bc, 31
-; EZ80-NEXT:    call __iand
-; EZ80-NEXT:    push hl
-; EZ80-NEXT:    pop bc
+; EZ80-NEXT:    ld a, c
+; EZ80-NEXT:    and a, 31
+; EZ80-NEXT:    ld de, 0
+; EZ80-NEXT:    ld e, a
 ; EZ80-NEXT:    ld hl, (ix + 9)
-; EZ80-NEXT:    add hl, bc
-; EZ80-NEXT:    ld a, (hl)
-; EZ80-NEXT:    ld bc, 0
-; EZ80-NEXT:    ld c, a
-; EZ80-NEXT:    add iy, bc
-; EZ80-NEXT:    dec de
+; EZ80-NEXT:    add hl, de
+; EZ80-NEXT:    ld e, (hl)
+; EZ80-NEXT:    add iy, de
+; EZ80-NEXT:    dec bc
 ; EZ80-NEXT:    jr BB1_1
 ; EZ80-NEXT:    private BB1_3
 ; EZ80-NEXT:  BB1_3: ; %exit
