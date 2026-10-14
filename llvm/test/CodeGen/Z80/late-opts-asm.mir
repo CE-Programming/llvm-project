@@ -66,9 +66,7 @@
   define i24 @double_stack_copy() {
   ; OPT-LABEL: double_stack_copy:
   ; OPT:       ; %bb.0:
-  ; OPT-NEXT:    push hl
-  ; OPT-NEXT:    pop de
-  ; OPT-NEXT:    add hl, de
+  ; OPT-NEXT:    add hl, hl
   ; OPT-NEXT:    ret
   ;
   ; BASELINE-LABEL: double_stack_copy:
@@ -82,9 +80,7 @@
   define i24 @reset_register_bit() {
   ; OPT-LABEL: reset_register_bit:
   ; OPT:       ; %bb.0:
-  ; OPT-NEXT:    ld a, b
-  ; OPT-NEXT:    res 0, a
-  ; OPT-NEXT:    ld b, a
+  ; OPT-NEXT:    res 0, b
   ; OPT-NEXT:    ret
   ;
   ; BASELINE-LABEL: reset_register_bit:

@@ -1,0 +1,212 @@
+# NOTE: Do not autogenerate
+# RUN: llc -mtriple=ez80 -run-pass=z80-machine-peephole-opt -verify-machineinstrs %s -o - | FileCheck %s
+
+---
+name: double16_dead
+tracksRegLiveness: true
+# CHECK-LABEL: name: double16_dead
+# CHECK-NOT: PUSH16r
+# CHECK: $hl = ADD16aa $hl
+# CHECK-NOT: POP16r
+body: |
+  bb.0:
+    liveins: $hl
+    PUSH16r $hl, implicit-def $sps, implicit $sps
+    $bc = POP16r implicit-def $sps, implicit $sps
+    $hl = ADD16ao $hl, $bc, implicit-def $f
+    RET24 implicit $hl, implicit $f, implicit-def $spl, implicit $spl
+...
+---
+name: double16_live
+tracksRegLiveness: true
+# CHECK-LABEL: name: double16_live
+# CHECK: PUSH16r
+# CHECK: POP16r
+# CHECK: ADD16ao
+body: |
+  bb.0:
+    liveins: $hl
+    PUSH16r $hl, implicit-def $sps, implicit $sps
+    $bc = POP16r implicit-def $sps, implicit $sps
+    $hl = ADD16ao $hl, $bc, implicit-def $f
+    RET24 implicit $hl, implicit $f, implicit $bc, implicit-def $spl, implicit $spl
+...
+---
+name: double16_alias
+tracksRegLiveness: true
+# CHECK-LABEL: name: double16_alias
+# CHECK: PUSH16r
+# CHECK: POP16r
+# CHECK: ADD16ao
+body: |
+  bb.0:
+    liveins: $hl
+    PUSH16r $hl, implicit-def $sps, implicit $sps
+    $bc = POP16r implicit-def $sps, implicit $sps
+    $hl = ADD16ao $hl, $bc, implicit-def $f
+    RET24 implicit $hl, implicit $f, implicit $c, implicit-def $spl, implicit $spl
+...
+---
+name: double16_upper
+tracksRegLiveness: true
+# CHECK-LABEL: name: double16_upper
+# CHECK: PUSH16r
+# CHECK: POP16r
+# CHECK: ADD16ao
+body: |
+  bb.0:
+    liveins: $hl, $ubc
+    PUSH16r $hl, implicit-def $sps, implicit $sps
+    $bc = POP16r implicit-def $sps, implicit $sps
+    $hl = ADD16ao $hl, $bc, implicit-def $f
+    RET24 implicit $hl, implicit $f, implicit $ubc, implicit-def $spl, implicit $spl
+...
+---
+name: double16_frame
+tracksRegLiveness: true
+# CHECK-LABEL: name: double16_frame
+# CHECK: PUSH16r
+# CHECK: POP16r
+# CHECK: ADD16ao
+body: |
+  bb.0:
+    liveins: $hl
+    frame-setup PUSH16r $hl, implicit-def $sps, implicit $sps
+    $bc = POP16r implicit-def $sps, implicit $sps
+    $hl = ADD16ao $hl, $bc, implicit-def $f
+    RET24 implicit $hl, implicit $f, implicit-def $spl, implicit $spl
+...
+---
+name: double16_volatile
+tracksRegLiveness: true
+# CHECK-LABEL: name: double16_volatile
+# CHECK: PUSH16r
+# CHECK: POP16r
+# CHECK: ADD16ao
+body: |
+  bb.0:
+    liveins: $hl
+    PUSH16r $hl, implicit-def $sps, implicit $sps :: (volatile store (s16))
+    $bc = POP16r implicit-def $sps, implicit $sps
+    $hl = ADD16ao $hl, $bc, implicit-def $f
+    RET24 implicit $hl, implicit $f, implicit-def $spl, implicit $spl
+...
+---
+name: double24_dead
+tracksRegLiveness: true
+# CHECK-LABEL: name: double24_dead
+# CHECK-NOT: PUSH24r
+# CHECK: $uhl = ADD24aa $uhl
+# CHECK-NOT: POP24r
+body: |
+  bb.0:
+    liveins: $uhl
+    PUSH24r $uhl, implicit-def $spl, implicit $spl
+    $ubc = POP24r implicit-def $spl, implicit $spl
+    $uhl = ADD24ao $uhl, $ubc, implicit-def $f
+    RET24 implicit $uhl, implicit $f, implicit-def $spl, implicit $spl
+...
+---
+name: double24_live
+tracksRegLiveness: true
+# CHECK-LABEL: name: double24_live
+# CHECK: PUSH24r
+# CHECK: POP24r
+# CHECK: ADD24ao
+body: |
+  bb.0:
+    liveins: $uhl
+    PUSH24r $uhl, implicit-def $spl, implicit $spl
+    $ubc = POP24r implicit-def $spl, implicit $spl
+    $uhl = ADD24ao $uhl, $ubc, implicit-def $f
+    RET24 implicit $uhl, implicit $f, implicit $ubc, implicit-def $spl, implicit $spl
+...
+---
+name: double24_alias
+tracksRegLiveness: true
+# CHECK-LABEL: name: double24_alias
+# CHECK: PUSH24r
+# CHECK: POP24r
+# CHECK: ADD24ao
+body: |
+  bb.0:
+    liveins: $uhl
+    PUSH24r $uhl, implicit-def $spl, implicit $spl
+    $ubc = POP24r implicit-def $spl, implicit $spl
+    $uhl = ADD24ao $uhl, $ubc, implicit-def $f
+    RET24 implicit $uhl, implicit $f, implicit $c, implicit-def $spl, implicit $spl
+...
+---
+name: double24_upper
+tracksRegLiveness: true
+# CHECK-LABEL: name: double24_upper
+# CHECK: PUSH24r
+# CHECK: POP24r
+# CHECK: ADD24ao
+body: |
+  bb.0:
+    liveins: $uhl, $ubc
+    PUSH24r $uhl, implicit-def $spl, implicit $spl
+    $ubc = POP24r implicit-def $spl, implicit $spl
+    $uhl = ADD24ao $uhl, $ubc, implicit-def $f
+    RET24 implicit $uhl, implicit $f, implicit $ubc, implicit-def $spl, implicit $spl
+...
+---
+name: double24_frame
+tracksRegLiveness: true
+# CHECK-LABEL: name: double24_frame
+# CHECK: PUSH24r
+# CHECK: POP24r
+# CHECK: ADD24ao
+body: |
+  bb.0:
+    liveins: $uhl
+    frame-setup PUSH24r $uhl, implicit-def $spl, implicit $spl
+    $ubc = POP24r implicit-def $spl, implicit $spl
+    $uhl = ADD24ao $uhl, $ubc, implicit-def $f
+    RET24 implicit $uhl, implicit $f, implicit-def $spl, implicit $spl
+...
+---
+name: double24_volatile
+tracksRegLiveness: true
+# CHECK-LABEL: name: double24_volatile
+# CHECK: PUSH24r
+# CHECK: POP24r
+# CHECK: ADD24ao
+body: |
+  bb.0:
+    liveins: $uhl
+    PUSH24r $uhl, implicit-def $spl, implicit $spl :: (volatile store (s24))
+    $ubc = POP24r implicit-def $spl, implicit $spl
+    $uhl = ADD24ao $uhl, $ubc, implicit-def $f
+    RET24 implicit $uhl, implicit $f, implicit-def $spl, implicit $spl
+...
+---
+name: byte_bit_dead_a
+tracksRegLiveness: true
+# CHECK-LABEL: name: byte_bit_dead_a
+# CHECK-NOT: LD8gg
+# CHECK: $l = RES8gb $l, 0
+body: |
+  bb.0:
+    liveins: $uhl
+    $a = LD8gg $l
+    $a = RES8gb $a, 0
+    $l = LD8gg $a
+    RET24 implicit $uhl, implicit-def $spl, implicit $spl
+...
+---
+name: byte_bit_live_a
+tracksRegLiveness: true
+# CHECK-LABEL: name: byte_bit_live_a
+# CHECK: $a = LD8gg $l
+# CHECK: $a = RES8gb $a, 0
+# CHECK: $l = LD8gg $a
+body: |
+  bb.0:
+    liveins: $uhl
+    $a = LD8gg $l
+    $a = RES8gb $a, 0
+    $l = LD8gg $a
+    RET24 implicit $uhl, implicit $a, implicit-def $spl, implicit $spl
+...

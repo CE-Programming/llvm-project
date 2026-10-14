@@ -185,14 +185,17 @@ define i16 @sadd.sat.i16(i16, i16) {
 ; EZ80-NEXT:    ld h, d
 ; EZ80-NEXT:    add.sis hl, hl
 ; EZ80-NEXT:    sbc.sis hl, hl
-; EZ80-NEXT:    ld.sis bc, -32768
-; EZ80-NEXT:    add.sis hl, bc
+; EZ80-NEXT:    ; kill: def $hl killed $hl def $uhl
+; EZ80-NEXT:    ld bc, -32768
+; EZ80-NEXT:    add hl, bc
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB1_5
 ; EZ80-NEXT:  ; %bb.4:
-; EZ80-NEXT:    ex.sis de, hl
+; EZ80-NEXT:    ld l, e
+; EZ80-NEXT:    ld h, d
 ; EZ80-NEXT:    private BB1_5
 ; EZ80-NEXT:  BB1_5:
+; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
 ; EZ80-NEXT:    ret
   call i16 @llvm.sadd.sat.i16(i16 %0, i16 %1)
   ret i16 %3
@@ -1266,14 +1269,17 @@ define i16 @ssub.sat.i16(i16, i16) {
 ; EZ80-NEXT:    ld h, d
 ; EZ80-NEXT:    add.sis hl, hl
 ; EZ80-NEXT:    sbc.sis hl, hl
-; EZ80-NEXT:    ld.sis bc, -32768
-; EZ80-NEXT:    add.sis hl, bc
+; EZ80-NEXT:    ; kill: def $hl killed $hl def $uhl
+; EZ80-NEXT:    ld bc, -32768
+; EZ80-NEXT:    add hl, bc
 ; EZ80-NEXT:    bit 0, a
 ; EZ80-NEXT:    jr nz, BB9_5
 ; EZ80-NEXT:  ; %bb.4:
-; EZ80-NEXT:    ex.sis de, hl
+; EZ80-NEXT:    ld l, e
+; EZ80-NEXT:    ld h, d
 ; EZ80-NEXT:    private BB9_5
 ; EZ80-NEXT:  BB9_5:
+; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
 ; EZ80-NEXT:    ret
   call i16 @llvm.ssub.sat.i16(i16 %0, i16 %1)
   ret i16 %3

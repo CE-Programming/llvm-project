@@ -37,6 +37,9 @@ using namespace MIPatternMatch;
 
 namespace {
 
+static cl::opt<bool> EnableNativeWordArithmetic("z80-native-word-arith",
+                                               cl::Hidden, cl::init(true));
+
 static cl::opt<bool> EnableByteImmediates("z80-byte-immediates", cl::Hidden,
                                         cl::init(true));
 
@@ -467,6 +470,14 @@ bool Z80InstructionSelector::select(MachineInstr &I) const {
       return true;
     }
   }
+
+  if (EnableNativeWordArithmetic && STI.is24Bit() &&
+      Opc == TargetOpcode::G_SHL &&
+      MRI.getType(I.getOperand(0).getReg()) == LLT::scalar(16))
+    if (auto Amt = getIConstantVRegValWithLookThrough(
+            I.getOperand(2).getReg(), MRI))
+      if (Amt->Value.isOne())
+        return selectShift(I, MRI);
 
   if (selectImpl(I, *CoverageInfo))
     return true;
@@ -3026,13 +3037,13 @@ bool Z80InstructionSelector::selectShift(MachineInstr &I,
     return RBI.constrainGenericRegister(DstReg, *WordRC, MRI);
   }
 
-  // Handle s16/s24 G_SHL by 2-6 with inline ADD instructions.
+  // Handle s16/s24 G_SHL by 1-6 with inline ADD instructions.
   // For s24, use ADD24aa for all adds (generates add hl, hl, 1 byte each).
   // For s16 in 24-bit mode, use SUBREG_TO_REG to promote to s24, then
-  // (N-1) * ADD24aa (1 byte each) + final ADD16aa (2 bytes) for truncation.
-  // This saves 1 byte per intermediate add versus all ADD16aa.
+  // N * ADD24aa (1 byte each), then read the low word.
+  // This saves one mode prefix per add versus all ADD16aa.
   // For s16 in 16-bit mode, use ADD16aa.
-  if (Opc == TargetOpcode::G_SHL && Amt->Value.uge(2) && Amt->Value.ule(6) &&
+  if (Opc == TargetOpcode::G_SHL && Amt->Value.uge(1) && Amt->Value.ule(6) &&
       (TySize == 16 || (STI.is24Bit() && TySize == 24))) {
     unsigned ShiftAmt = Amt->Value.getZExtValue();
     MachineBasicBlock &MBB = *I.getParent();
@@ -3275,6 +3286,48 @@ bool Z80InstructionSelector::selectAddSub(MachineInstr &I,
       I.eraseFromParent();
       return true;
     }
+  }
+
+  // Pure word arithmetic observes only its low 16 bits. In ADL mode
+  // compute it with native 24-bit instructions, then truncate. Upper input
+  // bytes and the wider carry are unobservable; overflow-producing generic
+  // opcodes use a separate selector and must retain their original width.
+  if (!Is24Bit && STI.is24Bit() && EnableNativeWordArithmetic) {
+    auto Extend = [&](Register Src) -> Register {
+      Register Extended = createGenericVirtualRegister(MRI, LLT::scalar(24));
+      if (auto C = getIConstantVRegValWithLookThrough(Src, MRI)) {
+        auto K = MIB.buildConstant(Extended, C->Value.sextOrTrunc(24));
+        if (!select(*K))
+          return Register();
+        return Extended;
+      }
+      auto Ext = MIB.buildAnyExt(Extended, Src);
+      if (!select(*Ext))
+        return Register();
+      return Extended;
+    };
+    Register LHS = Extend(Src1Reg);
+    Register RHS = Src1Reg == Src2Reg ? LHS : Extend(Src2Reg);
+    if (!LHS || !RHS)
+      return false;
+    Register WideReg = createGenericVirtualRegister(MRI, LLT::scalar(24));
+    auto Wide = MIB.buildInstr(Opc, {WideReg}, {LHS, RHS});
+    if (!select(*Wide))
+      return false;
+    auto Trunc = MIB.buildTrunc(DstReg, WideReg);
+    if (!select(*Trunc))
+      return false;
+    I.eraseFromParent();
+    return true;
+  }
+
+  if (!IsSub && Src1Reg == Src2Reg) {
+    auto Double = MIB.buildInstr(Is24Bit ? Z80::ADD24aa : Z80::ADD16aa,
+                                {DstReg}, {Src1Reg});
+    if (!constrainSelectedInstRegOperands(*Double, TII, TRI, RBI))
+      return false;
+    I.eraseFromParent();
+    return true;
   }
 
   // Determine accumulator and operand register classes

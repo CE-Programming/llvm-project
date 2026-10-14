@@ -37,6 +37,8 @@ STATISTIC(NumCarryRotates,
           "Number of carry-only eZ80 accumulator rotates folded");
 STATISTIC(NumSignExtensions,
           "Number of eZ80 accumulator sign extensions folded");
+STATISTIC(NumDoubles, "Number of final register copy/doubling folds");
+STATISTIC(NumByteBits, "Number of final byte bit-operation copy folds");
 STATISTIC(NumBooleanTests,
           "Number of final redundant eZ80 boolean tests removed");
 
@@ -108,6 +110,75 @@ bool Z80MachinePeepholeOptimization::runOnMachineFunction(MachineFunction &MF) {
       if (!canFold(First)) {
         Live.stepBackward(Last);
         continue;
+      }
+
+      // A temporary register used only to double HL need not be copied
+      // through the stack. Both forms produce the same result and flags.
+      // Check all aliases of the copied register after the ADD; its upper
+      // byte may otherwise make even a short-mode copy observable.
+      bool Is24Add = Last.getOpcode() == Z80::ADD24ao;
+      if ((Is24Add || Last.getOpcode() == Z80::ADD16ao) &&
+          Last.getNumExplicitOperands() == 3 && FirstI != MBB.begin()) {
+        auto PushI = std::prev(FirstI);
+        MachineInstr &Push = *PushI;
+        Register HL = Is24Add ? Z80::UHL : Z80::HL;
+        Register Temp = Last.getOperand(2).getReg();
+        if (canFold(Push) &&
+            Push.getOpcode() == (Is24Add ? Z80::PUSH24r : Z80::PUSH16r) &&
+            First.getOpcode() == (Is24Add ? Z80::POP24r : Z80::POP16r) &&
+            Push.memoperands_empty() && First.memoperands_empty() &&
+            isReg(Push.getOperand(0), HL) &&
+            isReg(First.getOperand(0), Temp) && Temp != HL &&
+            isReg(Last.getOperand(0), HL) &&
+            isReg(Last.getOperand(1), HL) && Live.available(MRI, Temp)) {
+          auto Double = BuildMI(MBB, I, Last.getDebugLoc(),
+                                TII.get(Is24Add ? Z80::ADD24aa : Z80::ADD16aa),
+                                HL).addReg(HL);
+          Double->getOperand(0).setIsDead(Last.getOperand(0).isDead());
+          for (const MachineOperand &MO : Last.operands())
+            if (MO.isReg() && MO.isDef() && MO.getReg() == Z80::F)
+              Double->findRegisterDefOperand(Z80::F, nullptr)
+                  ->setIsDead(MO.isDead());
+          Push.eraseFromParent();
+          First.eraseFromParent();
+          Last.eraseFromParent();
+          I = Double->getIterator();
+          Live.stepBackward(*I);
+          ++NumDoubles;
+          Changed = true;
+          continue;
+        }
+      }
+
+      // LD A,r; SET/RES bit,A; LD r,A -> SET/RES bit,r if A is dead.
+      // SET/RES preserve flags and touch only one byte, including in ADL.
+      if (Last.getOpcode() == Z80::LD8gg &&
+          (First.getOpcode() == Z80::RES8gb ||
+           First.getOpcode() == Z80::SET8gb) &&
+          isReg(Last.getOperand(1), Z80::A) &&
+          isReg(First.getOperand(0), Z80::A) &&
+          isReg(First.getOperand(1), Z80::A) &&
+          Live.available(MRI, Z80::A) && FirstI != MBB.begin()) {
+        Register Byte = Last.getOperand(0).getReg();
+        auto LoadI = std::prev(FirstI);
+        MachineInstr &Load = *LoadI;
+        if (canFold(Load) && Z80::G8RegClass.contains(Byte) &&
+            Byte != Z80::A && Load.getOpcode() == Z80::LD8gg &&
+            isReg(Load.getOperand(0), Z80::A) &&
+            isReg(Load.getOperand(1), Byte)) {
+          auto Bit = BuildMI(MBB, I, First.getDebugLoc(),
+                             TII.get(First.getOpcode()), Byte)
+                         .addReg(Byte).addImm(First.getOperand(2).getImm());
+          Bit->getOperand(0).setIsDead(Last.getOperand(0).isDead());
+          Load.eraseFromParent();
+          First.eraseFromParent();
+          Last.eraseFromParent();
+          I = Bit->getIterator();
+          Live.stepBackward(*I);
+          ++NumByteBits;
+          Changed = true;
+          continue;
+        }
       }
 
       // Both instructions leave flags unchanged, including carry.
