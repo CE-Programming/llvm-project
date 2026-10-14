@@ -31,6 +31,9 @@ using namespace TargetOpcode;
 using namespace LegalizeActions;
 using namespace MIPatternMatch;
 
+static cl::opt<bool> EnableConstantMultiply("z80-constant-mul", cl::Hidden,
+                                            cl::init(true));
+
 static cl::opt<bool> EnableWideByteMultiply("z80-wide-byte-mul", cl::Hidden,
                                         cl::init(true));
 
@@ -239,9 +242,8 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
   getActionDefinitionsBuilder(G_MUL)
       .legalIf(all(predZ180Ops, typeIs(0, s8)))
       .customIf([this, s16, s24](const LegalityQuery &Q) {
-        return Subtarget.hasZ180Ops() &&
-               (Q.Types[0] == s16 ||
-                (Subtarget.has24BitEZ80Ops() && Q.Types[0] == s24));
+        return Q.Types[0] == s16 ||
+               (Subtarget.has24BitEZ80Ops() && Q.Types[0] == s24);
       })
       .libcallFor(LegalLibcallScalars)
       .widenScalarToNextPow2(0, 8)
@@ -1954,7 +1956,8 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeMemIntrinsic(
 
 // MLT produces the complete unsigned byte product in a 16-bit register.
 // Wider G_MUL operations normally become libcalls before instruction selection
-// can see the byte operands. Recognize proven byte ranges during legalization.
+// can see the byte operands. Prefer hardware byte products, then consider a
+// bounded shift/add sequence for nonnegative constants.
 LegalizerHelper::LegalizeResult
 Z80LegalizerInfo::legalizeMultiply(LegalizerHelper &Helper, MachineInstr &MI,
                                   LostDebugLocObserver &LocObserver) const {
@@ -1965,9 +1968,6 @@ Z80LegalizerInfo::legalizeMultiply(LegalizerHelper &Helper, MachineInstr &MI,
   Register RHS = MI.getOperand(2).getReg();
   LLT Ty = MRI.getType(Dst);
 
-  if (!EnableWideByteMultiply)
-    return Helper.libcall(MI, LocObserver);
-
   GISelValueTracking LocalVT(Builder.getMF());
   auto *VT = Helper.getValueTracking();
   if (!VT)
@@ -1975,8 +1975,53 @@ Z80LegalizerInfo::legalizeMultiply(LegalizerHelper &Helper, MachineInstr &MI,
   auto IsByte = [&](Register Reg) {
     return VT->getKnownBits(Reg).countMaxActiveBits() <= 8;
   };
-  if (!IsByte(LHS) || !IsByte(RHS))
+  if (!EnableWideByteMultiply || !Subtarget.hasZ180Ops() ||
+      !IsByte(LHS) || !IsByte(RHS)) {
+    Register Src = LHS;
+    auto Constant = getIConstantVRegValWithLookThrough(RHS, MRI);
+    if (!Constant) {
+      Constant = getIConstantVRegValWithLookThrough(LHS, MRI);
+      Src = RHS;
+    }
+    if (EnableConstantMultiply && Constant && !Constant->Value.isNegative()) {
+      const APInt &C = Constant->Value;
+      // Binary Horner form needs only the original value and an accumulator.
+      // Doubling and adding the original use native register-pair ADDs, with
+      // wrapping arithmetic valid for both signed and unsigned multiplication.
+      unsigned Doubles = C.isZero() ? 0 : C.getActiveBits() - 1;
+      unsigned Adds = C.isZero() ? 0 : C.popcount() - 1;
+      unsigned Prefix = Subtarget.is24Bit() && Ty == LLT::scalar(16);
+      unsigned CopyBytes = Adds ? 2 : 0;
+      unsigned EstimatedBytes = (Doubles + Adds) * (1 + Prefix) + CopyBytes;
+      // A constant load plus a multiply call is six bytes in native short
+      // mode, eight in ADL mode. Estimate size builds against that budget; speed
+      // builds can spend up to twice as many bytes to avoid the runtime loop.
+      unsigned CallBytes = Subtarget.is24Bit() ? 8 : 6;
+      const auto &MF = Builder.getMF();
+      bool OptSize = MF.getFunction().hasOptSize() ||
+                     MF.getTarget().getOptLevel() == CodeGenOptLevel::None;
+      unsigned Budget = OptSize ? CallBytes : 2 * CallBytes;
+      if (EstimatedBytes <= Budget) {
+        Register Result = Src;
+        if (C.isZero())
+          Result = Builder.buildConstant(Ty, 0).getReg(0);
+        else {
+          auto One = Builder.buildConstant(LLT::scalar(8), 1);
+          for (int Bit = static_cast<int>(Doubles) - 1; Bit >= 0; --Bit) {
+            // G_SHL selects ADD HL,HL directly. A generic self-add goes
+            // through the distinct operand classes and can insert copies.
+            Result = Builder.buildShl(Ty, Result, One).getReg(0);
+            if (C[Bit])
+              Result = Builder.buildAdd(Ty, Result, Src).getReg(0);
+          }
+        }
+        Builder.buildCopy(Dst, Result);
+        MI.eraseFromParent();
+        return LegalizerHelper::Legalized;
+      }
+    }
     return Helper.libcall(MI, LocObserver);
+  }
 
   auto Low = Builder.buildTrunc(LLT::scalar(8), RHS);
   auto High = Builder.buildTrunc(LLT::scalar(8), LHS);
