@@ -1268,6 +1268,14 @@ Z80LegalizerInfo::legalizeCompare(LegalizerHelper &Helper, MachineInstr &MI,
     Ty = IntegerType::get(Ctx, OpSize);
     if (auto C = getIConstantVRegVal(RHSReg, MRI))
       ZeroRHS = *C == 0;
+    // The comparison-with-zero helpers only define Z and S. Unsigned
+    // carry conditions against zero are constants, not helper flag tests.
+    if (ZeroRHS && !IsSigned &&
+        (CC == Z80::COND_C || CC == Z80::COND_NC)) {
+      MIRBuilder.buildConstant(DstReg, CC == Z80::COND_NC);
+      MI.eraseFromParent();
+      return LegalizerHelper::Legalized;
+    }
     switch (OpSize) {
     case 32:
       Libcall = ZeroRHS    ? RTLIB::CMP_I32_0
