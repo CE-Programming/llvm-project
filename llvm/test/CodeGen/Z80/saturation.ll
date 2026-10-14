@@ -9873,15 +9873,10 @@ define i8 @umul.fix.sat.i8.8(i8, i8) {
 ; EZ80-CODE16:       ; %bb.0:
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    add iy, sp
-; EZ80-CODE16-NEXT:    ld a, (iy + 2)
+; EZ80-CODE16-NEXT:    ld h, (iy + 2)
 ; EZ80-CODE16-NEXT:    ld l, (iy + 4)
+; EZ80-CODE16-NEXT:    mlt hl
 ; EZ80-CODE16-NEXT:    ld d, 0
-; EZ80-CODE16-NEXT:    ld e, a
-; EZ80-CODE16-NEXT:    ld b, d
-; EZ80-CODE16-NEXT:    ld c, l
-; EZ80-CODE16-NEXT:    ld l, e
-; EZ80-CODE16-NEXT:    ld h, d
-; EZ80-CODE16-NEXT:    call __smulu
 ; EZ80-CODE16-NEXT:    ld e, h
 ; EZ80-CODE16-NEXT:    ld bc, 255
 ; EZ80-CODE16-NEXT:    ld l, e
@@ -9900,15 +9895,10 @@ define i8 @umul.fix.sat.i8.8(i8, i8) {
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
-; EZ80-NEXT:    ld a, (iy + 3)
+; EZ80-NEXT:    ld h, (iy + 3)
 ; EZ80-NEXT:    ld l, (iy + 6)
+; EZ80-NEXT:    mlt hl
 ; EZ80-NEXT:    ld d, 0
-; EZ80-NEXT:    ld e, a
-; EZ80-NEXT:    ld b, d
-; EZ80-NEXT:    ld c, l
-; EZ80-NEXT:    ld l, e
-; EZ80-NEXT:    ld h, d
-; EZ80-NEXT:    call __smulu
 ; EZ80-NEXT:    ld e, h
 ; EZ80-NEXT:    ld.sis bc, 255
 ; EZ80-NEXT:    ld l, e

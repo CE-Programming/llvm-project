@@ -16,18 +16,23 @@
 #include "Z80MachineFunctionInfo.h"
 #include "Z80Subtarget.h"
 #include "Z80TargetMachine.h"
+#include "llvm/CodeGen/GlobalISel/GISelValueTracking.h"
 #include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
 #include "llvm/CodeGen/GlobalISel/LegalizerHelper.h"
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
 #include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/Support/CommandLine.h"
 #include <functional>
 #include <initializer_list>
 using namespace llvm;
 using namespace TargetOpcode;
 using namespace LegalizeActions;
 using namespace MIPatternMatch;
+
+static cl::opt<bool> EnableWideByteMultiply("z80-wide-byte-mul", cl::Hidden,
+                                        cl::init(true));
 
 Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
                                    const Z80TargetMachine &TM)
@@ -233,6 +238,11 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
 
   getActionDefinitionsBuilder(G_MUL)
       .legalIf(all(predZ180Ops, typeIs(0, s8)))
+      .customIf([this, s16, s24](const LegalityQuery &Q) {
+        return Subtarget.hasZ180Ops() &&
+               (Q.Types[0] == s16 ||
+                (Subtarget.has24BitEZ80Ops() && Q.Types[0] == s24));
+      })
       .libcallFor(LegalLibcallScalars)
       .widenScalarToNextPow2(0, 8)
       .minScalar(0, s8)
@@ -420,7 +430,7 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
 }
 
 bool Z80LegalizerInfo::legalizeCustom(LegalizerHelper &Helper, MachineInstr &MI,
-                                      LostDebugLocObserver &LocObserver) const {
+                                     LostDebugLocObserver &LocObserver) const {
   auto handleResult = [](LegalizerHelper::LegalizeResult Result) {
     return Result != LegalizerHelper::UnableToLegalize;
   };
@@ -440,6 +450,8 @@ bool Z80LegalizerInfo::legalizeCustom(LegalizerHelper &Helper, MachineInstr &MI,
   case G_XOR:
   case G_PTRMASK:
     return handleResult(legalizeBitwise(Helper, MI, LocObserver));
+  case G_MUL:
+    return handleResult(legalizeMultiply(Helper, MI, LocObserver));
   case G_SEXT:
     return handleResult(legalizeSExt(Helper, MI, LocObserver));
   case G_EXTRACT:
@@ -1938,6 +1950,54 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeMemIntrinsic(
   auto Result = createMemLibcall(MIRBuilder, MRI, MI, LocObserver);
   MI.eraseFromParent();
   return Result;
+}
+
+// MLT produces the complete unsigned byte product in a 16-bit register.
+// Wider G_MUL operations normally become libcalls before instruction selection
+// can see the byte operands. Recognize proven byte ranges during legalization.
+LegalizerHelper::LegalizeResult
+Z80LegalizerInfo::legalizeMultiply(LegalizerHelper &Helper, MachineInstr &MI,
+                                  LostDebugLocObserver &LocObserver) const {
+  auto &Builder = Helper.MIRBuilder;
+  auto &MRI = *Builder.getMRI();
+  Register Dst = MI.getOperand(0).getReg();
+  Register LHS = MI.getOperand(1).getReg();
+  Register RHS = MI.getOperand(2).getReg();
+  LLT Ty = MRI.getType(Dst);
+
+  if (!EnableWideByteMultiply)
+    return Helper.libcall(MI, LocObserver);
+
+  GISelValueTracking LocalVT(Builder.getMF());
+  auto *VT = Helper.getValueTracking();
+  if (!VT)
+    VT = &LocalVT;
+  auto IsByte = [&](Register Reg) {
+    return VT->getKnownBits(Reg).countMaxActiveBits() <= 8;
+  };
+  if (!IsByte(LHS) || !IsByte(RHS))
+    return Helper.libcall(MI, LocObserver);
+
+  auto Low = Builder.buildTrunc(LLT::scalar(8), RHS);
+  auto High = Builder.buildTrunc(LLT::scalar(8), LHS);
+  auto Packed = Builder.buildMergeValues(LLT::scalar(16),
+                                        {Low.getReg(0), High.getReg(0)});
+  MRI.setRegClass(Packed.getReg(0), &Z80::G16RegClass);
+  if (Ty == LLT::scalar(24)) {
+    // MLT ignores the upper input byte and clears the upper output byte.
+    // Model that full-width definition instead of inserting a separate zext.
+    auto Packed24 = Builder.buildAnyExt(Ty, Packed);
+    auto Product = Builder.buildInstr(Z80::MLT24r, {Ty}, {Packed24});
+    MRI.setRegClass(Packed24.getReg(0), &Z80::G24RegClass);
+    MRI.setRegClass(Product.getReg(0), &Z80::G24RegClass);
+    Builder.buildCopy(Dst, Product);
+  } else {
+    auto Product = Builder.buildInstr(Z80::MLT16r, {Ty}, {Packed});
+    MRI.setRegClass(Product.getReg(0), &Z80::G16RegClass);
+    Builder.buildCopy(Dst, Product);
+  }
+  MI.eraseFromParent();
+  return LegalizerHelper::Legalized;
 }
 
 bool Z80LegalizerInfo::legalizeIntrinsic(LegalizerHelper &Helper,

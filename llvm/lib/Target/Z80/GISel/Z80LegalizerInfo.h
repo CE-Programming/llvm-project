@@ -73,6 +73,9 @@ private:
   LegalizerHelper::LegalizeResult legalizeFixedDivide(LegalizerHelper &Helper,
                                                       MachineInstr &MI) const;
   LegalizerHelper::LegalizeResult
+  legalizeMultiply(LegalizerHelper &Helper, MachineInstr &MI,
+                   LostDebugLocObserver &LocObserver) const;
+  LegalizerHelper::LegalizeResult
   legalizeMultiplyWithOverflow(LegalizerHelper &Helper, MachineInstr &MI,
                                LostDebugLocObserver &LocObserver) const;
   LegalizerHelper::LegalizeResult legalizeFCanonicalize(LegalizerHelper &Helper,
