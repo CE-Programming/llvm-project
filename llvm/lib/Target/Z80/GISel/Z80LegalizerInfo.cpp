@@ -2208,7 +2208,7 @@ bool Z80LegalizerInfo::canLowerByteDivide(MachineInstr &MI,
       C->Value.isZero() ||
       VT.getKnownBits(MI.getOperand(1).getReg()).countMaxActiveBits() > 8)
     return false;
-  if (C->Value.ugt(255) || C->Value.isOne() || C->Value.isPowerOf2())
+  if (C->Value.uge(128) || C->Value.isOne() || C->Value.isPowerOf2())
     return true;
   auto Reciprocal = getByteReciprocal(C->Value.getZExtValue());
   if (!Reciprocal)
@@ -2260,7 +2260,17 @@ Z80LegalizerInfo::legalizeByteDivide(LegalizerHelper &Helper, MachineInstr &MI,
   LLT ByteTy = LLT::scalar(8);
   auto N = Builder.buildZExtOrTrunc(ByteTy, Numerator);
   Register Result;
-  if (isPowerOf2_32(Divisor)) {
+  if (Divisor >= 128) {
+    // A byte dividend has quotient zero or one. A comparison is cheaper than
+    // the seven right shifts needed by some otherwise exact reciprocals.
+    auto D = Builder.buildConstant(ByteTy, Divisor);
+    auto AtLeast = Builder.buildICmp(CmpInst::ICMP_UGE, LLT::scalar(1), N, D);
+    if (IsRemainder) {
+      auto Difference = Builder.buildSub(ByteTy, N, D);
+      Result = Builder.buildSelect(ByteTy, AtLeast, Difference, N).getReg(0);
+    } else
+      Result = Builder.buildZExt(ByteTy, AtLeast).getReg(0);
+  } else if (isPowerOf2_32(Divisor)) {
     if (IsRemainder) {
       auto Mask = Builder.buildConstant(ByteTy, Divisor - 1);
       Result = Builder.buildAnd(ByteTy, N, Mask).getReg(0);
