@@ -129,11 +129,11 @@ static cl::opt<bool> EnableSizeLoopIdioms("z80-size-loop-idioms", cl::Hidden,
                                         cl::init(true));
 
 namespace {
-// -Oz normally avoids header duplication. For a simple byte copy loop,
+// -Oz normally avoids header duplication. For a simple byte copy/fill loop,
 // rotation exposes a single-block idiom that can become a compact libcall or
 // block instruction. Use the generic passes for all alias/trip-count checks.
 struct Z80SizeLoopIdiomPass : PassInfoMixin<Z80SizeLoopIdiomPass> {
-  static bool isByteCopyLoop(Loop &L, LoopStandardAnalysisResults &AR) {
+  static bool isByteMemoryLoop(Loop &L, LoopStandardAnalysisResults &AR) {
     const Function &F = *L.getHeader()->getParent();
     if (F.hasOptNone() || F.getName() == "memcpy" || F.getName() == "memset")
       return false;
@@ -162,18 +162,21 @@ struct Z80SizeLoopIdiomPass : PassInfoMixin<Z80SizeLoopIdiomPass> {
     }
     if (!Store || Store->getParent() == L.getHeader())
       return false;
-    if (!Load)
+    if (Load) {
+      if (DisableLIRP::Memcpy || !AR.TLI.has(LibFunc_memcpy) ||
+          Store->getValueOperand() != Load)
+        return false;
+    } else if (DisableLIRP::Memset || !AR.TLI.has(LibFunc_memset) ||
+               !L.isLoopInvariant(Store->getValueOperand())) {
       return false;
-    if (DisableLIRP::Memcpy || !AR.TLI.has(LibFunc_memcpy) ||
-        Store->getValueOperand() != Load)
-      return false;
+    }
     unsigned CountBits =
         AR.SE.getBackedgeTakenCount(&L)->getType()->getScalarSizeInBits();
     const DataLayout &DL = F.getDataLayout();
     if (CountBits >
             DL.getIndexTypeSizeInBits(Store->getPointerOperand()->getType()) ||
-        CountBits >
-            DL.getIndexTypeSizeInBits(Load->getPointerOperand()->getType()))
+        (Load && CountBits > DL.getIndexTypeSizeInBits(
+                                 Load->getPointerOperand()->getType())))
       return false;
     auto IsUnitStride = [&](Value *Ptr) {
       auto *Rec = dyn_cast<SCEVAddRecExpr>(AR.SE.getSCEV(Ptr));
@@ -182,8 +185,15 @@ struct Z80SizeLoopIdiomPass : PassInfoMixin<Z80SizeLoopIdiomPass> {
       auto *Step = dyn_cast<SCEVConstant>(Rec->getStepRecurrence(AR.SE));
       return Step && Step->getAPInt().isOne();
     };
-    if (!IsUnitStride(Store->getPointerOperand()) ||
-        !IsUnitStride(Load->getPointerOperand()))
+    if (!IsUnitStride(Store->getPointerOperand()))
+      return false;
+    // A fill has no source range that could overlap its destination. Preserve
+    // the zero-trip guard and let the generic recognizer prove the range and
+    // update analyses. Variable values use libc's guarded block fill; constant
+    // lengths can already lower directly to stores/LDIR in GlobalISel.
+    if (!Load)
+      return true;
+    if (!IsUnitStride(Load->getPointerOperand()))
       return false;
     auto *Dst =
         dyn_cast<Argument>(getUnderlyingObject(Store->getPointerOperand()));
@@ -197,7 +207,7 @@ struct Z80SizeLoopIdiomPass : PassInfoMixin<Z80SizeLoopIdiomPass> {
 
   PreservedAnalyses run(Loop &L, LoopAnalysisManager &AM,
                         LoopStandardAnalysisResults &AR, LPMUpdater &U) {
-    if (!isByteCopyLoop(L, AR))
+    if (!isByteMemoryLoop(L, AR))
       return PreservedAnalyses::all();
     std::optional<MemorySSAUpdater> MSSAU;
     if (AR.MSSA)
