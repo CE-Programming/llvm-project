@@ -19,6 +19,12 @@
 #include "Z80TargetObjectFile.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/MemorySSAUpdater.h"
+#include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/CodeGen/GlobalISel/CallLowering.h"
 #include "llvm/CodeGen/GlobalISel/IRTranslator.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelect.h"
@@ -31,6 +37,11 @@
 #include "llvm/IR/Function.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/MC/TargetRegistry.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/Scalar/LoopIdiomRecognize.h"
+#include "llvm/Transforms/Utils/LoopRotationUtils.h"
+#include "llvm/Transforms/Utils/LoopUtils.h"
 
 #include <llvm/CodeGen/GlobalISel/CSEInfo.h>
 using namespace llvm;
@@ -112,6 +123,107 @@ Z80TargetMachine::getSubtargetImpl(const Function &F) const {
     I = std::make_unique<Z80Subtarget>(TargetTriple, CPU, TuneCPU, FS, *this);
   }
   return I.get();
+}
+
+static cl::opt<bool> EnableSizeLoopIdioms("z80-size-loop-idioms", cl::Hidden,
+                                        cl::init(true));
+
+namespace {
+// -Oz normally avoids header duplication. For a simple byte copy loop,
+// rotation exposes a single-block idiom that can become a compact libcall or
+// block instruction. Use the generic passes for all alias/trip-count checks.
+struct Z80SizeLoopIdiomPass : PassInfoMixin<Z80SizeLoopIdiomPass> {
+  static bool isByteCopyLoop(Loop &L, LoopStandardAnalysisResults &AR) {
+    const Function &F = *L.getHeader()->getParent();
+    if (F.hasOptNone() || F.getName() == "memcpy" || F.getName() == "memset")
+      return false;
+    if (DisableLIRP::All || !L.isInnermost() || L.getNumBlocks() != 2 ||
+        L.getExitingBlock() != L.getHeader() || L.getHeader()->size() > 8 ||
+        !AR.SE.hasLoopInvariantBackedgeTakenCount(&L))
+      return false;
+    StoreInst *Store = nullptr;
+    LoadInst *Load = nullptr;
+    for (BasicBlock *BB : L.blocks()) {
+      for (Instruction &I : *BB) {
+        if (auto *SI = dyn_cast<StoreInst>(&I)) {
+          if (Store || SI->isVolatile() || SI->isAtomic() ||
+              !SI->getValueOperand()->getType()->isIntegerTy(8))
+            return false;
+          Store = SI;
+        } else if (auto *LI = dyn_cast<LoadInst>(&I)) {
+          if (Load || LI->isVolatile() || LI->isAtomic() ||
+              !LI->getType()->isIntegerTy(8))
+            return false;
+          Load = LI;
+        } else if (!isa<BranchInst>(I) &&
+                   (I.mayHaveSideEffects() || I.mayReadOrWriteMemory()))
+          return false;
+      }
+    }
+    if (!Store || Store->getParent() == L.getHeader())
+      return false;
+    if (!Load)
+      return false;
+    if (DisableLIRP::Memcpy || !AR.TLI.has(LibFunc_memcpy) ||
+        Store->getValueOperand() != Load)
+      return false;
+    unsigned CountBits =
+        AR.SE.getBackedgeTakenCount(&L)->getType()->getScalarSizeInBits();
+    const DataLayout &DL = F.getDataLayout();
+    if (CountBits >
+            DL.getIndexTypeSizeInBits(Store->getPointerOperand()->getType()) ||
+        CountBits >
+            DL.getIndexTypeSizeInBits(Load->getPointerOperand()->getType()))
+      return false;
+    auto IsUnitStride = [&](Value *Ptr) {
+      auto *Rec = dyn_cast<SCEVAddRecExpr>(AR.SE.getSCEV(Ptr));
+      if (!Rec || Rec->getLoop() != &L || !Rec->isAffine())
+        return false;
+      auto *Step = dyn_cast<SCEVConstant>(Rec->getStepRecurrence(AR.SE));
+      return Step && Step->getAPInt().isOne();
+    };
+    if (!IsUnitStride(Store->getPointerOperand()) ||
+        !IsUnitStride(Load->getPointerOperand()))
+      return false;
+    auto *Dst =
+        dyn_cast<Argument>(getUnderlyingObject(Store->getPointerOperand()));
+    auto *Src =
+        dyn_cast<Argument>(getUnderlyingObject(Load->getPointerOperand()));
+    // Avoid rotating an unprofitable may-alias loop. The generic recognizer
+    // independently checks the complete accessed ranges before making a copy.
+    return Dst && Src && Dst != Src &&
+           (Dst->hasNoAliasAttr() || Src->hasNoAliasAttr());
+  }
+
+  PreservedAnalyses run(Loop &L, LoopAnalysisManager &AM,
+                        LoopStandardAnalysisResults &AR, LPMUpdater &U) {
+    if (!isByteCopyLoop(L, AR))
+      return PreservedAnalyses::all();
+    std::optional<MemorySSAUpdater> MSSAU;
+    if (AR.MSSA)
+      MSSAU.emplace(AR.MSSA);
+    auto SQ = getBestSimplifyQuery(AR, L.getHeader()->getDataLayout());
+    if (!LoopRotation(&L, &AR.LI, &AR.TTI, &AR.AC, &AR.DT, &AR.SE,
+                      MSSAU ? &*MSSAU : nullptr, SQ, /*RotationOnly=*/false,
+                      /*Threshold=*/8, /*IsUtilMode=*/false,
+                      /*PrepareForLTO=*/false))
+      return PreservedAnalyses::all();
+    auto PA = getLoopPassPreservedAnalyses();
+    if (AR.MSSA)
+      PA.preserve<MemorySSAAnalysis>();
+    PA.intersect(LoopIdiomRecognizePass().run(L, AM, AR, U));
+    return PA;
+  }
+};
+} // namespace
+
+void Z80TargetMachine::registerPassBuilderCallbacks(PassBuilder &PB) {
+  PB.registerLateLoopOptimizationsEPCallback(
+      [](LoopPassManager &LPM, OptimizationLevel Level) {
+        if (EnableSizeLoopIdioms &&
+            (Level == OptimizationLevel::Os || Level == OptimizationLevel::Oz))
+          LPM.addPass(Z80SizeLoopIdiomPass());
+      });
 }
 
 //===----------------------------------------------------------------------===//
