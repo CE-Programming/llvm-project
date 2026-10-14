@@ -87,6 +87,9 @@ Z80TargetMachine::Z80TargetMachine(const Target &T, const Triple &TT,
       TLOF(std::make_unique<Z80ELFTargetObjectFile>()) {
   initAsmInfo();
 
+  setMachineOutliner(true);
+  setSupportsDefaultOutlining(true);
+
   setGlobalISel(true);
   setGlobalISelAbort(GlobalISelAbortMode::Enable);
 }
