@@ -32,32 +32,38 @@ Smaller power-of-two divisors use byte shifts or masks. Signed division/remainde
 is unchanged, and unknown dividend ranges, zero divisors and variable divisors
 retain the previous lowering.
 
-For other divisors below 128, the legalizer finds an unsigned-byte multiplier `m` and
-shift `s >= 8` such that:
+For other divisors below 128, the legalizer finds an unsigned-byte multiplier
+`m` and shift `s >= 8` such that:
 
 ```
 q = (n * m) >> s
 r = n - q * divisor
 ```
 
-The formula is accepted only when it is exact for **all 256 byte dividends**.
-The quotient uses the high byte of an `MLT` result and byte right shifts; the
+The simple formula is accepted only when it is exact for **all 256 byte
+dividends**. The quotient uses the high byte of an `MLT` result and byte right shifts; the
 remainder uses a second byte multiply and subtraction. The result is explicitly
 zero-extended to its requested 16- or 24-bit width. The exact reciprocal search
 finds 86 non-power-of-two divisors below 128, subject to the size budget below.
-Larger byte divisors use the comparison
-form above. Divisors requiring a correction or a ninth reciprocal bit (including
-7, 11 and 31) retain fallback.
+Larger byte divisors use the comparison form above. The remaining 34 lower
+divisors use LLVM's `UnsignedDivisionByConstantInfo` byte magic plan with its
+pre-shift and optional exact add correction. For a high-byte product `q0`, the
+add correction is `((n - q0) >> 1) + q0`, followed by the plan's post-shift.
+Since `q0 <= n`, neither subtraction nor the corrected byte result overflows.
+The original dividend remains available for remainder reconstruction.
 
 For example, division by three uses multiplier 171 and shift nine. Dividing a
 24-bit value whose range is known to fit in a byte no longer needs the generic
 48-bit multiply and shift libcalls for this operation.
 
 The size estimate includes byte setup, multiplier, MLT, extraction, result
-extension, byte shifts, mode prefixes, and a second MLT/subtraction for remainder.
+extension, byte shifts, optional correction, and a second MLT/subtraction for
+remainder. Register `MLT` has no short-mode prefix, even in ADL mode.
 Size functions use a native constant-load plus call budget (six bytes in short
 mode, eight in ADL); speed functions permit four times that budget to avoid the
-runtime division loop. O0 uses the size budget. Final register allocation can
+runtime division loop. The target suppresses the ordinary div/rem combine only
+when both members qualify. Mixed-budget pairs retain their existing combined
+structure and legalization policy. O0 uses the size budget. Final register allocation can
 change actual size. `-mllvm -z80-byte-constant-div=false` disables the new
 preservation and lowering; existing generic MLT combines can still apply.
 
