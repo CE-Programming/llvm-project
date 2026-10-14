@@ -122,16 +122,23 @@ define i24 @divide_byte_by_seven(i8 %a) {
 ; OPT:       ; %bb.0:
 ; OPT-NEXT:    ld iy, 0
 ; OPT-NEXT:    add iy, sp
-; OPT-NEXT:    ld a, (iy + 3)
-; OPT-NEXT:    sbc hl, hl
+; OPT-NEXT:    ld l, (iy + 3)
+; OPT-NEXT:    ld h, 37
+; OPT-NEXT:    ld e, l
+; OPT-NEXT:    ld d, h
+; OPT-NEXT:    mlt de
+; OPT-NEXT:    ld a, l
+; OPT-NEXT:    sub a, d
 ; OPT-NEXT:    ld l, a
-; OPT-NEXT:    ld de, 0
-; OPT-NEXT:    ld bc, 2396746
-; OPT-NEXT:    push de
-; OPT-NEXT:    pop iy
-; OPT-NEXT:    call __i48mulu
-; OPT-NEXT:    ld c, 24
-; OPT-NEXT:    call __i48shru
+; OPT-NEXT:    srl l
+; OPT-NEXT:    ld a, l
+; OPT-NEXT:    add a, d
+; OPT-NEXT:    ld e, a
+; OPT-NEXT:    srl e
+; OPT-NEXT:    srl e
+; OPT-NEXT:    or a, a
+; OPT-NEXT:    sbc hl, hl
+; OPT-NEXT:    ld l, e
 ; OPT-NEXT:    ret
 ;
 ; BASELINE-LABEL: divide_byte_by_seven:
@@ -160,10 +167,20 @@ define i24 @remainder_byte_by_fourteen(i8 %a) {
 ; OPT-NEXT:    ld iy, 0
 ; OPT-NEXT:    add iy, sp
 ; OPT-NEXT:    ld a, (iy + 3)
-; OPT-NEXT:    sbc hl, hl
 ; OPT-NEXT:    ld l, a
-; OPT-NEXT:    ld bc, 14
-; OPT-NEXT:    call __iremu
+; OPT-NEXT:    srl l
+; OPT-NEXT:    ld h, -109
+; OPT-NEXT:    mlt hl
+; OPT-NEXT:    srl h
+; OPT-NEXT:    srl h
+; OPT-NEXT:    ld d, 14
+; OPT-NEXT:    ld e, h
+; OPT-NEXT:    mlt de
+; OPT-NEXT:    sub a, e
+; OPT-NEXT:    ld e, a
+; OPT-NEXT:    or a, a
+; OPT-NEXT:    sbc hl, hl
+; OPT-NEXT:    ld l, e
 ; OPT-NEXT:    ret
 ;
 ; BASELINE-LABEL: remainder_byte_by_fourteen:
