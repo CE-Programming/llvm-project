@@ -13,6 +13,7 @@
 
 #include "MCTargetDesc/Z80MCTargetDesc.h"
 #include "Z80.h"
+#include "Z80InstrInfo.h"
 #include "Z80RegisterInfo.h"
 #include "llvm/CodeGen/LivePhysRegs.h"
 #include "llvm/CodeGen/MachineDominators.h"
@@ -227,6 +228,7 @@ class Z80MachineLateOptimization : public MachineFunctionPass {
   //    successor reload via COPY, when both access the same stack slot
   bool foldIndexedCounterPeepholes(MachineFunction &MF,
                                    const TargetInstrInfo &TII);
+  bool foldBitTestAllOnes(MachineFunction &MF, const TargetInstrInfo &TII);
   // fold compare to zero helpers when addend is already known:
   //   ADDxxao dst, src ; OR A,A ; SBCxxao src
   // -> OR A,A ; ADCxxao src when src == 0
@@ -854,6 +856,82 @@ bool Z80MachineLateOptimization::foldIndexedCounterPeepholes(
   return Changed;
 }
 
+bool Z80MachineLateOptimization::foldBitTestAllOnes(MachineFunction &MF, const TargetInstrInfo &TII) {
+  bool Changed = false;
+  const MachineRegisterInfo &MRI = MF.getRegInfo();
+
+  for (MachineBasicBlock &MBB : MF) {
+    auto BrI = MBB.getLastNonDebugInstr();
+
+    if (MBB.succ_size() != 2 || BrI == MBB.end() ||
+        BrI->getOpcode() != Z80::JQCC || !isZOrNZConditionalUse(*BrI)) {
+      continue;
+    }
+
+    auto BitI = BrI;
+
+    while (BitI != MBB.begin()) {
+      --BitI;
+      if (!BitI->isDebugInstr()) {
+        break;
+      }
+    }
+
+    if (BitI == BrI || BitI->getOpcode() != Z80::BIT8gb ||
+        BitI->getOperand(0).getReg() != Z80::A ||
+        BitI->getOperand(0).isUndef() || BitI->getOperand(1).getImm() != 0) {
+      continue;
+    }
+
+    MachineBasicBlock *NonZero = BrI->getOperand(0).getMBB();
+
+    if (BrI->getOperand(1).getImm() == Z80::COND_Z) {
+      for (MachineBasicBlock *Succ : MBB.successors()) {
+        if (Succ != BrI->getOperand(0).getMBB()) {
+          NonZero = Succ;
+        }
+      }
+    }
+
+    if (NonZero == &MBB || NonZero->getSinglePredecessor() != &MBB) {
+      continue;
+    }
+
+    auto LoadI = NonZero->begin();
+
+    while (LoadI != NonZero->end() && LoadI->isDebugInstr()) {
+      ++LoadI;
+    }
+
+    if (LoadI == NonZero->end() || LoadI->getOpcode() != Z80::LD8ri ||
+        LoadI->getOperand(0).getReg() != Z80::A ||
+        (LoadI->getOperand(1).getImm() & 0xFF) != 0xFF) {
+      continue;
+    }
+
+    if (isPhysRegLiveAt(MBB, BrI, Z80::A, *TRI, MRI) ||
+        isPhysRegLiveAt(MBB, std::next(BrI), Z80::F, *TRI, MRI)) {
+      continue;
+    }
+
+    BuildMI(MBB, BitI, BitI->getDebugLoc(), TII.get(Z80::RRCA));
+
+    auto Mask = BuildMI(*NonZero, LoadI, LoadI->getDebugLoc(), TII.get(Z80::SBC8ar));
+    Mask->findRegisterUseOperand(Z80::A, TRI)->setIsUndef();
+    Mask.addReg(Z80::A, RegState::Undef);
+
+    BrI->getOperand(1).setImm(BrI->getOperand(1).getImm() == Z80::COND_Z ? Z80::COND_NC : Z80::COND_C);
+    BrI->clearRegisterKills(Z80::F, TRI);
+
+    BitI->eraseFromParent();
+    LoadI->eraseFromParent();
+    NonZero->addLiveIn(Z80::F);
+    Changed = true;
+  }
+
+  return Changed;
+}
+
 bool Z80MachineLateOptimization::foldZeroCompareKnownHelper(
     MachineFunction &MF, const TargetInstrInfo &TII) {
   bool Changed = false;
@@ -1344,6 +1422,7 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
   Changed |= foldPushPopExchangeCopies(MF, TII);
   Changed |= foldIndexedCounterPeepholes(MF, TII);
   Changed |= foldZeroCompareKnownHelper(MF, TII);
+  Changed |= foldBitTestAllOnes(MF, TII);
 
   LivePhysRegs LiveUnits(*TRI);
   for (MachineBasicBlock &MBB : MF) {

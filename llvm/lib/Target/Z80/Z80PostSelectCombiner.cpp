@@ -201,6 +201,55 @@ bool Z80PostSelectCombiner::runOnMachineFunction(MachineFunction &MF) {
           if (FlagLoc->matchesReg(MI, 2))
             FlagLoc->setOff(MI, 0);
         break;
+      case Z80::BIT8gb: {
+        for (ValLoc *FlagLoc : FlagLocs)
+          FlagLoc->clear();
+
+        auto Prev = MI.getIterator();
+
+        while (Prev != MBB.begin()) {
+          --Prev;
+          if (!Prev->isDebugInstr())
+            break;
+        }
+
+        if (Prev->getOpcode() != Z80::AND8_gisel ||
+            MI.getOperand(0).getReg() != Prev->getOperand(0).getReg() ||
+            MI.getOperand(0).getSubReg() ||
+            Prev->getOperand(0).getSubReg())
+          break;
+
+        int64_t Bit = MI.getOperand(1).getImm();
+
+        if (Bit < 0 || Bit > 7)
+          break;
+
+        bool MatchesMask = false;
+        for (unsigned OpNo : {1u, 2u}) {
+          const MachineOperand &MO = Prev->getOperand(OpNo);
+
+          if (!MO.getReg().isVirtual() || MO.getSubReg() || MO.isUndef())
+            continue;
+
+          MachineInstr *Def = MRI.getUniqueVRegDef(MO.getReg());
+
+          if (Def && Def->getOpcode() == Z80::LD8ri &&
+              Def->getOperand(1).isImm() &&
+              static_cast<uint8_t>(Def->getOperand(1).getImm()) == (1u << Bit)) {
+
+            MatchesMask = true;
+            break;
+          }
+        }
+
+        if (!MatchesMask)
+          break;
+
+        Prev->clearRegisterDeads(Z80::F);
+        MI.eraseFromParent();
+        Changed = true;
+        continue;
+      }
       case Z80::OR8ar:
         if (MI.getOperand(0).getReg() == Z80::A &&
             SZFlagLoc.matchesReg(MI, 0)) {
