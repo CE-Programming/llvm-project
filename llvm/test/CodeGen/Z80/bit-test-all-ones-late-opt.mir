@@ -1,0 +1,120 @@
+# NOTE: Do not autogenerate
+# RUN: llc -mtriple=ez80 -run-pass=z80-machine-late-opt -verify-machineinstrs -o - %s | FileCheck %s
+
+--- |
+  @g = external global i8
+  define void @fold_zero_branch() { ret void }
+  define void @fold_nonzero_branch() { ret void }
+  define i8 @keep_live_accumulator() { ret i8 0 }
+  define void @keep_live_flags() { ret void }
+...
+
+---
+name: fold_zero_branch
+tracksRegLiveness: true
+body: |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $a
+
+    BIT8gb killed $a, 0, implicit-def $f
+    JQCC %bb.2, 1, implicit killed $f
+
+  bb.1:
+    $a = LD8ri -1
+    LD8ma @g, implicit killed $a
+    RET24 implicit-def $spl, implicit $spl
+
+  bb.2:
+    RET24 implicit-def $spl, implicit $spl
+
+# CHECK-LABEL: name: fold_zero_branch
+# CHECK:      RRCA implicit-def $a, implicit-def $f, implicit $a
+# CHECK-NEXT: JQCC %bb.2, 2, implicit $f
+# CHECK:      bb.1:
+# CHECK-NEXT: liveins: $f
+# CHECK:      SBC8ar undef $a, implicit-def $a, implicit-def $f, implicit undef $a, implicit $f
+# CHECK-NEXT: LD8ma @g, implicit killed $a
+...
+
+---
+name: fold_nonzero_branch
+tracksRegLiveness: true
+body: |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $a
+
+    BIT8gb killed $a, 0, implicit-def $f
+    JQCC %bb.2, 0, implicit killed $f
+
+  bb.1:
+    RET24 implicit-def $spl, implicit $spl
+
+  bb.2:
+    $a = LD8ri -1
+    LD8ma @g, implicit killed $a
+    RET24 implicit-def $spl, implicit $spl
+
+# CHECK-LABEL: name: fold_nonzero_branch
+# CHECK:      RRCA implicit-def $a, implicit-def $f, implicit $a
+# CHECK-NEXT: JQCC %bb.2, 3, implicit $f
+# CHECK:      bb.2:
+# CHECK-NEXT: liveins: $f
+# CHECK:      SBC8ar undef $a, implicit-def $a, implicit-def $f, implicit undef $a, implicit $f
+# CHECK-NEXT: LD8ma @g, implicit killed $a
+...
+
+---
+name: keep_live_accumulator
+tracksRegLiveness: true
+body: |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $a
+
+    BIT8gb $a, 0, implicit-def $f
+    JQCC %bb.2, 1, implicit killed $f
+
+  bb.1:
+    $a = LD8ri -1
+    RET24 implicit-def $spl, implicit $spl, implicit $a
+
+  bb.2:
+    liveins: $a
+    RET24 implicit-def $spl, implicit $spl, implicit $a
+
+# The zero path returns the original A, which RRCA would corrupt.
+# CHECK-LABEL: name: keep_live_accumulator
+# CHECK:      BIT8gb $a, 0, implicit-def $f
+# CHECK-NEXT: JQCC %bb.2, 1, implicit killed $f
+# CHECK:      $a = LD8ri -1
+# CHECK-NEXT: RET24 implicit-def $spl, implicit $spl, implicit $a
+...
+
+---
+name: keep_live_flags
+tracksRegLiveness: true
+body: |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $a
+
+    BIT8gb killed $a, 0, implicit-def $f
+    JQCC %bb.2, 1, implicit $f
+
+  bb.1:
+    liveins: $f
+    $a = LD8ri -1
+    RET24 implicit-def $spl, implicit $spl, implicit $a, implicit $f
+
+  bb.2:
+    RET24 implicit-def $spl, implicit $spl
+
+# The nonzero path needs the flags produced by BIT, which SBC would overwrite.
+# CHECK-LABEL: name: keep_live_flags
+# CHECK:      BIT8gb killed $a, 0, implicit-def $f
+# CHECK-NEXT: JQCC %bb.2, 1, implicit $f
+# CHECK:      $a = LD8ri -1
+# CHECK-NEXT: RET24 implicit-def $spl, implicit $spl, implicit $a, implicit $f
+...
