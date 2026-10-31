@@ -1,0 +1,72 @@
+# NOTE: Do not autogenerate
+# RUN: llc -mtriple=ez80 -run-pass=postrapseudos -verify-machineinstrs -o - %s | FileCheck %s
+
+# Clearing carry does not need a defined accumulator. Zero comparisons through
+# SBC HL,HL / ADC HL,src do not need a defined HL or incoming carry either.
+# Check the descriptor-provided uses rather than adding duplicate undef uses.
+---
+name: subtract16
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $hl, $de
+    Sub16ao $de, implicit-def $hl, implicit-def $f, implicit $hl
+    RET24 implicit $hl, implicit-def $spl, implicit $spl
+
+# CHECK-LABEL: name: subtract16
+# CHECK: OR8ar undef $a, implicit-def $a, implicit-def $f, implicit undef $a
+# CHECK-NEXT: SBC16ao $de, implicit-def $hl, implicit-def $f, implicit $hl, implicit $f
+...
+---
+name: subtract24
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl, $ude
+    Sub24ao $ude, implicit-def $uhl, implicit-def $f, implicit $uhl
+    RET24 implicit $uhl, implicit-def $spl, implicit $spl
+
+# CHECK-LABEL: name: subtract24
+# CHECK: OR8ar undef $a, implicit-def $a, implicit-def $f, implicit undef $a
+# CHECK-NEXT: SBC24ao $ude, implicit-def $uhl, implicit-def $f, implicit $uhl, implicit $f
+...
+---
+name: subtract_preserves_live_accumulator
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl, $ude, $a
+    Sub24ao $ude, implicit-def $uhl, implicit-def $f, implicit $uhl
+    RET24 implicit $uhl, implicit $a, implicit-def $spl, implicit $spl
+
+# A live accumulator must retain its dependency through the carry clear.
+# CHECK-LABEL: name: subtract_preserves_live_accumulator
+# CHECK: OR8ar undef $a, implicit-def $a, implicit-def $f, implicit $a
+# CHECK-NEXT: SBC24ao $ude, implicit-def $uhl, implicit-def $f, implicit $uhl, implicit $f
+...
+---
+name: compare_zero16
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $de
+    Cmp16a0 $de, implicit-def $f, implicit-def dead $hl
+    RET24 implicit $de, implicit $f, implicit-def $spl, implicit $spl
+
+# CHECK-LABEL: name: compare_zero16
+# CHECK: SBC16aa implicit-def $hl, implicit-def $f, implicit undef $hl, implicit undef $f
+# CHECK-NEXT: ADC16ao $de, implicit-def $hl, implicit-def $f, implicit $hl, implicit $f
+...
+---
+name: compare_zero24
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $ude
+    Cmp24a0 $ude, implicit-def $f, implicit-def dead $uhl
+    RET24 implicit $ude, implicit $f, implicit-def $spl, implicit $spl
+
+# CHECK-LABEL: name: compare_zero24
+# CHECK: SBC24aa implicit-def $uhl, implicit-def $f, implicit undef $uhl, implicit undef $f
+# CHECK-NEXT: ADC24ao $ude, implicit-def $uhl, implicit-def $f, implicit $uhl, implicit $f
+...
