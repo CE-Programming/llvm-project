@@ -2018,15 +2018,25 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     LLVM_FALLTHROUGH;
   }
   case Z80::Sub16ao:
-  case Z80::Sub24ao:
+  case Z80::Sub24ao: {
     // directly emit OR A, A to clear carry flag
-    BuildMI(MBB, MI, DL, get(Z80::OR8ar)).addReg(Z80::A, RegState::Undef)
-        .addReg(Z80::A, RegState::ImplicitDefine);
+    auto ClearCarry = BuildMI(MBB, MI, DL, get(Z80::OR8ar))
+                          .addReg(Z80::A, RegState::Undef);
+    // BuildMI also adds the descriptor's implicit accumulator use. Keep that
+    // dependency when A is live afterward: OR leaves its value unchanged.
+    // When A is dead, only the cleared carry is observed and neither input
+    // needs a defined value.
+    if (MBB.computeRegisterLiveness(&TRI, Z80::A, Next) ==
+        MachineBasicBlock::LQR_Dead)
+      for (MachineOperand &Use : ClearCarry->uses())
+        if (Use.isReg() && Use.isUse() && Use.getReg() == Z80::A)
+          Use.setIsUndef();
 
     MI.setDesc(get(Opc == Z80::Cmp24ao || Opc == Z80::Sub24ao ? Z80::SBC24ao
                                                               : Z80::SBC16ao));
     MIB.addReg(Z80::F, RegState::Implicit);
     break;
+  }
   case Z80::Cmp16a0:
   case Z80::Cmp24a0: {
     // Zero-comparison: compare $src against 0 and set S/Z accordingly.
@@ -2054,13 +2064,12 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       // this sequence preserves incoming carry:
       //   sbc hl,hl ; HL = -CF
       //   adc hl,src; HL = src
-      BuildMI(MBB, MI, DL, get(SbcAaOpc))
-          .addReg(HLReg, RegState::Implicit | RegState::Undef)
-          .addReg(Z80::F, RegState::Implicit);
-      BuildMI(MBB, MI, DL, get(AdcOpc))
-          .addReg(SrcReg)
-          .addReg(HLReg, RegState::Implicit)
-          .addReg(Z80::F, RegState::Implicit);
+      auto Sbc = BuildMI(MBB, MI, DL, get(SbcAaOpc));
+      Sbc->findRegisterUseOperand(HLReg, &TRI)->setIsUndef();
+      // The following ADC cancels the incoming carry, so neither the initial
+      // HL value nor the initial carry needs to be defined by the caller.
+      Sbc->findRegisterUseOperand(Z80::F, &TRI)->setIsUndef();
+      BuildMI(MBB, MI, DL, get(AdcOpc)).addReg(SrcReg);
       MI.eraseFromParent();
       return true;
     }
