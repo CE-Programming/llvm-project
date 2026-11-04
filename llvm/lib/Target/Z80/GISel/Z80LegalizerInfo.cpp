@@ -322,10 +322,12 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
 
   getActionDefinitionsBuilder({G_FPTOSI, G_FPTOUI})
       .libcallForCartesianProduct({s32, s64}, {s32, s64})
+      .widenScalarToNextPow2(0)
       .clampScalar(0, s32, s64);
 
   getActionDefinitionsBuilder({G_SITOFP, G_UITOFP})
       .libcallForCartesianProduct({s32, s64}, {s32, s64})
+      .widenScalarToNextPow2(1)
       .clampScalar(1, s32, s64);
 
   getActionDefinitionsBuilder(G_FCOPYSIGN).libcallFor({{s32, s32}, {s64, s64}});
