@@ -10036,6 +10036,11 @@ static QualType ChangeIntegralSignedness(Sema &S, QualType BaseType,
           << IsMakeSigned << /*_BitInt(1)*/ true << BaseType << 1 << Underlying;
       return QualType();
     }
+    // No standard integer candidate below has the size of an __int48 enum.
+    if (Underlying->isSpecificBuiltinType(BuiltinType::Int48) ||
+        Underlying->isSpecificBuiltinType(BuiltinType::UInt48))
+      return IsMakeSigned ? S.Context.Int48Ty : S.Context.UnsignedInt48Ty;
+
     if (Underlying->isBooleanType()) {
       S.Diag(Loc, diag::err_make_signed_integral_only)
           << IsMakeSigned << /*_BitInt(1)*/ false << BaseType << 1

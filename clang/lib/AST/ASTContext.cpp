@@ -12290,6 +12290,8 @@ QualType ASTContext::getCorrespondingSignedType(QualType T) const {
     return IntTy;
   case BuiltinType::ULong:
     return LongTy;
+  case BuiltinType::UInt48:
+    return Int48Ty;
   case BuiltinType::ULongLong:
     return LongLongTy;
   case BuiltinType::UInt128:
