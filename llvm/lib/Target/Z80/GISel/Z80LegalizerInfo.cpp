@@ -229,6 +229,7 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
   getActionDefinitionsBuilder(
       {G_UADDO, G_UADDE, G_USUBO, G_USUBE, G_SADDO, G_SADDE, G_SSUBO, G_SSUBE})
       .legalForCartesianProduct(LegalScalars, {s1})
+      .widenScalarToNextPow2(0)
       .clampScalar(0, s8, sMax);
 
   getActionDefinitionsBuilder(G_MUL)
@@ -367,6 +368,8 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
   getActionDefinitionsBuilder(G_ICMP)
       .legalForCartesianProduct({s1}, LegalTypes)
       .customForCartesianProduct({s1}, LegalLargeScalars)
+      // Mixed signed/unsigned overflow builtins can produce i33 comparisons.
+      .widenScalarToNextPow2(1)
       .clampScalar(1, s8, s64);
 
   getActionDefinitionsBuilder({G_SCMP, G_UCMP}).lower();
