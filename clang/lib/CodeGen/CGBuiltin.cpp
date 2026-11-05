@@ -3626,9 +3626,19 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     assert(IntTy && "LLVM's __builtin_bswapg only supports integer variants");
     if (IntTy->getBitWidth() == 1 || IntTy->getBitWidth() == 8)
       return RValue::get(ArgValue);
-    assert(((IntTy->getBitWidth() % 16 == 0 && IntTy->getBitWidth() != 0)) &&
-           "LLVM's __builtin_bswapg only supports integer variants that has a "
-           "multiple of 16 bits as well as a single byte");
+    unsigned Width = IntTy->getBitWidth();
+    assert(Width % 8 == 0 && "__builtin_bswapg requires whole bytes");
+    if (Width % 16 != 0) {
+      // Native integer types can have an odd number of bytes (e.g. eZ80 int).
+      // llvm.bswap requires an even byte count. Zero-extend, swap, then discard
+      // the extra low byte so runtime evaluation matches constant evaluation.
+      llvm::IntegerType *SwapTy = Builder.getIntNTy(Width + 8);
+      Value *Extended = Builder.CreateZExt(ArgValue, SwapTy);
+      Value *Swapped = Builder.CreateCall(
+          CGM.getIntrinsic(Intrinsic::bswap, SwapTy), {Extended});
+      return RValue::get(Builder.CreateTrunc(
+          Builder.CreateLShr(Swapped, 8), IntTy));
+    }
     return RValue::get(
         emitBuiltinWithOneOverloadedType<1>(*this, E, Intrinsic::bswap));
   }
