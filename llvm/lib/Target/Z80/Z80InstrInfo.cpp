@@ -194,11 +194,9 @@ Z80::CondCode Z80::GetBranchConditionForPredicate(CmpInst::Predicate Pred,
   IsSwapped = IsConst = false;
   switch (Pred) {
   case CmpInst::FCMP_FALSE:
-  case CmpInst::FCMP_UNO:
     IsConst = true;
     return Z80::COND_C;
   case CmpInst::FCMP_TRUE:
-  case CmpInst::FCMP_ORD:
     IsConst = true;
     return Z80::COND_NC;
   case CmpInst::FCMP_OEQ:
