@@ -100,7 +100,7 @@ def RetCC_Z80_C : CallingConv<[
 ]>;
 def RetCC_EZ80_C : CallingConv<[
   CCDelegateTo<RetCC_Z80_Reg>,
-  CCIfType<[ i8 ], CCAssignToReg<[ A ]>>
+  CCIfType<[ i8 ], CCAssignToReg<[ A, L, H, E, D, C, B, IYL, IYH ]>>
 ]>;
 
 // This is the return-value convention used for the entire Z80 backend.
