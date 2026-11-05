@@ -16,6 +16,7 @@
 #include "Z80.h"
 #include "Z80Subtarget.h"
 #include "llvm/ADT/Sequence.h"
+#include "llvm/CodeGen/LiveRegUnits.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
@@ -575,14 +576,22 @@ void Z80InstrInfo::copyPhysReg(MachineBasicBlock &MBB,
         }
       }
       unsigned ExOpc = Is24Bit ? Z80::EX24DE : Z80::EX16DE;
+      LiveRegUnits Live(RI);
+      if (NeedEX) {
+        Live.addLiveOuts(MBB);
+        for (auto I = MBB.end(); I != MI;)
+          Live.stepBackward(*--I);
+      }
       if (NeedEX) {
         // If the prev instr was an EX DE,HL, just kill it.
         if (MI == MBB.begin() || std::prev(MI)->getOpcode() != ExOpc) {
           auto Ex = BuildMI(MBB, MI, DL, get(ExOpc));
-          Ex->findRegisterUseOperand(Is24Bit ? Z80::UDE : Z80::DE, nullptr)
-              ->setIsUndef();
-          Ex->findRegisterUseOperand(Is24Bit ? Z80::UHL : Z80::HL, nullptr)
-              ->setIsUndef();
+          // The exchange carries the original HL source into DE, and may
+          // preserve live DE across the byte copy. Only dead inputs are undef.
+          for (MCRegister Reg : {Is24Bit ? Z80::UDE : Z80::DE,
+                                 Is24Bit ? Z80::UHL : Z80::HL})
+            if (Live.available(Reg))
+              Ex->findRegisterUseOperand(Reg, &RI)->setIsUndef();
         } else
           std::prev(MI)->eraseFromParent();
       }
@@ -590,9 +599,12 @@ void Z80InstrInfo::copyPhysReg(MachineBasicBlock &MBB,
               get(Z80::X8RegClass.contains(DstReg, SrcReg) ? Z80::LD8xx
                                                            : Z80::LD8yy),
               DstReg).addReg(SrcReg, getKillRegState(KillSrc));
-      if (NeedEX)
-        BuildMI(MBB, MI, DL, get(ExOpc))
-          ->findRegisterUseOperand(Is24Bit ? Z80::UHL : Z80::HL, nullptr)->setIsUndef();
+      if (NeedEX) {
+        auto Ex = BuildMI(MBB, MI, DL, get(ExOpc));
+        if (Live.available(Is24Bit ? Z80::UDE : Z80::DE))
+          Ex->findRegisterUseOperand(Is24Bit ? Z80::UHL : Z80::HL, &RI)
+              ->setIsUndef();
+      }
     }
     return;
   }
@@ -1900,7 +1912,7 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
 
     // 1. Copy Src1 to Accumulator (if not already there)
     if (Src1 != Z80::A)
-      copyPhysReg(MBB, MI, DL, Z80::A, Src1, true);
+      copyPhysReg(MBB, MI, DL, Z80::A, Src1, MI.getOperand(1).isKill());
 
     // 2. Execute ALU Instruction (implicitly uses A, defines A and F)
     MachineInstrBuilder Alu = BuildMI(MBB, MI, DL, get(RealOpc));
@@ -2092,10 +2104,17 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   case Z80::LD8rp: {
     MachineOperand &DstOp = MI.getOperand(0);
     if (Z80::I8RegClass.contains(DstOp.getReg())) {
-      // Preserve AF across the temporary use of A. Marking this PUSH use as
-      // undef can make A appear dead and allow incorrect copy deletions.
-      applySPAdjust(
-          *BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF)));
+      // Preserve AF across the temporary use of A. Keep the dependency when
+      // either component is live, but do not read an undefined accumulator
+      // when both are dead on entry to this block.
+      auto SaveAF = BuildMI(MBB, MI, DL,
+                            get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF));
+      if (MBB.computeRegisterLiveness(&TRI, Z80::A, Next) ==
+              MachineBasicBlock::LQR_Dead &&
+          MBB.computeRegisterLiveness(&TRI, Z80::F, Next) ==
+              MachineBasicBlock::LQR_Dead)
+        SaveAF->findRegisterUseOperand(Z80::AF, &TRI)->setIsUndef();
+      applySPAdjust(*SaveAF);
       copyPhysReg(MBB, Next, DL, DstOp.getReg(), Z80::A, true);
       DstOp.setReg(Z80::A);
       applySPAdjust(
