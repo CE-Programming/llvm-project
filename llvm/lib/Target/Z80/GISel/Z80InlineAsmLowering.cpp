@@ -23,6 +23,12 @@ Z80InlineAsmLowering::Z80InlineAsmLowering(const Z80TargetLowering &TLI)
 bool Z80InlineAsmLowering::lowerAsmOperandForConstraint(
     Value *Val, StringRef Constraint, std::vector<MachineOperand> &Ops,
     MachineIRBuilder &MIRBuilder) const {
+  // GlobalISel leaves function operands with the catch-all X constraint.
+  // Symbols and integer constants can use the same lowering as immediates.
+  if (Constraint == "X" && (isa<GlobalValue>(Val) || isa<ConstantInt>(Val)))
+    return InlineAsmLowering::lowerAsmOperandForConstraint(
+        Val, "i", Ops, MIRBuilder);
+
   if (Constraint.size() == 1)
     if (const auto *CI = dyn_cast<ConstantInt>(Val))
       switch (Constraint[0]) {
