@@ -685,8 +685,23 @@ void Z80InstrInfo::copyPhysReg(MachineBasicBlock &MBB,
     return;
   }
   if (SrcReg == Z80::SPL || SrcReg == Z80::SPS) {
-    // Copies from SP.
+    // Copies from SP need ADD, which must not clobber a live condition.
     Is24Bit |= SrcReg == Z80::SPL;
+    LiveRegUnits Live(RI);
+    Live.addLiveOuts(MBB);
+    for (auto I = MBB.end(); I != MI;)
+      Live.stepBackward(*--I);
+    bool SaveFlags = !Live.available(Z80::F);
+    unsigned SlotSize = Is24Bit ? 3 : 2;
+    if (SaveFlags) {
+      auto SaveAF = BuildMI(MBB, MI, DL,
+                            get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF));
+      if (Live.available(Z80::A)) {
+        SaveAF->findRegisterUseOperand(Z80::AF, &RI)->setIsUndef();
+        SaveAF.addReg(Z80::F, RegState::Implicit);
+      }
+      applySPAdjust(*SaveAF);
+    }
     MCRegister PopReg, ExReg;
     if (DstReg == Z80::UBC || DstReg == Z80::BC) {
       PopReg = DstReg;
@@ -697,12 +712,20 @@ void Z80InstrInfo::copyPhysReg(MachineBasicBlock &MBB,
     } else if (DstReg == Z80::UDE || DstReg == Z80::DE) {
       ExReg = DstReg;
       DstReg = Is24Bit ? Z80::UHL : Z80::HL;
-      BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::EX24DE : Z80::EX16DE))
-          .addReg(ExReg, RegState::ImplicitDefine)
-          .addReg(DstReg, RegState::ImplicitKill);
+      auto Ex = BuildMI(MBB, MI, DL,
+                        get(Is24Bit ? Z80::EX24DE : Z80::EX16DE));
+      // The old DE value is overwritten. Only retain old HL when the final
+      // exchange needs to restore it for a later use.
+      Ex->findRegisterUseOperand(ExReg, &RI)->setIsUndef();
+      Ex->findRegisterDefOperand(DstReg, &RI)->setIsDead();
+      if (Live.available(DstReg)) {
+        Ex->findRegisterUseOperand(DstReg, &RI)->setIsUndef();
+        Ex->findRegisterDefOperand(ExReg, &RI)->setIsDead();
+      }
     }
     BuildMI(MBB, MI, DL, get(Subtarget.is24Bit() ? Z80::LD24ri : Z80::LD16ri),
-            DstReg).addImm(PopReg ? Is24Bit ? 3 : 2 : 0);
+            DstReg).addImm((PopReg ? SlotSize : 0) +
+                           (SaveFlags ? SlotSize : 0));
     BuildMI(MBB, MI, DL, get(SrcReg == Z80::SPL ? Z80::ADD24as : Z80::ADD16as),
             DstReg).addReg(DstReg)->addRegisterDead(Z80::F, &getRegisterInfo());
     if (PopReg) {
@@ -710,10 +733,18 @@ void Z80InstrInfo::copyPhysReg(MachineBasicBlock &MBB,
           .addReg(DstReg);
       applySPAdjust(*BuildMI(MBB, MI, DL,
                              get(Is24Bit ? Z80::POP24r : Z80::POP16r), PopReg));
-    } else if (ExReg)
-      BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::EX24DE : Z80::EX16DE))
-          .addReg(ExReg, RegState::ImplicitDefine)
-          .addReg(DstReg, RegState::Implicit | getRegState(MI->getOperand(0)));
+    } else if (ExReg) {
+      auto Ex = BuildMI(MBB, MI, DL,
+                        get(Is24Bit ? Z80::EX24DE : Z80::EX16DE));
+      Ex->findRegisterUseOperand(DstReg, &RI)->setIsKill();
+      if (Live.available(DstReg)) {
+        Ex->findRegisterUseOperand(ExReg, &RI)->setIsUndef();
+        Ex->findRegisterDefOperand(DstReg, &RI)->setIsDead();
+      }
+    }
+    if (SaveFlags)
+      applySPAdjust(
+          *BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::POP24AF : Z80::POP16AF)));
     return;
   }
   Is24Bit = Z80::R24RegClass.contains(DstReg, SrcReg);
@@ -1837,6 +1868,23 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   bool Is24Bit = Subtarget.is24Bit();
   bool UseLEA = Is24Bit && !MF.getFunction().hasOptSize();
 
+  // Saving AF for a temporary accumulator use only reads its live components.
+  auto addLiveAFUses = [&](MachineInstrBuilder &SaveAF) {
+    LiveRegUnits Live(TRI);
+    Live.addLiveOuts(MBB);
+    for (auto I = MBB.end(); I != Next;)
+      Live.stepBackward(*--I);
+    bool LiveA = !Live.available(Z80::A);
+    bool LiveF = !Live.available(Z80::F);
+    if (!LiveA || !LiveF) {
+      SaveAF->findRegisterUseOperand(Z80::AF, &TRI)->setIsUndef();
+      if (LiveA)
+        SaveAF.addReg(Z80::A, RegState::Implicit);
+      if (LiveF)
+        SaveAF.addReg(Z80::F, RegState::Implicit);
+    }
+  };
+
   switch (unsigned Opc = MI.getOpcode()) {
   default:
     return false;
@@ -2036,8 +2084,11 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     // dependency when A is live afterward: OR leaves its value unchanged.
     // When A is dead, only the cleared carry is observed and neither input
     // needs a defined value.
-    if (MBB.computeRegisterLiveness(&TRI, Z80::A, Next) ==
-        MachineBasicBlock::LQR_Dead)
+    LiveRegUnits Live(TRI);
+    Live.addLiveOuts(MBB);
+    for (auto I = MBB.end(); I != Next;)
+      Live.stepBackward(*--I);
+    if (Live.available(Z80::A))
       for (MachineOperand &Use : ClearCarry->uses())
         if (Use.isReg() && Use.isUse() && Use.getReg() == Z80::A)
           Use.setIsUndef();
@@ -2107,11 +2158,7 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       // when both are dead on entry to this block.
       auto SaveAF = BuildMI(MBB, MI, DL,
                             get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF));
-      if (MBB.computeRegisterLiveness(&TRI, Z80::A, Next) ==
-              MachineBasicBlock::LQR_Dead &&
-          MBB.computeRegisterLiveness(&TRI, Z80::F, Next) ==
-              MachineBasicBlock::LQR_Dead)
-        SaveAF->findRegisterUseOperand(Z80::AF, &TRI)->setIsUndef();
+      addLiveAFUses(SaveAF);
       applySPAdjust(*SaveAF);
       copyPhysReg(MBB, Next, DL, DstOp.getReg(), Z80::A, true);
       DstOp.setReg(Z80::A);
@@ -2200,8 +2247,10 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   case Z80::LD8pr: {
     MachineOperand &SrcOp = MI.getOperand(MI.getNumExplicitOperands() - 1);
     if (Z80::I8RegClass.contains(SrcOp.getReg())) {
-      applySPAdjust(
-          *BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF)));
+      auto SaveAF = BuildMI(MBB, MI, DL,
+                            get(Is24Bit ? Z80::PUSH24AF : Z80::PUSH16AF));
+      addLiveAFUses(SaveAF);
+      applySPAdjust(*SaveAF);
       copyPhysReg(MBB, MI, DL, Z80::A, SrcOp.getReg(), SrcOp.isKill());
       SrcOp.setReg(Z80::A);
       SrcOp.setIsKill();
@@ -2244,12 +2293,20 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     if (Index) {
       MCRegister OrigSuperReg =
           TRI.getMatchingSuperReg(OrigReg, Z80::sub_short, &Z80::R24RegClass);
-      // Save scratch register or prepare to set scratch register
+      // Save scratch register or prepare to set scratch register. A dead
+      // scratch value need not be defined, unlike the source value used to
+      // initialize HL through EX (SP),HL.
+      MCRegister SaveReg =
+          UseLEA || Reg == Z80::DE ? ScratchReg
+                                  : Is24Bit ? OrigSuperReg : OrigReg;
+      LiveRegUnits Live(TRI);
+      Live.addLiveOuts(MBB);
+      for (auto I = MBB.end(); I != Next;)
+        Live.stepBackward(*--I);
       applySPAdjust(
           *BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::PUSH24r : Z80::PUSH16r))
-               .addReg(UseLEA || Reg == Z80::DE ? ScratchReg
-                       : Is24Bit                ? OrigSuperReg
-                                                : OrigReg));
+               .addReg(SaveReg, getUndefRegState(SaveReg == ScratchReg &&
+                                               Live.available(ScratchReg))));
       if (UseLEA)
         // Set scratch register
         BuildMI(MBB, MI, DL, get(Z80::LEA24ro), ScratchReg)
