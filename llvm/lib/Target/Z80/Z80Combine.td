@@ -11,6 +11,13 @@
 
 include "llvm/Target/GlobalISel/Combine.td"
 
+def masked_xor_compare_matchdata : GIDefMatchData<"MaskedXorCompareInfo">;
+def masked_xor_compare : GICombineRule<
+  (defs root:$mi, masked_xor_compare_matchdata:$matchinfo),
+  (match (wip_match_opcode G_ICMP):$mi,
+         [{ return matchMaskedXorCompare(*${mi}, MRI, STI, ${matchinfo}); }]),
+  (apply [{ applyMaskedXorCompare(*${mi}, B, Observer, ${matchinfo}); }])>;
+
 def combine_trunc_shift_matchdata : GIDefMatchData<"Register">;
 def combine_trunc_shift : GICombineRule<
   (defs root:$mi, combine_trunc_shift_matchdata:$matchinfo),
@@ -42,8 +49,35 @@ def z80_select_all_ones : GICombineRule<
          [{ return matchSelectAllOnes(*${root}, ${matchinfo}); }]),
   (apply [{ Helper.applyBuildFn(*${root}, ${matchinfo}); }])>;
 
+def z80_udiv_by_const : GICombineRule<
+  (defs root:$root),
+  (match (G_UDIV $dst, $x, $y):$root, [{
+    return !canLowerByteDivide(*${root}) &&
+           Helper.matchUDivOrURemByConst(*${root});
+  }]),
+  (apply [{ Helper.applyUDivOrURemByConst(*${root}); }])>;
+
+def z80_udiv_by_pow2 : GICombineRule<
+  (defs root:$root),
+  (match (G_UDIV $dst, $x, $y, (MIFlags (not IsExact))):$root, [{
+    return !canLowerByteDivide(*${root}) &&
+           Helper.matchDivByPow2(*${root}, /*IsSigned=*/false);
+  }]),
+  (apply [{ Helper.applyUDivByPow2(*${root}); }])>;
+
+def z80_div_rem_to_divrem : GICombineRule<
+  (defs root:$root, div_rem_to_divrem_matchdata:$matchinfo),
+  (match (wip_match_opcode G_SDIV, G_UDIV, G_SREM, G_UREM):$root, [{
+    return Helper.matchCombineDivRem(*${root}, ${matchinfo}) &&
+           (!canLowerByteDivide(*${root}) ||
+            !canLowerByteDivide(*${matchinfo}));
+  }]),
+  (apply [{ Helper.applyCombineDivRem(*${root}, ${matchinfo}); }])>;
+
 def z80_intdiv_combines : GICombineGroup<
-    !listremove(intdiv_combines.Rules, [sdiv_by_pow2])>;
+    !listconcat(!listremove(intdiv_combines.Rules,
+                           [sdiv_by_pow2, udiv_by_pow2, udiv_by_const]),
+                [z80_udiv_by_pow2, z80_udiv_by_const])>;
 
 def z80_copy_prop : GICombineRule<
   (defs root:$d),
@@ -82,8 +116,9 @@ def z80_mul_by_3 : GICombineRule<
 def Z80PreLegalizerCombiner
     : GICombiner<"Z80PreLegalizerCombinerImpl", [
         and_ext, and_or_disjoint_mask, cast_combines, combine_ext_or_trunc,
-        combine_identity,
-        combine_trunc_shift, constant_fold, z80_const_combines, div_rem_to_divrem,
+        combine_identity, masked_xor_compare,
+        combine_trunc_shift, constant_fold, z80_const_combines,
+        z80_div_rem_to_divrem,
         flip_cmp_cond,
         flip_setcc_cond, form_bitfield_extract, funnel_shift,
         funnel_shift_combines, hoist_logic_op_with_same_opcode_hands,

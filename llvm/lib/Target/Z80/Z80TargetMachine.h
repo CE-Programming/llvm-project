@@ -31,6 +31,10 @@ public:
   ~Z80TargetMachine() override;
   const Z80Subtarget *getSubtargetImpl(const Function &F) const override;
 
+  TargetTransformInfo getTargetTransformInfo(const Function &F) const override;
+
+  void registerPassBuilderCallbacks(PassBuilder &PB) override;
+
   // Set up the pass pipeline.
   TargetPassConfig *createPassConfig(PassManagerBase &PM) override;
   TargetLoweringObjectFile *getObjFileLowering() const override {

@@ -62,13 +62,11 @@ define i8 @mask_then_branch(i8 %x) {
 ; Z80:       ; %bb.0:
 ; Z80-NEXT:    ld iy, 0
 ; Z80-NEXT:    add iy, sp
-; Z80-NEXT:    ld l, 1
-; Z80-NEXT:    ld a, l
-; Z80-NEXT:    and a, (iy + 2)
-; Z80-NEXT:    ld l, a
+; Z80-NEXT:    ld a, (iy + 2)
+; Z80-NEXT:    and a, 1
+; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr z, BB1_2
 ; Z80-NEXT:  ; %bb.1: ; %yes
-; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    ret
 ; Z80-NEXT:    private BB1_2
 ; Z80-NEXT:  BB1_2: ; %no
@@ -79,13 +77,10 @@ define i8 @mask_then_branch(i8 %x) {
 ; EZ80-CODE16:       ; %bb.0:
 ; EZ80-CODE16-NEXT:    ld iy, 0
 ; EZ80-CODE16-NEXT:    add iy, sp
-; EZ80-CODE16-NEXT:    ld l, 1
-; EZ80-CODE16-NEXT:    ld a, l
-; EZ80-CODE16-NEXT:    and a, (iy + 2)
-; EZ80-CODE16-NEXT:    ld l, a
+; EZ80-CODE16-NEXT:    ld a, (iy + 2)
+; EZ80-CODE16-NEXT:    and a, 1
 ; EZ80-CODE16-NEXT:    jr z, BB1_2
 ; EZ80-CODE16-NEXT:  ; %bb.1: ; %yes
-; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    ret
 ; EZ80-CODE16-NEXT:    private BB1_2
 ; EZ80-CODE16-NEXT:  BB1_2: ; %no
@@ -96,13 +91,10 @@ define i8 @mask_then_branch(i8 %x) {
 ; EZ80:       ; %bb.0:
 ; EZ80-NEXT:    ld iy, 0
 ; EZ80-NEXT:    add iy, sp
-; EZ80-NEXT:    ld l, 1
-; EZ80-NEXT:    ld a, l
-; EZ80-NEXT:    and a, (iy + 3)
-; EZ80-NEXT:    ld l, a
+; EZ80-NEXT:    ld a, (iy + 3)
+; EZ80-NEXT:    and a, 1
 ; EZ80-NEXT:    jr z, BB1_2
 ; EZ80-NEXT:  ; %bb.1: ; %yes
-; EZ80-NEXT:    ld a, l
 ; EZ80-NEXT:    ret
 ; EZ80-NEXT:    private BB1_2
 ; EZ80-NEXT:  BB1_2: ; %no

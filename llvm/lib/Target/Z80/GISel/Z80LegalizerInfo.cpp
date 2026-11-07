@@ -13,21 +13,41 @@
 #include "Z80LegalizerInfo.h"
 #include "MCTargetDesc/Z80MCTargetDesc.h"
 #include "Z80.h"
+#include "Z80CodeGenOptions.h"
 #include "Z80MachineFunctionInfo.h"
 #include "Z80Subtarget.h"
 #include "Z80TargetMachine.h"
+#include "llvm/CodeGen/GlobalISel/GISelValueTracking.h"
 #include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
 #include "llvm/CodeGen/GlobalISel/LegalizerHelper.h"
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
 #include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/DivisionByConstantInfo.h"
 #include <functional>
 #include <initializer_list>
 using namespace llvm;
 using namespace TargetOpcode;
 using namespace LegalizeActions;
 using namespace MIPatternMatch;
+
+static cl::opt<bool> EnableConstantBitwise("z80-constant-bitwise", cl::Hidden,
+                                          cl::init(true));
+
+static cl::opt<bool> EnableConstantMultiply("z80-constant-mul", cl::Hidden,
+                                            cl::init(true));
+
+static cl::opt<bool> EnableByteConstantDivide("z80-byte-constant-div",
+                                              cl::Hidden, cl::init(true));
+
+static cl::opt<bool> EnableWideByteMultiply("z80-wide-byte-mul", cl::Hidden,
+                                        cl::init(true));
+
+bool llvm::z80UseConstantBitwise() { return EnableConstantBitwise; }
+bool llvm::z80UseConstantMultiply() { return EnableConstantMultiply; }
+bool llvm::z80UseWideByteMultiply() { return EnableWideByteMultiply; }
 
 Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
                                    const Z80TargetMachine &TM)
@@ -234,6 +254,10 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
 
   getActionDefinitionsBuilder(G_MUL)
       .legalIf(all(predZ180Ops, typeIs(0, s8)))
+      .customIf([this, s16, s24](const LegalityQuery &Q) {
+        return Q.Types[0] == s16 ||
+               (Subtarget.has24BitEZ80Ops() && Q.Types[0] == s24);
+      })
       .libcallFor(LegalLibcallScalars)
       .widenScalarToNextPow2(0, 8)
       .minScalar(0, s8)
@@ -244,7 +268,15 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
       .minScalar(0, s64)
       .maxScalar(0, s32);
 
-  getActionDefinitionsBuilder({G_SDIV, G_UDIV, G_SREM, G_UREM})
+  getActionDefinitionsBuilder({G_SDIV, G_SREM})
+      .libcallFor(LegalLibcallScalars)
+      .clampScalar(0, s8, s32);
+
+  getActionDefinitionsBuilder({G_UDIV, G_UREM})
+      .customFor({s8, s16})
+      .customIf([this, s24](const LegalityQuery &Q) {
+        return Subtarget.has24BitEZ80Ops() && Q.Types[0] == s24;
+      })
       .libcallFor(LegalLibcallScalars)
       .clampScalar(0, s8, s32);
 
@@ -425,7 +457,7 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
 }
 
 bool Z80LegalizerInfo::legalizeCustom(LegalizerHelper &Helper, MachineInstr &MI,
-                                      LostDebugLocObserver &LocObserver) const {
+                                     LostDebugLocObserver &LocObserver) const {
   auto handleResult = [](LegalizerHelper::LegalizeResult Result) {
     return Result != LegalizerHelper::UnableToLegalize;
   };
@@ -445,6 +477,11 @@ bool Z80LegalizerInfo::legalizeCustom(LegalizerHelper &Helper, MachineInstr &MI,
   case G_XOR:
   case G_PTRMASK:
     return handleResult(legalizeBitwise(Helper, MI, LocObserver));
+  case G_MUL:
+    return handleResult(legalizeMultiply(Helper, MI, LocObserver));
+  case G_UDIV:
+  case G_UREM:
+    return handleResult(legalizeByteDivide(Helper, MI, LocObserver));
   case G_SEXT:
     return handleResult(legalizeSExt(Helper, MI, LocObserver));
   case G_EXTRACT:
@@ -685,6 +722,71 @@ Z80LegalizerInfo::legalizeBitwise(LegalizerHelper &Helper, MachineInstr &MI,
   MachineRegisterInfo &MRI = *Helper.MIRBuilder.getMRI();
   Register DstReg = MI.getOperand(0).getReg();
   unsigned Size = MRI.getType(DstReg).getSizeInBits();
+  // The two low bytes are directly addressable even in ADL mode. Keep
+  // constant operations on those bytes instead of materializing a whole-word
+  // helper operand. INSERT preserves every untouched byte, including bit 23.
+  const unsigned Opc = MI.getOpcode();
+  if (EnableConstantBitwise && (Size == 16 || Size == 24) &&
+      (Size != 24 || Subtarget.is24Bit())) {
+    Register SrcReg = MI.getOperand(1).getReg();
+    auto C = getIConstantVRegValWithLookThrough(MI.getOperand(2).getReg(), MRI);
+    if (!C && Opc != G_PTRMASK) {
+      C = getIConstantVRegValWithLookThrough(SrcReg, MRI);
+      SrcReg = MI.getOperand(2).getReg();
+    }
+    if (C) {
+      auto &B = Helper.MIRBuilder;
+      APInt Mask = C->Value.zextOrTrunc(Size);
+      LLT Ty = LLT::scalar(Size), ByteTy = LLT::scalar(8);
+      const unsigned BitOpc = Opc == G_PTRMASK ? G_AND : Opc;
+      Register Value = SrcReg;
+      if (Opc == G_PTRMASK)
+        Value = B.buildPtrToInt(Ty, SrcReg).getReg(0);
+      auto Finish = [&](Register Result) {
+        if (Opc == G_PTRMASK)
+          B.buildIntToPtr(DstReg, Result);
+        else
+          B.buildCopy(DstReg, Result);
+        MI.eraseFromParent();
+        return LegalizerHelper::Legalized;
+      };
+      // A top-bit clear is (x << 1) >>u 1. The dedicated one-bit helper
+      // avoids accessing the hidden upper byte and preserves the full result.
+      if (BitOpc == G_AND && Size == 24 && Mask.isMaxSignedValue()) {
+        auto One = B.buildConstant(LLT::scalar(8), 1);
+        auto Shifted = B.buildShl(Ty, Value, One);
+        return Finish(B.buildLShr(Ty, Shifted, One).getReg(0));
+      }
+      // AND with a low-byte mask also proves all higher result bytes zero.
+      if (BitOpc == G_AND && Mask.getActiveBits() <= 8) {
+        auto Low = B.buildTrunc(ByteTy, Value);
+        auto Masked = B.buildAnd(ByteTy, Low,
+                                B.buildConstant(ByteTy, Mask.getZExtValue()));
+        return Finish(B.buildZExt(Ty, Masked).getReg(0));
+      }
+      // Changing one addressable byte costs at most two moves plus a byte
+      // operation. Never extract the hidden upper byte via a stack spill.
+      APInt Changed = BitOpc == G_AND ? ~Mask : Mask;
+      if (Changed.getActiveBits() <= 16) {
+        unsigned Offset = Changed.getActiveBits() <= 8 ? 0 : 8;
+        if ((Changed.lshr(Offset).getZExtValue() & ~uint64_t(255)) == 0 &&
+            (Offset == 0 || Changed.extractBits(8, 0).isZero())) {
+          auto Byte = B.buildExtract(ByteTy, Value, Offset);
+          auto K = B.buildConstant(ByteTy, Mask.extractBits(8, Offset));
+          auto Result = B.buildInstr(BitOpc, {ByteTy}, {Byte, K});
+          return Finish(B.buildInsert(Ty, Value, Result, Offset).getReg(0));
+        }
+      }
+      // Clearing the hidden upper byte is a native zero extension. Reuse
+      // the word path so masks with only one changed low byte remain cheap.
+      if (BitOpc == G_AND && Size == 24 && Mask.getActiveBits() <= 16) {
+        auto Low = B.buildTrunc(LLT::scalar(16), Value);
+        auto Masked = B.buildAnd(LLT::scalar(16), Low,
+                                B.buildConstant(LLT::scalar(16), Mask.trunc(16)));
+        return Finish(B.buildZExt(Ty, Masked).getReg(0));
+      }
+    }
+  }
   if (!OptSize && Size == 16)
     if (Helper.narrowScalar(MI, 0, LLT::scalar(8)) ==
         LegalizerHelper::Legalized)
@@ -2005,6 +2107,291 @@ LegalizerHelper::LegalizeResult Z80LegalizerInfo::legalizeMemIntrinsic(
   auto Result = createMemLibcall(MIRBuilder, MRI, MI, LocObserver);
   MI.eraseFromParent();
   return Result;
+}
+
+// MLT consumes the low and high bytes and ignores any upper input byte.
+// Its ADL result defines all 24 bits, including the zero upper byte.
+static Register buildByteProduct(MachineIRBuilder &Builder, LLT Ty,
+                                 Register LHS, Register RHS) {
+  auto &MRI = *Builder.getMRI();
+  auto Packed = Builder.buildMergeValues(LLT::scalar(16), {LHS, RHS});
+  MRI.setRegClass(Packed.getReg(0), &Z80::G16RegClass);
+  if (Ty == LLT::scalar(24)) {
+    auto Packed24 = Builder.buildAnyExt(Ty, Packed);
+    auto Product = Builder.buildInstr(Z80::MLT24r, {Ty}, {Packed24});
+    MRI.setRegClass(Packed24.getReg(0), &Z80::G24RegClass);
+    MRI.setRegClass(Product.getReg(0), &Z80::G24RegClass);
+    return Product.getReg(0);
+  }
+  auto Product = Builder.buildInstr(Z80::MLT16r, {Ty}, {Packed});
+  MRI.setRegClass(Product.getReg(0), &Z80::G16RegClass);
+  return Product.getReg(0);
+}
+
+// MLT produces the complete unsigned byte product in a 16-bit register.
+// Wider G_MUL operations normally become libcalls before instruction selection
+// can see the byte operands. Prefer hardware byte products, then consider a
+// bounded shift/add sequence for nonnegative constants.
+LegalizerHelper::LegalizeResult
+Z80LegalizerInfo::legalizeMultiply(LegalizerHelper &Helper, MachineInstr &MI,
+                                  LostDebugLocObserver &LocObserver) const {
+  auto &Builder = Helper.MIRBuilder;
+  auto &MRI = *Builder.getMRI();
+  Register Dst = MI.getOperand(0).getReg();
+  Register LHS = MI.getOperand(1).getReg();
+  Register RHS = MI.getOperand(2).getReg();
+  LLT Ty = MRI.getType(Dst);
+
+  GISelValueTracking LocalVT(Builder.getMF());
+  auto *VT = Helper.getValueTracking();
+  if (!VT)
+    VT = &LocalVT;
+  auto IsByte = [&](Register Reg) {
+    return VT->getKnownBits(Reg).countMaxActiveBits() <= 8;
+  };
+  if (!EnableWideByteMultiply || !Subtarget.hasZ180Ops() ||
+      !IsByte(LHS) || !IsByte(RHS)) {
+    Register Src = LHS;
+    auto Constant = getIConstantVRegValWithLookThrough(RHS, MRI);
+    if (!Constant) {
+      Constant = getIConstantVRegValWithLookThrough(LHS, MRI);
+      Src = RHS;
+    }
+    if (EnableConstantMultiply && Constant && !Constant->Value.isNegative()) {
+      const APInt &C = Constant->Value;
+      // Binary Horner form needs only the original value and an accumulator.
+      // Doubling and adding the original use native register-pair ADDs, with
+      // wrapping arithmetic valid for both signed and unsigned multiplication.
+      unsigned Doubles = C.isZero() ? 0 : C.getActiveBits() - 1;
+      unsigned Adds = C.isZero() ? 0 : C.popcount() - 1;
+      unsigned Prefix = Subtarget.is24Bit() && Ty == LLT::scalar(16);
+      unsigned CopyBytes = Adds ? 2 : 0;
+      unsigned EstimatedBytes = (Doubles + Adds) * (1 + Prefix) + CopyBytes;
+      // A constant load plus a multiply call is six bytes in native short
+      // mode, eight in ADL mode. Estimate size builds against that budget; speed
+      // builds can spend up to twice as many bytes to avoid the runtime loop.
+      unsigned CallBytes = Subtarget.is24Bit() ? 8 : 6;
+      const auto &MF = Builder.getMF();
+      bool OptSize = MF.getFunction().hasOptSize() ||
+                     MF.getTarget().getOptLevel() == CodeGenOptLevel::None;
+      unsigned Budget = OptSize ? CallBytes : 2 * CallBytes;
+      if (EstimatedBytes <= Budget) {
+        Register Result = Src;
+        if (C.isZero())
+          Result = Builder.buildConstant(Ty, 0).getReg(0);
+        else {
+          auto One = Builder.buildConstant(LLT::scalar(8), 1);
+          for (int Bit = static_cast<int>(Doubles) - 1; Bit >= 0; --Bit) {
+            // G_SHL selects ADD HL,HL directly. A generic self-add goes
+            // through the distinct operand classes and can insert copies.
+            Result = Builder.buildShl(Ty, Result, One).getReg(0);
+            if (C[Bit])
+              Result = Builder.buildAdd(Ty, Result, Src).getReg(0);
+          }
+        }
+        Builder.buildCopy(Dst, Result);
+        MI.eraseFromParent();
+        return LegalizerHelper::Legalized;
+      }
+    }
+    // Decompose a proven unsigned byte times unsigned word into two hardware
+    // products. The result is exact at 24 bits and wraps correctly at 16 bits.
+    // Two MLTs and their byte setup exceed the call-size budget; use this
+    // expansion for speed functions while preserving size-oriented libcalls.
+    const auto &MF = Builder.getMF();
+    bool OptSize = MF.getFunction().hasOptSize() ||
+                   MF.getTarget().getOptLevel() == CodeGenOptLevel::None;
+    if (EnableWideByteMultiply && Subtarget.hasZ180Ops() && !OptSize) {
+      Register Byte = LHS, Word = RHS;
+      if (!IsByte(Byte))
+        std::swap(Byte, Word);
+      if (IsByte(Byte) && VT->getKnownBits(Word).countMaxActiveBits() <= 16) {
+        LLT ByteTy = LLT::scalar(8);
+        auto B = Builder.buildTrunc(ByteTy, Byte);
+        auto W = Builder.buildZExtOrTrunc(LLT::scalar(16), Word);
+        auto Parts = Builder.buildUnmerge(ByteTy, W);
+        auto LowProduct =
+            buildByteProduct(Builder, Ty, B.getReg(0), Parts.getReg(0));
+        auto HighProduct =
+            buildByteProduct(Builder, Ty, B.getReg(0), Parts.getReg(1));
+        // Extract only accessible bytes. Unmerging a 24-bit product also
+        // requests its unused upper byte and can force an avoidable spill.
+        auto HighLow = Builder.buildExtract(ByteTy, HighProduct, 0);
+        auto HighHigh = Builder.buildExtract(ByteTy, HighProduct, 8);
+        auto Zero = Builder.buildConstant(ByteTy, 0);
+        Register Shifted;
+        if (Ty == LLT::scalar(24))
+          Shifted =
+              Builder
+                  .buildMergeValues(Ty, {Zero.getReg(0), HighLow.getReg(0),
+                                         HighHigh.getReg(0)})
+                  .getReg(0);
+        else
+          Shifted =
+              Builder.buildMergeValues(Ty, {Zero.getReg(0), HighLow.getReg(0)})
+                  .getReg(0);
+        Builder.buildAdd(Dst, LowProduct, Shifted);
+        MI.eraseFromParent();
+        return LegalizerHelper::Legalized;
+      }
+    }
+    return Helper.libcall(MI, LocObserver);
+  }
+
+  auto Low = Builder.buildTrunc(LLT::scalar(8), RHS);
+  auto High = Builder.buildTrunc(LLT::scalar(8), LHS);
+  Builder.buildCopy(
+      Dst, buildByteProduct(Builder, Ty, Low.getReg(0), High.getReg(0)));
+  MI.eraseFromParent();
+  return LegalizerHelper::Legalized;
+}
+
+struct ByteDivisionInfo {
+  unsigned Magic, PreShift, PostShift;
+  bool IsAdd;
+};
+
+// Prefer a simple byte reciprocal that is exact over the complete dividend
+// domain. Otherwise use LLVM's unsigned magic number and correction algorithm,
+// operating on the byte range instead of the original widened integer type.
+static ByteDivisionInfo getByteDivisionInfo(unsigned Divisor) {
+  for (unsigned Shift = 8; Shift != 16; ++Shift) {
+    unsigned Multiplier = divideCeil(1U << Shift, Divisor);
+    if (Multiplier > 255)
+      break;
+    bool Exact = true;
+    for (unsigned N = 0; N != 256; ++N)
+      if ((N * Multiplier >> Shift) != N / Divisor) {
+        Exact = false;
+        break;
+      }
+    if (Exact)
+      return {Multiplier, 0, Shift - 8, false};
+  }
+  auto Magic = UnsignedDivisionByConstantInfo::get(APInt(8, Divisor));
+  assert((!Magic.IsAdd || Magic.PreShift == 0) && "Unexpected pre-shift");
+  return {static_cast<unsigned>(Magic.Magic.getZExtValue()), Magic.PreShift,
+          Magic.PostShift, Magic.IsAdd};
+}
+
+bool Z80LegalizerInfo::canLowerByteDivide(MachineInstr &MI,
+                                          GISelValueTracking &VT) const {
+  if (MI.getOpcode() != G_UDIV && MI.getOpcode() != G_UREM)
+    return false;
+  auto &MRI = MI.getMF()->getRegInfo();
+  LLT Ty = MRI.getType(MI.getOperand(0).getReg());
+  if (Ty != LLT::scalar(8) && Ty != LLT::scalar(16) &&
+      !(Ty == LLT::scalar(24) && Subtarget.has24BitEZ80Ops()))
+    return false;
+  auto C = getIConstantVRegValWithLookThrough(MI.getOperand(2).getReg(), MRI);
+  if (!EnableByteConstantDivide || !Subtarget.hasZ180Ops() || !C ||
+      C->Value.isZero() ||
+      VT.getKnownBits(MI.getOperand(1).getReg()).countMaxActiveBits() > 8)
+    return false;
+  if (C->Value.uge(128) || C->Value.isOne() || C->Value.isPowerOf2())
+    return true;
+  auto Info = getByteDivisionInfo(C->Value.getZExtValue());
+  // Byte setup, constant, MLT, high-byte extraction, and result extension.
+  // Remainder additionally needs a second MLT and subtraction. Avoid long
+  // shift sequences in size functions while allowing them in speed builds.
+  unsigned Prefix = Subtarget.is24Bit();
+  // Register MLT has no short-mode prefix, including in ADL mode. The add
+  // correction costs a byte subtraction, one right shift, and a byte addition.
+  unsigned EstimatedBytes =
+      6 + 2 * (Info.PreShift + Info.PostShift) + (Info.IsAdd ? 4 : 0) +
+      (Ty.getSizeInBits() > 8 ? 3 : 0) + (MI.getOpcode() == G_UREM ? 6 : 0);
+  unsigned CallBytes = Prefix ? 8 : 6;
+  const auto &MF = *MI.getMF();
+  bool OptSize = MF.getFunction().hasOptSize() ||
+                 MF.getTarget().getOptLevel() == CodeGenOptLevel::None;
+  return EstimatedBytes <= (OptSize ? CallBytes : 4 * CallBytes);
+}
+
+LegalizerHelper::LegalizeResult
+Z80LegalizerInfo::legalizeByteDivide(LegalizerHelper &Helper, MachineInstr &MI,
+                                     LostDebugLocObserver &LocObserver) const {
+  auto &Builder = Helper.MIRBuilder;
+  auto &MRI = *Builder.getMRI();
+  Register Dst = MI.getOperand(0).getReg();
+  Register Numerator = MI.getOperand(1).getReg();
+  Register Denominator = MI.getOperand(2).getReg();
+  auto C = getIConstantVRegValWithLookThrough(Denominator, MRI);
+  GISelValueTracking LocalVT(Builder.getMF());
+  auto *VT = Helper.getValueTracking();
+  if (!VT)
+    VT = &LocalVT;
+  if (!canLowerByteDivide(MI, *VT))
+    return Helper.libcall(MI, LocObserver);
+
+  bool IsRemainder = MI.getOpcode() == G_UREM;
+  if (C->Value.ugt(255) || C->Value.isOne()) {
+    bool CopyInput = IsRemainder == C->Value.ugt(255);
+    if (CopyInput)
+      Builder.buildCopy(Dst, Numerator);
+    else
+      Builder.buildConstant(Dst, 0);
+    MI.eraseFromParent();
+    return LegalizerHelper::Legalized;
+  }
+
+  unsigned Divisor = C->Value.getZExtValue();
+  LLT ByteTy = LLT::scalar(8);
+  auto N = Builder.buildZExtOrTrunc(ByteTy, Numerator);
+  Register Result;
+  if (Divisor >= 128) {
+    // A byte dividend has quotient zero or one. A comparison is cheaper than
+    // the seven right shifts needed by some otherwise exact reciprocals.
+    auto D = Builder.buildConstant(ByteTy, Divisor);
+    auto AtLeast = Builder.buildICmp(CmpInst::ICMP_UGE, LLT::scalar(1), N, D);
+    if (IsRemainder) {
+      auto Difference = Builder.buildSub(ByteTy, N, D);
+      Result = Builder.buildSelect(ByteTy, AtLeast, Difference, N).getReg(0);
+    } else
+      Result = Builder.buildZExt(ByteTy, AtLeast).getReg(0);
+  } else if (isPowerOf2_32(Divisor)) {
+    if (IsRemainder) {
+      auto Mask = Builder.buildConstant(ByteTy, Divisor - 1);
+      Result = Builder.buildAnd(ByteTy, N, Mask).getReg(0);
+    } else {
+      Result = N.getReg(0);
+      auto One = Builder.buildConstant(ByteTy, 1);
+      for (unsigned I = 0; I != Log2_32(Divisor); ++I)
+        Result = Builder.buildLShr(ByteTy, Result, One).getReg(0);
+    }
+  } else {
+    auto Info = getByteDivisionInfo(Divisor);
+    auto One = Builder.buildConstant(ByteTy, 1);
+    auto ByteShift = [&](Register Value, unsigned Amount) {
+      for (unsigned I = 0; I != Amount; ++I)
+        Value = Builder.buildLShr(ByteTy, Value, One).getReg(0);
+      return Value;
+    };
+    Register ShiftedN = ByteShift(N.getReg(0), Info.PreShift);
+    auto Magic = Builder.buildConstant(ByteTy, Info.Magic);
+    auto Product =
+        buildByteProduct(Builder, LLT::scalar(16), ShiftedN, Magic.getReg(0));
+    auto Bytes = Builder.buildUnmerge(ByteTy, Product);
+    Register Quotient = Bytes.getReg(1);
+    if (Info.IsAdd) {
+      // high(n * magic) <= n. Therefore (n - q) does not underflow and
+      // ((n - q) >> 1) + q <= n, so the correction never overflows a byte.
+      auto Difference = Builder.buildSub(ByteTy, ShiftedN, Quotient);
+      Register HalfDifference = ByteShift(Difference.getReg(0), 1);
+      Quotient = Builder.buildAdd(ByteTy, HalfDifference, Quotient).getReg(0);
+    }
+    Quotient = ByteShift(Quotient, Info.PostShift);
+    Result = Quotient;
+    if (IsRemainder) {
+      auto D = Builder.buildConstant(ByteTy, Divisor);
+      auto QD =
+          buildByteProduct(Builder, LLT::scalar(16), Quotient, D.getReg(0));
+      auto Low = Builder.buildTrunc(ByteTy, QD);
+      Result = Builder.buildSub(ByteTy, N, Low).getReg(0);
+    }
+  }
+  Builder.buildZExtOrTrunc(Dst, Result);
+  MI.eraseFromParent();
+  return LegalizerHelper::Legalized;
 }
 
 bool Z80LegalizerInfo::legalizeIntrinsic(LegalizerHelper &Helper,

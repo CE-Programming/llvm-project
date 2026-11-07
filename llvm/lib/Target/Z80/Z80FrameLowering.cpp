@@ -421,7 +421,14 @@ void Z80FrameLowering::emitPrologue(MachineFunction &MF,
 
   MachineFrameInfo &MFI = MF.getFrameInfo();
   int StackSize = -int(MFI.getStackSize());
-  MCRegister ScratchReg = Is24Bit ? Z80::UHL : Z80::HL;
+  bool HasRegisterArgs =
+      MF.getFunction().getCallingConv() == CallingConv::Z80_Internal;
+  // All three general pairs can contain incoming arguments. IY is available
+  // at entry and the private ABI uses IX for its frame, so allocate the frame
+  // with IY rather than destroying HL/DE before their first body use.
+  MCRegister ScratchReg = HasRegisterArgs
+                              ? (Is24Bit ? Z80::UIY : Z80::IY)
+                              : (Is24Bit ? Z80::UHL : Z80::HL);
   int64_t FrameBias = hasFP(MF) ? ensureFramePointerBias(MF) : 0;
 
   // GAS's default .cfi_startproc state does not describe a Z80 CALL. Emit
@@ -462,7 +469,9 @@ void Z80FrameLowering::emitPrologue(MachineFunction &MF,
   int FPOffset = -1;
   if (hasFP(MF)) {
     Register FrameReg = TRI->getFrameRegister(MF);
-    if (MF.getFunction().hasOptSize()) {
+    // _frameset consumes HL and DE, and _frameset0 consumes HL. Neither is
+    // compatible with the incoming registers of the private convention.
+    if (MF.getFunction().hasOptSize() && !HasRegisterArgs) {
       if (StackSize) {
         BuildMI(MBB, MBBI, DL, TII.get(Is24Bit ? Z80::LD24ri : Z80::LD16ri),
                 ScratchReg)
@@ -520,7 +529,7 @@ void Z80FrameLowering::emitPrologue(MachineFunction &MF,
                 nullptr, TRI->getDwarfRegNum(FrameReg, true))));
     }
 
-    if (MF.getFunction().hasOptSize())
+    if (MF.getFunction().hasOptSize() && !HasRegisterArgs)
       return;
   }
 
@@ -682,7 +691,8 @@ void Z80FrameLowering::shadowCalleeSavedRegisters(
 static Z80MachineFunctionInfo::AltFPMode
 shouldUseAltFP(MachineFunction &MF, MCRegister AltFPReg,
                const TargetRegisterInfo *TRI) {
-  if (MF.getFunction().hasOptSize() || MF.getFrameInfo().hasVarSizedObjects() ||
+  if (MF.getFunction().getCallingConv() == CallingConv::Z80_Internal ||
+      MF.getFunction().hasOptSize() || MF.getFrameInfo().hasVarSizedObjects() ||
       MF.getTarget().Options.DisableFramePointerElim(MF))
     return Z80MachineFunctionInfo::AFPM_None;
   // Debug locations and CFA rules keep referring to the frame base for the

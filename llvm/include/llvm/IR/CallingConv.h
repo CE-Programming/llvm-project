@@ -311,6 +311,10 @@ namespace CallingConv {
     Z80_LibCall_F = 134,
     Z80_LibCall_16 = 135,
 
+    /// Private register arguments selected by the Z80 LTO optimizer.
+    /// Uses the C return and callee-saved convention.
+    Z80_Internal = 136,
+
     /// The highest possible ID. Must be some 2^k - 1.
     MaxID = 1023
   };

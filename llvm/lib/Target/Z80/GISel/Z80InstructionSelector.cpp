@@ -14,6 +14,7 @@
 #include "GISel/Z80CallLowering.h"
 #include "MCTargetDesc/Z80MCTargetDesc.h"
 #include "Z80.h"
+#include "Z80CodeGenOptions.h"
 #include "Z80MachineFunctionInfo.h"
 #include "Z80RegisterBankInfo.h"
 #include "Z80Subtarget.h"
@@ -36,6 +37,12 @@ using namespace MIPatternMatch;
 #define DEBUG_TYPE "Z80-isel"
 
 namespace {
+
+static cl::opt<bool> EnableNativeWordArithmetic("z80-native-word-arith",
+                                               cl::Hidden, cl::init(true));
+
+static cl::opt<bool> EnableByteImmediates("z80-byte-immediates", cl::Hidden,
+                                        cl::init(true));
 
 static cl::opt<unsigned>
     Z80TrapRstVector("z80-trap-rst-vector", cl::Hidden, cl::init(0),
@@ -156,6 +163,9 @@ private:
 };
 
 } // end anonymous namespace
+
+bool llvm::z80UseNativeWordArithmetic() { return EnableNativeWordArithmetic; }
+bool llvm::z80UseByteImmediates() { return EnableByteImmediates; }
 
 #define GET_GLOBALISEL_IMPL
 #include "Z80GenGlobalISel.inc"
@@ -424,6 +434,54 @@ bool Z80InstructionSelector::select(MachineInstr &I) const {
   if (I.getOpcode() == TargetOpcode::G_LOAD ||
       I.getOpcode() == TargetOpcode::G_STORE)
     return selectLoadStore(I, MRI, MF);
+
+  // Imported byte ALU patterns use a register for every constant. Prefer
+  // immediate ALU operations, or SET/RES for one changed bit. The latter
+  // also avoids accumulator traffic for addressable low/high bytes.
+  if (EnableByteImmediates &&
+      (Opc == TargetOpcode::G_AND || Opc == TargetOpcode::G_OR ||
+       Opc == TargetOpcode::G_XOR) &&
+      MRI.getType(I.getOperand(0).getReg()) == LLT::scalar(8)) {
+    Register DstReg = I.getOperand(0).getReg();
+    Register SrcReg = I.getOperand(1).getReg();
+    auto C = getIConstantVRegValWithLookThrough(I.getOperand(2).getReg(), MRI);
+    if (!C) {
+      C = getIConstantVRegValWithLookThrough(SrcReg, MRI);
+      SrcReg = I.getOperand(2).getReg();
+    }
+    if (C) {
+      APInt Value = C->Value.zextOrTrunc(8);
+      APInt Changed = Opc == TargetOpcode::G_AND ? ~Value : Value;
+      MachineIRBuilder MIB(I);
+      if (Opc != TargetOpcode::G_XOR && Changed.isPowerOf2()) {
+        auto Bit = MIB.buildInstr(
+            Opc == TargetOpcode::G_AND ? Z80::RES8gb : Z80::SET8gb,
+            {DstReg}, {SrcReg, uint64_t(Changed.logBase2())});
+        if (!constrainSelectedInstRegOperands(*Bit, TII, TRI, RBI))
+          return false;
+      } else {
+        if (!RBI.constrainGenericRegister(SrcReg, Z80::R8RegClass, MRI) ||
+            !RBI.constrainGenericRegister(DstReg, Z80::R8RegClass, MRI))
+          return false;
+        MIB.buildCopy(Register(Z80::A), SrcReg);
+        unsigned AluOpc = Opc == TargetOpcode::G_AND ? Z80::AND8ai
+                          : Opc == TargetOpcode::G_OR ? Z80::OR8ai
+                                                     : Z80::XOR8ai;
+        MIB.buildInstr(AluOpc).addImm(Value.getZExtValue());
+        MIB.buildCopy(DstReg, Register(Z80::A));
+      }
+      I.eraseFromParent();
+      return true;
+    }
+  }
+
+  if (EnableNativeWordArithmetic && STI.is24Bit() &&
+      Opc == TargetOpcode::G_SHL &&
+      MRI.getType(I.getOperand(0).getReg()) == LLT::scalar(16))
+    if (auto Amt = getIConstantVRegValWithLookThrough(
+            I.getOperand(2).getReg(), MRI))
+      if (Amt->Value.isOne())
+        return selectShift(I, MRI);
 
   if (selectImpl(I, *CoverageInfo))
     return true;
@@ -2490,6 +2548,38 @@ Z80InstructionSelector::foldCompare(MachineInstr &I, MachineIRBuilder &MIB,
     return Z80::COND_INVALID;
   }
 
+  // Equality modulo 2^23 can be tested as (LHS - RHS) << 1 == 0.
+  // ADD HL,HL does not update Z, so explicitly clear carry and use ADC
+  // after the native subtraction. Both arithmetic operations wrap to 24 bits.
+  // One-use guards leave live arithmetic results to the ordinary selector.
+  if (OpSize == 24 && STI.has24BitEZ80Ops() && ConstRHS &&
+      ConstRHS->Value.isZero() && (CC == Z80::COND_Z || CC == Z80::COND_NZ)) {
+    Register A, B;
+    int64_t Shift;
+    if (mi_match(LHSReg, MRI,
+                 m_OneUse(m_GShl(m_OneUse(m_GSub(m_Reg(A), m_Reg(B))),
+                                 m_ICst(Shift)))) &&
+        Shift == 1) {
+      // A live RHS may already require HL/IY for another operation. Keep
+      // its original class and give the subtraction a separate BC/DE copy.
+      auto RHS = MIB.buildCopy(OpTy, B);
+      if (!RBI.constrainGenericRegister(RHS.getReg(0), Z80::O24RegClass, MRI))
+        return Z80::COND_INVALID;
+      auto LHS = MIB.buildCopy(Register(Z80::UHL), A);
+      if (!constrainSelectedInstRegOperands(*LHS, TII, TRI, RBI))
+        return Z80::COND_INVALID;
+      MIB.buildInstr(Z80::RCF);
+      auto Sub = MIB.buildInstr(Z80::SBC24ao, {}, {RHS});
+      if (!constrainSelectedInstRegOperands(*Sub, TII, TRI, RBI))
+        return Z80::COND_INVALID;
+      MIB.buildInstr(Z80::RCF);
+      auto Double = MIB.buildInstr(Z80::ADC24aa);
+      if (!constrainSelectedInstRegOperands(*Double, TII, TRI, RBI))
+        return Z80::COND_INVALID;
+      return CC;
+    }
+  }
+
   if (OpSize == 8 && IsSigned && ConstRHS && !ConstRHS->Value &&
       (CC == Z80::COND_P || CC == Z80::COND_M)) {
     auto Bit = MIB.buildInstr(Z80::BIT8gb, {}, {LHSReg, uint64_t(7)});
@@ -2983,13 +3073,13 @@ bool Z80InstructionSelector::selectShift(MachineInstr &I,
     return RBI.constrainGenericRegister(DstReg, *WordRC, MRI);
   }
 
-  // Handle s16/s24 G_SHL by 2-6 with inline ADD instructions.
+  // Handle s16/s24 G_SHL by 1-6 with inline ADD instructions.
   // For s24, use ADD24aa for all adds (generates add hl, hl, 1 byte each).
   // For s16 in 24-bit mode, use SUBREG_TO_REG to promote to s24, then
-  // (N-1) * ADD24aa (1 byte each) + final ADD16aa (2 bytes) for truncation.
-  // This saves 1 byte per intermediate add versus all ADD16aa.
+  // N * ADD24aa (1 byte each), then read the low word.
+  // This saves one mode prefix per add versus all ADD16aa.
   // For s16 in 16-bit mode, use ADD16aa.
-  if (Opc == TargetOpcode::G_SHL && Amt->Value.uge(2) && Amt->Value.ule(6) &&
+  if (Opc == TargetOpcode::G_SHL && Amt->Value.uge(1) && Amt->Value.ule(6) &&
       (TySize == 16 || (STI.is24Bit() && TySize == 24))) {
     unsigned ShiftAmt = Amt->Value.getZExtValue();
     MachineBasicBlock &MBB = *I.getParent();
@@ -3232,6 +3322,48 @@ bool Z80InstructionSelector::selectAddSub(MachineInstr &I,
       I.eraseFromParent();
       return true;
     }
+  }
+
+  // Pure word arithmetic observes only its low 16 bits. In ADL mode
+  // compute it with native 24-bit instructions, then truncate. Upper input
+  // bytes and the wider carry are unobservable; overflow-producing generic
+  // opcodes use a separate selector and must retain their original width.
+  if (!Is24Bit && STI.is24Bit() && EnableNativeWordArithmetic) {
+    auto Extend = [&](Register Src) -> Register {
+      Register Extended = createGenericVirtualRegister(MRI, LLT::scalar(24));
+      if (auto C = getIConstantVRegValWithLookThrough(Src, MRI)) {
+        auto K = MIB.buildConstant(Extended, C->Value.sextOrTrunc(24));
+        if (!select(*K))
+          return Register();
+        return Extended;
+      }
+      auto Ext = MIB.buildAnyExt(Extended, Src);
+      if (!select(*Ext))
+        return Register();
+      return Extended;
+    };
+    Register LHS = Extend(Src1Reg);
+    Register RHS = Src1Reg == Src2Reg ? LHS : Extend(Src2Reg);
+    if (!LHS || !RHS)
+      return false;
+    Register WideReg = createGenericVirtualRegister(MRI, LLT::scalar(24));
+    auto Wide = MIB.buildInstr(Opc, {WideReg}, {LHS, RHS});
+    if (!select(*Wide))
+      return false;
+    auto Trunc = MIB.buildTrunc(DstReg, WideReg);
+    if (!select(*Trunc))
+      return false;
+    I.eraseFromParent();
+    return true;
+  }
+
+  if (!IsSub && Src1Reg == Src2Reg) {
+    auto Double = MIB.buildInstr(Is24Bit ? Z80::ADD24aa : Z80::ADD16aa,
+                                {DstReg}, {Src1Reg});
+    if (!constrainSelectedInstRegOperands(*Double, TII, TRI, RBI))
+      return false;
+    I.eraseFromParent();
+    return true;
   }
 
   // Determine accumulator and operand register classes
