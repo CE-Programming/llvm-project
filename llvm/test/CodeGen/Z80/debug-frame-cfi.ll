@@ -1,6 +1,8 @@
 ; NOTE: Do not autogenerate
 ; RUN: llc -mtriple=ez80 -O0 -z80-gas-style -verify-machineinstrs < %S/debug-frame-locations.ll | FileCheck %s --check-prefixes=FRAME,ADL
 ; RUN: llc -mtriple=z80 -O0 -z80-gas-style -verify-machineinstrs < %S/debug-frame-locations.ll | FileCheck %s --check-prefixes=FRAME,Z80
+; RUN: llc -mtriple=ez80 -O0 -z80-gas-style -exception-model=sjlj -verify-machineinstrs < %S/debug-frame-locations.ll | FileCheck %s --check-prefixes=FRAME,ADL
+; RUN: llc -mtriple=ez80 -O0 -z80-gas-style -exception-model=dwarf -verify-machineinstrs < %S/debug-frame-locations.ll | FileCheck %s --check-prefixes=FRAME,ADL
 ; RUN: llc -mtriple=ez80 -O0 -verify-machineinstrs < %S/debug-frame-locations.ll | FileCheck %s --check-prefix=LEGACY --implicit-check-not=.cfi_
 ; RUN: llc -mtriple=ez80 -O0 -z80-gas-style -verify-machineinstrs < %s | FileCheck %s --check-prefix=CALL
 ; RUN: sed 's/uwtable//g' %s | llc -mtriple=ez80 -O0 -z80-gas-style -verify-machineinstrs | FileCheck %s --check-prefix=RELEASE --implicit-check-not=.cfi_

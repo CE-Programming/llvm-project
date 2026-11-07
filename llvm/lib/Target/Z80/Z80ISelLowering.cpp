@@ -276,6 +276,12 @@ Z80TargetLowering::EmitLoweredSelect(MachineInstr &MI,
   F->insert(I, copy0MBB);
   F->insert(I, copy1MBB);
 
+  // A comparison result may be materialized before call-frame teardown.
+  // Preserve the active call frame when splitting the block at the select.
+  unsigned CallFrameSize = TII->getCallFrameSizeAt(MI);
+  copy0MBB->setCallFrameSize(CallFrameSize);
+  copy1MBB->setCallFrameSize(CallFrameSize);
+
   if (MI.getOpcode() != Z80::SetCC)
     (void)sinkSelectTrueArmComputation(MI, BB, copy0MBB, FalseReg, TrueReg,
                                        MRI);

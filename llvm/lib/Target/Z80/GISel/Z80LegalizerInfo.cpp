@@ -229,6 +229,7 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
   getActionDefinitionsBuilder(
       {G_UADDO, G_UADDE, G_USUBO, G_USUBE, G_SADDO, G_SADDE, G_SSUBO, G_SSUBE})
       .legalForCartesianProduct(LegalScalars, {s1})
+      .widenScalarToNextPow2(0)
       .clampScalar(0, s8, sMax);
 
   getActionDefinitionsBuilder(G_MUL)
@@ -367,6 +368,8 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
   getActionDefinitionsBuilder(G_ICMP)
       .legalForCartesianProduct({s1}, LegalTypes)
       .customForCartesianProduct({s1}, LegalLargeScalars)
+      // Mixed signed/unsigned overflow builtins can produce i33 comparisons.
+      .widenScalarToNextPow2(1)
       .clampScalar(1, s8, s64);
 
   getActionDefinitionsBuilder({G_SCMP, G_UCMP}).lower();
@@ -1257,6 +1260,50 @@ Z80LegalizerInfo::legalizeCompare(LegalizerHelper &Helper, MachineInstr &MI,
   assert(MRI.getType(DstReg) == LLT::scalar(1) && !OpTy.isVector() &&
          MRI.getType(RHSReg) == OpTy && "Unexpected type");
 
+  // The legacy comparison helpers do not encode unordered results. Classify
+  // operands by their bits before interpreting the helper's numerical flags.
+  // nnan retains the smaller finite-only path explicitly requested by the IR.
+  Register Unordered;
+  if (MI.getOpcode() == G_FCMP && Pred != CmpInst::FCMP_FALSE &&
+      Pred != CmpInst::FCMP_TRUE && !MI.getFlag(MachineInstr::FmNoNans)) {
+    LLT BoolTy = LLT::scalar(1);
+    auto LHSNan = MIRBuilder.buildIsFPClass(BoolTy, LHSReg, fcNan);
+    if (LHSReg == RHSReg)
+      Unordered = LHSNan.getReg(0);
+    else
+      Unordered = MIRBuilder.buildOr(
+          BoolTy, LHSNan, MIRBuilder.buildIsFPClass(BoolTy, RHSReg, fcNan))
+                      .getReg(0);
+  }
+  if (MI.getOpcode() == G_FCMP &&
+      (Pred == CmpInst::FCMP_UNO || Pred == CmpInst::FCMP_ORD)) {
+    if (!Unordered)
+      MIRBuilder.buildConstant(DstReg, Pred == CmpInst::FCMP_ORD);
+    else if (Pred == CmpInst::FCMP_UNO)
+      MIRBuilder.buildCopy(DstReg, Unordered);
+    else
+      MIRBuilder.buildNot(DstReg, Unordered);
+    MI.eraseFromParent();
+    return LegalizerHelper::Legalized;
+  }
+
+  // The ROM float comparison helper distinguishes -0 from +0. Canonicalize
+  // zero operands before asking the legacy helpers for numerical flags.
+  if (MI.getOpcode() == G_FCMP && Pred != CmpInst::FCMP_FALSE &&
+      Pred != CmpInst::FCMP_TRUE && !MI.getFlag(MachineInstr::FmNsz)) {
+    auto Zero = MIRBuilder.buildConstant(OpTy, 0);
+    auto ValueMask = MIRBuilder.buildConstant(
+        OpTy, APInt::getSignedMaxValue(OpSize));
+    auto CanonicalizeZero = [&](Register Value) {
+      auto Abs = MIRBuilder.buildAnd(OpTy, Value, ValueMask);
+      auto IsZero = MIRBuilder.buildICmp(CmpInst::ICMP_EQ, LLT::scalar(1),
+                                        Abs, Zero);
+      return MIRBuilder.buildSelect(OpTy, IsZero, Zero, Value).getReg(0);
+    };
+    LHSReg = CanonicalizeZero(LHSReg);
+    RHSReg = CanonicalizeZero(RHSReg);
+  }
+
   Type *Ty;
   RTLIB::Libcall Libcall;
   bool IsSigned, IsSwapped, IsConst;
@@ -1313,6 +1360,7 @@ Z80LegalizerInfo::legalizeCompare(LegalizerHelper &Helper, MachineInstr &MI,
       llvm_unreachable("Unexpected type");
     }
   }
+  auto InsertPt = MIRBuilder.getInsertPt();
   if (!IsConst) {
     LLT s8 = LLT::scalar(8);
     Type *Int8Ty = Type::getInt8Ty(Ctx);
@@ -1324,13 +1372,30 @@ Z80LegalizerInfo::legalizeCompare(LegalizerHelper &Helper, MachineInstr &MI,
                                 ArrayRef(Args, 2 - ZeroRHS), LocObserver, &MI);
     if (Result != LegalizerHelper::Legalized)
       return Result;
+    // Consume the returned flags before call-frame teardown. Stack adjustment
+    // may clobber F; letting a flag-valued virtual register span it forces a
+    // spill of the flags rather than a spill of the materialized boolean.
+    MachineInstr *FlagsDef = MRI.getVRegDef(FlagsReg);
+    MIRBuilder.setInsertPt(*FlagsDef->getParent(),
+                          std::next(FlagsDef->getIterator()));
     MIRBuilder.buildCopy(Register(Z80::F), FlagsReg);
     if (IsSigned && !ZeroRHS)
       Subtarget.getCallLowering()->buildSCMP(MIRBuilder);
   } else
     MIRBuilder.buildInstr(Z80::RCF);
-  MIRBuilder.buildInstr(Z80::SetCC, {DstReg}, {int64_t(CC)});
-  MRI.setRegClass(DstReg, &Z80::R8RegClass);
+  Register Compared = Unordered
+                          ? MRI.createGenericVirtualRegister(LLT::scalar(1))
+                          : DstReg;
+  MIRBuilder.buildInstr(Z80::SetCC, {Compared}, {int64_t(CC)});
+  MRI.setRegClass(Compared, &Z80::R8RegClass);
+  MIRBuilder.setInsertPt(*MI.getParent(), InsertPt);
+  if (Unordered) {
+    if (CmpInst::isUnordered(Pred))
+      MIRBuilder.buildOr(DstReg, Compared, Unordered);
+    else
+      MIRBuilder.buildAnd(DstReg, Compared,
+                          MIRBuilder.buildNot(LLT::scalar(1), Unordered));
+  }
   MI.eraseFromParent();
   return LegalizerHelper::Legalized;
 }

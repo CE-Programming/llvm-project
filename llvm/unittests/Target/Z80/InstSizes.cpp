@@ -1504,9 +1504,10 @@ void checkInstructionSizes(StringRef T) {
                  "body:             |\n"
                  "  {0:+}:\n",
                  BB);
+    // Each instruction template uses only a subset of the shared arguments.
     for (const TestInstr &TI : TestInstrs)
       S << "    "
-        << formatv(TI.MIR, Is24Bit ? 24 : 16, Is24Bit ? 'l' : 's',
+        << formatv(false, TI.MIR, Is24Bit ? 24 : 16, Is24Bit ? 'l' : 's',
                    Is24Bit ? "u" : "", Is24Bit ? "e" : "", BB)
         << '\n';
     S << "\n...\n";

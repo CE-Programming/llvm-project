@@ -1,0 +1,80 @@
+# NOTE: Do not autogenerate
+# RUN: llc -mtriple=ez80 -run-pass=peephole-opt -verify-machineinstrs %s -o - | FileCheck %s
+# RUN: llc -mtriple=ez80 -run-pass=peephole-opt,peephole-opt -verify-machineinstrs %s -o - | FileCheck %s
+#
+# Rewriting an extract of an inserted value into COPY removes operand 2.
+# The extract rewriter must stop instead of reading that removed operand.
+
+---
+# CHECK-LABEL: name: byte_from_word
+# CHECK: [[INPUT:%[0-9]+]]:r8 = COPY $a
+# CHECK: [[RESULT:%[0-9]+]]:r8 = COPY [[INPUT]]
+# CHECK-NEXT: $a = COPY [[RESULT]]
+# CHECK-NEXT: RET24 implicit $a
+# CHECK-NOT: EXTRACT_SUBREG
+name: byte_from_word
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $a
+    %0:r8 = COPY $a
+    %1:r16 = IMPLICIT_DEF
+    %2:r16 = INSERT_SUBREG %1, %0, %subreg.sub_low
+    %3:r8 = EXTRACT_SUBREG %2, %subreg.sub_low
+    $a = COPY %3
+    RET24 implicit $a, implicit-def $spl, implicit $spl
+...
+---
+# CHECK-LABEL: name: byte_from_long
+# CHECK: [[INPUT:%[0-9]+]]:r8 = COPY $a
+# CHECK: [[RESULT:%[0-9]+]]:r8 = COPY [[INPUT]]
+# CHECK-NEXT: $a = COPY [[RESULT]]
+# CHECK-NEXT: RET24 implicit $a
+# CHECK-NOT: EXTRACT_SUBREG
+name: byte_from_long
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $a
+    %0:r8 = COPY $a
+    %1:r24 = IMPLICIT_DEF
+    %2:r24 = INSERT_SUBREG %1, %0, %subreg.sub_low
+    %3:r8 = EXTRACT_SUBREG %2, %subreg.sub_low
+    $a = COPY %3
+    RET24 implicit $a, implicit-def $spl, implicit $spl
+...
+---
+# CHECK-LABEL: name: word_from_long
+# CHECK: [[INPUT:%[0-9]+]]:r16 = COPY $hl
+# CHECK: [[RESULT:%[0-9]+]]:r16 = COPY [[INPUT]]
+# CHECK-NEXT: $hl = COPY [[RESULT]]
+# CHECK-NEXT: RET24 implicit $hl
+# CHECK-NOT: EXTRACT_SUBREG
+name: word_from_long
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $hl
+    %0:r16 = COPY $hl
+    %1:r24 = IMPLICIT_DEF
+    %2:r24 = INSERT_SUBREG %1, %0, %subreg.sub_short
+    %3:r16 = EXTRACT_SUBREG %2, %subreg.sub_short
+    $hl = COPY %3
+    RET24 implicit $hl, implicit-def $spl, implicit $spl
+...
+---
+# CHECK-LABEL: name: unknown_subreg
+# CHECK: [[LONG:%[0-9]+]]:r24 = COPY $uhl
+# CHECK: [[BYTE:%[0-9]+]]:r8 = EXTRACT_SUBREG [[LONG]], %subreg.sub_low
+# CHECK-NEXT: $a = COPY [[BYTE]]
+# CHECK-NEXT: RET24 implicit $a
+name: unknown_subreg
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl
+    %0:r24 = COPY $uhl
+    %1:r8 = EXTRACT_SUBREG %0, %subreg.sub_low
+    $a = COPY %1
+    RET24 implicit $a, implicit-def $spl, implicit $spl
+...

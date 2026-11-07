@@ -1,0 +1,142 @@
+# NOTE: Do not autogenerate
+# RUN: llc -mtriple=ez80 -run-pass=postrapseudos -verify-machineinstrs -o - %s | FileCheck %s
+---
+name: copy_live_source
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl, $ude
+    $iyl = COPY $l
+    RET24 implicit $iyl, implicit $ude, implicit-def $spl, implicit $spl
+
+# The first exchange must retain the source and the DE value being preserved.
+# CHECK-LABEL: name: copy_live_source
+# CHECK: EX24DE implicit-def $ude, implicit-def $uhl, implicit $ude, implicit $uhl
+# CHECK: $iyl = LD8yy $e
+# CHECK: EX24DE implicit-def $ude, implicit-def $uhl, implicit $ude, implicit $uhl
+...
+---
+name: copy_with_dead_scratch
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl
+    $iyl = COPY $l
+    RET24 implicit $iyl, implicit-def $spl, implicit $spl
+
+# The unused old DE value need not have been defined.
+# CHECK-LABEL: name: copy_with_dead_scratch
+# CHECK: EX24DE implicit-def $ude, implicit-def $uhl, implicit undef $ude, implicit $uhl
+# CHECK: $iyl = LD8yy $e
+...
+---
+name: reused_alu_source
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $iyh, $c, $d
+    $e = OR8_gisel $iyh, killed $c, implicit-def dead $a, implicit-def dead $f
+    $a = OR8_gisel killed $iyh, killed $d, implicit-def dead $f
+    RET24 implicit $a, implicit $e, implicit-def $spl, implicit $spl
+
+# CHECK-LABEL: name: reused_alu_source
+# CHECK: $a = LD8yy $iyh
+# CHECK: $a = LD8yy killed $iyh
+...
+---
+name: index_load_with_dead_accumulator
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uix
+    $iyl = LD8ro $uix, 0
+    RET24 implicit $iyl, implicit-def $spl, implicit $spl
+
+# CHECK-LABEL: name: index_load_with_dead_accumulator
+# CHECK: PUSH24AF implicit-def $spl, implicit undef $af, implicit $spl
+...
+
+---
+name: index_word_store_dead_scratch
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl, $iy
+    LD88pr killed $uhl, $iy
+    RET24 implicit-def $spl, implicit $spl
+
+# CHECK-LABEL: name: index_word_store_dead_scratch
+# CHECK: PUSH24r undef $ude
+# CHECK: $ude = LEA24ro $uiy, 0
+# CHECK: LD8pg $uhl, $e
+# CHECK: LD8pg killed $uhl, $d
+# CHECK: $ude = POP24r
+...
+---
+name: index_word_store_live_scratch
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl, $iy, $ude
+    LD88pr killed $uhl, $iy
+    RET24 implicit $ude, implicit-def $spl, implicit $spl
+
+# CHECK-LABEL: name: index_word_store_live_scratch
+# CHECK: PUSH24r $ude
+# CHECK: $ude = LEA24ro $uiy, 0
+# CHECK: LD8pg $uhl, $e
+# CHECK: LD8pg killed $uhl, $d
+# CHECK: $ude = POP24r
+# CHECK: RET24 implicit $ude
+...
+
+---
+name: index_byte_store_dead_af
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl, $iyl
+    LD8pr $uhl, killed $iyl
+    RET24 implicit-def $spl, implicit $spl
+
+# CHECK-LABEL: name: index_byte_store_dead_af
+# CHECK: PUSH24AF implicit-def $spl, implicit undef $af, implicit $spl
+# CHECK: $a = LD8yy killed $iyl
+# CHECK: LD8pg $uhl, killed $a
+# CHECK: POP24AF
+# CHECK: RET24
+...
+
+---
+name: index_byte_store_live_a
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl, $iyl, $a
+    LD8pr $uhl, killed $iyl
+    RET24 implicit $a, implicit-def $spl, implicit $spl
+
+# CHECK-LABEL: name: index_byte_store_live_a
+# CHECK: PUSH24AF implicit-def $spl, implicit undef $af, implicit $spl, implicit $a
+# CHECK: $a = LD8yy killed $iyl
+# CHECK: LD8pg $uhl, killed $a
+# CHECK: POP24AF
+# CHECK: RET24
+...
+
+---
+name: index_byte_store_live_f
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl, $iyl, $f
+    LD8pr $uhl, killed $iyl
+    RET24 implicit $f, implicit-def $spl, implicit $spl
+
+# CHECK-LABEL: name: index_byte_store_live_f
+# CHECK: PUSH24AF implicit-def $spl, implicit undef $af, implicit $spl, implicit $f
+# CHECK: $a = LD8yy killed $iyl
+# CHECK: LD8pg $uhl, killed $a
+# CHECK: POP24AF
+# CHECK: RET24
+...

@@ -327,8 +327,9 @@ public:
   /// which defines dst.dstSubIdx.
   bool getNextRewritableSource(RegSubRegPair &Src,
                                RegSubRegPair &Dst) override {
-    // If we already get the only source we can rewrite, return false.
-    if (CurrentSrcIdx == 1)
+    // Stop after the only source, including when rewriting changed this
+    // instruction into a COPY and invalidated CurrentSrcIdx.
+    if (CurrentSrcIdx != 0)
       return false;
     // We are looking at v1 = EXTRACT_SUBREG v0, sub0.
     CurrentSrcIdx = 1;
