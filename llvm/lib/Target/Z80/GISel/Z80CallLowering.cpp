@@ -201,7 +201,10 @@ struct Z80IncomingValueHandler : public CallLowering::IncomingValueHandler {
                            MachinePointerInfo &MPO,
                            ISD::ArgFlagsTy Flags) override {
     auto &MFI = MIRBuilder.getMF().getFrameInfo();
-    int FI = MFI.CreateFixedObject(Size, Offset, true);
+    // A byval object is a writable copy owned by the callee. Marking it
+    // immutable lets register allocation reload a pre-mutation value from
+    // the modified argument slot instead of preserving the original load.
+    int FI = MFI.CreateFixedObject(Size, Offset, !Flags.isByVal());
     MPO = MachinePointerInfo::getFixedStack(MIRBuilder.getMF(), FI);
     LLT p0 = LLT::pointer(0, DL.getPointerSizeInBits(0));
     return MIRBuilder.buildFrameIndex(p0, FI).getReg(0);
