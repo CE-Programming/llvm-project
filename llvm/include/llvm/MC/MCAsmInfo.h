@@ -365,7 +365,7 @@ protected:
   ExceptionHandling ExceptionsType = ExceptionHandling::None;
 
   /// True if target uses CFI unwind information for other purposes than EH
-  /// (debugging / sanitizers) when `ExceptionsType == ExceptionHandling::None`.
+  /// (debugging / sanitizers) with no exception handling or with SjLj EH.
   bool UsesCFIWithoutEH = false;
 
   /// Windows exception handling data (.pdata) encoding.  Defaults to Invalid.
@@ -647,7 +647,9 @@ public:
   }
 
   bool usesCFIWithoutEH() const {
-    return ExceptionsType == ExceptionHandling::None && UsesCFIWithoutEH;
+    return (ExceptionsType == ExceptionHandling::None ||
+            ExceptionsType == ExceptionHandling::SjLj) &&
+           UsesCFIWithoutEH;
   }
 
   /// Returns true if the exception handling method for the platform uses call
