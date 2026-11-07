@@ -498,7 +498,7 @@ public:
   /// Since emitting CFI unwind information is entangled with supporting the
   /// exceptions, this returns true for platforms which use CFI unwind
   /// information for other purposes (debugging, sanitizers, ...) when
-  /// `MCAsmInfo::ExceptionsType == ExceptionHandling::None`.
+  /// exception handling is disabled or uses SjLj.
   bool usesCFIWithoutEH() const;
 
   /// Print to the current output stream assembly representations of the
