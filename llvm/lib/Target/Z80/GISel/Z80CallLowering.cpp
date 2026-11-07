@@ -70,7 +70,7 @@ struct Z80OutgoingValueHandler : public CallLowering::OutgoingValueHandler {
                             const MachinePointerInfo &MPO,
                             const CCValAssign &VA) override {
     auto MMO = MIRBuilder.getMF().getMachineMemOperand(
-        MPO, MachineMemOperand::MOStore, VA.getLocVT().getStoreSize(), Align());
+        MPO, MachineMemOperand::MOStore, MemTy, Align());
     MIRBuilder.buildStore(ValVReg, Addr, *MMO);
   }
 
