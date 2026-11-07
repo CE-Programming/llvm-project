@@ -1,0 +1,61 @@
+# NOTE: Do not autogenerate
+# RUN: llc -mtriple=z80 -start-before=z80-machine-peephole-opt -verify-machineinstrs -o - %s | FileCheck %s --check-prefix=ASM
+# RUN: llc -mtriple=z80 -run-pass=z80-machine-peephole-opt -verify-machineinstrs -o - %s | FileCheck %s --check-prefix=Z80
+# RUN: llc -mtriple=ez80-code16 -run-pass=z80-machine-peephole-opt -verify-machineinstrs -o - %s | FileCheck %s --check-prefix=EZ80
+
+---
+name: short_exchange_pair
+tracksRegLiveness: true
+# ASM-LABEL: _short_exchange_pair:
+# ASM-NOT: ex de, hl
+# ASM: ret
+# Z80-LABEL: name: short_exchange_pair
+# Z80-NOT: EX16DE
+# Z80: RET16
+# EZ80-LABEL: name: short_exchange_pair
+# EZ80: EX16DE
+# EZ80-NEXT: EX16DE
+body: |
+  bb.0:
+    liveins: $hl, $de
+    EX16DE implicit-def $hl, implicit-def $de, implicit $hl, implicit $de
+    EX16DE implicit-def $hl, implicit-def $de, implicit $hl, implicit $de
+    RET16 implicit $hl, implicit $de, implicit-def $sps, implicit $sps
+...
+---
+name: short_self_copy
+tracksRegLiveness: true
+# ASM-LABEL: _short_self_copy:
+# ASM-NOT: push
+# ASM-NOT: pop
+# ASM: ret
+# Z80-LABEL: name: short_self_copy
+# Z80-NOT: PUSH16r
+# Z80-NOT: POP16r
+# Z80: RET16
+# EZ80-LABEL: name: short_self_copy
+# EZ80: PUSH16r $bc
+# EZ80-NEXT: $bc = POP16r
+body: |
+  bb.0:
+    liveins: $bc
+    PUSH16r $bc, implicit-def $sps, implicit $sps
+    $bc = POP16r implicit-def $sps, implicit $sps
+    RET16 implicit $bc, implicit-def $sps, implicit $sps
+...
+---
+name: frame_exchange_pair
+tracksRegLiveness: true
+# Z80-LABEL: name: frame_exchange_pair
+# Z80: frame-setup EX16DE
+# Z80-NEXT: EX16DE
+# EZ80-LABEL: name: frame_exchange_pair
+# EZ80: frame-setup EX16DE
+# EZ80-NEXT: EX16DE
+body: |
+  bb.0:
+    liveins: $hl, $de
+    frame-setup EX16DE implicit-def $hl, implicit-def $de, implicit $hl, implicit $de
+    EX16DE implicit-def $hl, implicit-def $de, implicit $hl, implicit $de
+    RET16 implicit $hl, implicit $de, implicit-def $sps, implicit $sps
+...

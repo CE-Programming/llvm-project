@@ -32,9 +32,12 @@ set(sources
   Z80FrameLowering.cpp
   Z80ISelLowering.cpp
   Z80InstrInfo.cpp
+  Z80InternalRegArgs.cpp
   Z80MCInstLower.cpp
+  Z80MachineAddressOptimization.cpp
   Z80MachineEarlyOptimization.cpp
   Z80MachineLateOptimization.cpp
+  Z80MachinePeepholeOptimization.cpp
   Z80MachinePreRAOptimization.cpp
   Z80PostSelectCombiner.cpp
   Z80R64SpillPass.cpp
@@ -42,18 +45,23 @@ set(sources
   Z80Subtarget.cpp
   Z80TargetMachine.cpp
   Z80TargetObjectFile.cpp
+  Z80TargetTransformInfo.cpp
   )
 
 add_llvm_target(Z80CodeGen ${sources}
   LINK_COMPONENTS
+  Analysis
   AsmPrinter
   CodeGen
   Core
   GlobalISel
   MC
+  Passes
+  ScalarOpts
   SelectionDAG
   Support
   Target
+  TransformUtils
   Z80Desc
   Z80Info
 

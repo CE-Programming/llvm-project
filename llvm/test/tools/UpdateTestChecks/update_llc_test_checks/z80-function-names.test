@@ -1,0 +1,9 @@
+# REQUIRES: z80-registered-target
+# RUN: cp %S/Inputs/z80_function_names.ll %t.ll
+# RUN: %update_llc_test_checks --version=6 %t.ll
+# RUN: diff -u %S/Inputs/z80_function_names.ll.expected %t.ll
+# RUN: %update_llc_test_checks --version=6 %t.ll
+# RUN: diff -u %S/Inputs/z80_function_names.ll.expected %t.ll
+
+# Internal Z80 function labels carry a Begin-function comment on the label
+# line and move @name to the next line. Public labels use the single-line form.

@@ -120,7 +120,7 @@ define i24 @mul3.i24(i24 %x) minsize {
 ; EZ80-NEXT:    ld de, (ix + 6)
 ; EZ80-NEXT:    push de
 ; EZ80-NEXT:    pop hl
-; EZ80-NEXT:    add hl, de
+; EZ80-NEXT:    add hl, hl
 ; EZ80-NEXT:    add hl, de
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret

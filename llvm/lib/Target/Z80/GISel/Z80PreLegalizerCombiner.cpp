@@ -11,9 +11,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Z80.h"
 #include "MCTargetDesc/Z80MCTargetDesc.h"
+#include "Z80.h"
 #include "Z80InstrInfo.h"
+#include "Z80LegalizerInfo.h"
 #include "Z80Subtarget.h"
 #include "llvm/CodeGen/GlobalISel/Combiner.h"
 #include "llvm/CodeGen/GlobalISel/CombinerHelper.h"
@@ -23,6 +24,7 @@
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Target/TargetMachine.h"
 
@@ -30,6 +32,13 @@
 
 using namespace llvm;
 using namespace llvm::MIPatternMatch;
+
+static cl::opt<bool> EnableMaskedEquality("z80-masked-equality", cl::Hidden,
+                                        cl::init(true));
+
+struct MaskedXorCompareInfo {
+  Register LHS, RHS;
+};
 
 #define GET_GICOMBINER_DEPS
 #include "Z80GenPreLegalizeGICombiner.inc"
@@ -59,10 +68,60 @@ public:
   bool tryCombineAll(MachineInstr &I) const override;
 
 private:
+  bool canLowerByteDivide(MachineInstr &MI) const {
+    return static_cast<const Z80LegalizerInfo *>(STI.getLegalizerInfo())
+        ->canLowerByteDivide(MI, *VT);
+  }
+
 #define GET_GICOMBINER_CLASS_MEMBERS
 #include "Z80GenPreLegalizeGICombiner.inc"
 #undef GET_GICOMBINER_CLASS_MEMBERS
 };
+
+// Dropping a tag bit before comparing an XOR with zero tests equality modulo
+// 2^23. Double their wrapping difference instead: only differences 0 and
+// 2^23 become zero. The selector can set the zero flag using native subtraction
+// and ADC HL,HL, avoiding both XOR and one-bit right-shift helpers.
+static bool matchMaskedXorCompare(MachineInstr &MI, MachineRegisterInfo &MRI,
+                                  const Z80Subtarget &STI,
+                                  MaskedXorCompareInfo &Info) {
+  if (!EnableMaskedEquality || !STI.has24BitEZ80Ops())
+    return false;
+  auto Pred = CmpInst::Predicate(MI.getOperand(1).getPredicate());
+  if (Pred != CmpInst::ICMP_EQ && Pred != CmpInst::ICMP_NE)
+    return false;
+  Register Value = MI.getOperand(2).getReg();
+  Register Zero = MI.getOperand(3).getReg();
+  auto C = getIConstantVRegValWithLookThrough(Zero, MRI);
+  if (!C || !C->Value.isZero()) {
+    std::swap(Value, Zero);
+    C = getIConstantVRegValWithLookThrough(Zero, MRI);
+    if (!C || !C->Value.isZero())
+      return false;
+  }
+  if (MRI.getType(Value) != LLT::scalar(24))
+    return false;
+  int64_t Mask;
+  return mi_match(Value, MRI,
+                  m_OneUse(m_GAnd(m_OneUse(m_GXor(m_Reg(Info.LHS),
+                                                 m_Reg(Info.RHS))),
+                                   m_ICst(Mask)))) &&
+         Mask == 0x7FFFFF;
+}
+
+static void applyMaskedXorCompare(MachineInstr &MI, MachineIRBuilder &Builder,
+                                  GISelChangeObserver &Observer,
+                                  const MaskedXorCompareInfo &Info) {
+  Builder.setInstrAndDebugLoc(MI);
+  auto One = Builder.buildConstant(LLT::scalar(8), 1);
+  auto Difference = Builder.buildSub(LLT::scalar(24), Info.LHS, Info.RHS);
+  auto Doubled = Builder.buildShl(LLT::scalar(24), Difference, One);
+  auto Zero = Builder.buildConstant(LLT::scalar(24), 0);
+  Builder.buildICmp(CmpInst::Predicate(MI.getOperand(1).getPredicate()),
+                    MI.getOperand(0), Doubled, Zero);
+  Observer.erasingInstr(MI);
+  MI.eraseFromParent();
+}
 
 static bool matchCombineTruncShift(MachineInstr &MI, MachineRegisterInfo &MRI,
                                    Register &SrcReg) {

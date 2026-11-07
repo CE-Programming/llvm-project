@@ -1,0 +1,244 @@
+# NOTE: Do not autogenerate
+# RUN: llc -mtriple=ez80 -run-pass=z80-machine-address-opt -verify-machineinstrs -o - %s | FileCheck %s
+
+---
+name: lea_chain
+tracksRegLiveness: true
+# CHECK-LABEL: name: lea_chain
+# CHECK: $uhl = LEA24ro $uix, 50
+# CHECK-NOT: $uiy = LEA24ro
+body: |
+  bb.0:
+    liveins: $uix
+    $uiy = LEA24ro $uix, 30
+    $uhl = LEA24ro killed $uiy, 20
+    RET24 implicit $uhl, implicit-def $spl, implicit $spl
+...
+---
+name: lea_chain_undef_base
+tracksRegLiveness: true
+# CHECK-LABEL: name: lea_chain_undef_base
+# CHECK: $uhl = LEA24ro undef $uix, 50
+# CHECK-NOT: $uiy = LEA24ro
+body: |
+  bb.0:
+    $uiy = LEA24ro undef $uix, 30
+    $uhl = LEA24ro killed $uiy, 20
+    RET24 implicit $uhl, implicit-def $spl, implicit $spl
+...
+---
+name: lea_chain_self
+tracksRegLiveness: true
+# CHECK-LABEL: name: lea_chain_self
+# CHECK: $uiy = LEA24ro $uiy, 10
+# CHECK-NOT: LEA24ro
+body: |
+  bb.0:
+    liveins: $uiy
+    $uiy = LEA24ro $uiy, 30
+    $uiy = LEA24ro $uiy, -20
+    RET24 implicit $uiy, implicit-def $spl, implicit $spl
+...
+---
+name: lea_chain_live_temp
+tracksRegLiveness: true
+# CHECK-LABEL: name: lea_chain_live_temp
+# CHECK: $uiy = LEA24ro $uix, 30
+# CHECK-NEXT: $uhl = LEA24ro $uiy, 20
+body: |
+  bb.0:
+    liveins: $uix
+    $uiy = LEA24ro $uix, 30
+    $uhl = LEA24ro $uiy, 20
+    RET24 implicit $uhl, implicit $uiy, implicit-def $spl, implicit $spl
+...
+---
+name: lea_chain_live_subregister
+tracksRegLiveness: true
+# CHECK-LABEL: name: lea_chain_live_subregister
+# CHECK: $uiy = LEA24ro $uix, 30
+# CHECK-NEXT: $uhl = LEA24ro $uiy, 20
+body: |
+  bb.0:
+    liveins: $uix
+    $uiy = LEA24ro $uix, 30
+    $uhl = LEA24ro $uiy, 20
+    RET24 implicit $uhl, implicit $iy, implicit-def $spl, implicit $spl
+...
+---
+name: lea_chain_out_of_range
+tracksRegLiveness: true
+# CHECK-LABEL: name: lea_chain_out_of_range
+# CHECK: $uiy = LEA24ro $uix, -128
+# CHECK-NEXT: $uhl = LEA24ro killed $uiy, -1
+body: |
+  bb.0:
+    liveins: $uix
+    $uiy = LEA24ro $uix, -128
+    $uhl = LEA24ro killed $uiy, -1
+    RET24 implicit $uhl, implicit-def $spl, implicit $spl
+...
+---
+name: indexed_volatile_load
+tracksRegLiveness: true
+# CHECK-LABEL: name: indexed_volatile_load
+# CHECK: $uhl = LD24ro $uix, 10 :: (volatile load (s24), align 1)
+# CHECK-NOT: LEA24ro
+body: |
+  bb.0:
+    liveins: $uix
+    $uiy = LEA24ro $uix, -30
+    $uhl = LD24ro killed $uiy, 40 :: (volatile load (s24), align 1)
+    RET24 implicit $uhl, implicit-def $spl, implicit $spl
+...
+---
+name: indexed_store
+tracksRegLiveness: true
+# CHECK-LABEL: name: indexed_store
+# CHECK: LD24or $uix, 127, killed $uhl :: (store (s24), align 1)
+# CHECK-NOT: LEA24ro
+body: |
+  bb.0:
+    liveins: $uix, $uhl
+    $uiy = LEA24ro $uix, 100
+    LD24or killed $uiy, 27, killed $uhl :: (store (s24), align 1)
+    RET24 implicit-def $spl, implicit $spl
+...
+---
+name: indexed_store_pointer_value
+tracksRegLiveness: true
+# CHECK-LABEL: name: indexed_store_pointer_value
+# CHECK: $uiy = LEA24ro $uix, 10
+# CHECK-NEXT: LD24or $uiy, 0, killed $uiy
+body: |
+  bb.0:
+    liveins: $uix
+    $uiy = LEA24ro $uix, 10
+    LD24or $uiy, 0, killed $uiy :: (store (s24))
+    RET24 implicit-def $spl, implicit $spl
+...
+---
+name: indexed_byte_load
+tracksRegLiveness: true
+# CHECK-LABEL: name: indexed_byte_load
+# CHECK: $a = LD8go $uix, -128
+# CHECK-NOT: LEA24ro
+body: |
+  bb.0:
+    liveins: $uix
+    $uiy = LEA24ro $uix, -100
+    $a = LD8go killed $uiy, -28
+    RET24 implicit $a, implicit-def $spl, implicit $spl
+...
+---
+name: indexed_immediate_store
+tracksRegLiveness: true
+# CHECK-LABEL: name: indexed_immediate_store
+# CHECK: LD8oi $uix, 10, 7
+# CHECK-NOT: LEA24ro
+body: |
+  bb.0:
+    liveins: $uix
+    $uiy = LEA24ro $uix, 6
+    LD8oi killed $uiy, 4, 7
+    RET24 implicit-def $spl, implicit $spl
+...
+---
+name: indexed_live_temp
+tracksRegLiveness: true
+# CHECK-LABEL: name: indexed_live_temp
+# CHECK: $uiy = LEA24ro $uix, 6
+# CHECK-NEXT: $uhl = LD24ro $uiy, 4
+body: |
+  bb.0:
+    liveins: $uix
+    $uiy = LEA24ro $uix, 6
+    $uhl = LD24ro $uiy, 4
+    RET24 implicit $uhl, implicit $uiy, implicit-def $spl, implicit $spl
+...
+---
+name: small_add
+tracksRegLiveness: true
+# CHECK-LABEL: name: small_add
+# CHECK: $uiy = LEA24ro $uiy, 3
+# CHECK-NOT: ADD24ao
+body: |
+  bb.0:
+    liveins: $uiy
+    $ude = LD24ri 3
+    $uiy = ADD24ao $uiy, killed $ude, implicit-def dead $f
+    RET24 implicit $uiy, implicit-def $spl, implicit $spl
+...
+---
+name: small_add_wrapped_negative
+tracksRegLiveness: true
+# CHECK-LABEL: name: small_add_wrapped_negative
+# CHECK: $uiy = LEA24ro $uiy, -1
+# CHECK-NOT: ADD24ao
+body: |
+  bb.0:
+    liveins: $uiy
+    $ude = LD24ri 16777215
+    $uiy = ADD24ao $uiy, killed $ude, implicit-def dead $f
+    RET24 implicit $uiy, implicit-def $spl, implicit $spl
+...
+---
+name: small_add_live_temp
+tracksRegLiveness: true
+# CHECK-LABEL: name: small_add_live_temp
+# CHECK: $ude = LD24ri 3
+# CHECK-NEXT: $uiy = ADD24ao $uiy, $ude
+body: |
+  bb.0:
+    liveins: $uiy
+    $ude = LD24ri 3
+    $uiy = ADD24ao $uiy, $ude, implicit-def dead $f
+    RET24 implicit $uiy, implicit $ude, implicit-def $spl, implicit $spl
+...
+---
+name: small_add_live_carry
+tracksRegLiveness: true
+# CHECK-LABEL: name: small_add_live_carry
+# CHECK: $ude = LD24ri 3
+# CHECK-NEXT: $uiy = ADD24ao $uiy, killed $ude, implicit-def $f
+body: |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $uiy
+    $ude = LD24ri 3
+    $uiy = ADD24ao $uiy, killed $ude, implicit-def $f
+    JRCC %bb.1, 3, implicit $f
+    JR %bb.2
+  bb.1:
+    liveins: $uiy
+    RET24 implicit $uiy, implicit-def $spl, implicit $spl
+  bb.2:
+    liveins: $uiy
+    RET24 implicit $uiy, implicit-def $spl, implicit $spl
+...
+---
+name: small_add_out_of_range
+tracksRegLiveness: true
+# CHECK-LABEL: name: small_add_out_of_range
+# CHECK: $ude = LD24ri 128
+# CHECK-NEXT: $uiy = ADD24ao $uiy, killed $ude
+body: |
+  bb.0:
+    liveins: $uiy
+    $ude = LD24ri 128
+    $uiy = ADD24ao $uiy, killed $ude, implicit-def dead $f
+    RET24 implicit $uiy, implicit-def $spl, implicit $spl
+...
+---
+name: preserve_frame_setup
+tracksRegLiveness: true
+# CHECK-LABEL: name: preserve_frame_setup
+# CHECK: $uiy = frame-setup LEA24ro $uix, 6
+# CHECK-NEXT: $uhl = LD24ro killed $uiy, 4
+body: |
+  bb.0:
+    liveins: $uix
+    $uiy = frame-setup LEA24ro $uix, 6
+    $uhl = LD24ro killed $uiy, 4
+    RET24 implicit $uhl, implicit-def $spl, implicit $spl
+...

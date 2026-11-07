@@ -268,7 +268,9 @@ ASM_FUNCTION_LOONGARCH_RE = re.compile(
 )
 
 ASM_FUNCTION_Z80_RE = re.compile(
-    r"^_(?P<func>[^:]+):\s*;+\s*@(?P=func)\n"
+    r"^_(?P<func>[^:\n]+):[ \t]*;+[ \t]*"
+    r"(?:-- Begin function[^\n]*\n[ \t]*;+[ \t]*)?"
+    r'@"?(?P=func)"?\n'
     r"(?P<body>.*?)\n"
     r"^\s*(?:section\s+|;\s--\sEnd\sfunction)",
     flags=(re.M | re.S),
