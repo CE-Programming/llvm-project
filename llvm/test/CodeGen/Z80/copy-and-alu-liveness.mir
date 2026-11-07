@@ -55,3 +55,88 @@ body: |
 # CHECK-LABEL: name: index_load_with_dead_accumulator
 # CHECK: PUSH24AF implicit-def $spl, implicit undef $af, implicit $spl
 ...
+
+---
+name: index_word_store_dead_scratch
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl, $iy
+    LD88pr killed $uhl, $iy
+    RET24 implicit-def $spl, implicit $spl
+
+# CHECK-LABEL: name: index_word_store_dead_scratch
+# CHECK: PUSH24r undef $ude
+# CHECK: $ude = LEA24ro $uiy, 0
+# CHECK: LD8pg $uhl, $e
+# CHECK: LD8pg killed $uhl, $d
+# CHECK: $ude = POP24r
+...
+---
+name: index_word_store_live_scratch
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl, $iy, $ude
+    LD88pr killed $uhl, $iy
+    RET24 implicit $ude, implicit-def $spl, implicit $spl
+
+# CHECK-LABEL: name: index_word_store_live_scratch
+# CHECK: PUSH24r $ude
+# CHECK: $ude = LEA24ro $uiy, 0
+# CHECK: LD8pg $uhl, $e
+# CHECK: LD8pg killed $uhl, $d
+# CHECK: $ude = POP24r
+# CHECK: RET24 implicit $ude
+...
+
+---
+name: index_byte_store_dead_af
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl, $iyl
+    LD8pr $uhl, killed $iyl
+    RET24 implicit-def $spl, implicit $spl
+
+# CHECK-LABEL: name: index_byte_store_dead_af
+# CHECK: PUSH24AF implicit-def $spl, implicit undef $af, implicit $spl
+# CHECK: $a = LD8yy killed $iyl
+# CHECK: LD8pg $uhl, killed $a
+# CHECK: POP24AF
+# CHECK: RET24
+...
+
+---
+name: index_byte_store_live_a
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl, $iyl, $a
+    LD8pr $uhl, killed $iyl
+    RET24 implicit $a, implicit-def $spl, implicit $spl
+
+# CHECK-LABEL: name: index_byte_store_live_a
+# CHECK: PUSH24AF implicit-def $spl, implicit undef $af, implicit $spl, implicit $a
+# CHECK: $a = LD8yy killed $iyl
+# CHECK: LD8pg $uhl, killed $a
+# CHECK: POP24AF
+# CHECK: RET24
+...
+
+---
+name: index_byte_store_live_f
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl, $iyl, $f
+    LD8pr $uhl, killed $iyl
+    RET24 implicit $f, implicit-def $spl, implicit $spl
+
+# CHECK-LABEL: name: index_byte_store_live_f
+# CHECK: PUSH24AF implicit-def $spl, implicit undef $af, implicit $spl, implicit $f
+# CHECK: $a = LD8yy killed $iyl
+# CHECK: LD8pg $uhl, killed $a
+# CHECK: POP24AF
+# CHECK: RET24
+...

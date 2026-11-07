@@ -1,0 +1,106 @@
+# NOTE: Do not autogenerate
+# RUN: llc -mtriple=ez80 -run-pass=postrapseudos -verify-machineinstrs %s -o - | FileCheck %s --check-prefixes=CHECK,ADL
+# RUN: sed -e 's/24/16/g' -e 's/\$spl/\$sps/g' -e 's/\$uhl/\$hl/g' -e 's/\$ude/\$de/g' -e 's/\$ubc/\$bc/g' -e 's/\$uiy/\$iy/g' %s | llc -mtriple=z80 -run-pass=postrapseudos -verify-machineinstrs -x mir -o - | FileCheck %s --check-prefixes=CHECK,SHORT
+# RUN: sed -e 's/24/16/g' -e 's/\$spl/\$sps/g' -e 's/\$uhl/\$hl/g' -e 's/\$ude/\$de/g' -e 's/\$ubc/\$bc/g' -e 's/\$uiy/\$iy/g' %s | llc -mtriple=ez80-code16 -run-pass=postrapseudos -verify-machineinstrs -x mir -o - | FileCheck %s --check-prefixes=CHECK,SHORT
+#
+# COPY from SP expands to LD/ADD. Preserve live flags around the ADD and
+# compensate for every temporary push when computing the original SP value.
+
+---
+name: sp_to_hl
+tracksRegLiveness: true
+# CHECK-LABEL: name: sp_to_hl
+# CHECK: PUSH{{16|24}}AF
+# ADL: $uhl = LD24ri 3
+# SHORT: $hl = LD16ri 2
+# CHECK: {{.*}} = ADD{{16|24}}as
+# CHECK: POP{{16|24}}AF
+# CHECK: RET{{16|24}}
+body: |
+  bb.0:
+    liveins: $a, $f
+    $uhl = COPY $spl
+    RET24 implicit $uhl, implicit $af, implicit-def $spl, implicit $spl
+...
+---
+name: sp_to_bc
+tracksRegLiveness: true
+# CHECK-LABEL: name: sp_to_bc
+# CHECK: PUSH{{16|24}}AF
+# CHECK: PUSH{{16|24}}r
+# ADL: $uhl = LD24ri 6
+# SHORT: $hl = LD16ri 4
+# CHECK: {{.*}} = ADD{{16|24}}as
+# CHECK: {{.*}} = EX{{16|24}}sa
+# CHECK: {{.*}} = POP{{16|24}}r
+# CHECK: POP{{16|24}}AF
+# CHECK: RET{{16|24}}
+body: |
+  bb.0:
+    liveins: $a, $f, $uhl
+    $ubc = COPY $spl
+    RET24 implicit $ubc, implicit $uhl, implicit $af, implicit-def $spl, implicit $spl
+...
+---
+name: sp_to_de
+tracksRegLiveness: true
+# CHECK-LABEL: name: sp_to_de
+# CHECK: PUSH{{16|24}}AF
+# CHECK: EX{{16|24}}DE
+# ADL: $uhl = LD24ri 3
+# SHORT: $hl = LD16ri 2
+# CHECK: {{.*}} = ADD{{16|24}}as
+# CHECK: EX{{16|24}}DE
+# CHECK: POP{{16|24}}AF
+# CHECK: RET{{16|24}}
+body: |
+  bb.0:
+    liveins: $a, $f, $uhl, $ude
+    $ude = COPY $spl
+    RET24 implicit $ude, implicit $uhl, implicit $af, implicit-def $spl, implicit $spl
+...
+---
+name: sp_to_iy_flags_only
+tracksRegLiveness: true
+# CHECK-LABEL: name: sp_to_iy_flags_only
+# CHECK: PUSH{{16|24}}AF implicit-def {{\$sp[ls]}}, implicit undef $af, implicit {{\$sp[ls]}}, implicit $f
+# ADL: $uiy = LD24ri 3
+# SHORT: $iy = LD16ri 2
+# CHECK: {{.*}} = ADD{{16|24}}as
+# CHECK: POP{{16|24}}AF
+# CHECK: RET{{16|24}}
+body: |
+  bb.0:
+    liveins: $f
+    $uiy = COPY $spl
+    RET24 implicit $uiy, implicit $f, implicit-def $spl, implicit $spl
+...
+---
+name: sp_flags_dead
+tracksRegLiveness: true
+# CHECK-LABEL: name: sp_flags_dead
+# CHECK-NOT: PUSH{{16|24}}AF
+# ADL: $uhl = LD24ri 0
+# SHORT: $hl = LD16ri 0
+# CHECK: {{.*}} = ADD{{16|24}}as
+# CHECK-NOT: POP{{16|24}}AF
+# CHECK: RET{{16|24}}
+body: |
+  bb.0:
+    $uhl = COPY $spl
+    RET24 implicit $uhl, implicit-def $spl, implicit $spl
+...
+
+---
+name: sp_to_de_dead_hl
+tracksRegLiveness: true
+# CHECK-LABEL: name: sp_to_de_dead_hl
+# CHECK: EX{{16|24}}DE implicit-def dead [[DE:\$u?de]], implicit-def dead [[HL:\$u?hl]], implicit undef [[DE]], implicit undef [[HL]]
+# CHECK: {{.*}} = ADD{{16|24}}as
+# CHECK: EX{{16|24}}DE
+# CHECK: RET{{16|24}}
+body: |
+  bb.0:
+    $ude = COPY $spl
+    RET24 implicit $ude, implicit-def $spl, implicit $spl
+...
