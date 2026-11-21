@@ -2201,21 +2201,55 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
         Is24Bit
             ? TRI.getMatchingSuperReg(Reg, Z80::sub_short, &Z80::R24RegClass)
             : Reg;
-    if (Index || Overlap)
+    MCRegister LowReg = TRI.getSubReg(Reg, Z80::sub_low);
+    bool LoadHighDirect = false;
+    if (Is24Bit && Overlap && !Index && HighOpc == Z80::LD8rp &&
+        AddrOp.isKill() && MF.getRegInfo().tracksLiveness()) {
+      // Count unexpanded pseudos and skip debug instructions. At the limit,
+      // assume all scratch candidates are live unless overwritten.
+      auto LiveEnd =
+          skipDebugInstructionsForward(Next, MBB.end(), /*SkipPseudoOp=*/false);
+      for (unsigned N = 0; N != 10 && LiveEnd != MBB.end(); ++N)
+        LiveEnd = next_nodbg(LiveEnd, MBB.end(), /*SkipPseudoOp=*/false);
+      LiveRegUnits Live(TRI);
+      if (LiveEnd == MBB.end())
+        Live.addLiveOuts(MBB);
+      else
+        for (MCPhysReg Candidate : Z80::O8RegClass)
+          Live.addReg(Candidate);
+      while (LiveEnd != Next) {
+        const MachineInstr &Instr = *--LiveEnd;
+        if (!Instr.isDebugInstr())
+          Live.stepBackward(Instr);
+      }
+      // The last read can overwrite the address. Only the low byte needs a
+      // scratch register until that read has completed. Prefer the existing
+      // low scratch byte (E), then try the other bytes outside HL and IX/IY.
+      if (!Live.available(LowReg)) {
+        for (MCPhysReg Candidate : Z80::O8RegClass) {
+          if (Live.available(Candidate)) {
+            LowReg = Candidate;
+            break;
+          }
+        }
+      }
+      LoadHighDirect = Live.available(LowReg);
+    }
+    bool SaveScratch = (Index || Overlap) && !LoadHighDirect;
+    if (SaveScratch)
       // Save scratch register
       applySPAdjust(
           *BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::PUSH24r : Z80::PUSH16r))
                .addReg(ScratchReg, RegState::Undef));
     MI.setDesc(get(HighOpc));
-    DstOp.setReg(TRI.getSubReg(Reg, Z80::sub_high));
+    DstOp.setReg(TRI.getSubReg(LoadHighDirect ? OrigReg : Reg, Z80::sub_high));
     if (LowOpc != HighOpc) {
       assert(LowOpc == Z80::LD8rp && HighOpc == Z80::LD8ro &&
              "Can't offset low only");
       // Fixup if converting high to offset
       MIB.addImm(1);
     }
-    MIB = BuildMI(MBB, MI, DL, get(LowOpc), TRI.getSubReg(Reg, Z80::sub_low))
-              .addReg(AddrReg);
+    MIB = BuildMI(MBB, MI, DL, get(LowOpc), LowReg).addReg(AddrReg);
     if (HighOpc == Z80::LD8rp) {
       // Compute high address
       BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::INC24r : Z80::INC16r), AddrReg)
@@ -2231,7 +2265,12 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       OffsetMO.setImm(OffsetMO.getImm() + 1);
       assert(isInt<8>(OffsetMO.getImm()) && "LD88 can't have maximum offset.");
     }
-    if (Index) {
+    if (LoadHighDirect) {
+      BuildMI(MBB, Next, DL, get(Z80::LD8gg))
+          .addReg(TRI.getSubReg(OrigReg, Z80::sub_low),
+                  RegState::Define | getDeadRegState(DstOp.isDead()))
+          .addReg(LowReg, RegState::Kill);
+    } else if (Index) {
       if (Reg == Z80::HL)
         // Restore scratch register and prepare to set original register below
         BuildMI(MBB, Next, DL, get(Is24Bit ? Z80::EX24sa : Z80::EX16sa),
@@ -2241,7 +2280,7 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
         copyPhysReg(MBB, Next, DL, OrigReg, Reg);
     } else if (Overlap)
       copyPhysReg(MBB, Next, DL, OrigReg, Reg, true);
-    if (Index || Overlap)
+    if (SaveScratch)
       // Restore scratch register or set original register
       applySPAdjust(*BuildMI(
           MBB, Next, DL, get(Is24Bit ? Z80::POP24r : Z80::POP16r),

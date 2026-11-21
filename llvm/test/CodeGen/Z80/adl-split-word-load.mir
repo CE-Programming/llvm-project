@@ -1,0 +1,274 @@
+# NOTE: Do not autogenerate
+# RUN: llc -mtriple=ez80 -run-pass=postrapseudos -verify-machineinstrs -o - %s | FileCheck %s
+# RUN: sed 's/volatile load /load /g' %s | llc -mtriple=ez80 -run-pass=postrapseudos,dead-mi-elimination -verify-machineinstrs -x mir -o - | FileCheck %s --check-prefix=DCE
+
+--- |
+  @word = external global i16, align 1
+  define void @dead_scratch() { ret void }
+  define void @dead_result() { ret void }
+  define void @live_high_scratch() { ret void }
+  define void @live_low_scratch() { ret void }
+  define void @try_other_scratch() { ret void }
+  define void @no_free_scratch() { ret void }
+  define void @overwrite_beyond_lookahead() { ret void }
+  define void @overwrite_within_lookahead() { ret void }
+  define void @debug_use_of_scratch() !dbg !4 { ret void }
+  define void @debug_values_in_lookahead() !dbg !8 { ret void }
+
+  !llvm.dbg.cu = !{!0}
+  !llvm.module.flags = !{!2}
+  !0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, emissionKind: FullDebug)
+  !1 = !DIFile(filename: "word.c", directory: "/")
+  !2 = !{i32 2, !"Debug Info Version", i32 3}
+  !3 = !DISubroutineType(types: !{})
+  !4 = distinct !DISubprogram(name: "debug_use_of_scratch", scope: !1, file: !1, type: !3, unit: !0, spFlags: DISPFlagDefinition)
+  !5 = !DIBasicType(name: "char", size: 8, encoding: DW_ATE_signed)
+  !6 = !DILocalVariable(name: "x", scope: !4, file: !1, type: !5)
+  !7 = !DILocation(line: 1, scope: !4)
+  !8 = distinct !DISubprogram(name: "debug_values_in_lookahead", scope: !1, file: !1, type: !3, unit: !0, spFlags: DISPFlagDefinition)
+  !9 = !DILocalVariable(name: "x", scope: !8, file: !1, type: !5)
+  !10 = !DILocation(line: 1, scope: !8)
+...
+
+---
+name: dead_scratch
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl
+    $hl = LD88rp killed $uhl :: (volatile load (s16) from @word, align 1)
+    $ude = LD24ri 2
+    RET24 implicit $hl, implicit $ude, implicit-def $spl, implicit $spl
+
+# CHECK-LABEL: name: dead_scratch
+# CHECK: liveins: $uhl
+# CHECK-NOT: PUSH24r
+# CHECK: $e = LD8gp $uhl
+# CHECK-NEXT: $uhl = INC24r $uhl
+# CHECK-NEXT: $h = LD8gp killed $uhl :: (volatile load (s16) from @word, align 1)
+# CHECK-NEXT: $l = LD8gg killed $e{{$}}
+# CHECK-NEXT: $ude = LD24ri 2
+# CHECK-NEXT: RET24
+
+# Both halves of the non-volatile load are needed by the use of HL.
+# DCE-LABEL: name: dead_scratch
+# DCE: $e = LD8gp $uhl
+# DCE-NEXT: $uhl = INC24r $uhl
+# DCE-NEXT: $h = LD8gp killed $uhl :: (load (s16) from @word, align 1)
+# DCE-NEXT: $l = LD8gg killed $e{{$}}
+...
+
+---
+name: dead_result
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl
+    dead $hl = LD88rp killed $uhl :: (volatile load (s16) from @word, align 1)
+    RET24 implicit-def $spl, implicit $spl
+
+# CHECK-LABEL: name: dead_result
+# CHECK: $e = LD8gp $uhl
+# CHECK-NEXT: $uhl = INC24r $uhl
+# CHECK-NEXT: dead $h = LD8gp killed $uhl
+# CHECK-NEXT: dead $l = LD8gg killed $e{{$}}
+# CHECK-NEXT: RET24
+...
+
+---
+name: live_high_scratch
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl, $d
+    $hl = LD88rp killed $uhl :: (volatile load (s16) from @word, align 1)
+    RET24 implicit $hl, implicit $d, implicit-def $spl, implicit $spl
+
+# CHECK-LABEL: name: live_high_scratch
+# CHECK: liveins: $uhl, $d
+# CHECK-NOT: PUSH24r
+# CHECK: $e = LD8gp $uhl
+# CHECK-NEXT: $uhl = INC24r $uhl
+# CHECK-NEXT: $h = LD8gp killed $uhl
+# CHECK-NEXT: $l = LD8gg killed $e{{$}}
+# CHECK-NEXT: RET24 implicit $hl, implicit $d
+...
+
+---
+name: live_low_scratch
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl, $e
+    $hl = LD88rp killed $uhl :: (volatile load (s16) from @word, align 1)
+    $a = COPY killed $e
+    $ude = LD24ri 2
+    RET24 implicit $hl, implicit $a, implicit $ude, implicit-def $spl, implicit $spl
+
+# The unexpanded COPY still reads the old E before the overwrite of DE.
+# A is dead until the COPY redefines it.
+# CHECK-LABEL: name: live_low_scratch
+# CHECK-NOT: PUSH24r
+# CHECK: $a = LD8gp $uhl
+# CHECK-NEXT: $uhl = INC24r $uhl
+# CHECK-NEXT: $h = LD8gp killed $uhl
+# CHECK-NEXT: $l = LD8gg killed $a
+# CHECK-NEXT: $a = LD8gg killed $e
+# CHECK-NEXT: $ude = LD24ri 2
+# CHECK-NEXT: RET24 implicit $hl, implicit $a, implicit $ude
+...
+
+---
+name: try_other_scratch
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl, $a, $ubc, $e
+    $hl = LD88rp killed $uhl :: (volatile load (s16) from @word, align 1)
+    RET24 implicit $hl, implicit $a, implicit $ubc, implicit $e, implicit-def $spl, implicit $spl
+
+# UBC keeps both B and C live. E is also live, so use its sibling D.
+# CHECK-LABEL: name: try_other_scratch
+# CHECK-NOT: PUSH24r
+# CHECK: $d = LD8gp $uhl
+# CHECK-NEXT: $uhl = INC24r $uhl
+# CHECK-NEXT: $h = LD8gp killed $uhl
+# CHECK-NEXT: $l = LD8gg killed $d
+# CHECK-NEXT: RET24 implicit $hl, implicit $a, implicit $ubc, implicit $e
+...
+
+---
+name: no_free_scratch
+tracksRegLiveness: true
+body: |
+  bb.0:
+    successors: %bb.1
+    liveins: $uhl, $a, $ubc, $ude
+    $hl = LD88rp killed $uhl :: (volatile load (s16) from @word, align 1)
+
+  bb.1:
+    liveins: $hl, $a, $ubc, $ude
+    RET24 implicit $hl, implicit $a, implicit $ubc, implicit $ude, implicit-def $spl, implicit $spl
+
+# All five candidates are live in the successor. Keep the save/restore path.
+# CHECK-LABEL: name: no_free_scratch
+# CHECK: PUSH24r {{.*}}$ude
+# CHECK: $e = LD8gp $uhl
+# CHECK-NEXT: $uhl = INC24r $uhl
+# CHECK-NEXT: $d = LD8gp killed $uhl
+# CHECK-NEXT: $l = LD8gg killed $e
+# CHECK-NEXT: $h = LD8gg $d
+# CHECK-NEXT: $ude = POP24r
+# CHECK: RET24 implicit $hl, implicit $a, implicit $ubc, implicit $ude
+...
+
+---
+name: overwrite_beyond_lookahead
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl
+    $hl = LD88rp killed $uhl :: (volatile load (s16) from @word, align 1)
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    $ude = LD24ri 2
+    RET24 implicit $hl, implicit $ude, implicit-def $spl, implicit $spl
+
+# The later definition is out of range, so preserve the scratch pair.
+# CHECK-LABEL: name: overwrite_beyond_lookahead
+# CHECK: PUSH24r {{.*}}$ude
+# CHECK: $ude = POP24r
+# CHECK: NOP
+# CHECK: $ude = LD24ri 2
+...
+
+---
+name: overwrite_within_lookahead
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl, $a, $ubc, $e
+    $hl = LD88rp killed $uhl :: (volatile load (s16) from @word, align 1)
+    NOP
+    $b = LD8ri 0
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    NOP
+    RET24 implicit $hl, implicit $a, implicit $b, implicit $c, implicit $e, implicit-def $spl, implicit $spl
+
+# The scan stops before the end of the block, so every candidate starts live.
+# B becomes free only because it is redefined inside the lookahead window.
+# CHECK-LABEL: name: overwrite_within_lookahead
+# CHECK-NOT: PUSH24r
+# CHECK: $b = LD8gp $uhl
+# CHECK-NEXT: $uhl = INC24r $uhl
+# CHECK-NEXT: $h = LD8gp killed $uhl
+# CHECK-NEXT: $l = LD8gg killed $b
+# CHECK-NEXT: NOP
+# CHECK-NEXT: $b = LD8ri 0
+...
+
+---
+name: debug_use_of_scratch
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl
+    $hl = LD88rp killed $uhl :: (volatile load (s16) from @word, align 1)
+    DBG_VALUE $e, $noreg, !6, !DIExpression(), debug-location !7
+    $ude = LD24ri 2
+    RET24 implicit $hl, implicit $ude, implicit-def $spl, implicit $spl
+
+# The debug reference to E must not make the scratch byte live.
+# CHECK-LABEL: name: debug_use_of_scratch
+# CHECK-NOT: PUSH24r
+# CHECK: $h = LD8gp killed $uhl
+# CHECK-NEXT: $l = LD8gg killed $e
+# CHECK-NEXT: DBG_VALUE $e, $noreg
+# CHECK-NEXT: $ude = LD24ri 2
+# CHECK-NEXT: RET24
+...
+
+---
+name: debug_values_in_lookahead
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl
+    $hl = LD88rp killed $uhl :: (volatile load (s16) from @word, align 1)
+    DBG_VALUE $noreg, $noreg, !9, !DIExpression(), debug-location !10
+    DBG_VALUE $noreg, $noreg, !9, !DIExpression(), debug-location !10
+    DBG_VALUE $noreg, $noreg, !9, !DIExpression(), debug-location !10
+    DBG_VALUE $noreg, $noreg, !9, !DIExpression(), debug-location !10
+    DBG_VALUE $noreg, $noreg, !9, !DIExpression(), debug-location !10
+    DBG_VALUE $noreg, $noreg, !9, !DIExpression(), debug-location !10
+    DBG_VALUE $noreg, $noreg, !9, !DIExpression(), debug-location !10
+    DBG_VALUE $noreg, $noreg, !9, !DIExpression(), debug-location !10
+    DBG_VALUE $noreg, $noreg, !9, !DIExpression(), debug-location !10
+    DBG_VALUE $noreg, $noreg, !9, !DIExpression(), debug-location !10
+    $ude = LD24ri 2
+    RET24 implicit $hl, implicit $ude, implicit-def $spl, implicit $spl
+
+# Ten debug instructions must leave room for the overwrite in the lookahead.
+# CHECK-LABEL: name: debug_values_in_lookahead
+# CHECK-NOT: PUSH24r
+# CHECK: $h = LD8gp killed $uhl
+# CHECK-NEXT: $l = LD8gg killed $e
+# CHECK-COUNT-10: DBG_VALUE $noreg, $noreg
+# CHECK-NEXT: $ude = LD24ri 2
+# CHECK-NEXT: RET24
+...
