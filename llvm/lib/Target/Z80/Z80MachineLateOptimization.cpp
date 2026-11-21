@@ -25,11 +25,14 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/ADT/Statistic.h"
+#include <optional>
 
 #define DEBUG_TYPE "z80-machine-late-opt"
 
 using namespace llvm;
 
+STATISTIC(NumKnownAccumulatorBranches,
+          "Number of branches on a known accumulator threaded");
 STATISTIC(NumPushPopPairsSeen,
           "Number of PUSH16/24r instructions inspected");
 STATISTIC(NumPushPopAdjacentPairs,
@@ -1459,14 +1462,123 @@ bool Z80MachineLateOptimization::foldPushPopPopStackShuffles(
   return Changed;
 }
 
+// A byte boolean phi can leave constant loads into A in each predecessor of
+// a block that only tests A and branches on Z. Retarget each predecessor
+// whose last write of A is a known constant to the successor that the test
+// selects, and delete the test block once nothing reaches it. The test's
+// flags must be dead at that successor.
+static bool threadKnownAccumulatorBranches(MachineFunction &MF,
+                                           const TargetInstrInfo &TII,
+                                           const TargetRegisterInfo &TRI) {
+  bool Changed = false;
+  for (MachineBasicBlock &Test : make_early_inc_range(MF)) {
+    if (Test.isEntryBlock() || Test.isEHPad() || Test.hasAddressTaken() ||
+        Test.succ_size() != 2)
+      continue;
+    // Do not skip pseudo probes: erasing the block would drop them.
+    auto TestI = Test.getFirstNonDebugInstr(/*SkipPseudoOp=*/false);
+    if (TestI == Test.end() || TestI->isBundled())
+      continue;
+    const MachineInstr &TestMI = *TestI;
+    if (TestMI.getOpcode() != Z80::BIT8gb && TestMI.getOpcode() != Z80::OR8ar)
+      continue;
+    const MachineOperand &TestOp = TestMI.getOperand(0);
+    if (!TestOp.isReg() || TestOp.getReg() != Z80::A || TestOp.getSubReg())
+      continue;
+    std::optional<unsigned> Bit;
+    if (TestMI.getOpcode() == Z80::BIT8gb)
+      Bit = TestMI.getOperand(1).getImm();
+    if (next_nodbg(TestI, Test.end(), /*SkipPseudoOp=*/false) !=
+        Test.getFirstTerminator())
+      continue;
+
+    MachineBasicBlock *TBB = nullptr, *FBB = nullptr;
+    SmallVector<MachineOperand, 1> Cond;
+    if (TII.analyzeBranch(Test, TBB, FBB, Cond) || Cond.size() != 1 || !TBB)
+      continue;
+    auto CC = Z80::CondCode(Cond[0].getImm());
+    if (CC != Z80::COND_Z && CC != Z80::COND_NZ)
+      continue;
+    if (!FBB)
+      for (MachineBasicBlock *Succ : Test.successors())
+        if (Succ != TBB)
+          FBB = Succ;
+    if (!FBB || FBB == TBB)
+      continue;
+    // A threaded predecessor reaches its destination with its own flags
+    // instead of the test's. Partial flag writers such as INC keep some
+    // flags, so check past them rather than only the live-in list.
+    std::optional<bool> FlagsDead[2];
+    auto flagsDeadAt = [&](MachineBasicBlock *Dest) {
+      std::optional<bool> &Dead = FlagsDead[Dest == FBB];
+      if (!Dead)
+        Dead = Z80::areFlagsDeadFrom(*Dest, Dest->begin(), TRI);
+      return *Dead;
+    };
+
+    SmallVector<MachineBasicBlock *, 4> Preds(Test.predecessors());
+    for (MachineBasicBlock *Pred : Preds) {
+      if (Pred == &Test || Pred->succ_size() != 1)
+        continue;
+      MachineBasicBlock *PT = nullptr, *PF = nullptr;
+      SmallVector<MachineOperand, 1> PCond;
+      if (TII.analyzeBranch(*Pred, PT, PF, PCond) || !PCond.empty())
+        continue;
+      const MachineInstr *Def = nullptr;
+      for (const MachineInstr &MI : reverse(*Pred)) {
+        if (MI.isDebugInstr())
+          continue;
+        if (MI.isBundled() || MI.isInlineAsm())
+          break;
+        if (MI.modifiesRegister(Z80::A, &TRI)) {
+          Def = &MI;
+          break;
+        }
+      }
+      if (!Def ||
+          (Def->getOpcode() != Z80::LD8r0 && Def->getOpcode() != Z80::LD8ri))
+        continue;
+      const MachineOperand &DefOp = Def->getOperand(0);
+      if (!DefOp.isReg() || DefOp.getReg() != Z80::A || DefOp.getSubReg())
+        continue;
+      uint8_t Val;
+      if (Def->getOpcode() == Z80::LD8r0)
+        Val = 0;
+      else if (Def->getOperand(1).isImm())
+        Val = Def->getOperand(1).getImm();
+      else
+        continue;
+      bool Zero = Bit ? !((Val >> *Bit) & 1) : Val == 0;
+      MachineBasicBlock *Dest = (CC == Z80::COND_Z) == Zero ? TBB : FBB;
+      if (!flagsDeadAt(Dest))
+        continue;
+      DebugLoc DL = Pred->findBranchDebugLoc();
+      TII.removeBranch(*Pred);
+      TII.insertBranch(*Pred, Dest, nullptr, {}, DL);
+      Pred->replaceSuccessor(&Test, Dest);
+      ++NumKnownAccumulatorBranches;
+      Changed = true;
+    }
+
+    if (Test.pred_empty()) {
+      while (!Test.succ_empty())
+        Test.removeSuccessor(Test.succ_begin());
+      Test.eraseFromParent();
+    }
+  }
+  return Changed;
+}
+
 bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
   bool Changed = false;
   const auto &STI = MF.getSubtarget<Z80Subtarget>();
   TRI = STI.getRegisterInfo();
   const TargetInstrInfo &TII = *STI.getInstrInfo();
   MachineRegisterInfo &MRI = MF.getRegInfo();
-  const bool FoldBitBranches = !skipFunction(MF.getFunction());
+  const bool FoldBranches = !skipFunction(MF.getFunction());
 
+  if (FoldBranches)
+    Changed |= threadKnownAccumulatorBranches(MF, TII, *TRI);
   Changed |= foldCopyExchangeCopies(MF, TII);
   Changed |= foldPushPopPopStackShuffles(MF, TII);
   Changed |= foldPushPopExchangeCopies(MF, TII);
@@ -1911,7 +2023,7 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
 
       debug(*MIB);
     }
-    if (FoldBitBranches)
+    if (FoldBranches)
       Changed |= foldBitTestBranch(MBB, STI);
   }
   return Changed;

@@ -365,28 +365,22 @@ define i32 @smax.i32(i32, i32) {
 ; Z80-NEXT:    ld d, (ix + 11)
 ; Z80-NEXT:    call __lcmps
 ; Z80-NEXT:    call pe, __setflag
-; Z80-NEXT:    jp m, BB6_2
+; Z80-NEXT:    jp m, BB6_5
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    xor a, a
-; Z80-NEXT:    bit 0, a
-; Z80-NEXT:    jr z, BB6_3
-; Z80-NEXT:    jr BB6_4
-; Z80-NEXT:    private BB6_2
-; Z80-NEXT:  BB6_2:
-; Z80-NEXT:    ld a, 1
-; Z80-NEXT:    bit 0, a
-; Z80-NEXT:    jr nz, BB6_4
-; Z80-NEXT:    private BB6_3
-; Z80-NEXT:  BB6_3:
+; Z80-NEXT:  ; %bb.2:
 ; Z80-NEXT:    ld c, l
 ; Z80-NEXT:    ld b, h
-; Z80-NEXT:    private BB6_4
-; Z80-NEXT:  BB6_4:
+; Z80-NEXT:  ; %bb.3:
 ; Z80-NEXT:    rrca
 ; Z80-NEXT:    jr c, BB6_6
-; Z80-NEXT:  ; %bb.5:
+; Z80-NEXT:  ; %bb.4:
 ; Z80-NEXT:    ld iyl, e
 ; Z80-NEXT:    ld iyh, d
+; Z80-NEXT:    jr BB6_6
+; Z80-NEXT:    private BB6_5
+; Z80-NEXT:  BB6_5:
+; Z80-NEXT:    ld a, 1
 ; Z80-NEXT:    private BB6_6
 ; Z80-NEXT:  BB6_6:
 ; Z80-NEXT:    ld l, c
@@ -407,28 +401,22 @@ define i32 @smax.i32(i32, i32) {
 ; EZ80-CODE16-NEXT:    ld de, (ix + 10)
 ; EZ80-CODE16-NEXT:    call __lcmps
 ; EZ80-CODE16-NEXT:    call pe, __setflag
-; EZ80-CODE16-NEXT:    jp m, BB6_2
+; EZ80-CODE16-NEXT:    jp m, BB6_5
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    xor a, a
-; EZ80-CODE16-NEXT:    bit 0, a
-; EZ80-CODE16-NEXT:    jr z, BB6_3
-; EZ80-CODE16-NEXT:    jr BB6_4
-; EZ80-CODE16-NEXT:    private BB6_2
-; EZ80-CODE16-NEXT:  BB6_2:
-; EZ80-CODE16-NEXT:    ld a, 1
-; EZ80-CODE16-NEXT:    bit 0, a
-; EZ80-CODE16-NEXT:    jr nz, BB6_4
-; EZ80-CODE16-NEXT:    private BB6_3
-; EZ80-CODE16-NEXT:  BB6_3:
+; EZ80-CODE16-NEXT:  ; %bb.2:
 ; EZ80-CODE16-NEXT:    ld c, l
 ; EZ80-CODE16-NEXT:    ld b, h
-; EZ80-CODE16-NEXT:    private BB6_4
-; EZ80-CODE16-NEXT:  BB6_4:
+; EZ80-CODE16-NEXT:  ; %bb.3:
 ; EZ80-CODE16-NEXT:    rrca
 ; EZ80-CODE16-NEXT:    jr c, BB6_6
-; EZ80-CODE16-NEXT:  ; %bb.5:
+; EZ80-CODE16-NEXT:  ; %bb.4:
 ; EZ80-CODE16-NEXT:    ld iyl, e
 ; EZ80-CODE16-NEXT:    ld iyh, d
+; EZ80-CODE16-NEXT:    jr BB6_6
+; EZ80-CODE16-NEXT:    private BB6_5
+; EZ80-CODE16-NEXT:  BB6_5:
+; EZ80-CODE16-NEXT:    ld a, 1
 ; EZ80-CODE16-NEXT:    private BB6_6
 ; EZ80-CODE16-NEXT:  BB6_6:
 ; EZ80-CODE16-NEXT:    ld l, c
@@ -922,31 +910,24 @@ define i32 @smin.i32(i32, i32) {
 ; Z80-NEXT:    pop iy
 ; Z80-NEXT:    call __lcmps
 ; Z80-NEXT:    call pe, __setflag
-; Z80-NEXT:    jp m, BB10_2
+; Z80-NEXT:    jp m, BB10_6
 ; Z80-NEXT:  ; %bb.1:
 ; Z80-NEXT:    xor a, a
-; Z80-NEXT:    bit 0, a
-; Z80-NEXT:    jr z, BB10_3
-; Z80-NEXT:    jr BB10_4
-; Z80-NEXT:    private BB10_2
-; Z80-NEXT:  BB10_2:
-; Z80-NEXT:    ld a, 1
-; Z80-NEXT:    bit 0, a
-; Z80-NEXT:    jr nz, BB10_4
-; Z80-NEXT:    private BB10_3
-; Z80-NEXT:  BB10_3:
+; Z80-NEXT:  ; %bb.2:
 ; Z80-NEXT:    ld l, c
 ; Z80-NEXT:    ld h, b
-; Z80-NEXT:    private BB10_4
-; Z80-NEXT:  BB10_4:
+; Z80-NEXT:  ; %bb.3:
 ; Z80-NEXT:    rrca
-; Z80-NEXT:    jr nc, BB10_6
-; Z80-NEXT:  ; %bb.5:
+; Z80-NEXT:    jr c, BB10_5
+; Z80-NEXT:  ; %bb.4:
+; Z80-NEXT:    ld e, iyl
+; Z80-NEXT:    ld d, iyh
+; Z80-NEXT:    private BB10_5
+; Z80-NEXT:  BB10_5:
 ; Z80-NEXT:    ret
 ; Z80-NEXT:    private BB10_6
 ; Z80-NEXT:  BB10_6:
-; Z80-NEXT:    ld e, iyl
-; Z80-NEXT:    ld d, iyh
+; Z80-NEXT:    ld a, 1
 ; Z80-NEXT:    ret
 ;
 ; EZ80-CODE16-LABEL: smin.i32:
@@ -959,30 +940,23 @@ define i32 @smin.i32(i32, i32) {
 ; EZ80-CODE16-NEXT:    ld iy, (iy + 8)
 ; EZ80-CODE16-NEXT:    call __lcmps
 ; EZ80-CODE16-NEXT:    call pe, __setflag
-; EZ80-CODE16-NEXT:    jp m, BB10_2
+; EZ80-CODE16-NEXT:    jp m, BB10_6
 ; EZ80-CODE16-NEXT:  ; %bb.1:
 ; EZ80-CODE16-NEXT:    xor a, a
-; EZ80-CODE16-NEXT:    bit 0, a
-; EZ80-CODE16-NEXT:    jr z, BB10_3
-; EZ80-CODE16-NEXT:    jr BB10_4
-; EZ80-CODE16-NEXT:    private BB10_2
-; EZ80-CODE16-NEXT:  BB10_2:
-; EZ80-CODE16-NEXT:    ld a, 1
-; EZ80-CODE16-NEXT:    bit 0, a
-; EZ80-CODE16-NEXT:    jr nz, BB10_4
-; EZ80-CODE16-NEXT:    private BB10_3
-; EZ80-CODE16-NEXT:  BB10_3:
+; EZ80-CODE16-NEXT:  ; %bb.2:
 ; EZ80-CODE16-NEXT:    ld l, c
 ; EZ80-CODE16-NEXT:    ld h, b
-; EZ80-CODE16-NEXT:    private BB10_4
-; EZ80-CODE16-NEXT:  BB10_4:
+; EZ80-CODE16-NEXT:  ; %bb.3:
 ; EZ80-CODE16-NEXT:    rrca
-; EZ80-CODE16-NEXT:    jr nc, BB10_6
-; EZ80-CODE16-NEXT:  ; %bb.5:
+; EZ80-CODE16-NEXT:    jr c, BB10_5
+; EZ80-CODE16-NEXT:  ; %bb.4:
+; EZ80-CODE16-NEXT:    lea de, iy + 0
+; EZ80-CODE16-NEXT:    private BB10_5
+; EZ80-CODE16-NEXT:  BB10_5:
 ; EZ80-CODE16-NEXT:    ret
 ; EZ80-CODE16-NEXT:    private BB10_6
 ; EZ80-CODE16-NEXT:  BB10_6:
-; EZ80-CODE16-NEXT:    lea de, iy + 0
+; EZ80-CODE16-NEXT:    ld a, 1
 ; EZ80-CODE16-NEXT:    ret
 ;
 ; EZ80-LABEL: smin.i32:

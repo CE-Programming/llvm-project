@@ -1,0 +1,263 @@
+# NOTE: Do not autogenerate
+# RUN: llc -mtriple=z80 -run-pass=z80-machine-late-opt -verify-machineinstrs -o - %s | FileCheck %s
+# RUN: llc -mtriple=ez80 -run-pass=z80-machine-late-opt -verify-machineinstrs -o - %s | FileCheck %s
+# RUN: llc -mtriple=z80 -run-pass=z80-machine-late-opt -opt-bisect-limit=1 -verify-machineinstrs -o %t %s 2>&1 | FileCheck %s --check-prefix=BISECT
+
+# BISECT: BISECT: running pass (1) z80-machine-late-opt on function (both_known)
+# BISECT-NEXT: BISECT: NOT running pass (2) z80-machine-late-opt on function (one_known)
+
+--- |
+  define void @both_known() { ret void }
+  define void @one_known() { ret void }
+  define void @or_test() { ret void }
+  define void @live_flags() { ret void }
+  define void @carry_through_inc() { ret void }
+  define void @leading_nop() { ret void }
+  define void @pseudo_probe() { ret void }
+...
+
+---
+name: both_known
+tracksRegLiveness: true
+body: |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $f
+    JQCC %bb.2, 7, implicit $f
+
+  bb.1:
+    successors: %bb.3
+    $a = LD8ri 1
+    JQ %bb.3
+
+  bb.2:
+    successors: %bb.3
+    $a = LD8r0 implicit-def dead $f
+
+  bb.3:
+    successors: %bb.5, %bb.4
+    liveins: $a
+    BIT8gb $a, 0, implicit-def $f
+    JQCC %bb.5, 1, implicit $f
+
+  bb.4:
+    liveins: $a
+    $l = LD8ri 4
+    RET16 implicit-def $sps, implicit $sps, implicit $a, implicit $l
+
+  bb.5:
+    liveins: $a
+    $l = LD8ri 5
+    RET16 implicit-def $sps, implicit $sps, implicit $a, implicit $l
+
+# Bit 0 of 1 is set, so Z is clear and bb.1 goes to bb.4. bb.2 loads zero
+# and goes to bb.5. Nothing reaches the test block afterwards.
+# CHECK-LABEL: name: both_known
+# CHECK:      bb.1:
+# CHECK-NEXT:   successors: %bb.4
+# CHECK:        $a = LD8ri 1
+# CHECK-NEXT:   JQ %bb.4
+# CHECK:      bb.2:
+# CHECK-NEXT:   successors: %bb.5
+# CHECK:        $a = LD8r0
+# CHECK-NEXT:   JQ %bb.5
+# CHECK-NOT:  BIT8gb
+# CHECK:      bb.4:
+...
+
+---
+name: one_known
+tracksRegLiveness: true
+body: |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $f, $c
+    JQCC %bb.2, 7, implicit $f
+
+  bb.1:
+    successors: %bb.3
+    liveins: $c
+    $a = LD8gg killed $c
+    JQ %bb.3
+
+  bb.2:
+    successors: %bb.3
+    $a = LD8ri 2
+
+  bb.3:
+    successors: %bb.5, %bb.4
+    liveins: $a
+    BIT8gb $a, 1, implicit-def $f
+    JQCC %bb.5, 0, implicit $f
+
+  bb.4:
+    liveins: $a
+    RET16 implicit-def $sps, implicit $sps, implicit $a
+
+  bb.5:
+    liveins: $a
+    $a = LD8ri 5
+    RET16 implicit-def $sps, implicit $sps, implicit $a
+
+# Only bb.2 has a known A. Bit 1 of 2 is set, so NZ holds and bb.2 goes to
+# bb.5. bb.1 still reaches the test.
+# CHECK-LABEL: name: one_known
+# CHECK:      bb.1:
+# CHECK-NEXT:   successors: %bb.3
+# CHECK:      bb.2:
+# CHECK-NEXT:   successors: %bb.5
+# CHECK:        $a = LD8ri 2
+# CHECK-NEXT:   JQ %bb.5
+# CHECK:      bb.3:
+# CHECK:        BIT8gb $a, 1
+...
+
+---
+name: or_test
+tracksRegLiveness: true
+body: |
+  bb.0:
+    successors: %bb.1
+    $a = LD8ri 16
+
+  bb.1:
+    successors: %bb.3, %bb.2
+    liveins: $a
+    OR8ar $a, implicit-def $a, implicit-def $f, implicit $a
+    JQCC %bb.3, 1, implicit $f
+
+  bb.2:
+    liveins: $a
+    RET16 implicit-def $sps, implicit $sps, implicit $a
+
+  bb.3:
+    RET16 implicit-def $sps, implicit $sps
+
+# OR A,A on 16 clears Z, so the entry block falls to bb.2 directly.
+# CHECK-LABEL: name: or_test
+# CHECK:      bb.0:
+# CHECK-NEXT:   successors: %bb.2
+# CHECK:        $a = LD8ri 16
+# CHECK-NEXT:   JQ %bb.2
+# CHECK-NOT:  OR8ar
+...
+
+---
+name: live_flags
+tracksRegLiveness: true
+body: |
+  bb.0:
+    successors: %bb.1
+    $a = LD8ri 1
+
+  bb.1:
+    successors: %bb.3, %bb.2
+    liveins: $a
+    BIT8gb $a, 0, implicit-def $f
+    JQCC %bb.3, 1, implicit $f
+
+  bb.2:
+    liveins: $f
+    RET16 implicit-def $sps, implicit $sps, implicit $f
+
+  bb.3:
+    RET16 implicit-def $sps, implicit $sps
+
+# bb.2 reads the flags that the test sets, so the test must stay.
+# CHECK-LABEL: name: live_flags
+# CHECK:      bb.0:
+# CHECK-NEXT:   successors: %bb.1
+# CHECK:      BIT8gb $a, 0
+...
+
+---
+name: carry_through_inc
+tracksRegLiveness: true
+body: |
+  bb.0:
+    successors: %bb.1
+    liveins: $b
+    $a = LD8ri 1
+    SCF implicit-def dead $f
+    JQ %bb.1
+
+  bb.1:
+    successors: %bb.3, %bb.2
+    liveins: $a, $b
+    OR8ar $a, implicit-def $a, implicit-def $f, implicit $a
+    JQCC %bb.3, 1, implicit $f
+
+  bb.2:
+    liveins: $a, $b
+    $b = INC8r $b, implicit-def $f
+    ADC8ai 0, implicit-def $a, implicit-def dead $f, implicit $a, implicit $f
+    RET16 implicit-def $sps, implicit $sps, implicit $a, implicit $b
+
+  bb.3:
+    RET16 implicit-def $sps, implicit $sps
+
+# The OR clears carry, and INC keeps it for the ADC. Skipping the OR would
+# pass the carry from SCF instead.
+# CHECK-LABEL: name: carry_through_inc
+# CHECK:      bb.0:
+# CHECK-NEXT:   successors: %bb.1
+# CHECK:      OR8ar $a
+...
+
+---
+name: leading_nop
+tracksRegLiveness: true
+body: |
+  bb.0:
+    successors: %bb.1
+    $a = LD8ri 1
+    JQ %bb.1
+
+  bb.1:
+    successors: %bb.3, %bb.2
+    liveins: $a
+    NOP
+    BIT8gb $a, 0, implicit-def $f
+    JQCC %bb.3, 1, implicit $f
+
+  bb.2:
+    RET16 implicit-def $sps, implicit $sps
+
+  bb.3:
+    RET16 implicit-def $sps, implicit $sps
+
+# The block does more than test A, so leave it alone.
+# CHECK-LABEL: name: leading_nop
+# CHECK:      bb.0:
+# CHECK-NEXT:   successors: %bb.1
+# CHECK:      NOP
+...
+
+---
+name: pseudo_probe
+tracksRegLiveness: true
+body: |
+  bb.0:
+    successors: %bb.1
+    $a = LD8ri 1
+    JQ %bb.1
+
+  bb.1:
+    successors: %bb.3, %bb.2
+    liveins: $a
+    PSEUDO_PROBE 128, 1, 0, 0
+    BIT8gb $a, 0, implicit-def $f
+    JQCC %bb.3, 1, implicit $f
+
+  bb.2:
+    RET16 implicit-def $sps, implicit $sps
+
+  bb.3:
+    RET16 implicit-def $sps, implicit $sps
+
+# Threading would bypass the probe.
+# CHECK-LABEL: name: pseudo_probe
+# CHECK:      bb.0:
+# CHECK-NEXT:   successors: %bb.1
+# CHECK:      PSEUDO_PROBE 128, 1, 0, 0
+...
