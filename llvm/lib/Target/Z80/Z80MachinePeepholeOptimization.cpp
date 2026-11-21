@@ -40,6 +40,7 @@ STATISTIC(NumSignExtensions,
 STATISTIC(NumDoubles, "Number of final register copy/doubling folds");
 STATISTIC(NumByteBits, "Number of final byte bit-operation copy folds");
 STATISTIC(NumAccumulatorTests, "Number of redundant accumulator ORs removed");
+STATISTIC(NumCopyBacks, "Number of byte copies back to their source removed");
 STATISTIC(NumZeroAccumulators,
           "Number of accumulator zero loads replaced with XOR A,A");
 STATISTIC(NumBooleanTests,
@@ -108,6 +109,96 @@ static bool isBooleanProducer(const MachineInstr &MI) {
           MI.getOperand(0).getImm() == 1);
 }
 
+// A plain byte register copy. Copies with implicit operands, such as kills or
+// defs of a super-register, are left alone.
+static bool isByteRegCopy(const MachineInstr &MI) {
+  switch (MI.getOpcode()) {
+  case Z80::LD8gg:
+  case Z80::LD8xx:
+  case Z80::LD8yy:
+    break;
+  default:
+    return false;
+  }
+  if (!canFold(MI) || MI.getNumOperands() != 2)
+    return false;
+  const MachineOperand &Dst = MI.getOperand(0), &Src = MI.getOperand(1);
+  return Dst.isReg() && Src.isReg() && !Dst.getSubReg() && !Src.getSubReg() &&
+         !Src.isUndef() && Dst.getReg() != Src.getReg();
+}
+
+// Point a debug value that refers to Old at New, or mark it undef when New
+// does not hold the same value or the value only refers to part of Old.
+static void salvageDebugValue(MachineInstr &DV, Register Old, Register New,
+                              bool NewValid, const TargetRegisterInfo &TRI) {
+  if (!DV.isDebugValue())
+    return;
+  bool Exact = false, Partial = false;
+  for (const MachineOperand &MO : DV.debug_operands())
+    if (MO.isReg() && MO.getReg() && TRI.regsOverlap(MO.getReg(), Old))
+      (MO.getReg() == Old ? Exact : Partial) = true;
+  if (!Exact && !Partial)
+    return;
+  if (Partial || !NewValid) {
+    DV.setDebugValueUndef();
+    return;
+  }
+  for (MachineOperand &MO : DV.getDebugOperandsForReg(Old))
+    MO.setReg(New);
+}
+
+// Pseudo expansion can leave a copy straight back to its source, as in
+// LD L,A; LD A,L. The second copy changes nothing. Neither copy touches F.
+// When the first copy's destination is not read afterwards, it is dead too.
+static bool foldCopyBacks(MachineBasicBlock &MBB,
+                          const TargetRegisterInfo &TRI,
+                          const MachineRegisterInfo &MRI) {
+  LivePhysRegs Live(TRI);
+  Live.addLiveOuts(MBB);
+  bool Changed = false;
+  for (auto I = MBB.end(); I != MBB.begin();) {
+    MachineInstr &Back = *--I;
+    if (isByteRegCopy(Back) && I != MBB.begin()) {
+      auto PI = prev_nodbg(I, MBB.begin(), /*SkipPseudoOp=*/false);
+      MachineInstr &Copy = *PI;
+      if (isByteRegCopy(Copy) &&
+          Back.getOperand(0).getReg() == Copy.getOperand(1).getReg() &&
+          Back.getOperand(1).getReg() == Copy.getOperand(0).getReg()) {
+        Register From = Copy.getOperand(1).getReg();
+        Register To = Copy.getOperand(0).getReg();
+        // From still holds the copied value and may be read later.
+        Copy.getOperand(1).setIsKill(false);
+        I = MBB.erase(I);
+
+        // The first copy is dead too if To is not read again. Only erase it
+        // when debug values that may refer to To can all be found: those up
+        // to a later redefinition of To in this block, or all of the rest
+        // of a block without successors.
+        if (Live.available(MRI, To)) {
+          auto Redef = I;
+          for (; Redef != MBB.end(); ++Redef)
+            if (!Redef->isDebugInstr() && Redef->modifiesRegister(To, &TRI))
+              break;
+          if (Redef != MBB.end() || MBB.succ_empty()) {
+            bool FromValid = true;
+            for (auto J = std::next(PI); J != Redef; ++J) {
+              salvageDebugValue(*J, To, From, FromValid, TRI);
+              if (!J->isDebugInstr() && J->modifiesRegister(From, &TRI))
+                FromValid = false;
+            }
+            MBB.erase(PI);
+          }
+        }
+        ++NumCopyBacks;
+        Changed = true;
+        continue;
+      }
+    }
+    Live.stepBackward(Back);
+  }
+  return Changed;
+}
+
 // LD A,0 takes two bytes and seven cycles. XOR A,A gives the same A in one
 // byte and four cycles, but it writes every flag. Partial flag writers such
 // as INC keep some flags, so the check looks past them.
@@ -149,6 +240,7 @@ bool Z80MachinePeepholeOptimization::runOnMachineFunction(MachineFunction &MF) {
   bool Changed = false;
 
   for (MachineBasicBlock &MBB : MF) {
+    Changed |= foldCopyBacks(MBB, TRI, MRI);
     Changed |= foldZeroAccumulatorLoads(MBB, TII, TRI);
     Live.clear();
     Live.addLiveOuts(MBB);

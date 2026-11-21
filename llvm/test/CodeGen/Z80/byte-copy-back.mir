@@ -1,0 +1,159 @@
+# NOTE: Do not autogenerate
+# RUN: llc -mtriple=z80 -run-pass=z80-machine-peephole-opt -verify-machineinstrs %s -o - | FileCheck %s
+# RUN: llc -mtriple=ez80 -run-pass=z80-machine-peephole-opt -verify-machineinstrs %s -o - | FileCheck %s
+
+--- |
+  define void @dead_copy() !dbg !4 { ret void }
+  define void @live_copy() { ret void }
+  define void @other_register() { ret void }
+  define void @copy_after_nop() { ret void }
+  define void @implicit_super_register() { ret void }
+  define void @debug_after_copy_back() !dbg !8 { ret void }
+  define void @copy_live_out() { ret void }
+
+  !llvm.dbg.cu = !{!0}
+  !llvm.module.flags = !{!2}
+  !0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, emissionKind: FullDebug)
+  !1 = !DIFile(filename: "copy.c", directory: "/")
+  !2 = !{i32 2, !"Debug Info Version", i32 3}
+  !3 = !DISubroutineType(types: !{})
+  !4 = distinct !DISubprogram(name: "dead_copy", scope: !1, file: !1, type: !3, unit: !0, spFlags: DISPFlagDefinition)
+  !5 = !DIBasicType(name: "char", size: 8, encoding: DW_ATE_unsigned)
+  !6 = !DILocalVariable(name: "x", scope: !4, file: !1, type: !5)
+  !7 = !DILocation(line: 1, scope: !4)
+  !8 = distinct !DISubprogram(name: "debug_after_copy_back", scope: !1, file: !1, type: !3, unit: !0, spFlags: DISPFlagDefinition)
+  !9 = !DILocalVariable(name: "y", scope: !8, file: !1, type: !5)
+  !10 = !DILocation(line: 1, scope: !8)
+...
+
+---
+name: dead_copy
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $a, $b
+    OR8ar killed $b, implicit-def $a, implicit-def dead $f, implicit $a
+    $l = LD8gg $a
+    DBG_VALUE $l, $noreg, !6, !DIExpression(), debug-location !7
+    $a = LD8gg killed $l
+    RET16 implicit-def $sps, implicit $sps, implicit $a
+
+# A already holds the value and L is not read again, so both copies go.
+# The debug value moves from L to A, which holds the same value.
+# CHECK-LABEL: name: dead_copy
+# CHECK:      OR8ar killed $b, implicit-def $a, implicit-def dead $f, implicit $a
+# CHECK-NEXT: DBG_VALUE $a, $noreg
+# CHECK-NEXT: RET16
+...
+
+---
+name: live_copy
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $e
+    $a = LD8gg killed $e
+    $e = LD8gg $a
+    RET16 implicit-def $sps, implicit $sps, implicit $a, implicit $e
+
+# E still holds the value, so only the second copy goes. E is no longer
+# killed because the return reads it.
+# CHECK-LABEL: name: live_copy
+# CHECK:      $a = LD8gg $e{{$}}
+# CHECK-NEXT: RET16
+...
+
+---
+name: other_register
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $a, $c
+    $l = LD8gg $a
+    $a = LD8gg killed $c
+    RET16 implicit-def $sps, implicit $sps, implicit $a, implicit $l
+
+# CHECK-LABEL: name: other_register
+# CHECK:      $l = LD8gg $a
+# CHECK-NEXT: $a = LD8gg killed $c
+...
+
+---
+name: copy_after_nop
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $l
+    NOP
+    $a = LD8gg $l
+    RET16 implicit-def $sps, implicit $sps, implicit $a
+
+# The instruction before the copy has no operands.
+# CHECK-LABEL: name: copy_after_nop
+# CHECK:      NOP
+# CHECK-NEXT: $a = LD8gg $l
+...
+
+---
+name: implicit_super_register
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $hl
+    $a = LD8gg killed $l, implicit killed $hl
+    $l = LD8gg $a, implicit-def $hl
+    RET16 implicit-def $sps, implicit $sps, implicit $a, implicit $hl
+
+# The copies carry implicit operands on HL, so leave them alone.
+# CHECK-LABEL: name: implicit_super_register
+# CHECK:      $a = LD8gg killed $l, implicit killed $hl
+# CHECK-NEXT: $l = LD8gg $a, implicit-def $hl
+...
+
+---
+name: debug_after_copy_back
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $a, $b
+    OR8ar killed $b, implicit-def $a, implicit-def dead $f, implicit $a
+    $l = LD8gg $a
+    $a = LD8gg killed $l
+    DBG_VALUE $l, $noreg, !9, !DIExpression(), debug-location !10
+    $a = LD8ri 1
+    DBG_VALUE $l, $noreg, !9, !DIExpression(), debug-location !10
+    $l = LD8ri 2
+    RET16 implicit-def $sps, implicit $sps, implicit $a, implicit $l
+
+# L held the value that A still holds, so the first debug value moves to A.
+# Once A changes, the value is gone.
+# CHECK-LABEL: name: debug_after_copy_back
+# CHECK:      OR8ar killed $b
+# CHECK-NEXT: DBG_VALUE $a, $noreg
+# CHECK-NEXT: $a = LD8ri 1
+# CHECK-NEXT: DBG_VALUE $noreg, $noreg
+# CHECK-NEXT: $l = LD8ri 2
+...
+
+---
+name: copy_live_out
+tracksRegLiveness: true
+body: |
+  bb.0:
+    successors: %bb.1
+    liveins: $a, $b
+    OR8ar killed $b, implicit-def $a, implicit-def dead $f, implicit $a
+    $l = LD8gg $a
+    $a = LD8gg killed $l
+
+  bb.1:
+    liveins: $a
+    RET16 implicit-def $sps, implicit $sps, implicit $a
+
+# L is dead, but a debug value in a successor could still name it, so keep
+# the first copy when L is not redefined in this block.
+# CHECK-LABEL: name: copy_live_out
+# CHECK:      $l = LD8gg $a
+# CHECK-NOT:  LD8gg
+# CHECK:      bb.1:
+...
