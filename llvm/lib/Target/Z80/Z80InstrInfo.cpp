@@ -2504,20 +2504,26 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
                                   : Is24Bit ? OrigSuperReg : OrigReg;
       LiveRegUnits Live(TRI);
       Live.addLiveOuts(MBB);
-      for (auto I = MBB.end(); I != Next;)
-        Live.stepBackward(*--I);
+      for (auto I = MBB.end(); I != Next;) {
+        const MachineInstr &Instr = *--I;
+        if (!Instr.isDebugInstr())
+          Live.stepBackward(Instr);
+      }
+      const bool ScratchDead =
+          MF.getRegInfo().tracksLiveness() && Live.available(ScratchReg);
       applySPAdjust(
           *BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::PUSH24r : Z80::PUSH16r))
-               .addReg(SaveReg, getUndefRegState(SaveReg == ScratchReg &&
-                                               Live.available(ScratchReg))));
+               .addReg(SaveReg,
+                       getUndefRegState(SaveReg == ScratchReg && ScratchDead)));
       if (UseLEA)
         // Set scratch register
         BuildMI(MBB, MI, DL, get(Z80::LEA24ro), ScratchReg)
             .addReg(OrigSuperReg).addImm(0);
       else if (Reg == Z80::HL)
-        // Save and set scratch register
+        // The exchange gets its result from the stack. The incoming scratch
+        // value only matters if it is needed after the spill.
         BuildMI(MBB, MI, DL, get(Is24Bit ? Z80::EX24sa : Z80::EX16sa),
-                ScratchReg).addReg(ScratchReg);
+                ScratchReg).addReg(ScratchReg, getUndefRegState(ScratchDead));
       else
         // Set scratch register directly
         copyPhysReg(MBB, MI, DL, Reg, OrigReg);
