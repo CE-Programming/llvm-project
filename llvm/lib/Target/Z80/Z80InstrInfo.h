@@ -52,6 +52,19 @@ CondCode GetOppositeBranchCondition(CondCode CC);
 
 CondCode parseConstraintCode(StringRef Constraint);
 
+/// Return true if MI writes S, Z, H, P/V, N and C without depending on their
+/// previous values. INC, DEC, BIT, ADD HL, SCF, CCF, CPL and the accumulator
+/// rotates are modeled as defining F but keep some flags, so they return
+/// false.
+bool writesAllFlags(const MachineInstr &MI);
+
+/// Return true if no flag value reaching I in MBB can be observed. Each flag
+/// is followed past partial flag writers that keep it, and into successors,
+/// until it is written. A reader of a followed flag makes the flags live.
+bool areFlagsDeadFrom(const MachineBasicBlock &MBB,
+                      MachineBasicBlock::const_iterator I,
+                      const TargetRegisterInfo &TRI);
+
 bool splitReg(unsigned ByteSize, unsigned Opc8, unsigned Opc16, unsigned Opc24,
               unsigned &RC, unsigned &LoOpc, unsigned &LoIdx, unsigned &HiOpc,
               unsigned &HiIdx, unsigned &HiOff, bool Has16BitEZ80Ops);

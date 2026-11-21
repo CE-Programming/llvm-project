@@ -16,6 +16,7 @@
 #include "Z80.h"
 #include "Z80Subtarget.h"
 #include "llvm/ADT/Sequence.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/CodeGen/LiveRegUnits.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
@@ -453,6 +454,158 @@ reverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const {
     return true;
   Cond[0].setImm(GetOppositeBranchCondition(CC));
   return false;
+}
+
+bool Z80::writesAllFlags(const MachineInstr &MI) {
+  switch (MI.getOpcode()) {
+  default:
+    return false;
+  case Z80::LD8r0:
+    return MI.getOperand(0).getReg() == Z80::A;
+  case Z80::LD24r0:
+  case Z80::LD24r_1:
+    return MI.getOperand(0).getReg() == Z80::UHL;
+  case Z80::ADD8ar: case Z80::ADD8ai: case Z80::ADD8ap: case Z80::ADD8ao:
+  case Z80::ADC8ar: case Z80::ADC8ai: case Z80::ADC8ap: case Z80::ADC8ao:
+  case Z80::SUB8ar: case Z80::SUB8ai: case Z80::SUB8ap: case Z80::SUB8ao:
+  case Z80::SBC8ar: case Z80::SBC8ai: case Z80::SBC8ap: case Z80::SBC8ao:
+  case Z80::AND8ar: case Z80::AND8ai: case Z80::AND8ap: case Z80::AND8ao:
+  case Z80::XOR8ar: case Z80::XOR8ai: case Z80::XOR8ap: case Z80::XOR8ao:
+  case Z80::OR8ar:  case Z80::OR8ai:  case Z80::OR8ap:  case Z80::OR8ao:
+  case Z80::CP8ar:  case Z80::CP8ai:  case Z80::CP8ap:  case Z80::CP8ao:
+  case Z80::ADD8_gisel: case Z80::ADD8_gisel_p: case Z80::ADD8_gisel_o:
+  case Z80::SUB8_gisel: case Z80::SUB8_gisel_p: case Z80::SUB8_gisel_o:
+  case Z80::AND8_gisel: case Z80::AND8_gisel_p: case Z80::AND8_gisel_o:
+  case Z80::OR8_gisel:  case Z80::OR8_gisel_p:  case Z80::OR8_gisel_o:
+  case Z80::XOR8_gisel: case Z80::XOR8_gisel_p: case Z80::XOR8_gisel_o:
+  case Z80::TST8ag: case Z80::TST8ai: case Z80::TST8ap: case Z80::TST8mi:
+  case Z80::NEG:
+  case Z80::RCF:
+  case Z80::ADC16aa: case Z80::ADC16ao: case Z80::ADC16as:
+  case Z80::ADC24aa: case Z80::ADC24ao: case Z80::ADC24as:
+  case Z80::SBC16aa: case Z80::SBC16ao: case Z80::SBC16as:
+  case Z80::SBC24aa: case Z80::SBC24ao: case Z80::SBC24as:
+  case Z80::Cmp16ao: case Z80::Cmp24ao:
+  case Z80::Sub16ao: case Z80::Sub24ao:
+  case Z80::RLC8g: case Z80::RLC8go: case Z80::RLC8o: case Z80::RLC8p:
+  case Z80::RRC8g: case Z80::RRC8go: case Z80::RRC8o: case Z80::RRC8p:
+  case Z80::RL8g:  case Z80::RL8go:  case Z80::RL8o:  case Z80::RL8p:
+  case Z80::RR8g:  case Z80::RR8go:  case Z80::RR8o:  case Z80::RR8p:
+  case Z80::SLA8g: case Z80::SLA8go: case Z80::SLA8o: case Z80::SLA8p:
+  case Z80::SRA8g: case Z80::SRA8go: case Z80::SRA8o: case Z80::SRA8p:
+  case Z80::SRL8g: case Z80::SRL8go: case Z80::SRL8o: case Z80::SRL8p:
+    return true;
+  }
+}
+
+namespace {
+enum : uint8_t {
+  CarryFlagBit = 1 << 0,
+  SubtractFlagBit = 1 << 1,
+  ParityOverflowFlagBit = 1 << 2,
+  HalfCarryFlagBit = 1 << 4,
+  ZeroFlagBit = 1 << 6,
+  SignFlagBit = 1 << 7,
+  AllFlagBits = CarryFlagBit | SubtractFlagBit | ParityOverflowFlagBit |
+                HalfCarryFlagBit | ZeroFlagBit | SignFlagBit,
+};
+} // namespace
+
+// The flags MI sets without depending on their previous values. An unknown
+// instruction that defines F conservatively sets none.
+static uint8_t getWrittenFlags(const MachineInstr &MI,
+                               const TargetRegisterInfo &TRI) {
+  if (Z80::writesAllFlags(MI))
+    return AllFlagBits;
+  switch (MI.getOpcode()) {
+  case Z80::INC8r: case Z80::INC8p: case Z80::INC8o:
+  case Z80::DEC8r: case Z80::DEC8p: case Z80::DEC8o:
+  case Z80::BIT8gb: case Z80::BIT8pb: case Z80::BIT8ob:
+  case Z80::LD8ai: case Z80::LD8ar:
+    return AllFlagBits & ~CarryFlagBit;
+  case Z80::ADD16aa: case Z80::ADD16ao: case Z80::ADD16as:
+  case Z80::ADD24aa: case Z80::ADD24ao: case Z80::ADD24as:
+  case Z80::SCF: case Z80::CCF:
+  case Z80::RLCA: case Z80::RRCA: case Z80::RLA: case Z80::RRA:
+    return HalfCarryFlagBit | SubtractFlagBit | CarryFlagBit;
+  case Z80::CPL:
+    return HalfCarryFlagBit | SubtractFlagBit;
+  }
+  // A call that clobbers F leaves no flag value a later reader may assume.
+  if (MI.isCall() && MI.modifiesRegister(Z80::F, &TRI))
+    return AllFlagBits;
+  return 0;
+}
+
+// The flags MI reads. An unknown reader of F conservatively reads all.
+static uint8_t getReadFlags(const MachineInstr &MI,
+                            const TargetRegisterInfo &TRI) {
+  if (!MI.readsRegister(Z80::F, &TRI))
+    return 0;
+  switch (MI.getOpcode()) {
+  case Z80::JQCC:
+  case Z80::JRCC:
+    switch (MI.getOperand(1).getImm()) {
+    case Z80::COND_NZ: case Z80::COND_Z:
+      return ZeroFlagBit;
+    case Z80::COND_NC: case Z80::COND_C:
+      return CarryFlagBit;
+    case Z80::COND_PO: case Z80::COND_PE:
+      return ParityOverflowFlagBit;
+    case Z80::COND_P: case Z80::COND_M:
+      return SignFlagBit;
+    }
+    return AllFlagBits;
+  case Z80::ADC8ar: case Z80::ADC8ai: case Z80::ADC8ap: case Z80::ADC8ao:
+  case Z80::SBC8ar: case Z80::SBC8ai: case Z80::SBC8ap: case Z80::SBC8ao:
+  case Z80::ADC16aa: case Z80::ADC16ao: case Z80::ADC16as:
+  case Z80::ADC24aa: case Z80::ADC24ao: case Z80::ADC24as:
+  case Z80::SBC16aa: case Z80::SBC16ao: case Z80::SBC16as:
+  case Z80::SBC24aa: case Z80::SBC24ao: case Z80::SBC24as:
+  case Z80::RL8g: case Z80::RL8go: case Z80::RL8o: case Z80::RL8p:
+  case Z80::RR8g: case Z80::RR8go: case Z80::RR8o: case Z80::RR8p:
+  case Z80::RLA: case Z80::RRA: case Z80::CCF:
+    return CarryFlagBit;
+  }
+  return AllFlagBits;
+}
+
+bool Z80::areFlagsDeadFrom(const MachineBasicBlock &MBB,
+                           MachineBasicBlock::const_iterator I,
+                           const TargetRegisterInfo &TRI) {
+  // Track which of the flags present at I may still hold their value. Each
+  // block is rescanned only for flags not yet followed into it. MBB itself
+  // is not marked, so a back edge to it rescans the instructions before I.
+  struct Item {
+    const MachineBasicBlock *MBB;
+    MachineBasicBlock::const_iterator I;
+    uint8_t Flags;
+  };
+  SmallVector<Item, 8> Work{{&MBB, I, AllFlagBits}};
+  SmallDenseMap<const MachineBasicBlock *, uint8_t, 8> Followed;
+  unsigned Budget = 256;
+  while (!Work.empty()) {
+    Item W = Work.pop_back_val();
+    for (; W.Flags && W.I != W.MBB->end(); ++W.I) {
+      const MachineInstr &MI = *W.I;
+      if (MI.isDebugInstr())
+        continue;
+      if (!--Budget || (getReadFlags(MI, TRI) & W.Flags))
+        return false;
+      W.Flags &= ~getWrittenFlags(MI, TRI);
+    }
+    if (!W.Flags)
+      continue;
+    for (const MachineBasicBlock *Succ : W.MBB->successors()) {
+      uint8_t &Done = Followed[Succ];
+      uint8_t New = W.Flags & ~Done;
+      if (!New)
+        continue;
+      Done |= New;
+      Work.push_back({Succ, Succ->begin(), New});
+    }
+  }
+  return true;
 }
 
 bool Z80::splitReg(
