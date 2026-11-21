@@ -15,6 +15,7 @@
 #include "Z80.h"
 #include "Z80InstrInfo.h"
 #include "Z80RegisterInfo.h"
+#include "Z80Subtarget.h"
 #include "llvm/CodeGen/LivePhysRegs.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
@@ -311,7 +312,8 @@ static bool isPhysRegLiveAt(const MachineBasicBlock &MBB,
   Live.addLiveOuts(MBB);
   for (auto I = MBB.end(); I != Pos;) {
     --I;
-    Live.stepBackward(*I);
+    if (!I->isDebugInstr())
+      Live.stepBackward(*I);
   }
   return !Live.available(MRI, Reg);
 }
@@ -932,6 +934,52 @@ bool Z80MachineLateOptimization::foldBitTestAllOnes(MachineFunction &MF, const T
   return Changed;
 }
 
+static bool foldBitTestBranch(MachineBasicBlock &MBB, const Z80Subtarget &STI) {
+  auto BrI = MBB.getFirstTerminator();
+  if (BrI == MBB.end() || BrI == MBB.begin() || BrI->isBundled() ||
+      (BrI->getOpcode() != Z80::JQCC && BrI->getOpcode() != Z80::JRCC) ||
+      !isZOrNZConditionalUse(*BrI))
+    return false;
+
+  auto BitI = prev_nodbg(BrI, MBB.begin(), /*SkipPseudoOp=*/false);
+  if (BitI->getOpcode() != Z80::BIT8gb || BitI->isBundled() ||
+      BitI->getOperand(0).getReg() != Z80::A ||
+      BitI->getOperand(1).getImm() != 0)
+    return false;
+
+  // Let the final eZ80 peephole remove BIT entirely when the preceding
+  // instruction already set Z for the byte.
+  if (STI.hasEZ80Ops() && BitI != MBB.begin()) {
+    const auto &Prev = *prev_nodbg(BitI, MBB.begin(), /*SkipPseudoOp=*/false);
+    if ((Prev.getOpcode() == Z80::SBC8ar &&
+         Prev.getOperand(0).getReg() == Z80::A) ||
+        (Prev.getOpcode() == Z80::AND8ai && Prev.getOperand(0).getImm() == 1))
+      return false;
+  }
+
+  const auto &TRI = *STI.getRegisterInfo();
+  const auto &MRI = MBB.getParent()->getRegInfo();
+  // RRCA leaves different flags than BIT. Partial flag writers such as INC
+  // can carry them past the branch, so F live-ins are not enough.
+  if (isPhysRegLiveAt(MBB, BrI, Z80::A, TRI, MRI) ||
+      !Z80::areFlagsDeadFrom(MBB, std::next(BrI), TRI))
+    return false;
+
+  // Insert after any debug records for the original A value. LiveDebugValues
+  // runs later and sees the new accumulator clobber.
+  auto Rotate =
+      BuildMI(MBB, BrI, BitI->getDebugLoc(), STI.getInstrInfo()->get(Z80::RRCA));
+  Rotate->findRegisterUseOperand(Z80::A, nullptr)
+      ->setIsUndef(BitI->getOperand(0).isUndef());
+  Rotate->findRegisterUseOperand(Z80::A, nullptr)
+      ->setIsKill(BitI->getOperand(0).isKill());
+  Rotate->findRegisterDefOperand(Z80::A, nullptr)->setIsDead();
+  auto &CC = BrI->getOperand(1);
+  CC.setImm(CC.getImm() == Z80::COND_Z ? Z80::COND_NC : Z80::COND_C);
+  BitI->eraseFromParent();
+  return true;
+}
+
 bool Z80MachineLateOptimization::foldZeroCompareKnownHelper(
     MachineFunction &MF, const TargetInstrInfo &TII) {
   bool Changed = false;
@@ -1413,9 +1461,11 @@ bool Z80MachineLateOptimization::foldPushPopPopStackShuffles(
 
 bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
   bool Changed = false;
-  TRI = MF.getSubtarget().getRegisterInfo();
-  const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
+  const auto &STI = MF.getSubtarget<Z80Subtarget>();
+  TRI = STI.getRegisterInfo();
+  const TargetInstrInfo &TII = *STI.getInstrInfo();
   MachineRegisterInfo &MRI = MF.getRegInfo();
+  const bool FoldBitBranches = !skipFunction(MF.getFunction());
 
   Changed |= foldCopyExchangeCopies(MF, TII);
   Changed |= foldPushPopPopStackShuffles(MF, TII);
@@ -1861,6 +1911,8 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
 
       debug(*MIB);
     }
+    if (FoldBitBranches)
+      Changed |= foldBitTestBranch(MBB, STI);
   }
   return Changed;
 }

@@ -7,6 +7,20 @@
   define void @fold_nonzero_branch() { ret void }
   define i8 @keep_live_accumulator() { ret i8 0 }
   define void @keep_live_flags() { ret void }
+  define void @branch_with_debug_value() !dbg !4 { ret void }
+  define i8 @branch_keeps_carry() { ret i8 0 }
+  define void @carry_through_inc_after_branch() { ret void }
+
+  !llvm.dbg.cu = !{!0}
+  !llvm.module.flags = !{!2}
+  !0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, emissionKind: FullDebug)
+  !1 = !DIFile(filename: "bit.c", directory: "/")
+  !2 = !{i32 2, !"Debug Info Version", i32 3}
+  !3 = !DISubroutineType(types: !{})
+  !4 = distinct !DISubprogram(name: "branch_with_debug_value", scope: !1, file: !1, type: !3, unit: !0, spFlags: DISPFlagDefinition)
+  !5 = !DIBasicType(name: "char", size: 8, encoding: DW_ATE_signed)
+  !6 = !DILocalVariable(name: "x", scope: !4, file: !1, type: !5)
+  !7 = !DILocation(line: 1, scope: !4)
 ...
 
 ---
@@ -117,4 +131,90 @@ body: |
 # CHECK-NEXT: JQCC %bb.2, 1, implicit $f
 # CHECK:      $a = LD8ri -1
 # CHECK-NEXT: RET24 implicit-def $spl, implicit $spl, implicit $a, implicit $f
+...
+
+---
+name: branch_with_debug_value
+tracksRegLiveness: true
+body: |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $a
+
+    BIT8gb killed $a, 0, implicit-def $f
+    DBG_VALUE $a, $noreg, !6, !DIExpression(), debug-location !7
+    JQCC %bb.2, 0, implicit killed $f
+
+  bb.1:
+    RET24 implicit-def $spl, implicit $spl
+
+  bb.2:
+    RET24 implicit-def $spl, implicit $spl
+
+# CHECK-LABEL: name: branch_with_debug_value
+# CHECK-NOT:   BIT8gb
+# CHECK:       DBG_VALUE $a, $noreg
+# CHECK-NEXT:  RRCA implicit-def dead $a, implicit-def $f, implicit killed $a
+# CHECK-NEXT:  JQCC %bb.2, 3, implicit killed $f
+...
+
+---
+name: branch_keeps_carry
+tracksRegLiveness: true
+body: |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $a
+
+    SCF implicit-def $f
+    BIT8gb killed $a, 0, implicit-def $f
+    JQCC %bb.2, 1, implicit $f
+
+  bb.1:
+    $a = LD8ri 0
+    RET24 implicit-def $spl, implicit $spl, implicit $a
+
+  bb.2:
+    liveins: $f
+    SBC8ar undef $a, implicit-def $a, implicit-def $f, implicit undef $a, implicit killed $f
+    RET24 implicit-def $spl, implicit $spl, implicit $a
+
+# BIT preserves the carry set by SCF. RRCA would clear it on the zero path.
+# CHECK-LABEL: name: branch_keeps_carry
+# CHECK:       SCF
+# CHECK-NEXT:  BIT8gb killed $a, 0, implicit-def $f
+# CHECK-NEXT:  JQCC %bb.2, 1, implicit $f
+# CHECK:       bb.2:
+# CHECK-NEXT:  liveins: $f
+# CHECK:       SBC8ar undef $a, {{.*}}implicit killed $f
+...
+
+---
+name: carry_through_inc_after_branch
+tracksRegLiveness: true
+body: |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $a, $b
+    SCF implicit-def $f
+    BIT8gb killed $a, 0, implicit-def $f
+    JQCC %bb.2, 1, implicit $f
+
+  bb.1:
+    successors: %bb.2, %bb.3
+    liveins: $b
+    $b = INC8r killed $b, implicit-def $f
+    JQCC %bb.3, 3, implicit $f
+
+  bb.2:
+    RET24 implicit-def $spl, implicit $spl
+
+  bb.3:
+    RET24 implicit-def $spl, implicit $spl
+
+# BIT keeps the carry from SCF, and INC passes it on to the carry branch.
+# RRCA would replace it with bit zero of A.
+# CHECK-LABEL: name: carry_through_inc_after_branch
+# CHECK:      BIT8gb killed $a, 0
+# CHECK-NEXT: JQCC %bb.2, 1
 ...

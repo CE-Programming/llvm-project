@@ -445,8 +445,8 @@ define i24 @sadd.sat.i24(i24, i24) {
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ld bc, -8388608
 ; EZ80-NEXT:    add hl, bc
-; EZ80-NEXT:    bit 0, a
-; EZ80-NEXT:    jr nz, BB20_5
+; EZ80-NEXT:    rrca
+; EZ80-NEXT:    jr c, BB20_5
 ; EZ80-NEXT:  ; %bb.4:
 ; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    private BB20_5
@@ -501,8 +501,8 @@ define i24 @ssub.sat.i24(i24, i24) {
 ; EZ80-NEXT:    sbc hl, hl
 ; EZ80-NEXT:    ld bc, -8388608
 ; EZ80-NEXT:    add hl, bc
-; EZ80-NEXT:    bit 0, a
-; EZ80-NEXT:    jr nz, BB22_5
+; EZ80-NEXT:    rrca
+; EZ80-NEXT:    jr c, BB22_5
 ; EZ80-NEXT:  ; %bb.4:
 ; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    private BB22_5
