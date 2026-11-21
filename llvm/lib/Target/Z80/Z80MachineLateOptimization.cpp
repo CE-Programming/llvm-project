@@ -510,7 +510,7 @@ Z80MachineLateOptimization::getKnownFlags(const MachineInstr &MI,
   case Z80::AND8ai:
   case Z80::AND8ap:
   case Z80::AND8ao:
-    return {HalfCarryFlag, SubtractFlag, CarryFlag};
+    return {HalfCarryFlag, SubtractFlag | CarryFlag};
   case Z80::RCF:
   case Z80::XOR8ar:
   case Z80::XOR8ai:
@@ -520,7 +520,7 @@ Z80MachineLateOptimization::getKnownFlags(const MachineInstr &MI,
   case Z80::OR8ai:
   case Z80::OR8ap:
   case Z80::OR8ao:
-    return {0, HalfCarryFlag | SubtractFlag, CarryFlag};
+    return {0, HalfCarryFlag | SubtractFlag | CarryFlag};
   case Z80::ADD16as:
   case Z80::ADD24as:
     if (isKnownSpecificImm(Opc == Z80::ADD16as ? Z80::SPS : Z80::SPL, 0))
