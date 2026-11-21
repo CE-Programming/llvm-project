@@ -140,3 +140,38 @@ body: |
 # CHECK: POP24AF
 # CHECK: RET24
 ...
+
+---
+name: alu_copy_keeps_live_accumulator
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $l, $c
+    $l = OR8_gisel killed $l, killed $c, implicit-def $a, implicit-def dead $f
+    OR8ar $a, implicit-def dead $a, implicit-def $f, implicit $a
+    RET24 implicit $l, implicit $f, implicit-def $spl, implicit $spl
+
+# The result copy must not kill A, which the test below still reads.
+# CHECK-LABEL: name: alu_copy_keeps_live_accumulator
+# CHECK: $a = LD8gg killed $l
+# CHECK-NEXT: OR8ar killed $c, implicit-def $a, implicit-def dead $f, implicit $a
+# CHECK-NEXT: $l = LD8gg $a{{$}}
+# CHECK-NEXT: OR8ar $a, implicit-def dead $a, implicit-def $f, implicit $a
+...
+
+---
+name: alu_forward_keeps_live_accumulator
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $uhl, $e, $c
+    $e = OR8_gisel killed $e, killed $c, implicit-def $a, implicit-def dead $f
+    LD8pg $uhl, killed $e
+    RET24 implicit $a, implicit-def $spl, implicit $spl
+
+# The forwarded store reads A, but A stays live for the return.
+# CHECK-LABEL: name: alu_forward_keeps_live_accumulator
+# CHECK: OR8ar killed $c, implicit-def $a, implicit-def dead $f, implicit $a
+# CHECK-NEXT: LD8pg $uhl, $a{{$}}
+# CHECK-NEXT: RET24 implicit $a
+...

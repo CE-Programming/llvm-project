@@ -2140,6 +2140,17 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     }
     Alu.cloneMemRefs(MI);
 
+    // When the result goes to another register, the pseudo may still expose
+    // the accumulator through an implicit def. Later readers of A must keep
+    // it live past the copy or forwarded use below.
+    const MachineOperand *ADef =
+        DstReg == Z80::A ? nullptr : MI.findRegisterDefOperand(Z80::A, &TRI);
+    const bool KeepA = ADef && !ADef->isDead();
+    Alu->findRegisterDefOperand(Z80::A, &TRI)
+        ->setIsDead(MI.getOperand(0).isDead() && !KeepA);
+    if (const MachineOperand *FDef = MI.findRegisterDefOperand(Z80::F, &TRI))
+      Alu->findRegisterDefOperand(Z80::F, &TRI)->setIsDead(FDef->isDead());
+
     // 3. Copy Accumulator to Dst (if Dst is not A)
     auto forwardAResultToOperand = [&](MachineInstr &UseMI, unsigned OperandNo) {
       MachineOperand &UseMO = UseMI.getOperand(OperandNo);
@@ -2147,6 +2158,7 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
           hasOtherUseOfReg(UseMI, DstReg, OperandNo))
         return false;
       UseMO.setReg(Z80::A);
+      UseMO.setIsKill(!KeepA);
       return true;
     };
 
@@ -2184,7 +2196,7 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     };
 
     if (DstReg != Z80::A && !canForwardAResult())
-      copyPhysReg(MBB, MI, DL, DstReg, Z80::A, true);
+      copyPhysReg(MBB, MI, DL, DstReg, Z80::A, !KeepA);
 
     MI.eraseFromParent();
     return true;
