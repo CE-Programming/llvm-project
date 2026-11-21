@@ -367,7 +367,7 @@ define i32 @smax.i32(i32, i32) {
 ; Z80-NEXT:    call pe, __setflag
 ; Z80-NEXT:    jp m, BB6_2
 ; Z80-NEXT:  ; %bb.1:
-; Z80-NEXT:    ld a, 0
+; Z80-NEXT:    xor a, a
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr z, BB6_3
 ; Z80-NEXT:    jr BB6_4
@@ -409,7 +409,7 @@ define i32 @smax.i32(i32, i32) {
 ; EZ80-CODE16-NEXT:    call pe, __setflag
 ; EZ80-CODE16-NEXT:    jp m, BB6_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
-; EZ80-CODE16-NEXT:    ld a, 0
+; EZ80-CODE16-NEXT:    xor a, a
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr z, BB6_3
 ; EZ80-CODE16-NEXT:    jr BB6_4
@@ -526,7 +526,7 @@ define i64 @smax.i64(i64, i64) {
 ; Z80-NEXT:    ld b, iyh
 ; Z80-NEXT:    jp m, BB7_2
 ; Z80-NEXT:  ; %bb.1:
-; Z80-NEXT:    ld a, 0
+; Z80-NEXT:    xor a, a
 ; Z80-NEXT:    jr BB7_3
 ; Z80-NEXT:    private BB7_2
 ; Z80-NEXT:  BB7_2:
@@ -626,7 +626,7 @@ define i64 @smax.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:    lea bc, iy + 0
 ; EZ80-CODE16-NEXT:    jp m, BB7_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
-; EZ80-CODE16-NEXT:    ld a, 0
+; EZ80-CODE16-NEXT:    xor a, a
 ; EZ80-CODE16-NEXT:    jr BB7_3
 ; EZ80-CODE16-NEXT:    private BB7_2
 ; EZ80-CODE16-NEXT:  BB7_2:
@@ -704,7 +704,7 @@ define i64 @smax.i64(i64, i64) {
 ; EZ80-NEXT:    ld bc, (ix + 12)
 ; EZ80-NEXT:    jp m, BB7_2
 ; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    ld a, 0
+; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    jr BB7_3
 ; EZ80-NEXT:    private BB7_2
 ; EZ80-NEXT:  BB7_2:
@@ -924,7 +924,7 @@ define i32 @smin.i32(i32, i32) {
 ; Z80-NEXT:    call pe, __setflag
 ; Z80-NEXT:    jp m, BB10_2
 ; Z80-NEXT:  ; %bb.1:
-; Z80-NEXT:    ld a, 0
+; Z80-NEXT:    xor a, a
 ; Z80-NEXT:    bit 0, a
 ; Z80-NEXT:    jr z, BB10_3
 ; Z80-NEXT:    jr BB10_4
@@ -961,7 +961,7 @@ define i32 @smin.i32(i32, i32) {
 ; EZ80-CODE16-NEXT:    call pe, __setflag
 ; EZ80-CODE16-NEXT:    jp m, BB10_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
-; EZ80-CODE16-NEXT:    ld a, 0
+; EZ80-CODE16-NEXT:    xor a, a
 ; EZ80-CODE16-NEXT:    bit 0, a
 ; EZ80-CODE16-NEXT:    jr z, BB10_3
 ; EZ80-CODE16-NEXT:    jr BB10_4
@@ -1061,7 +1061,7 @@ define i64 @smin.i64(i64, i64) {
 ; Z80-NEXT:    call pe, __setflag
 ; Z80-NEXT:    jp m, BB11_2
 ; Z80-NEXT:  ; %bb.1:
-; Z80-NEXT:    ld a, 0
+; Z80-NEXT:    xor a, a
 ; Z80-NEXT:    jr BB11_3
 ; Z80-NEXT:    private BB11_2
 ; Z80-NEXT:  BB11_2:
@@ -1140,7 +1140,7 @@ define i64 @smin.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:    call pe, __setflag
 ; EZ80-CODE16-NEXT:    jp m, BB11_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
-; EZ80-CODE16-NEXT:    ld a, 0
+; EZ80-CODE16-NEXT:    xor a, a
 ; EZ80-CODE16-NEXT:    jr BB11_3
 ; EZ80-CODE16-NEXT:    private BB11_2
 ; EZ80-CODE16-NEXT:  BB11_2:
@@ -1207,7 +1207,7 @@ define i64 @smin.i64(i64, i64) {
 ; EZ80-NEXT:    call pe, __setflag
 ; EZ80-NEXT:    jp m, BB11_2
 ; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    ld a, 0
+; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    jr BB11_3
 ; EZ80-NEXT:    private BB11_2
 ; EZ80-NEXT:  BB11_2:
@@ -4118,7 +4118,7 @@ define i1 @sadd.with.overflow.i8(i8, i8) {
 ; Z80-NEXT:    add a, (iy + 4)
 ; Z80-NEXT:    jp pe, BB47_2
 ; Z80-NEXT:  ; %bb.1:
-; Z80-NEXT:    ld a, 0
+; Z80-NEXT:    xor a, a
 ; Z80-NEXT:    ret
 ; Z80-NEXT:    private BB47_2
 ; Z80-NEXT:  BB47_2:
@@ -4133,7 +4133,7 @@ define i1 @sadd.with.overflow.i8(i8, i8) {
 ; EZ80-CODE16-NEXT:    add a, (iy + 4)
 ; EZ80-CODE16-NEXT:    jp pe, BB47_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
-; EZ80-CODE16-NEXT:    ld a, 0
+; EZ80-CODE16-NEXT:    xor a, a
 ; EZ80-CODE16-NEXT:    ret
 ; EZ80-CODE16-NEXT:    private BB47_2
 ; EZ80-CODE16-NEXT:  BB47_2:
@@ -4148,7 +4148,7 @@ define i1 @sadd.with.overflow.i8(i8, i8) {
 ; EZ80-NEXT:    add a, (iy + 6)
 ; EZ80-NEXT:    jp pe, BB47_2
 ; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    ld a, 0
+; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    ret
 ; EZ80-NEXT:    private BB47_2
 ; EZ80-NEXT:  BB47_2:
@@ -4171,7 +4171,7 @@ define i1 @sadd.with.overflow.i16(i16, i16) {
 ; Z80-NEXT:    adc hl, de
 ; Z80-NEXT:    jp pe, BB48_2
 ; Z80-NEXT:  ; %bb.1:
-; Z80-NEXT:    ld a, 0
+; Z80-NEXT:    xor a, a
 ; Z80-NEXT:    ret
 ; Z80-NEXT:    private BB48_2
 ; Z80-NEXT:  BB48_2:
@@ -4187,7 +4187,7 @@ define i1 @sadd.with.overflow.i16(i16, i16) {
 ; EZ80-CODE16-NEXT:    adc hl, de
 ; EZ80-CODE16-NEXT:    jp pe, BB48_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
-; EZ80-CODE16-NEXT:    ld a, 0
+; EZ80-CODE16-NEXT:    xor a, a
 ; EZ80-CODE16-NEXT:    ret
 ; EZ80-CODE16-NEXT:    private BB48_2
 ; EZ80-CODE16-NEXT:  BB48_2:
@@ -4204,7 +4204,7 @@ define i1 @sadd.with.overflow.i16(i16, i16) {
 ; EZ80-NEXT:    adc.sis hl, de
 ; EZ80-NEXT:    jp pe, BB48_2
 ; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    ld a, 0
+; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    ret
 ; EZ80-NEXT:    private BB48_2
 ; EZ80-NEXT:  BB48_2:
@@ -4236,7 +4236,7 @@ define i1 @sadd.with.overflow.i32(i32, i32) {
 ; Z80-NEXT:    adc hl, bc
 ; Z80-NEXT:    jp pe, BB49_2
 ; Z80-NEXT:  ; %bb.1:
-; Z80-NEXT:    ld a, 0
+; Z80-NEXT:    xor a, a
 ; Z80-NEXT:    pop ix
 ; Z80-NEXT:    ret
 ; Z80-NEXT:    private BB49_2
@@ -4258,7 +4258,7 @@ define i1 @sadd.with.overflow.i32(i32, i32) {
 ; EZ80-CODE16-NEXT:    adc hl, bc
 ; EZ80-CODE16-NEXT:    jp pe, BB49_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
-; EZ80-CODE16-NEXT:    ld a, 0
+; EZ80-CODE16-NEXT:    xor a, a
 ; EZ80-CODE16-NEXT:    pop ix
 ; EZ80-CODE16-NEXT:    ret
 ; EZ80-CODE16-NEXT:    private BB49_2
@@ -4278,7 +4278,7 @@ define i1 @sadd.with.overflow.i32(i32, i32) {
 ; EZ80-NEXT:    adc a, (iy + 12)
 ; EZ80-NEXT:    jp pe, BB49_2
 ; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    ld a, 0
+; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    ret
 ; EZ80-NEXT:    private BB49_2
 ; EZ80-NEXT:  BB49_2:
@@ -4320,7 +4320,7 @@ define i1 @sadd.with.overflow.i64(i64, i64) {
 ; Z80-NEXT:    adc hl, de
 ; Z80-NEXT:    jp pe, BB50_2
 ; Z80-NEXT:  ; %bb.1:
-; Z80-NEXT:    ld a, 0
+; Z80-NEXT:    xor a, a
 ; Z80-NEXT:    pop ix
 ; Z80-NEXT:    ret
 ; Z80-NEXT:    private BB50_2
@@ -4348,7 +4348,7 @@ define i1 @sadd.with.overflow.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:    adc hl, de
 ; EZ80-CODE16-NEXT:    jp pe, BB50_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
-; EZ80-CODE16-NEXT:    ld a, 0
+; EZ80-CODE16-NEXT:    xor a, a
 ; EZ80-CODE16-NEXT:    pop ix
 ; EZ80-CODE16-NEXT:    ret
 ; EZ80-CODE16-NEXT:    private BB50_2
@@ -4374,7 +4374,7 @@ define i1 @sadd.with.overflow.i64(i64, i64) {
 ; EZ80-NEXT:    adc.sis hl, de
 ; EZ80-NEXT:    jp pe, BB50_2
 ; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    ld a, 0
+; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
 ; EZ80-NEXT:    private BB50_2
@@ -4598,7 +4598,7 @@ define i1 @ssub.with.overflow.i8(i8, i8) {
 ; Z80-NEXT:    sub a, (iy + 4)
 ; Z80-NEXT:    jp pe, BB55_2
 ; Z80-NEXT:  ; %bb.1:
-; Z80-NEXT:    ld a, 0
+; Z80-NEXT:    xor a, a
 ; Z80-NEXT:    ret
 ; Z80-NEXT:    private BB55_2
 ; Z80-NEXT:  BB55_2:
@@ -4613,7 +4613,7 @@ define i1 @ssub.with.overflow.i8(i8, i8) {
 ; EZ80-CODE16-NEXT:    sub a, (iy + 4)
 ; EZ80-CODE16-NEXT:    jp pe, BB55_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
-; EZ80-CODE16-NEXT:    ld a, 0
+; EZ80-CODE16-NEXT:    xor a, a
 ; EZ80-CODE16-NEXT:    ret
 ; EZ80-CODE16-NEXT:    private BB55_2
 ; EZ80-CODE16-NEXT:  BB55_2:
@@ -4628,7 +4628,7 @@ define i1 @ssub.with.overflow.i8(i8, i8) {
 ; EZ80-NEXT:    sub a, (iy + 6)
 ; EZ80-NEXT:    jp pe, BB55_2
 ; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    ld a, 0
+; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    ret
 ; EZ80-NEXT:    private BB55_2
 ; EZ80-NEXT:  BB55_2:
@@ -4651,7 +4651,7 @@ define i1 @ssub.with.overflow.i16(i16, i16) {
 ; Z80-NEXT:    sbc hl, de
 ; Z80-NEXT:    jp pe, BB56_2
 ; Z80-NEXT:  ; %bb.1:
-; Z80-NEXT:    ld a, 0
+; Z80-NEXT:    xor a, a
 ; Z80-NEXT:    ret
 ; Z80-NEXT:    private BB56_2
 ; Z80-NEXT:  BB56_2:
@@ -4667,7 +4667,7 @@ define i1 @ssub.with.overflow.i16(i16, i16) {
 ; EZ80-CODE16-NEXT:    sbc hl, de
 ; EZ80-CODE16-NEXT:    jp pe, BB56_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
-; EZ80-CODE16-NEXT:    ld a, 0
+; EZ80-CODE16-NEXT:    xor a, a
 ; EZ80-CODE16-NEXT:    ret
 ; EZ80-CODE16-NEXT:    private BB56_2
 ; EZ80-CODE16-NEXT:  BB56_2:
@@ -4684,7 +4684,7 @@ define i1 @ssub.with.overflow.i16(i16, i16) {
 ; EZ80-NEXT:    sbc.sis hl, de
 ; EZ80-NEXT:    jp pe, BB56_2
 ; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    ld a, 0
+; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    ret
 ; EZ80-NEXT:    private BB56_2
 ; EZ80-NEXT:  BB56_2:
@@ -4720,7 +4720,7 @@ define i1 @ssub.with.overflow.i32(i32, i32) {
 ; Z80-NEXT:    sbc hl, bc
 ; Z80-NEXT:    jp pe, BB57_2
 ; Z80-NEXT:  ; %bb.1:
-; Z80-NEXT:    ld a, 0
+; Z80-NEXT:    xor a, a
 ; Z80-NEXT:    pop ix
 ; Z80-NEXT:    ret
 ; Z80-NEXT:    private BB57_2
@@ -4743,7 +4743,7 @@ define i1 @ssub.with.overflow.i32(i32, i32) {
 ; EZ80-CODE16-NEXT:    sbc hl, bc
 ; EZ80-CODE16-NEXT:    jp pe, BB57_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
-; EZ80-CODE16-NEXT:    ld a, 0
+; EZ80-CODE16-NEXT:    xor a, a
 ; EZ80-CODE16-NEXT:    pop ix
 ; EZ80-CODE16-NEXT:    ret
 ; EZ80-CODE16-NEXT:    private BB57_2
@@ -4763,7 +4763,7 @@ define i1 @ssub.with.overflow.i32(i32, i32) {
 ; EZ80-NEXT:    sbc a, (iy + 12)
 ; EZ80-NEXT:    jp pe, BB57_2
 ; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    ld a, 0
+; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    ret
 ; EZ80-NEXT:    private BB57_2
 ; EZ80-NEXT:  BB57_2:
@@ -4807,7 +4807,7 @@ define i1 @ssub.with.overflow.i64(i64, i64) {
 ; Z80-NEXT:    sbc hl, de
 ; Z80-NEXT:    jp pe, BB58_2
 ; Z80-NEXT:  ; %bb.1:
-; Z80-NEXT:    ld a, 0
+; Z80-NEXT:    xor a, a
 ; Z80-NEXT:    pop ix
 ; Z80-NEXT:    ret
 ; Z80-NEXT:    private BB58_2
@@ -4836,7 +4836,7 @@ define i1 @ssub.with.overflow.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:    sbc hl, de
 ; EZ80-CODE16-NEXT:    jp pe, BB58_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
-; EZ80-CODE16-NEXT:    ld a, 0
+; EZ80-CODE16-NEXT:    xor a, a
 ; EZ80-CODE16-NEXT:    pop ix
 ; EZ80-CODE16-NEXT:    ret
 ; EZ80-CODE16-NEXT:    private BB58_2
@@ -4863,7 +4863,7 @@ define i1 @ssub.with.overflow.i64(i64, i64) {
 ; EZ80-NEXT:    sbc.sis hl, de
 ; EZ80-NEXT:    jp pe, BB58_2
 ; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    ld a, 0
+; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
 ; EZ80-NEXT:    private BB58_2
@@ -5634,7 +5634,7 @@ define i1 @smul.with.overflow.i32(i32, i32) {
 ; Z80-NEXT:    call __lcmpzero
 ; Z80-NEXT:    jr nz, BB65_2
 ; Z80-NEXT:  ; %bb.1:
-; Z80-NEXT:    ld a, 0
+; Z80-NEXT:    xor a, a
 ; Z80-NEXT:    jr BB65_3
 ; Z80-NEXT:    private BB65_2
 ; Z80-NEXT:  BB65_2:
@@ -5670,7 +5670,7 @@ define i1 @smul.with.overflow.i32(i32, i32) {
 ; EZ80-CODE16-NEXT:    call __lcmpzero
 ; EZ80-CODE16-NEXT:    jr nz, BB65_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
-; EZ80-CODE16-NEXT:    ld a, 0
+; EZ80-CODE16-NEXT:    xor a, a
 ; EZ80-CODE16-NEXT:    jr BB65_3
 ; EZ80-CODE16-NEXT:    private BB65_2
 ; EZ80-CODE16-NEXT:  BB65_2:
@@ -5706,7 +5706,7 @@ define i1 @smul.with.overflow.i32(i32, i32) {
 ; EZ80-NEXT:    call __lcmpzero
 ; EZ80-NEXT:    jr nz, BB65_2
 ; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    ld a, 0
+; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    jr BB65_3
 ; EZ80-NEXT:    private BB65_2
 ; EZ80-NEXT:  BB65_2:
@@ -5772,7 +5772,7 @@ define i1 @smul.with.overflow.i64(i64, i64) {
 ; Z80-NEXT:    call __lcmpzero
 ; Z80-NEXT:    jr nz, BB66_2
 ; Z80-NEXT:  ; %bb.1:
-; Z80-NEXT:    ld a, 0
+; Z80-NEXT:    xor a, a
 ; Z80-NEXT:    jr BB66_3
 ; Z80-NEXT:    private BB66_2
 ; Z80-NEXT:  BB66_2:
@@ -5816,7 +5816,7 @@ define i1 @smul.with.overflow.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:    call __lcmpzero
 ; EZ80-CODE16-NEXT:    jr nz, BB66_2
 ; EZ80-CODE16-NEXT:  ; %bb.1:
-; EZ80-CODE16-NEXT:    ld a, 0
+; EZ80-CODE16-NEXT:    xor a, a
 ; EZ80-CODE16-NEXT:    jr BB66_3
 ; EZ80-CODE16-NEXT:    private BB66_2
 ; EZ80-CODE16-NEXT:  BB66_2:
@@ -5856,7 +5856,7 @@ define i1 @smul.with.overflow.i64(i64, i64) {
 ; EZ80-NEXT:    call __lcmpzero
 ; EZ80-NEXT:    jr nz, BB66_2
 ; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    ld a, 0
+; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    jr BB66_3
 ; EZ80-NEXT:    private BB66_2
 ; EZ80-NEXT:  BB66_2:
@@ -8519,7 +8519,7 @@ define i64 @smul.fix.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld bc, -162
 ; EZ80-NEXT:    add hl, bc
 ; EZ80-NEXT:    ld (hl), iy
-; EZ80-NEXT:    ld a, 0
+; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    ld (ix - 47), a
 ; EZ80-NEXT:    ld hl, (ix - 49)
 ; EZ80-NEXT:    ld h, a

@@ -355,7 +355,7 @@ define i1 @sadd.with.overflow.i24(i24, i24) {
 ; EZ80-NEXT:    adc hl, de
 ; EZ80-NEXT:    jp pe, BB16_2
 ; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    ld a, 0
+; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    ret
 ; EZ80-NEXT:    private BB16_2
 ; EZ80-NEXT:  BB16_2:
@@ -393,7 +393,7 @@ define i1 @ssub.with.overflow.i24(i24, i24) {
 ; EZ80-NEXT:    sbc hl, de
 ; EZ80-NEXT:    jp pe, BB18_2
 ; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    ld a, 0
+; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    ret
 ; EZ80-NEXT:    private BB18_2
 ; EZ80-NEXT:  BB18_2:
@@ -432,7 +432,7 @@ define i24 @sadd.sat.i24(i24, i24) {
 ; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    jp pe, BB20_2
 ; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    ld a, 0
+; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    jr BB20_3
 ; EZ80-NEXT:    private BB20_2
 ; EZ80-NEXT:  BB20_2:
@@ -488,7 +488,7 @@ define i24 @ssub.sat.i24(i24, i24) {
 ; EZ80-NEXT:    ex de, hl
 ; EZ80-NEXT:    jp pe, BB22_2
 ; EZ80-NEXT:  ; %bb.1:
-; EZ80-NEXT:    ld a, 0
+; EZ80-NEXT:    xor a, a
 ; EZ80-NEXT:    jr BB22_3
 ; EZ80-NEXT:    private BB22_2
 ; EZ80-NEXT:  BB22_2:

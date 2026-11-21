@@ -19,7 +19,7 @@
 ; CHECK: jp m, [[TRUE:[A-Za-z0-9_.]+]]
 ; O0: ld a, [[FALSE]]
 ; O0: [[TRUE]]:
-; O2: ld a, 0
+; O2: xor a, a
 ; O2: [[TRUE]]:
 ; O2: ld a, 1
 ; CHECK: ret
@@ -52,7 +52,7 @@ define i1 @ult25(i24 %x, i24 %y) {
 ; CHECK: jp m, [[TRUE:[A-Za-z0-9_.]+]]
 ; O0: ld a, [[FALSE]]
 ; O0: [[TRUE]]:
-; O2: ld a, 0
+; O2: xor a, a
 ; O2: [[TRUE]]:
 ; O2: ld a, 1
 ; CHECK: ret
@@ -85,7 +85,7 @@ define i1 @ult33(i32 %x, i32 %y) {
 ; CHECK: jp m, [[TRUE:[A-Za-z0-9_.]+]]
 ; O0: ld a, [[FALSE]]
 ; O0: [[TRUE]]:
-; O2: ld a, 0
+; O2: xor a, a
 ; O2: [[TRUE]]:
 ; O2: ld a, 1
 ; CHECK: ret
@@ -121,7 +121,7 @@ declare {i25, i1} @llvm.sadd.with.overflow.i25(i25, i25)
 ; CHECK: jr nz, [[OVERFLOW:[A-Za-z0-9_.]+]]
 ; O0: ld a, [[FALSE]]
 ; O0: [[OVERFLOW]]:
-; O2: ld a, 0
+; O2: xor a, a
 ; O2: [[OVERFLOW]]:
 ; O2: ld a, 1
 ; CHECK: ld ({{[a-z]+( \+ [0-9]+)?}}),
@@ -148,7 +148,7 @@ declare {i33, i1} @llvm.sadd.with.overflow.i33(i33, i33)
 ; CHECK: jr nz, [[OVERFLOW:[A-Za-z0-9_.]+]]
 ; O0: ld a, [[FALSE]]
 ; O0: [[OVERFLOW]]:
-; O2: ld a, 0
+; O2: xor a, a
 ; O2: [[OVERFLOW]]:
 ; O2: ld a, 1
 ; CHECK: ld ({{[a-z]+( \+ [0-9]+)?}}),
@@ -175,7 +175,7 @@ declare {i49, i1} @llvm.sadd.with.overflow.i49(i49, i49)
 ; CHECK: jr nz, [[OVERFLOW:[A-Za-z0-9_.]+]]
 ; O0: ld a, [[FALSE]]
 ; O0: [[OVERFLOW]]:
-; O2: ld a, 0
+; O2: xor a, a
 ; O2: [[OVERFLOW]]:
 ; O2: ld a, 1
 ; CHECK: ld ({{[a-z]+( \+ [0-9]+)?}}),

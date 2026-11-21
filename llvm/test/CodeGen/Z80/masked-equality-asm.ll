@@ -18,7 +18,7 @@ define i1 @tagged_equal_live_input(i24 %a, i24 %b, ptr %out) minsize optsize {
 ; OPT-NEXT:    adc hl, hl
 ; OPT-NEXT:    jr z, BB0_2
 ; OPT-NEXT:  ; %bb.1:
-; OPT-NEXT:    ld a, 0
+; OPT-NEXT:    xor a, a
 ; OPT-NEXT:    jr BB0_3
 ; OPT-NEXT:    private BB0_2
 ; OPT-NEXT:  BB0_2:
@@ -45,7 +45,7 @@ define i1 @tagged_equal_live_input(i24 %a, i24 %b, ptr %out) minsize optsize {
 ; BASELINE-NEXT:    sbc hl, bc
 ; BASELINE-NEXT:    jr z, BB0_2
 ; BASELINE-NEXT:  ; %bb.1:
-; BASELINE-NEXT:    ld a, 0
+; BASELINE-NEXT:    xor a, a
 ; BASELINE-NEXT:    jr BB0_3
 ; BASELINE-NEXT:    private BB0_2
 ; BASELINE-NEXT:  BB0_2:
@@ -78,7 +78,7 @@ define i1 @tagged_equal_shared_xor(i24 %a, i24 %b, ptr %out) minsize optsize {
 ; OPT-NEXT:    sbc hl, bc
 ; OPT-NEXT:    jr z, BB1_2
 ; OPT-NEXT:  ; %bb.1:
-; OPT-NEXT:    ld a, 0
+; OPT-NEXT:    xor a, a
 ; OPT-NEXT:    jr BB1_3
 ; OPT-NEXT:    private BB1_2
 ; OPT-NEXT:  BB1_2:
@@ -103,7 +103,7 @@ define i1 @tagged_equal_shared_xor(i24 %a, i24 %b, ptr %out) minsize optsize {
 ; BASELINE-NEXT:    sbc hl, bc
 ; BASELINE-NEXT:    jr z, BB1_2
 ; BASELINE-NEXT:  ; %bb.1:
-; BASELINE-NEXT:    ld a, 0
+; BASELINE-NEXT:    xor a, a
 ; BASELINE-NEXT:    jr BB1_3
 ; BASELINE-NEXT:    private BB1_2
 ; BASELINE-NEXT:  BB1_2:

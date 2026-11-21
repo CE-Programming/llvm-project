@@ -40,6 +40,8 @@ STATISTIC(NumSignExtensions,
 STATISTIC(NumDoubles, "Number of final register copy/doubling folds");
 STATISTIC(NumByteBits, "Number of final byte bit-operation copy folds");
 STATISTIC(NumAccumulatorTests, "Number of redundant accumulator ORs removed");
+STATISTIC(NumZeroAccumulators,
+          "Number of accumulator zero loads replaced with XOR A,A");
 STATISTIC(NumBooleanTests,
           "Number of final redundant eZ80 boolean tests removed");
 
@@ -106,6 +108,36 @@ static bool isBooleanProducer(const MachineInstr &MI) {
           MI.getOperand(0).getImm() == 1);
 }
 
+// LD A,0 takes two bytes and seven cycles. XOR A,A gives the same A in one
+// byte and four cycles, but it writes every flag. Partial flag writers such
+// as INC keep some flags, so the check looks past them.
+static bool foldZeroAccumulatorLoads(MachineBasicBlock &MBB,
+                                     const TargetInstrInfo &TII,
+                                     const TargetRegisterInfo &TRI) {
+  bool Changed = false;
+  for (MachineInstr &MI : make_early_inc_range(MBB)) {
+    if (MI.getOpcode() != Z80::LD8ri || !canFold(MI) ||
+        !isReg(MI.getOperand(0), Z80::A) || !MI.getOperand(1).isImm() ||
+        MI.getOperand(1).getImm() != 0 ||
+        !Z80::areFlagsDeadFrom(
+            MBB, std::next(MachineBasicBlock::const_iterator(MI)), TRI))
+      continue;
+    MachineInstr *Xor =
+        BuildMI(MBB, MI, MI.getDebugLoc(), TII.get(Z80::XOR8ar))
+            .addReg(Z80::A, RegState::Undef);
+    for (MachineOperand &MO : Xor->implicit_operands())
+      if (MO.isUse() && MO.getReg() == Z80::A)
+        MO.setIsUndef();
+    Xor->findRegisterDefOperand(Z80::A, &TRI)
+        ->setIsDead(MI.getOperand(0).isDead());
+    Xor->findRegisterDefOperand(Z80::F, &TRI)->setIsDead();
+    MI.eraseFromParent();
+    ++NumZeroAccumulators;
+    Changed = true;
+  }
+  return Changed;
+}
+
 bool Z80MachinePeepholeOptimization::runOnMachineFunction(MachineFunction &MF) {
   const auto &STI = MF.getSubtarget<Z80Subtarget>();
   if (!EnablePeepholeOpt || skipFunction(MF.getFunction()))
@@ -117,6 +149,7 @@ bool Z80MachinePeepholeOptimization::runOnMachineFunction(MachineFunction &MF) {
   bool Changed = false;
 
   for (MachineBasicBlock &MBB : MF) {
+    Changed |= foldZeroAccumulatorLoads(MBB, TII, TRI);
     Live.clear();
     Live.addLiveOuts(MBB);
     for (auto I = MBB.end(); I != MBB.begin();) {

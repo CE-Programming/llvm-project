@@ -1,0 +1,121 @@
+# NOTE: Do not autogenerate
+# RUN: llc -mtriple=z80 -run-pass=z80-machine-peephole-opt -verify-machineinstrs %s -o - | FileCheck %s
+# RUN: llc -mtriple=ez80 -run-pass=z80-machine-peephole-opt -verify-machineinstrs %s -o - | FileCheck %s
+
+--- |
+  define void @dead_flags() { ret void }
+  define void @live_flags() { ret void }
+  define void @nonzero() { ret void }
+  define void @carry_through_inc() { ret void }
+  define void @carry_into_successor() { ret void }
+  define void @flags_rewritten_in_successor() { ret void }
+...
+
+---
+name: dead_flags
+tracksRegLiveness: true
+body: |
+  bb.0:
+    $a = LD8ri 0
+    RET16 implicit-def $sps, implicit $sps, implicit $a
+
+# F is dead at the return, so the shorter XOR may clobber it.
+# CHECK-LABEL: name: dead_flags
+# CHECK:      XOR8ar undef $a, implicit-def $a, implicit-def dead $f, implicit undef $a
+# CHECK-NEXT: RET16
+...
+
+---
+name: live_flags
+tracksRegLiveness: true
+body: |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $f
+    $a = LD8ri 0
+    JQCC %bb.2, 0, implicit $f
+
+  bb.1:
+    liveins: $a
+    RET16 implicit-def $sps, implicit $sps, implicit $a
+
+  bb.2:
+    RET16 implicit-def $sps, implicit $sps
+
+# The branch reads the incoming flags, so the load must not write F.
+# CHECK-LABEL: name: live_flags
+# CHECK:      $a = LD8ri 0
+# CHECK-NEXT: JQCC %bb.2, 0, implicit $f
+...
+
+---
+name: nonzero
+tracksRegLiveness: true
+body: |
+  bb.0:
+    $a = LD8ri 1
+    RET16 implicit-def $sps, implicit $sps, implicit $a
+
+# CHECK-LABEL: name: nonzero
+# CHECK:      $a = LD8ri 1
+...
+
+---
+name: carry_through_inc
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $b
+    SCF implicit-def dead $f
+    $a = LD8ri 0
+    $b = INC8r $b, implicit-def $f
+    ADC8ai 0, implicit-def $a, implicit-def dead $f, implicit $a, implicit $f
+    RET16 implicit-def $sps, implicit $sps, implicit $a, implicit $b
+
+# INC is modeled as defining F but keeps carry, so ADC still sees the carry
+# from SCF. XOR A,A would clear it.
+# CHECK-LABEL: name: carry_through_inc
+# CHECK:      $a = LD8ri 0
+# CHECK-NEXT: INC8r
+...
+
+---
+name: carry_into_successor
+tracksRegLiveness: true
+body: |
+  bb.0:
+    successors: %bb.1
+    liveins: $b
+    SCF implicit-def dead $f
+    $a = LD8ri 0
+
+  bb.1:
+    liveins: $a, $b
+    $b = INC8r $b, implicit-def $f
+    ADC8ai 0, implicit-def $a, implicit-def dead $f, implicit $a, implicit $f
+    RET16 implicit-def $sps, implicit $sps, implicit $a, implicit $b
+
+# F is not live into bb.1, but its carry still reaches the ADC.
+# CHECK-LABEL: name: carry_into_successor
+# CHECK:      $a = LD8ri 0
+...
+
+---
+name: flags_rewritten_in_successor
+tracksRegLiveness: true
+body: |
+  bb.0:
+    successors: %bb.1
+    liveins: $b
+    $a = LD8ri 0
+
+  bb.1:
+    liveins: $a, $b
+    $b = INC8r $b, implicit-def $f
+    ADD8ar $b, implicit-def $a, implicit-def $f, implicit $a
+    RET16 implicit-def $sps, implicit $sps, implicit $a, implicit $f
+
+# ADD writes every flag before anything reads them.
+# CHECK-LABEL: name: flags_rewritten_in_successor
+# CHECK:      XOR8ar undef $a
+...
