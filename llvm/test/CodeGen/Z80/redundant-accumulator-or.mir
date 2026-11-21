@@ -1,0 +1,143 @@
+# NOTE: Do not autogenerate
+# RUN: llc -mtriple=z80 -run-pass=z80-machine-peephole-opt -verify-machineinstrs %s -o - | FileCheck %s
+# RUN: llc -mtriple=ez80-code16 -run-pass=z80-machine-peephole-opt -verify-machineinstrs %s -o - | FileCheck %s
+
+--- |
+  define void @or_indexed() { ret void }
+  define void @xor_with_debug_value() !dbg !4 { ret void }
+  define void @keep_or_after_add() { ret void }
+  define void @or_through_copy() { ret void }
+  define void @dead_test_through_copy() { ret void }
+  define void @keep_or_after_flag_write() { ret void }
+  define void @keep_or_after_accumulator_write() { ret void }
+
+  !llvm.dbg.cu = !{!0}
+  !llvm.module.flags = !{!2}
+  !0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, emissionKind: FullDebug)
+  !1 = !DIFile(filename: "accumulator.c", directory: "/")
+  !2 = !{i32 2, !"Debug Info Version", i32 3}
+  !3 = !DISubroutineType(types: !{})
+  !4 = distinct !DISubprogram(name: "xor_with_debug_value", scope: !1, file: !1, type: !3, unit: !0, spFlags: DISPFlagDefinition)
+  !5 = !DIBasicType(name: "char", size: 8, encoding: DW_ATE_unsigned)
+  !6 = !DILocalVariable(name: "x", scope: !4, file: !1, type: !5)
+  !7 = !DILocation(line: 1, scope: !4)
+...
+
+---
+name: or_indexed
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $a, $ix
+    OR8ao $ix, -10, implicit-def $a, implicit-def dead $f, implicit $a
+    OR8ar $a, implicit-def $a, implicit-def $f, implicit $a
+    RET16 implicit-def $sps, implicit $sps, implicit $a, implicit $f
+
+# CHECK-LABEL: name: or_indexed
+# CHECK:      OR8ao $ix, -10, implicit-def $a, implicit-def $f, implicit $a
+# CHECK-NEXT: RET16 implicit-def $sps, implicit $sps, implicit $a, implicit $f
+...
+
+---
+name: xor_with_debug_value
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $a, $b
+    XOR8ar $b, implicit-def $a, implicit-def dead $f, implicit $a
+    DBG_VALUE $a, $noreg, !6, !DIExpression(), debug-location !7
+    OR8ar $a, implicit-def dead $a, implicit-def $f, implicit $a
+    RET16 implicit-def $sps, implicit $sps, implicit $f
+
+# CHECK-LABEL: name: xor_with_debug_value
+# CHECK:      XOR8ar $b, implicit-def dead $a, implicit-def $f, implicit $a
+# CHECK-NEXT: DBG_VALUE $a, $noreg
+# CHECK-NEXT: RET16 implicit-def $sps, implicit $sps, implicit $f
+...
+
+---
+name: keep_or_after_add
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $a, $b
+    ADD8ar $b, implicit-def $a, implicit-def dead $f, implicit $a
+    OR8ar $a, implicit-def $a, implicit-def $f, implicit $a
+    RET16 implicit-def $sps, implicit $sps, implicit $a, implicit $f
+
+# ADD can set carry. The OR is still needed to clear it.
+# CHECK-LABEL: name: keep_or_after_add
+# CHECK:      ADD8ar $b, implicit-def $a, implicit-def dead $f, implicit $a
+# CHECK-NEXT: OR8ar $a, implicit-def $a, implicit-def $f, implicit $a
+# CHECK-NEXT: RET16 implicit-def $sps, implicit $sps, implicit $a, implicit $f
+...
+
+---
+name: or_through_copy
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $a, $c
+    OR8ar killed $c, implicit-def $a, implicit-def dead $f, implicit $a
+    $l = LD8gg $a
+    OR8ar $a, implicit-def $a, implicit-def $f, implicit $a
+    RET16 implicit-def $sps, implicit $sps, implicit $a, implicit $l, implicit $f
+
+# A copy out of A changes neither A nor F, so the test is still redundant.
+# CHECK-LABEL: name: or_through_copy
+# CHECK:      OR8ar killed $c, implicit-def $a, implicit-def $f, implicit $a
+# CHECK-NEXT: $l = LD8gg $a{{$}}
+# CHECK-NEXT: RET16
+...
+
+---
+name: dead_test_through_copy
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $a, $c
+    XOR8ar killed $c, implicit-def $a, implicit-def dead $f, implicit $a
+    $l = LD8gg $a
+    OR8ar $a, implicit-def dead $a, implicit-def $f, implicit $a
+    RET16 implicit-def $sps, implicit $sps, implicit $l, implicit $f
+
+# The copy still reads the result, so the XOR's A def must stay live.
+# CHECK-LABEL: name: dead_test_through_copy
+# CHECK:      XOR8ar killed $c, implicit-def $a, implicit-def $f, implicit $a
+# CHECK-NEXT: $l = LD8gg $a
+# CHECK-NEXT: RET16
+...
+
+---
+name: keep_or_after_flag_write
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $a, $c, $l
+    OR8ar killed $c, implicit-def $a, implicit-def dead $f, implicit $a
+    $l = INC8r killed $l, implicit-def dead $f
+    OR8ar $a, implicit-def $a, implicit-def $f, implicit $a
+    RET16 implicit-def $sps, implicit $sps, implicit $a, implicit $l, implicit $f
+
+# INC overwrites the flags, so the test must stay.
+# CHECK-LABEL: name: keep_or_after_flag_write
+# CHECK:      INC8r
+# CHECK-NEXT: OR8ar $a, implicit-def $a, implicit-def $f, implicit $a
+...
+
+---
+name: keep_or_after_accumulator_write
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $a, $c, $l
+    OR8ar killed $c, implicit-def dead $a, implicit-def dead $f, implicit $a
+    $a = LD8gg killed $l
+    OR8ar $a, implicit-def $a, implicit-def $f, implicit $a
+    RET16 implicit-def $sps, implicit $sps, implicit $a, implicit $f
+
+# The test now reads a new value, so it must stay.
+# CHECK-LABEL: name: keep_or_after_accumulator_write
+# CHECK:      $a = LD8gg killed $l
+# CHECK-NEXT: OR8ar $a, implicit-def $a, implicit-def $f, implicit $a
+...

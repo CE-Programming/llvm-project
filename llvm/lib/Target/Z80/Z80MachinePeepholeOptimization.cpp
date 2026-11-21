@@ -39,6 +39,7 @@ STATISTIC(NumSignExtensions,
           "Number of eZ80 accumulator sign extensions folded");
 STATISTIC(NumDoubles, "Number of final register copy/doubling folds");
 STATISTIC(NumByteBits, "Number of final byte bit-operation copy folds");
+STATISTIC(NumAccumulatorTests, "Number of redundant accumulator ORs removed");
 STATISTIC(NumBooleanTests,
           "Number of final redundant eZ80 boolean tests removed");
 
@@ -79,6 +80,26 @@ static bool isAccumulatorSBC(const MachineInstr &MI) {
   return MI.getOpcode() == Z80::SBC8ar && isReg(MI.getOperand(0), Z80::A);
 }
 
+static bool isAccumulatorOrTest(const MachineInstr &MI) {
+  return MI.getOpcode() == Z80::OR8ar && isReg(MI.getOperand(0), Z80::A);
+}
+
+static bool setsAccumulatorOrFlags(unsigned Opc) {
+  switch (Opc) {
+  case Z80::OR8ar:
+  case Z80::OR8ai:
+  case Z80::OR8ap:
+  case Z80::OR8ao:
+  case Z80::XOR8ar:
+  case Z80::XOR8ai:
+  case Z80::XOR8ap:
+  case Z80::XOR8ao:
+    return true;
+  default:
+    return false;
+  }
+}
+
 static bool isBooleanProducer(const MachineInstr &MI) {
   return isAccumulatorSBC(MI) ||
          (MI.getOpcode() == Z80::AND8ai && MI.getOperand(0).isImm() &&
@@ -105,6 +126,51 @@ bool Z80MachinePeepholeOptimization::runOnMachineFunction(MachineFunction &MF) {
         Live.stepBackward(Last);
         continue;
       }
+
+      // OR and XOR set the same flags that OR A,A would set on their result.
+      // Match the real ALU instructions after pseudo expansion and scheduling.
+      // Instructions in between may read A, but must not read or write F or
+      // write A, so the test still sees the producer's result and flags.
+      if (isAccumulatorOrTest(Last)) {
+        MachineInstr *Producer = nullptr;
+        bool InterveningReadsA = false;
+        unsigned Steps = 0;
+        for (auto J = I; J != MBB.begin() && Steps != 8;) {
+          MachineInstr &MI = *--J;
+          if (MI.isDebugInstr())
+            continue;
+          ++Steps;
+          if (!canFold(MI) || MI.isCall() || MI.isInlineAsm() ||
+              MI.hasUnmodeledSideEffects())
+            break;
+          bool DefsA = MI.modifiesRegister(Z80::A, &TRI);
+          bool TouchesF = MI.modifiesRegister(Z80::F, &TRI) ||
+                          MI.readsRegister(Z80::F, &TRI);
+          if (DefsA || TouchesF) {
+            if (DefsA && setsAccumulatorOrFlags(MI.getOpcode()))
+              Producer = &MI;
+            break;
+          }
+          InterveningReadsA |= MI.readsRegister(Z80::A, &TRI);
+        }
+        if (Producer) {
+          bool ADead = Last.findRegisterDefOperand(Z80::A, &TRI)->isDead();
+          Producer->findRegisterDefOperand(Z80::A, &TRI)
+              ->setIsDead(ADead && !InterveningReadsA);
+          Producer->findRegisterDefOperand(Z80::F, &TRI)
+              ->setIsDead(Last.findRegisterDefOperand(Z80::F, &TRI)->isDead());
+          // The removed test read A, so no earlier reader could have killed
+          // it. Clear any stale kill so A stays live to its later readers.
+          if (!ADead)
+            for (auto J = std::next(Producer->getIterator()); J != I; ++J)
+              J->clearRegisterKills(Z80::A, &TRI);
+          I = MBB.erase(I);
+          ++NumAccumulatorTests;
+          Changed = true;
+          continue;
+        }
+      }
+
       auto FirstI = std::prev(I);
       MachineInstr &First = *FirstI;
       if (!canFold(First)) {
@@ -343,8 +409,7 @@ bool Z80MachinePeepholeOptimization::runOnMachineFunction(MachineFunction &MF) {
       bool IsBit0 = Test.getOpcode() == Z80::BIT8gb &&
                     isReg(Test.getOperand(0), Z80::A) &&
                     Test.getOperand(1).getImm() == 0;
-      bool IsOrA =
-          Test.getOpcode() == Z80::OR8ar && isReg(Test.getOperand(0), Z80::A);
+      bool IsOrA = isAccumulatorOrTest(Test);
       if (IsZBranch && (IsBit0 || IsOrA) && FirstI != MBB.begin() &&
           Live.available(MRI, Z80::F)) {
         MachineInstr &Producer = *std::prev(FirstI);

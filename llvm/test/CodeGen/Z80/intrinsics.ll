@@ -5188,7 +5188,6 @@ define i1 @smul.with.overflow.i8(i8, i8) {
 ; Z80-NEXT:  BB63_4:
 ; Z80-NEXT:    ld a, l
 ; Z80-NEXT:    or a, (ix - 10) ; 1-byte Folded Reload
-; Z80-NEXT:    or a, a
 ; Z80-NEXT:    jr z, BB63_6
 ; Z80-NEXT:  ; %bb.5:
 ; Z80-NEXT:    ld e, -1
@@ -5272,7 +5271,6 @@ define i1 @smul.with.overflow.i8(i8, i8) {
 ; EZ80-CODE16-NEXT:  BB63_4:
 ; EZ80-CODE16-NEXT:    ld a, l
 ; EZ80-CODE16-NEXT:    or a, (ix - 5) ; 1-byte Folded Reload
-; EZ80-CODE16-NEXT:    or a, a
 ; EZ80-CODE16-NEXT:    jr z, BB63_6
 ; EZ80-CODE16-NEXT:  ; %bb.5:
 ; EZ80-CODE16-NEXT:    ld e, -1
@@ -5349,7 +5347,6 @@ define i1 @smul.with.overflow.i8(i8, i8) {
 ; EZ80-NEXT:  BB63_4:
 ; EZ80-NEXT:    ld a, iyh
 ; EZ80-NEXT:    or a, d
-; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    jr z, BB63_6
 ; EZ80-NEXT:  ; %bb.5:
 ; EZ80-NEXT:    ld e, -1
@@ -5436,7 +5433,6 @@ define i1 @smul.with.overflow.i16(i16, i16) {
 ; Z80-NEXT:    private BB64_4
 ; Z80-NEXT:  BB64_4:
 ; Z80-NEXT:    or a, l
-; Z80-NEXT:    or a, a
 ; Z80-NEXT:    jr z, BB64_6
 ; Z80-NEXT:  ; %bb.5:
 ; Z80-NEXT:    ld e, -1
@@ -5503,7 +5499,6 @@ define i1 @smul.with.overflow.i16(i16, i16) {
 ; EZ80-CODE16-NEXT:    private BB64_4
 ; EZ80-CODE16-NEXT:  BB64_4:
 ; EZ80-CODE16-NEXT:    or a, l
-; EZ80-CODE16-NEXT:    or a, a
 ; EZ80-CODE16-NEXT:    jr z, BB64_6
 ; EZ80-CODE16-NEXT:  ; %bb.5:
 ; EZ80-CODE16-NEXT:    ld e, -1
@@ -5586,7 +5581,6 @@ define i1 @smul.with.overflow.i16(i16, i16) {
 ; EZ80-NEXT:  BB64_4:
 ; EZ80-NEXT:    ld a, iyh
 ; EZ80-NEXT:    or a, d
-; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    jr z, BB64_6
 ; EZ80-NEXT:  ; %bb.5:
 ; EZ80-NEXT:    ld e, -1
