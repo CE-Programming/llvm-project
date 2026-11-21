@@ -1860,7 +1860,11 @@ bool Z80InstructionSelector::selectLoadStore(MachineInstr &I,
           MIB.buildInstr(IsOff ? Z80::LD8go : Z80::LD8gp, {ValReg}, {});
       for (auto &MO : MOs)
         Reload.add(MO);
-      Reload.cloneMemRefs(I);
+      // Reload the value at the store's address after the RMW. The original
+      // load describes the value before the update.
+      const auto LoadFlags = (MMO.getFlags() & ~MachineMemOperand::MOStore) |
+                             MachineMemOperand::MOLoad;
+      Reload.addMemOperand(MF.getMachineMemOperand(&MMO, LoadFlags));
       if (!constrainSelectedInstRegOperands(*Reload, TII, TRI, RBI))
         return false;
       ValMI->getOperand(0).setReg(MRI.cloneVirtualRegister(ValReg));
