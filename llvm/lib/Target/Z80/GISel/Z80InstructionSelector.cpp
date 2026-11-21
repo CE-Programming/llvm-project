@@ -110,7 +110,8 @@ private:
   Z80::CondCode foldCond(Register CondReg, MachineIRBuilder &MIB,
                          MachineRegisterInfo &MRI,
                          Z80::CondCode PreferredCC = Z80::COND_INVALID,
-                         bool EmitFallback = true) const;
+                         bool EmitFallback = true,
+                         bool AllowByteCarry = false) const;
   bool selectShift(MachineInstr &I, MachineRegisterInfo &MRI) const;
   bool selectAddSub(MachineInstr &I, MachineRegisterInfo &MRI) const;
   bool selectFunnelShift(MachineInstr &I, MachineRegisterInfo &MRI) const;
@@ -434,6 +435,16 @@ bool Z80InstructionSelector::select(MachineInstr &I) const {
   if (I.getOpcode() == TargetOpcode::G_LOAD ||
       I.getOpcode() == TargetOpcode::G_STORE)
     return selectLoadStore(I, MRI, MF);
+
+  // A zero extension of a truncated boolean can reach selection as AND 1.
+  if (Opc == TargetOpcode::G_AND) {
+    Register DstReg = I.getOperand(0).getReg();
+    Register BitReg;
+    if (MRI.getType(DstReg) == LLT::scalar(8) &&
+        mi_match(DstReg, MRI, m_GAnd(m_Reg(BitReg), m_SpecificICst(1))) &&
+        selectSetCond(TargetOpcode::G_ZEXT, DstReg, BitReg, I, MRI, false))
+      return true;
+  }
 
   // Imported byte ALU patterns use a register for every constant. Prefer
   // immediate ALU operations, or SET/RES for one changed bit. The latter
@@ -1249,28 +1260,40 @@ bool Z80InstructionSelector::selectZExt(MachineInstr &I,
 
   // Handle s1 -> sN zero extension (boolean to integer)
   if (SrcTy == LLT::scalar(1)) {
-    if (MRI.hasOneUse(SrcReg) &&
+    if (MRI.hasOneNonDBGUse(SrcReg) &&
         selectSetCond(I.getOpcode(), DstReg, SrcReg, I, MRI, false))
       return true;
 
     MachineIRBuilder MIB(I);
-    auto CopyToA = MIB.buildCopy(Z80::A, SrcReg);
-    if (!constrainSelectedInstRegOperands(*CopyToA, TII, TRI, RBI))
-      return false;
-    auto And = MIB.buildInstr(Z80::AND8ai, {}, {int64_t(1)});
-    if (!constrainSelectedInstRegOperands(*And, TII, TRI, RBI))
+    Register BoolReg = SrcReg;
+    const MachineInstr *Def = MRI.getVRegDef(SrcReg);
+    // The SetCC pseudo is selected as a zero extension to a byte.
+    if (!Def || Def->getOpcode() != Z80::SetCC) {
+      auto CopyToA = MIB.buildCopy(Z80::A, SrcReg);
+      if (!constrainSelectedInstRegOperands(*CopyToA, TII, TRI, RBI))
+        return false;
+      auto And = MIB.buildInstr(Z80::AND8ai, {}, {int64_t(1)});
+      if (!constrainSelectedInstRegOperands(*And, TII, TRI, RBI))
+        return false;
+      BoolReg = Z80::A;
+    }
+
+    auto CopyBool = MIB.buildCopy(LLT::scalar(8), BoolReg);
+    if (!RBI.constrainGenericRegister(CopyBool.getReg(0), Z80::R8RegClass, MRI))
       return false;
 
-    auto CopyFromA = MIB.buildCopy(LLT::scalar(8), Register(Z80::A));
-    if (!RBI.constrainGenericRegister(CopyFromA.getReg(0), Z80::R8RegClass,
-                                      MRI))
-      return false;
-
-    auto ZExt = MIB.buildZExtOrTrunc(DstReg, CopyFromA);
+    auto ZExt = MIB.buildZExtOrTrunc(DstReg, CopyBool);
 
     I.eraseFromParent();
     return select(*ZExt);
   }
+
+  // Legalization can narrow the low-bit mask before extending to a native word.
+  Register BitReg;
+  if (SrcSize == 8 && MRI.hasOneNonDBGUse(SrcReg) &&
+      mi_match(SrcReg, MRI, m_GAnd(m_Reg(BitReg), m_SpecificICst(1))) &&
+      selectSetCond(TargetOpcode::G_ZEXT, DstReg, BitReg, I, MRI, false))
+    return true;
 
   // Handle non-s1 zero extensions: s8->s16, s8->s24, s16->s24
   // Implementation mirrors DAG patterns:
@@ -2908,14 +2931,17 @@ Z80::CondCode Z80InstructionSelector::foldCond(Register CondReg,
                                                MachineIRBuilder &MIB,
                                                MachineRegisterInfo &MRI,
                                                Z80::CondCode PreferredCC,
-                                               bool EmitFallback) const {
+                                               bool EmitFallback,
+                                               bool AllowByteCarry) const {
   const LLT s1 = LLT::scalar(1), s8 = LLT::scalar(8);
-  assert(MRI.getType(CondReg) == s1 && "Expected s1 condition");
+  const bool IsByte = MRI.getType(CondReg) == s8;
+  assert((MRI.getType(CondReg) == s1 || (AllowByteCarry && IsByte)) &&
+         "Expected a one-bit condition");
 
   bool OppositeCond = false;
   MachineInstr *CondDef = nullptr;
   while (MachineInstr *LookthroughDef = MRI.getVRegDef(CondReg)) {
-    if (LookthroughDef != MIB.getInsertPt() && !MRI.hasOneUse(CondReg))
+    if (LookthroughDef != MIB.getInsertPt() && !MRI.hasOneNonDBGUse(CondReg))
       break;
     CondDef = LookthroughDef;
     switch (CondDef->getOpcode()) {
@@ -2950,6 +2976,13 @@ Z80::CondCode Z80InstructionSelector::foldCond(Register CondReg,
     break;
   }
 
+  // A low-byte mask can fold only when its input has the polarity that lets
+  // SBC followed by INC produce 0 or 1 without complementing carry.
+  const bool RotateByte = AllowByteCarry && PreferredCC == Z80::COND_C &&
+                          MRI.getType(CondReg) == s8;
+  if (IsByte && !RotateByte)
+    return Z80::COND_INVALID;
+
   Z80::CondCode CC = Z80::COND_INVALID;
   if (CondDef && MRI.getType(CondReg) == s1) {
     // TODO: prefer PreferredCC
@@ -2974,6 +3007,15 @@ Z80::CondCode Z80InstructionSelector::foldCond(Register CondReg,
     default:
       break;
     }
+  }
+
+  if (CC == Z80::COND_INVALID && RotateByte) {
+    // Only carry is observed. Use the short accumulator encoding directly.
+    auto CopyToA = MIB.buildCopy(Z80::A, CondReg);
+    if (!constrainSelectedInstRegOperands(*CopyToA, TII, TRI, RBI))
+      return Z80::COND_INVALID;
+    MIB.buildInstr(Z80::RRCA);
+    CC = Z80::COND_C;
   }
 
   if (CC == Z80::COND_INVALID && EmitFallback) {
@@ -3517,7 +3559,8 @@ bool Z80InstructionSelector::selectSetCond(unsigned ExtOpc, Register DstReg,
   MachineIRBuilder MIB(I);
   Z80::CondCode DirectCC =
       ExtOpc == TargetOpcode::G_ZEXT ? Z80::COND_NC : Z80::COND_C;
-  Z80::CondCode CC = foldCond(CondReg, MIB, MRI, DirectCC, EmitFallback);
+  Z80::CondCode CC = foldCond(CondReg, MIB, MRI, DirectCC, EmitFallback,
+                             ExtOpc == TargetOpcode::G_ZEXT);
   if (CC == Z80::COND_INVALID)
     return false;
 
