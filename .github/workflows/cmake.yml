@@ -25,14 +25,18 @@ jobs:
 
       - name: Set Windows Environment
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          $path = vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-          cmake -E echo >> $${{env.ENV}}GITHUB_PATH "$(join-path $path 'VC\Tools\Llvm\bin')"
-          cmd /s /c >> $${{env.ENV}}GITHUB_ENV """$(join-path $path 'Common7\Tools\vsdevcmd.bat')"" -arch=amd64 -host_arch=amd64 > nul && set"
-          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CC=clang-cl
-          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CXX=clang-cl
-          cmake -E echo >> $${{env.ENV}}GITHUB_ENV EXE=.exe
-          cmake -E echo >> $${{env.ENV}}GITHUB_ENV PY=.py
+          $path = vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 Microsoft.VisualStudio.Component.VC.Llvm.Clang -property installationPath
+          # The standalone LLVM on PATH can be older than the MSVC STL supports.
+          $clangCl = Join-Path $path 'VC\Tools\Llvm\x64\bin\clang-cl.exe'
+          & $clangCl --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmd /s /c >> $env:GITHUB_ENV """$(join-path $path 'Common7\Tools\vsdevcmd.bat')"" -arch=amd64 -host_arch=amd64 > nul && set"
+          "CC=$clangCl" >> $env:GITHUB_ENV
+          "CXX=$clangCl" >> $env:GITHUB_ENV
+          "EXE=.exe" >> $env:GITHUB_ENV
+          "PY=.py" >> $env:GITHUB_ENV
 
       - name: Uninstall Unused Packages (Linux)
         if: runner.os == 'Linux'
@@ -190,13 +194,17 @@ jobs:
 
       - name: Set Windows Environment
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          $path = vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-          cmake -E echo >> $${{env.ENV}}GITHUB_PATH "$(join-path $path 'VC\Tools\Llvm\bin')"
-          cmd /s /c >> $${{env.ENV}}GITHUB_ENV """$(join-path $path 'Common7\Tools\vsdevcmd.bat')"" -arch=amd64 -host_arch=amd64 > nul && set"
-          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CC=clang-cl
-          cmake -E echo >> $${{env.ENV}}GITHUB_ENV CXX=clang-cl
-          cmake -E echo >> $${{env.ENV}}GITHUB_ENV EXE=.exe
+          $path = vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 Microsoft.VisualStudio.Component.VC.Llvm.Clang -property installationPath
+          # The standalone LLVM on PATH can be older than the MSVC STL supports.
+          $clangCl = Join-Path $path 'VC\Tools\Llvm\x64\bin\clang-cl.exe'
+          & $clangCl --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmd /s /c >> $env:GITHUB_ENV """$(join-path $path 'Common7\Tools\vsdevcmd.bat')"" -arch=amd64 -host_arch=amd64 > nul && set"
+          "CC=$clangCl" >> $env:GITHUB_ENV
+          "CXX=$clangCl" >> $env:GITHUB_ENV
+          "EXE=.exe" >> $env:GITHUB_ENV
 
       - name: Uninstall Unused Packages (Linux)
         if: runner.os == 'Linux'
