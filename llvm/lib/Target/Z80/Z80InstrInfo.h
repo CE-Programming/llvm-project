@@ -58,12 +58,14 @@ CondCode parseConstraintCode(StringRef Constraint);
 /// false.
 bool writesAllFlags(const MachineInstr &MI);
 
-/// Return true if no flag value reaching I in MBB can be observed. Each flag
-/// is followed past partial flag writers that keep it, and into successors,
-/// until it is written. A reader of a followed flag makes the flags live.
+/// Return true if none of the tracked flag values reaching I can be observed.
+/// Follow each flag past partial writers and into successors until it is
+/// written. IgnoreZeroFlag lets a replacement preserve Z while changing
+/// other flags.
 bool areFlagsDeadFrom(const MachineBasicBlock &MBB,
                       MachineBasicBlock::const_iterator I,
-                      const TargetRegisterInfo &TRI);
+                      const TargetRegisterInfo &TRI,
+                      bool IgnoreZeroFlag = false);
 
 bool splitReg(unsigned ByteSize, unsigned Opc8, unsigned Opc16, unsigned Opc24,
               unsigned &RC, unsigned &LoOpc, unsigned &LoIdx, unsigned &HiOpc,

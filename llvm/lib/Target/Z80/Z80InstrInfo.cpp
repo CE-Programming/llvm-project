@@ -572,7 +572,7 @@ static uint8_t getReadFlags(const MachineInstr &MI,
 
 bool Z80::areFlagsDeadFrom(const MachineBasicBlock &MBB,
                            MachineBasicBlock::const_iterator I,
-                           const TargetRegisterInfo &TRI) {
+                           const TargetRegisterInfo &TRI, bool IgnoreZeroFlag) {
   // Track which of the flags present at I may still hold their value. Each
   // block is rescanned only for flags not yet followed into it. MBB itself
   // is not marked, so a back edge to it rescans the instructions before I.
@@ -581,7 +581,8 @@ bool Z80::areFlagsDeadFrom(const MachineBasicBlock &MBB,
     MachineBasicBlock::const_iterator I;
     uint8_t Flags;
   };
-  SmallVector<Item, 8> Work{{&MBB, I, AllFlagBits}};
+  const uint8_t Flags = IgnoreZeroFlag ? AllFlagBits & ~ZeroFlagBit : AllFlagBits;
+  SmallVector<Item, 8> Work{{&MBB, I, Flags}};
   SmallDenseMap<const MachineBasicBlock *, uint8_t, 8> Followed;
   unsigned Budget = 256;
   while (!Work.empty()) {

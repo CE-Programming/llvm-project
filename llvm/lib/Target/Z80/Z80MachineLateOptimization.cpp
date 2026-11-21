@@ -173,10 +173,6 @@ class Z80MachineLateOptimization : public MachineFunctionPass {
   const TargetRegisterInfo *TRI;
   RegVal RegVals[Z80::NUM_TARGET_REGS];
 
-  // track when Z flag correctly reflects whether A is zero
-  // after SBC A,A: A is a member of {0, 0xFF} and Z = (A == 0), so OR A,A is redundant
-  bool ZFlagReflectsAZero = false;
-
   // track redundant A<->reg copies, after "ld X, a", X mirrors A
   // if A hasnt changed when we see "ld a, X", we can eliminate the copy
   // AMirroredInReg = X means the value currently in A is also in X
@@ -914,8 +910,10 @@ bool Z80MachineLateOptimization::foldBitTestAllOnes(MachineFunction &MF, const T
       continue;
     }
 
+    // RRCA leaves different flags than BIT. Partial flag writers such as
+    // INC can carry them past the branch, so F live-ins are not enough.
     if (isPhysRegLiveAt(MBB, BrI, Z80::A, *TRI, MRI) ||
-        isPhysRegLiveAt(MBB, std::next(BrI), Z80::F, *TRI, MRI)) {
+        !Z80::areFlagsDeadFrom(MBB, std::next(BrI), *TRI)) {
       continue;
     }
 
@@ -1591,7 +1589,7 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
     LiveUnits.clear();
     LiveUnits.addLiveIns(MBB);
     clobberAll();
-    ZFlagReflectsAZero = false;
+    MachineInstr *AZeroFlagDef = nullptr;
     AMirroredInReg = Z80::NoRegister;
     MachineInstr *AMirrorDef = nullptr;
     for (MachineBasicBlock::iterator I = MBB.begin(), E = MBB.end(); I != E;) {
@@ -1758,12 +1756,17 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
         MIB->getOperand(0).setImplicit();
         MIB->getOperand(1).setImplicit();
         break;
-      // dead OR A,A after SBC A,A
-      // after SBC A,A, A is a member of {0x00, 0xFF} and Z = (A == 0). OR A,A also sets
-      // Z = (A == 0), so its redundant. tracked via ZFlagReflectsAZero
       case Z80::OR8ar:
-        if (MIB->getOperand(0).getReg() == Z80::A && ZFlagReflectsAZero) {
-          LLVM_DEBUG(dbgs() << "Erasing redundant OR A,A (after SBC A,A): ";
+        // An earlier instruction already computed Z from A. The OR may still
+        // be needed for carry or another flag that differs.
+        if (MIB->getOperand(0).getReg() == Z80::A &&
+            !MIB->getOperand(0).isUndef() && AZeroFlagDef &&
+            Z80::areFlagsDeadFrom(MBB, I, *TRI, /*IgnoreZeroFlag=*/true)) {
+          AZeroFlagDef->clearRegisterDeads(Z80::F);
+          for (auto J = std::next(AZeroFlagDef->getIterator());
+               J != MIB->getIterator(); ++J)
+            J->clearRegisterKills(Z80::F, TRI);
+          LLVM_DEBUG(dbgs() << "Erasing redundant OR A,A: ";
                      MIB->dump());
           MIB->eraseFromParent();
           Changed = true;
@@ -1928,7 +1931,7 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
       KnownFlags KnownFlags =
           getKnownFlags(*MIB, KnownFlagsVal, KnownFlagsMask);
 
-      // Clobber defs and track ZFlagReflectsAZero
+      // Clobber defs and track the instruction that sets Z from A.
       bool ClobberedA = false, ClobberedF = false;
       for (MachineOperand &MO : MIB->operands()) {
         if (MO.isReg() && MO.isDef() &&
@@ -1950,17 +1953,14 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
         }
       }
 
-      // SBC A,A sets Z=(A==0). INC/DEC A preserve this. Track to eliminate redundant OR A,A
+      // These operations set Z according to their result in A.
       unsigned Opc = MIB->getOpcode();
-      if (Opc == Z80::SBC8ar && MIB->getOperand(0).getReg() == Z80::A) {
-        ZFlagReflectsAZero = true;
-      } else if (ZFlagReflectsAZero &&
-                 (Opc == Z80::INC8r || Opc == Z80::DEC8r) &&
-                 MIB->getOperand(0).getReg() == Z80::A) {
-        // INC/DEC A preserves Z=(A==0)
-      } else if (ClobberedA || ClobberedF) {
-        ZFlagReflectsAZero = false;
-      }
+      if ((Opc == Z80::SBC8ar ||
+           (AZeroFlagDef && (Opc == Z80::INC8r || Opc == Z80::DEC8r))) &&
+          MIB->getOperand(0).getReg() == Z80::A)
+        AZeroFlagDef = MIB;
+      else if (ClobberedA || ClobberedF)
+        AZeroFlagDef = nullptr;
 
       // invalidate A<->reg mirroring if A or mirrored reg is clobbered (except by tracked ops)
       if (ClobberedA) {

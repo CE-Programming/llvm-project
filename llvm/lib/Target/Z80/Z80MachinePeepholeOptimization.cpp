@@ -524,7 +524,8 @@ bool Z80MachinePeepholeOptimization::runOnMachineFunction(MachineFunction &MF) {
       }
 
       // Only remove boolean tests when the sole observer is a Z/NZ branch.
-      // BIT's other flag differences must be dead on every successor.
+      // The test's other flag differences must be dead on every successor,
+      // including flags that partial writers such as INC carry along.
       FirstI = std::prev(I);
       MachineInstr &Test = *FirstI;
       bool IsZBranch =
@@ -536,7 +537,7 @@ bool Z80MachinePeepholeOptimization::runOnMachineFunction(MachineFunction &MF) {
                     Test.getOperand(1).getImm() == 0;
       bool IsOrA = isAccumulatorOrTest(Test);
       if (IsZBranch && (IsBit0 || IsOrA) && FirstI != MBB.begin() &&
-          Live.available(MRI, Z80::F)) {
+          Z80::areFlagsDeadFrom(MBB, std::next(I), TRI)) {
         MachineInstr &Producer = *std::prev(FirstI);
         if (canFold(Producer) && isBooleanProducer(Producer)) {
           Producer.clearRegisterDeads(Z80::F);

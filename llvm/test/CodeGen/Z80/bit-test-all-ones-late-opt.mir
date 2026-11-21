@@ -10,6 +10,7 @@
   define void @branch_with_debug_value() !dbg !4 { ret void }
   define i8 @branch_keeps_carry() { ret i8 0 }
   define void @carry_through_inc_after_branch() { ret void }
+  define void @all_ones_carry_through_inc() { ret void }
 
   !llvm.dbg.cu = !{!0}
   !llvm.module.flags = !{!2}
@@ -217,4 +218,38 @@ body: |
 # CHECK-LABEL: name: carry_through_inc_after_branch
 # CHECK:      BIT8gb killed $a, 0
 # CHECK-NEXT: JQCC %bb.2, 1
+...
+
+---
+name: all_ones_carry_through_inc
+tracksRegLiveness: true
+body: |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $a, $b
+    SCF implicit-def $f
+    BIT8gb killed $a, 0, implicit-def $f
+    JQCC %bb.2, 1, implicit $f
+
+  bb.1:
+    $a = LD8ri -1
+    LD8ma @g, implicit killed $a
+    RET24 implicit-def $spl, implicit $spl
+
+  bb.2:
+    successors: %bb.3, %bb.4
+    liveins: $b
+    $b = INC8r killed $b, implicit-def $f
+    JQCC %bb.4, 3, implicit $f
+
+  bb.3:
+    RET24 implicit-def $spl, implicit $spl
+
+  bb.4:
+    RET24 implicit-def $spl, implicit $spl
+
+# The zero path still reads the carry from SCF through INC.
+# CHECK-LABEL: name: all_ones_carry_through_inc
+# CHECK:      BIT8gb killed $a, 0
+# CHECK:      $a = LD8ri -1
 ...
