@@ -58,14 +58,20 @@ CondCode parseConstraintCode(StringRef Constraint);
 /// false.
 bool writesAllFlags(const MachineInstr &MI);
 
+/// Return true if MI writes a byte result to A and sets S and Z from it.
+bool setsSignAndZeroFromAccumulatorResult(const MachineInstr &MI);
+
+/// Return true if LoadMI reloads the byte written by RMWMI.
+bool isMatchingRMW(const MachineInstr &LoadMI, const MachineInstr &RMWMI);
+
 /// Return true if none of the tracked flag values reaching I can be observed.
 /// Follow each flag past partial writers and into successors until it is
-/// written. IgnoreZeroFlag lets a replacement preserve Z while changing
-/// other flags.
+/// written. IgnoreSignAndZero lets a replacement preserve S and Z while
+/// changing other flags.
 bool areFlagsDeadFrom(const MachineBasicBlock &MBB,
                       MachineBasicBlock::const_iterator I,
                       const TargetRegisterInfo &TRI,
-                      bool IgnoreZeroFlag = false);
+                      bool IgnoreSignAndZero = false);
 
 bool splitReg(unsigned ByteSize, unsigned Opc8, unsigned Opc16, unsigned Opc24,
               unsigned &RC, unsigned &LoOpc, unsigned &LoIdx, unsigned &HiOpc,

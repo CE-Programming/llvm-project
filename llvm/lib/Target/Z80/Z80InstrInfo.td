@@ -1084,6 +1084,10 @@ let Defs = [UHL, F], Uses = [UHL] in {
                   [(set UHL, F, (Z80sub_flag UHL, O24:$src))]>,
                 Requires<[HaveEZ80Ops]>;
 }
+// Set S and Z from A without changing A. The other flags are unspecified.
+let Defs = [F], Uses = [A] in
+def Cmp8a0 : P;
+
 // zero comparison pseudos: Cmp16a0/Cmp24a0 compare input register to 0
 //
 // intentionally restrict the input to the non-index register classes (G16/G24)

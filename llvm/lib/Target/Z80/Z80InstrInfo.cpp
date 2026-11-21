@@ -518,6 +518,8 @@ static uint8_t getWrittenFlags(const MachineInstr &MI,
   if (Z80::writesAllFlags(MI))
     return AllFlagBits;
   switch (MI.getOpcode()) {
+  case Z80::Cmp8a0:
+    return SignFlagBit | ZeroFlagBit;
   case Z80::INC8r: case Z80::INC8p: case Z80::INC8o:
   case Z80::DEC8r: case Z80::DEC8p: case Z80::DEC8o:
   case Z80::BIT8gb: case Z80::BIT8pb: case Z80::BIT8ob:
@@ -572,7 +574,8 @@ static uint8_t getReadFlags(const MachineInstr &MI,
 
 bool Z80::areFlagsDeadFrom(const MachineBasicBlock &MBB,
                            MachineBasicBlock::const_iterator I,
-                           const TargetRegisterInfo &TRI, bool IgnoreZeroFlag) {
+                           const TargetRegisterInfo &TRI,
+                           bool IgnoreSignAndZero) {
   // Track which of the flags present at I may still hold their value. Each
   // block is rescanned only for flags not yet followed into it. MBB itself
   // is not marked, so a back edge to it rescans the instructions before I.
@@ -581,7 +584,9 @@ bool Z80::areFlagsDeadFrom(const MachineBasicBlock &MBB,
     MachineBasicBlock::const_iterator I;
     uint8_t Flags;
   };
-  const uint8_t Flags = IgnoreZeroFlag ? AllFlagBits & ~ZeroFlagBit : AllFlagBits;
+  const uint8_t Flags =
+      IgnoreSignAndZero ? AllFlagBits & ~(SignFlagBit | ZeroFlagBit)
+                        : AllFlagBits;
   SmallVector<Item, 8> Work{{&MBB, I, Flags}};
   SmallDenseMap<const MachineBasicBlock *, uint8_t, 8> Followed;
   unsigned Budget = 256;
@@ -2203,6 +2208,20 @@ bool Z80InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     return true;
   }
 
+  case Z80::Cmp8a0: {
+    MachineOperand &UseA = *MI.findRegisterUseOperand(Z80::A, &TRI);
+    const bool KillA = UseA.isKill();
+    const bool UndefA = UseA.isUndef();
+    // OR A,A leaves A unchanged, but the real instruction has an A def.
+    UseA.setIsKill(false);
+    MI.setDesc(get(Z80::OR8ar));
+    MIB.addReg(Z80::A, getKillRegState(KillA) | getUndefRegState(UndefA));
+    MI.insert(MI.implicit_operands().begin(),
+              {MachineOperand::CreateReg(Z80::A, /*isDef=*/true,
+                                         /*isImp=*/true, /*isKill=*/false,
+                                         /*isDead=*/KillA)});
+    break;
+  }
   case Z80::RCF:
     MI.setDesc(get(Z80::OR8ar));
     MIB.addReg(Z80::A, RegState::Undef)
@@ -2663,10 +2682,12 @@ bool Z80InstrInfo::analyzeCompare(const MachineInstr &MI, Register &SrcReg,
   default: return false;
   case Z80::OR8ar:
   case Z80::TST8ag:
-    SrcReg = Z80::A;
-    if (MI.getOperand(1).getReg() != SrcReg)
+    if (MI.getOperand(0).getReg() != Z80::A)
       return false;
+    LLVM_FALLTHROUGH;
+  case Z80::Cmp8a0:
     // Compare against zero.
+    SrcReg = Z80::A;
     SrcReg2 = 0;
     CmpMask = 0;
     CmpValue = 0;
@@ -2726,7 +2747,7 @@ inline static bool isRedundantFlagInstr(MachineInstr &FI, Register SrcReg,
 
 /// Check whether the instruction sets the sign and zero flag based on its
 /// result.
-inline static bool isSZSettingInstr(MachineInstr &MI) {
+inline static bool isSZSettingInstr(const MachineInstr &MI) {
   switch (MI.getOpcode()) {
   default: return false;
   case Z80::INC8r:   case Z80::INC8p:   case Z80::INC8o:
@@ -2757,8 +2778,14 @@ inline static bool isSZSettingInstr(MachineInstr &MI) {
   }
 }
 
-inline static bool isMatchingRMW(MachineInstr &LoadMI,
-                                 MachineInstr &RMWMI) {
+bool Z80::setsSignAndZeroFromAccumulatorResult(const MachineInstr &MI) {
+  if (MI.getOpcode() == Z80::OR8ar && MI.getOperand(0).getReg() == Z80::A &&
+      MI.getOperand(0).isUndef())
+    return false;
+  return MI.definesRegister(Z80::A, nullptr) && isSZSettingInstr(MI);
+}
+
+bool Z80::isMatchingRMW(const MachineInstr &LoadMI, const MachineInstr &RMWMI) {
   switch (LoadMI.getOpcode()) {
   default: return false;
   case Z80::LD8rp:
@@ -2841,7 +2868,7 @@ bool Z80InstrInfo::optimizeCompareInstr(MachineInstr &CmpInstr, Register SrcReg,
   const TargetRegisterInfo &TRI = getRegisterInfo();
   if (Def != MI->getParent()->begin()) {
     auto PrevII = std::prev(Def);
-    if (isMatchingRMW(*MI, *PrevII))
+    if (Z80::isMatchingRMW(*MI, *PrevII))
       MI = &*PrevII;
   }
 

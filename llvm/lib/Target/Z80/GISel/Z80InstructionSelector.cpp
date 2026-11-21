@@ -2727,8 +2727,8 @@ Z80InstructionSelector::foldCompare(MachineInstr &I, MachineIRBuilder &MIB,
           Ops = {SrcReg,
                  uint64_t(llvm::countr_zero(static_cast<uint64_t>(Mask)))};
         } else {
-          Opc = Z80::OR8ar;
-          Ops = {Reg};
+          Opc = Z80::Cmp8a0;
+          Ops.clear();
         }
       } else {
         // Cmp24a0/Cmp16a0 accepts any non-index G24/G16 register (including

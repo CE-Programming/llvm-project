@@ -1460,6 +1460,13 @@ bool Z80MachineLateOptimization::foldPushPopPopStackShuffles(
   return Changed;
 }
 
+static bool hasPlainMemoryOperands(const MachineInstr &MI) {
+  return !MI.memoperands_empty() &&
+         all_of(MI.memoperands(), [](const MachineMemOperand *MMO) {
+           return !MMO->isVolatile() && !MMO->isAtomic();
+         });
+}
+
 // A byte boolean phi can leave constant loads into A in each predecessor of
 // a block that only tests A and branches on Z. Retarget each predecessor
 // whose last write of A is a known constant to the successor that the test
@@ -1478,14 +1485,16 @@ static bool threadKnownAccumulatorBranches(MachineFunction &MF,
     if (TestI == Test.end() || TestI->isBundled())
       continue;
     const MachineInstr &TestMI = *TestI;
-    if (TestMI.getOpcode() != Z80::BIT8gb && TestMI.getOpcode() != Z80::OR8ar)
-      continue;
-    const MachineOperand &TestOp = TestMI.getOperand(0);
-    if (!TestOp.isReg() || TestOp.getReg() != Z80::A || TestOp.getSubReg())
-      continue;
     std::optional<unsigned> Bit;
-    if (TestMI.getOpcode() == Z80::BIT8gb)
-      Bit = TestMI.getOperand(1).getImm();
+    if (TestMI.getOpcode() != Z80::Cmp8a0) {
+      if (TestMI.getOpcode() != Z80::BIT8gb && TestMI.getOpcode() != Z80::OR8ar)
+        continue;
+      const MachineOperand &TestOp = TestMI.getOperand(0);
+      if (!TestOp.isReg() || TestOp.getReg() != Z80::A || TestOp.getSubReg())
+        continue;
+      if (TestMI.getOpcode() == Z80::BIT8gb)
+        Bit = TestMI.getOperand(1).getImm();
+    }
     if (next_nodbg(TestI, Test.end(), /*SkipPseudoOp=*/false) !=
         Test.getFirstTerminator())
       continue;
@@ -1589,7 +1598,7 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
     LiveUnits.clear();
     LiveUnits.addLiveIns(MBB);
     clobberAll();
-    MachineInstr *AZeroFlagDef = nullptr;
+    MachineInstr *ASignZeroFlagDef = nullptr;
     AMirroredInReg = Z80::NoRegister;
     MachineInstr *AMirrorDef = nullptr;
     for (MachineBasicBlock::iterator I = MBB.begin(), E = MBB.end(); I != E;) {
@@ -1756,23 +1765,28 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
         MIB->getOperand(0).setImplicit();
         MIB->getOperand(1).setImplicit();
         break;
-      case Z80::OR8ar:
-        // An earlier instruction already computed Z from A. The OR may still
-        // be needed for carry or another flag that differs.
-        if (MIB->getOperand(0).getReg() == Z80::A &&
-            !MIB->getOperand(0).isUndef() && AZeroFlagDef &&
-            Z80::areFlagsDeadFrom(MBB, I, *TRI, /*IgnoreZeroFlag=*/true)) {
-          AZeroFlagDef->clearRegisterDeads(Z80::F);
-          for (auto J = std::next(AZeroFlagDef->getIterator());
+      case Z80::Cmp8a0:
+      case Z80::OR8ar: {
+        // An earlier instruction already computed S and Z from A. For a
+        // concrete OR, carry and other flags can still differ.
+        const MachineOperand *Test = Opc == Z80::Cmp8a0
+                                         ? MIB->findRegisterUseOperand(Z80::A, TRI)
+                                         : &MIB->getOperand(0);
+        if (Test && Test->getReg() == Z80::A && !Test->isUndef() &&
+            ASignZeroFlagDef &&
+            Z80::areFlagsDeadFrom(MBB, I, *TRI, /*IgnoreSignAndZero=*/true)) {
+          ASignZeroFlagDef->clearRegisterDeads(Z80::F);
+          for (auto J = std::next(ASignZeroFlagDef->getIterator());
                J != MIB->getIterator(); ++J)
             J->clearRegisterKills(Z80::F, TRI);
-          LLVM_DEBUG(dbgs() << "Erasing redundant OR A,A: ";
+          LLVM_DEBUG(dbgs() << "Erasing redundant accumulator test: ";
                      MIB->dump());
           MIB->eraseFromParent();
           Changed = true;
           continue;
         }
         break;
+      }
       // redundant copy elimination: track COPY from A and eliminate COPY back if A unchanged
       // this runs before pseudo expansion, so we see COPY, not LD8gg/xx/yy
       case TargetOpcode::COPY: {
@@ -1931,7 +1945,7 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
       KnownFlags KnownFlags =
           getKnownFlags(*MIB, KnownFlagsVal, KnownFlagsMask);
 
-      // Clobber defs and track the instruction that sets Z from A.
+      // Clobber defs and track the instruction that sets S and Z from A.
       bool ClobberedA = false, ClobberedF = false;
       for (MachineOperand &MO : MIB->operands()) {
         if (MO.isReg() && MO.isDef() &&
@@ -1953,52 +1967,54 @@ bool Z80MachineLateOptimization::runOnMachineFunction(MachineFunction &MF) {
         }
       }
 
-      // These operations set Z according to their result in A.
       unsigned Opc = MIB->getOpcode();
-      if ((Opc == Z80::SBC8ar ||
-           (AZeroFlagDef && (Opc == Z80::INC8r || Opc == Z80::DEC8r))) &&
-          MIB->getOperand(0).getReg() == Z80::A)
-        AZeroFlagDef = MIB;
+      const bool IsALUPseudo =
+          Opc == Z80::ADD8_gisel || Opc == Z80::ADD8_gisel_p ||
+          Opc == Z80::ADD8_gisel_o || Opc == Z80::SUB8_gisel ||
+          Opc == Z80::SUB8_gisel_p || Opc == Z80::SUB8_gisel_o ||
+          Opc == Z80::AND8_gisel || Opc == Z80::AND8_gisel_p ||
+          Opc == Z80::AND8_gisel_o || Opc == Z80::OR8_gisel ||
+          Opc == Z80::OR8_gisel_p || Opc == Z80::OR8_gisel_o ||
+          Opc == Z80::XOR8_gisel || Opc == Z80::XOR8_gisel_p ||
+          Opc == Z80::XOR8_gisel_o;
+      // Use the final opcode, since the short accumulator rotates do not
+      // set S and Z from their result.
+      if (Opc == Z80::Cmp8a0 || IsALUPseudo ||
+          Z80::setsSignAndZeroFromAccumulatorResult(*MIB))
+        ASignZeroFlagDef = MIB;
       else if (ClobberedA || ClobberedF)
-        AZeroFlagDef = nullptr;
+        ASignZeroFlagDef = nullptr;
+
+      // An adjacent reload from the same address gets the RMW result in A.
+      if (ClobberedA && MIB->mayLoad() && !MIB->isBundled() &&
+          hasPlainMemoryOperands(*MIB) &&
+          MIB->getIterator() != MBB.begin()) {
+        auto Prev = prev_nodbg(MachineBasicBlock::iterator(*MIB), MBB.begin(),
+                              /*SkipPseudoOp=*/false);
+        if (!Prev->isBundled() && Z80::isMatchingRMW(*MIB, *Prev) &&
+            hasPlainMemoryOperands(*Prev))
+          ASignZeroFlagDef = &*Prev;
+      }
 
       // invalidate A<->reg mirroring if A or mirrored reg is clobbered (except by tracked ops)
       if (ClobberedA) {
         bool isCopyFromA = Opc == TargetOpcode::COPY &&
                            MIB->getOperand(1).getReg() == Z80::A;
-        bool isALUPseudo =
-            (Opc == Z80::ADD8_gisel || Opc == Z80::ADD8_gisel_p ||
-             Opc == Z80::ADD8_gisel_o || Opc == Z80::SUB8_gisel ||
-             Opc == Z80::SUB8_gisel_p || Opc == Z80::SUB8_gisel_o ||
-             Opc == Z80::AND8_gisel || Opc == Z80::AND8_gisel_p ||
-             Opc == Z80::AND8_gisel_o || Opc == Z80::OR8_gisel ||
-             Opc == Z80::OR8_gisel_p || Opc == Z80::OR8_gisel_o ||
-             Opc == Z80::XOR8_gisel || Opc == Z80::XOR8_gisel_p ||
-             Opc == Z80::XOR8_gisel_o);
-        if (!isCopyFromA && !isALUPseudo) {
+        if (!isCopyFromA && !IsALUPseudo) {
           AMirroredInReg = Z80::NoRegister;
           AMirrorDef = nullptr;
         }
       }
-      if (AMirroredInReg != Z80::NoRegister) {
-        bool isALUPseudoOrCopy =
-            (Opc == Z80::ADD8_gisel || Opc == Z80::ADD8_gisel_p ||
-             Opc == Z80::ADD8_gisel_o || Opc == Z80::SUB8_gisel ||
-             Opc == Z80::SUB8_gisel_p || Opc == Z80::SUB8_gisel_o ||
-             Opc == Z80::AND8_gisel || Opc == Z80::AND8_gisel_p ||
-             Opc == Z80::AND8_gisel_o || Opc == Z80::OR8_gisel ||
-             Opc == Z80::OR8_gisel_p || Opc == Z80::OR8_gisel_o ||
-             Opc == Z80::XOR8_gisel || Opc == Z80::XOR8_gisel_p ||
-             Opc == Z80::XOR8_gisel_o || Opc == TargetOpcode::COPY);
-        if (!isALUPseudoOrCopy) {
-          for (MachineOperand &MO : MIB->operands()) {
-            if (MO.isReg() && MO.isDef()) {
-              for (MCRegAliasIterator AI(MO.getReg(), TRI, true); AI.isValid(); ++AI) {
-                if (*AI == AMirroredInReg) {
-                  AMirroredInReg = Z80::NoRegister;
-                  AMirrorDef = nullptr;
-                  break;
-                }
+      if (AMirroredInReg != Z80::NoRegister && !IsALUPseudo &&
+          Opc != TargetOpcode::COPY) {
+        for (MachineOperand &MO : MIB->operands()) {
+          if (MO.isReg() && MO.isDef()) {
+            for (MCRegAliasIterator AI(MO.getReg(), TRI, true); AI.isValid();
+                 ++AI) {
+              if (*AI == AMirroredInReg) {
+                AMirroredInReg = Z80::NoRegister;
+                AMirrorDef = nullptr;
+                break;
               }
             }
           }

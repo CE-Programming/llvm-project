@@ -9,7 +9,7 @@
 --- |
   define void @both_known() { ret void }
   define void @one_known() { ret void }
-  define void @or_test() { ret void }
+  define void @zero_test() { ret void }
   define void @live_flags() { ret void }
   define void @carry_through_inc() { ret void }
   define void @leading_nop() { ret void }
@@ -113,7 +113,7 @@ body: |
 ...
 
 ---
-name: or_test
+name: zero_test
 tracksRegLiveness: true
 body: |
   bb.0:
@@ -123,7 +123,7 @@ body: |
   bb.1:
     successors: %bb.3, %bb.2
     liveins: $a
-    OR8ar $a, implicit-def $a, implicit-def $f, implicit $a
+    Cmp8a0 implicit-def $f, implicit $a
     JQCC %bb.3, 1, implicit $f
 
   bb.2:
@@ -133,13 +133,13 @@ body: |
   bb.3:
     RET16 implicit-def $sps, implicit $sps
 
-# OR A,A on 16 clears Z, so the entry block falls to bb.2 directly.
-# CHECK-LABEL: name: or_test
+# Comparing 16 with zero clears Z, so the entry block goes to bb.2 directly.
+# CHECK-LABEL: name: zero_test
 # CHECK:      bb.0:
 # CHECK-NEXT:   successors: %bb.2
 # CHECK:        $a = LD8ri 16
 # CHECK-NEXT:   JQ %bb.2
-# CHECK-NOT:  OR8ar
+# CHECK-NOT:  Cmp8a0
 ...
 
 ---

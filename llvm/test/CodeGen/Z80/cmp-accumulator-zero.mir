@@ -1,0 +1,80 @@
+# NOTE: Do not autogenerate
+# RUN: llc -mtriple=ez80 -run-pass=z80-machine-late-opt -verify-machineinstrs -o - %s | FileCheck %s --check-prefix=LATE
+# RUN: llc -mtriple=ez80 -run-pass=postrapseudos -verify-machineinstrs -o - %s | FileCheck %s --check-prefix=EXPAND
+
+---
+name: reuse_zero
+tracksRegLiveness: true
+body: |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $f
+    SBC8ar undef $a, implicit-def $a, implicit-def dead $f, implicit undef $a, implicit $f
+    Cmp8a0 implicit-def $f, implicit killed $a
+    JQCC %bb.2, 1, implicit $f
+
+  bb.1:
+    RET24 implicit-def $spl, implicit $spl
+
+  bb.2:
+    RET24 implicit-def $spl, implicit $spl
+
+# LATE-LABEL: name: reuse_zero
+# LATE:      SBC8ar undef $a, implicit-def $a, implicit-def $f
+# LATE-NEXT: JQCC %bb.2, 1
+
+# EXPAND-LABEL: name: reuse_zero
+# EXPAND:      OR8ar killed $a, implicit-def dead $a, implicit-def $f, implicit $a
+# EXPAND-NEXT: JQCC %bb.2, 1
+...
+
+---
+name: reuse_sign
+tracksRegLiveness: true
+body: |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $a
+    $a = INC8r killed $a, implicit-def dead $f
+    Cmp8a0 implicit-def $f, implicit $a
+    JQCC %bb.2, 7, implicit $f
+
+  bb.1:
+    liveins: $a
+    RET24 implicit-def $spl, implicit $spl, implicit $a
+
+  bb.2:
+    RET24 implicit-def $spl, implicit $spl
+
+# LATE-LABEL: name: reuse_sign
+# LATE:      $a = INC8r killed $a, implicit-def $f
+# LATE-NEXT: JQCC %bb.2, 7
+
+# EXPAND-LABEL: name: reuse_sign
+# EXPAND:      OR8ar $a, implicit-def $a, implicit-def $f, implicit $a
+# EXPAND-NEXT: JQCC %bb.2, 7
+...
+
+---
+name: keep_test_for_volatile_reload
+tracksRegLiveness: true
+body: |
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $uiy
+    DEC8o $uiy, 3, implicit-def dead $f :: (load (s8)), (store (s8))
+    $a = LD8ro killed $uiy, 3 :: (volatile load (s8))
+    Cmp8a0 implicit-def $f, implicit killed $a
+    JQCC %bb.2, 1, implicit $f
+
+  bb.1:
+    RET24 implicit-def $spl, implicit $spl
+
+  bb.2:
+    RET24 implicit-def $spl, implicit $spl
+
+# LATE-LABEL: name: keep_test_for_volatile_reload
+# LATE:      $a = LD8ro
+# LATE-NEXT: Cmp8a0
+# LATE-NEXT: JQCC %bb.2, 1
+...
