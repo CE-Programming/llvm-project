@@ -504,6 +504,7 @@ bool Z80InstructionSelector::select(MachineInstr &I) const {
   case TargetOpcode::G_FREEZE:
     return selectCopy(I, MRI);
   case TargetOpcode::G_SEXT:
+  case TargetOpcode::G_SEXT_INREG:
     return selectSExt(I, MRI);
   case TargetOpcode::G_ZEXT:
     return selectZExt(I, MRI);
@@ -643,7 +644,10 @@ bool Z80InstructionSelector::selectTrunc(MachineInstr &I,
 
 bool Z80InstructionSelector::selectSExt(MachineInstr &I,
                                         MachineRegisterInfo &MRI) const {
-  assert(I.getOpcode() == TargetOpcode::G_SEXT && "unexpected instruction");
+  const bool IsInReg = I.getOpcode() == TargetOpcode::G_SEXT_INREG;
+  assert((I.getOpcode() == TargetOpcode::G_SEXT ||
+          (IsInReg && I.getOperand(2).getImm() == 1)) &&
+         "unexpected instruction");
 
   Register DstReg = I.getOperand(0).getReg();
   Register SrcReg = I.getOperand(1).getReg();
@@ -652,9 +656,11 @@ bool Z80InstructionSelector::selectSExt(MachineInstr &I,
   LLT SrcTy = MRI.getType(SrcReg);
   const bool Is24Bit = STI.is24Bit();
 
-  // handle s1 -> sN sign extension (boolean to integer), result is 0 or -1
-  if (SrcTy == LLT::scalar(1)) {
-    if (DstTy.getSizeInBits() <= 24 && MRI.hasOneUse(SrcReg) &&
+  // Sign-extend bit 0 to a 0 or -1 mask.
+  if (IsInReg || SrcTy == LLT::scalar(1)) {
+    assert((DstTy.getSizeInBits() <= 24 || SrcTy == LLT::scalar(1)) &&
+           "wide carry masks require an s1 source");
+    if (!IsInReg && DstTy.getSizeInBits() <= 24 && MRI.hasOneUse(SrcReg) &&
         selectSetCond(I.getOpcode(), DstReg, SrcReg, I, MRI, false))
       return true;
 
@@ -811,7 +817,20 @@ bool Z80InstructionSelector::selectSExt(MachineInstr &I,
     }
 
     MachineIRBuilder MIB(I);
-    auto Rotate = MIB.buildInstr(Z80::RRC8g, {LLT::scalar(8)}, {SrcReg});
+    const LLT ByteTy = LLT::scalar(8);
+    if (IsInReg && SrcTy != ByteTy) {
+      Register LowByte;
+      // Legalizing a boolean can leave an any-extension of its low byte.
+      if (!mi_match(SrcReg, MRI, m_GAnyExt(m_Reg(LowByte))) ||
+          MRI.getType(LowByte) != ByteTy) {
+        LowByte = createGenericVirtualRegister(MRI, ByteTy);
+        auto Trunc = MIB.buildTrunc(LowByte, SrcReg);
+        if (!selectTrunc(*Trunc, MRI))
+          return false;
+      }
+      SrcReg = LowByte;
+    }
+    auto Rotate = MIB.buildInstr(Z80::RRC8g, {ByteTy}, {SrcReg});
     if (!constrainSelectedInstRegOperands(*Rotate, TII, TRI, RBI))
       return false;
     auto Fill = MIB.buildInstr(FillOpc);

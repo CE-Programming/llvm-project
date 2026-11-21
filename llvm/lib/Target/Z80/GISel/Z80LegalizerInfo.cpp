@@ -207,6 +207,10 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
         .maxScalar(0, sMax);
   }
 
+  getActionDefinitionsBuilder(G_SEXT_INREG)
+      .customFor(LegalScalars)
+      .lower();
+
   getActionDefinitionsBuilder(G_TRUNC)
       .legalForCartesianProduct(NotMaxWithOne, LegalScalars)
       .clampScalar(1, *LegalScalars.begin(), *std::prev(LegalScalars.end()))
@@ -425,10 +429,10 @@ Z80LegalizerInfo::Z80LegalizerInfo(const Z80Subtarget &STI,
   getActionDefinitionsBuilder(G_ABS).customFor(LegalLibcallScalars).lower();
 
   getActionDefinitionsBuilder({G_SDIVREM, G_UDIVREM, G_DYN_STACKALLOC,
-                               G_STACKSAVE, G_STACKRESTORE, G_SEXT_INREG,
-                               G_SMULH, G_UMULH, G_SMIN, G_SMAX, G_UMIN, G_UMAX,
-                               G_UADDSAT, G_SADDSAT, G_USUBSAT, G_SSUBSAT,
-                               G_USHLSAT, G_SSHLSAT, G_FPOWI})
+                               G_STACKSAVE, G_STACKRESTORE, G_SMULH, G_UMULH,
+                               G_SMIN, G_SMAX, G_UMIN, G_UMAX, G_UADDSAT,
+                               G_SADDSAT, G_USUBSAT, G_SSUBSAT, G_USHLSAT,
+                               G_SSHLSAT, G_FPOWI})
       .lower();
 
   getActionDefinitionsBuilder({G_CTTZ_ZERO_UNDEF, G_CTLZ_ZERO_UNDEF})
@@ -484,6 +488,11 @@ bool Z80LegalizerInfo::legalizeCustom(LegalizerHelper &Helper, MachineInstr &MI,
     return handleResult(legalizeByteDivide(Helper, MI, LocObserver));
   case G_SEXT:
     return handleResult(legalizeSExt(Helper, MI, LocObserver));
+  case G_SEXT_INREG:
+    // The selector can move bit 0 into carry and materialize the mask.
+    if (MI.getOperand(2).getImm() == 1)
+      return true;
+    return handleResult(Helper.lower(MI, 0, LLT()));
   case G_EXTRACT:
   case G_INSERT:
     return handleResult(legalizeExtractInsert(Helper, MI));
