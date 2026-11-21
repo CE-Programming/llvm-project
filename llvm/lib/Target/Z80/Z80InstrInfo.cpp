@@ -65,6 +65,14 @@ Z80InstrInfo::Z80InstrInfo(Z80Subtarget &STI)
       Subtarget(STI), RI(STI.getTargetTriple()) {
 }
 
+void Z80InstrInfo::addCarryMask8Operands(const MachineInstrBuilder &MIB) {
+  assert(MIB->getOpcode() == Z80::SBC8ar && "expected SBC8ar");
+  // The old value of A cancels out. The explicit source must stay fixed to A
+  // so register allocation cannot turn SBC A, A into SBC A, r.
+  MIB->findRegisterUseOperand(Z80::A, nullptr)->setIsUndef();
+  MIB.addReg(Z80::A, RegState::Undef);
+}
+
 int Z80InstrInfo::getSPAdjust(const MachineInstr &MI) const {
   switch (MI.getOpcode()) {
   case Z80::INC16s:

@@ -21,6 +21,7 @@
 #include "Z80GenInstrInfo.inc"
 
 namespace llvm {
+class MachineInstrBuilder;
 class Z80Subtarget;
 
 namespace Z80 {
@@ -96,6 +97,9 @@ public:
   /// always be able to get register info as well (through this method).
   ///
   const Z80RegisterInfo &getRegisterInfo() const { return RI; }
+
+  /// Set up a freshly built SBC8ar to materialize carry as 0 or -1 in A.
+  static void addCarryMask8Operands(const MachineInstrBuilder &MIB);
 
   int getSPAdjust(const MachineInstr &MI) const override;
 

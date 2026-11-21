@@ -339,9 +339,10 @@ MachineBasicBlock *Z80TargetLowering::EmitLoweredSExt(
     break;
   }
   MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
-  MIB->findRegisterUseOperand(Reg, nullptr)->setIsUndef();
-  if (Reg == Z80::A)
-    MIB.addReg(Reg, RegState::Undef);
+  if (Opc == Z80::SBC8ar)
+    Z80InstrInfo::addCarryMask8Operands(MIB);
+  else
+    MIB->findRegisterUseOperand(Reg, nullptr)->setIsUndef();
   MI.eraseFromParent();
   return BB;
 }

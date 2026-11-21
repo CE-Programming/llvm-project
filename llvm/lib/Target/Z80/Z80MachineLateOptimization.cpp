@@ -916,9 +916,9 @@ bool Z80MachineLateOptimization::foldBitTestAllOnes(MachineFunction &MF, const T
 
     BuildMI(MBB, BitI, BitI->getDebugLoc(), TII.get(Z80::RRCA));
 
-    auto Mask = BuildMI(*NonZero, LoadI, LoadI->getDebugLoc(), TII.get(Z80::SBC8ar));
-    Mask->findRegisterUseOperand(Z80::A, TRI)->setIsUndef();
-    Mask.addReg(Z80::A, RegState::Undef);
+    auto Mask =
+        BuildMI(*NonZero, LoadI, LoadI->getDebugLoc(), TII.get(Z80::SBC8ar));
+    Z80InstrInfo::addCarryMask8Operands(Mask);
 
     BrI->getOperand(1).setImm(BrI->getOperand(1).getImm() == Z80::COND_Z ? Z80::COND_NC : Z80::COND_C);
     BrI->clearRegisterKills(Z80::F, TRI);

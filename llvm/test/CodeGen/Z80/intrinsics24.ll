@@ -375,7 +375,6 @@ define i1 @uadd.with.overflow.i24(i24, i24) {
 ; EZ80-NEXT:    ld hl, (iy + 3)
 ; EZ80-NEXT:    ld de, (iy + 6)
 ; EZ80-NEXT:    add hl, de
-; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ret
   call {i24, i1} @llvm.uadd.with.overflow.i24(i24 %0, i24 %1)
@@ -414,7 +413,6 @@ define i1 @usub.with.overflow.i24(i24, i24) {
 ; EZ80-NEXT:    ld hl, (iy + 3)
 ; EZ80-NEXT:    ld de, (iy + 6)
 ; EZ80-NEXT:    sbc hl, de
-; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ret
   call {i24, i1} @llvm.usub.with.overflow.i24(i24 %0, i24 %1)

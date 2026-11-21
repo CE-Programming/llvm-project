@@ -815,9 +815,10 @@ bool Z80InstructionSelector::selectSExt(MachineInstr &I,
     if (!constrainSelectedInstRegOperands(*Rotate, TII, TRI, RBI))
       return false;
     auto Fill = MIB.buildInstr(FillOpc);
-    Fill->findRegisterUseOperand(FillReg, nullptr)->setIsUndef();
     if (FillOpc == Z80::SBC8ar)
-      Fill.addReg(FillReg, RegState::Undef);
+      Z80InstrInfo::addCarryMask8Operands(Fill);
+    else
+      Fill->findRegisterUseOperand(FillReg, nullptr)->setIsUndef();
     if (!constrainSelectedInstRegOperands(*Fill, TII, TRI, RBI))
       return false;
     auto CopyFromReg = MIB.buildCopy(DstReg, FillReg);
@@ -897,8 +898,7 @@ bool Z80InstructionSelector::selectSExt(MachineInstr &I,
       if (!constrainSelectedInstRegOperands(*Rotate, TII, TRI, RBI))
         return Register();
       auto Fill8I = MIB.buildInstr(Z80::SBC8ar);
-      Fill8I->findRegisterUseOperand(Z80::A, nullptr)->setIsUndef();
-      Fill8I.addReg(Z80::A, RegState::Undef);
+      Z80InstrInfo::addCarryMask8Operands(Fill8I);
       if (!constrainSelectedInstRegOperands(*Fill8I, TII, TRI, RBI))
         return Register();
       auto Fill8 = MIB.buildCopy(LLT::scalar(8), Register(Z80::A));
@@ -3518,18 +3518,11 @@ bool Z80InstructionSelector::selectSetCond(unsigned ExtOpc, Register DstReg,
         !constrainSelectedInstRegOperands(*SelectI, TII, TRI, RBI))
       return false;
   } else {
-    Register UndefReg = Z80::NoRegister;
-    if (FillOpc == Z80::SBC8ar) {
-      auto CopyUndefI = MIB.buildCopy(DstTy, FillReg);
-      CopyUndefI->findRegisterUseOperand(FillReg, nullptr)->setIsUndef();
-      UndefReg = CopyUndefI.getReg(0);
-      if (!RBI.constrainGenericRegister(UndefReg, *DstRC, MRI))
-        return false;
-    }
     auto FillI = MIB.buildInstr(FillOpc);
-    FillI->findRegisterUseOperand(FillReg, nullptr)->setIsUndef();
-    if (UndefReg)
-      FillI.addReg(UndefReg, RegState::Undef);
+    if (FillOpc == Z80::SBC8ar)
+      Z80InstrInfo::addCarryMask8Operands(FillI);
+    else
+      FillI->findRegisterUseOperand(FillReg, nullptr)->setIsUndef();
     if (!constrainSelectedInstRegOperands(*FillI, TII, TRI, RBI))
       return false;
     if (ExtOpc == TargetOpcode::G_ZEXT) {

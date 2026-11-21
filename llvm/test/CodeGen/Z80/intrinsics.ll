@@ -1382,7 +1382,6 @@ define i32 @umax.i32(i32, i32) {
 ; Z80-NEXT:    ld d, (ix + 11)
 ; Z80-NEXT:    call __lcmpu
 ; Z80-NEXT:    ccf
-; Z80-NEXT:    ; kill: def $a killed $a
 ; Z80-NEXT:    sbc a, a
 ; Z80-NEXT:    inc a
 ; Z80-NEXT:    bit 0, a
@@ -1417,7 +1416,6 @@ define i32 @umax.i32(i32, i32) {
 ; EZ80-CODE16-NEXT:    ld de, (ix + 10)
 ; EZ80-CODE16-NEXT:    call __lcmpu
 ; EZ80-CODE16-NEXT:    ccf
-; EZ80-CODE16-NEXT:    ; kill: def $a killed $a
 ; EZ80-CODE16-NEXT:    sbc a, a
 ; EZ80-CODE16-NEXT:    inc a
 ; EZ80-CODE16-NEXT:    bit 0, a
@@ -1451,7 +1449,6 @@ define i32 @umax.i32(i32, i32) {
 ; EZ80-NEXT:    ld a, d
 ; EZ80-NEXT:    call __lcmpu
 ; EZ80-NEXT:    ccf
-; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    inc a
 ; EZ80-NEXT:    bit 0, a
@@ -1513,7 +1510,6 @@ define i64 @umax.i64(i64, i64) {
 ; Z80-NEXT:    ld b, (ix + 17)
 ; Z80-NEXT:    call __llcmpu
 ; Z80-NEXT:    ccf
-; Z80-NEXT:    ; kill: def $a killed $a
 ; Z80-NEXT:    sbc a, a
 ; Z80-NEXT:    inc a
 ; Z80-NEXT:    ld iy, 10
@@ -1596,7 +1592,6 @@ define i64 @umax.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld bc, (ix + 16)
 ; EZ80-CODE16-NEXT:    call __llcmpu
 ; EZ80-CODE16-NEXT:    ccf
-; EZ80-CODE16-NEXT:    ; kill: def $a killed $a
 ; EZ80-CODE16-NEXT:    sbc a, a
 ; EZ80-CODE16-NEXT:    inc a
 ; EZ80-CODE16-NEXT:    ld iy, 10
@@ -1655,7 +1650,6 @@ define i64 @umax.i64(i64, i64) {
 ; EZ80-NEXT:    ; kill: def $bc killed $bc killed $ubc
 ; EZ80-NEXT:    call __llcmpu
 ; EZ80-NEXT:    ccf
-; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    inc a
 ; EZ80-NEXT:    ld iy, 9
@@ -1820,7 +1814,6 @@ define i32 @umin.i32(i32, i32) {
 ; Z80-NEXT:    pop iy
 ; Z80-NEXT:    call __lcmpu
 ; Z80-NEXT:    ccf
-; Z80-NEXT:    ; kill: def $a killed $a
 ; Z80-NEXT:    sbc a, a
 ; Z80-NEXT:    inc a
 ; Z80-NEXT:    bit 0, a
@@ -1853,7 +1846,6 @@ define i32 @umin.i32(i32, i32) {
 ; EZ80-CODE16-NEXT:    ld iy, (iy + 8)
 ; EZ80-CODE16-NEXT:    call __lcmpu
 ; EZ80-CODE16-NEXT:    ccf
-; EZ80-CODE16-NEXT:    ; kill: def $a killed $a
 ; EZ80-CODE16-NEXT:    sbc a, a
 ; EZ80-CODE16-NEXT:    inc a
 ; EZ80-CODE16-NEXT:    bit 0, a
@@ -1886,7 +1878,6 @@ define i32 @umin.i32(i32, i32) {
 ; EZ80-NEXT:    ld a, d
 ; EZ80-NEXT:    call __lcmpu
 ; EZ80-NEXT:    ccf
-; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    inc a
 ; EZ80-NEXT:    bit 0, a
@@ -1949,7 +1940,6 @@ define i64 @umin.i64(i64, i64) {
 ; Z80-NEXT:    ld b, (ix + 9)
 ; Z80-NEXT:    call __llcmpu
 ; Z80-NEXT:    ccf
-; Z80-NEXT:    ; kill: def $a killed $a
 ; Z80-NEXT:    sbc a, a
 ; Z80-NEXT:    inc a
 ; Z80-NEXT:    ld hl, 10
@@ -2026,7 +2016,6 @@ define i64 @umin.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld bc, (ix + 8)
 ; EZ80-CODE16-NEXT:    call __llcmpu
 ; EZ80-CODE16-NEXT:    ccf
-; EZ80-CODE16-NEXT:    ; kill: def $a killed $a
 ; EZ80-CODE16-NEXT:    sbc a, a
 ; EZ80-CODE16-NEXT:    inc a
 ; EZ80-CODE16-NEXT:    ld hl, 10
@@ -2088,7 +2077,6 @@ define i64 @umin.i64(i64, i64) {
 ; EZ80-NEXT:    push iy
 ; EZ80-NEXT:    call __llcmpu
 ; EZ80-NEXT:    ccf
-; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    inc a
 ; EZ80-NEXT:    ld iy, 9
@@ -4407,7 +4395,6 @@ define i1 @uadd.with.overflow.i8(i8, i8) {
 ; Z80-NEXT:    add iy, sp
 ; Z80-NEXT:    ld a, (iy + 2)
 ; Z80-NEXT:    add a, (iy + 4)
-; Z80-NEXT:    ; kill: def $a killed $a
 ; Z80-NEXT:    sbc a, a
 ; Z80-NEXT:    ret
 ;
@@ -4417,7 +4404,6 @@ define i1 @uadd.with.overflow.i8(i8, i8) {
 ; EZ80-CODE16-NEXT:    add iy, sp
 ; EZ80-CODE16-NEXT:    ld a, (iy + 2)
 ; EZ80-CODE16-NEXT:    add a, (iy + 4)
-; EZ80-CODE16-NEXT:    ; kill: def $a killed $a
 ; EZ80-CODE16-NEXT:    sbc a, a
 ; EZ80-CODE16-NEXT:    ret
 ;
@@ -4427,7 +4413,6 @@ define i1 @uadd.with.overflow.i8(i8, i8) {
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld a, (iy + 3)
 ; EZ80-NEXT:    add a, (iy + 6)
-; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ret
   call {i8, i1} @llvm.uadd.with.overflow.i8(i8 %0, i8 %1)
@@ -4445,7 +4430,6 @@ define i1 @uadd.with.overflow.i16(i16, i16) {
 ; Z80-NEXT:    ld e, (iy + 4)
 ; Z80-NEXT:    ld d, (iy + 5)
 ; Z80-NEXT:    add hl, de
-; Z80-NEXT:    ; kill: def $a killed $a
 ; Z80-NEXT:    sbc a, a
 ; Z80-NEXT:    ret
 ;
@@ -4456,7 +4440,6 @@ define i1 @uadd.with.overflow.i16(i16, i16) {
 ; EZ80-CODE16-NEXT:    ld hl, (iy + 2)
 ; EZ80-CODE16-NEXT:    ld de, (iy + 4)
 ; EZ80-CODE16-NEXT:    add hl, de
-; EZ80-CODE16-NEXT:    ; kill: def $a killed $a
 ; EZ80-CODE16-NEXT:    sbc a, a
 ; EZ80-CODE16-NEXT:    ret
 ;
@@ -4467,7 +4450,6 @@ define i1 @uadd.with.overflow.i16(i16, i16) {
 ; EZ80-NEXT:    ld hl, (iy + 3)
 ; EZ80-NEXT:    ld de, (iy + 6)
 ; EZ80-NEXT:    add.sis hl, de
-; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ret
   call {i16, i1} @llvm.uadd.with.overflow.i16(i16 %0, i16 %1)
@@ -4494,7 +4476,6 @@ define i1 @uadd.with.overflow.i32(i32, i32) {
 ; Z80-NEXT:    ld b, (ix + 11)
 ; Z80-NEXT:    add iy, de
 ; Z80-NEXT:    adc hl, bc
-; Z80-NEXT:    ; kill: def $a killed $a
 ; Z80-NEXT:    sbc a, a
 ; Z80-NEXT:    pop ix
 ; Z80-NEXT:    ret
@@ -4510,7 +4491,6 @@ define i1 @uadd.with.overflow.i32(i32, i32) {
 ; EZ80-CODE16-NEXT:    ld bc, (ix + 10)
 ; EZ80-CODE16-NEXT:    add iy, de
 ; EZ80-CODE16-NEXT:    adc hl, bc
-; EZ80-CODE16-NEXT:    ; kill: def $a killed $a
 ; EZ80-CODE16-NEXT:    sbc a, a
 ; EZ80-CODE16-NEXT:    pop ix
 ; EZ80-CODE16-NEXT:    ret
@@ -4524,7 +4504,6 @@ define i1 @uadd.with.overflow.i32(i32, i32) {
 ; EZ80-NEXT:    add hl, de
 ; EZ80-NEXT:    ld a, (iy + 6)
 ; EZ80-NEXT:    adc a, (iy + 12)
-; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ret
   call {i32, i1} @llvm.uadd.with.overflow.i32(i32 %0, i32 %1)
@@ -4561,7 +4540,6 @@ define i1 @uadd.with.overflow.i64(i64, i64) {
 ; Z80-NEXT:    ld e, (ix + 18)
 ; Z80-NEXT:    ld d, (ix + 19)
 ; Z80-NEXT:    adc hl, de
-; Z80-NEXT:    ; kill: def $a killed $a
 ; Z80-NEXT:    sbc a, a
 ; Z80-NEXT:    pop ix
 ; Z80-NEXT:    ret
@@ -4583,7 +4561,6 @@ define i1 @uadd.with.overflow.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld hl, (ix + 10)
 ; EZ80-CODE16-NEXT:    ld de, (ix + 18)
 ; EZ80-CODE16-NEXT:    adc hl, de
-; EZ80-CODE16-NEXT:    ; kill: def $a killed $a
 ; EZ80-CODE16-NEXT:    sbc a, a
 ; EZ80-CODE16-NEXT:    pop ix
 ; EZ80-CODE16-NEXT:    ret
@@ -4603,7 +4580,6 @@ define i1 @uadd.with.overflow.i64(i64, i64) {
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
 ; EZ80-NEXT:    ld de, (ix + 21)
 ; EZ80-NEXT:    adc.sis hl, de
-; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
@@ -4908,7 +4884,6 @@ define i1 @usub.with.overflow.i8(i8, i8) {
 ; Z80-NEXT:    add iy, sp
 ; Z80-NEXT:    ld a, (iy + 2)
 ; Z80-NEXT:    sub a, (iy + 4)
-; Z80-NEXT:    ; kill: def $a killed $a
 ; Z80-NEXT:    sbc a, a
 ; Z80-NEXT:    ret
 ;
@@ -4918,7 +4893,6 @@ define i1 @usub.with.overflow.i8(i8, i8) {
 ; EZ80-CODE16-NEXT:    add iy, sp
 ; EZ80-CODE16-NEXT:    ld a, (iy + 2)
 ; EZ80-CODE16-NEXT:    sub a, (iy + 4)
-; EZ80-CODE16-NEXT:    ; kill: def $a killed $a
 ; EZ80-CODE16-NEXT:    sbc a, a
 ; EZ80-CODE16-NEXT:    ret
 ;
@@ -4928,7 +4902,6 @@ define i1 @usub.with.overflow.i8(i8, i8) {
 ; EZ80-NEXT:    add iy, sp
 ; EZ80-NEXT:    ld a, (iy + 3)
 ; EZ80-NEXT:    sub a, (iy + 6)
-; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ret
   call {i8, i1} @llvm.usub.with.overflow.i8(i8 %0, i8 %1)
@@ -4946,7 +4919,6 @@ define i1 @usub.with.overflow.i16(i16, i16) {
 ; Z80-NEXT:    ld e, (iy + 4)
 ; Z80-NEXT:    ld d, (iy + 5)
 ; Z80-NEXT:    sbc hl, de
-; Z80-NEXT:    ; kill: def $a killed $a
 ; Z80-NEXT:    sbc a, a
 ; Z80-NEXT:    ret
 ;
@@ -4957,7 +4929,6 @@ define i1 @usub.with.overflow.i16(i16, i16) {
 ; EZ80-CODE16-NEXT:    ld hl, (iy + 2)
 ; EZ80-CODE16-NEXT:    ld de, (iy + 4)
 ; EZ80-CODE16-NEXT:    sbc hl, de
-; EZ80-CODE16-NEXT:    ; kill: def $a killed $a
 ; EZ80-CODE16-NEXT:    sbc a, a
 ; EZ80-CODE16-NEXT:    ret
 ;
@@ -4969,7 +4940,6 @@ define i1 @usub.with.overflow.i16(i16, i16) {
 ; EZ80-NEXT:    ld de, (iy + 6)
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
 ; EZ80-NEXT:    sbc.sis hl, de
-; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ret
   call {i16, i1} @llvm.usub.with.overflow.i16(i16 %0, i16 %1)
@@ -5000,7 +4970,6 @@ define i1 @usub.with.overflow.i32(i32, i32) {
 ; Z80-NEXT:    ld d, iyh
 ; Z80-NEXT:    ex de, hl
 ; Z80-NEXT:    sbc hl, bc
-; Z80-NEXT:    ; kill: def $a killed $a
 ; Z80-NEXT:    sbc a, a
 ; Z80-NEXT:    pop ix
 ; Z80-NEXT:    ret
@@ -5017,7 +4986,6 @@ define i1 @usub.with.overflow.i32(i32, i32) {
 ; EZ80-CODE16-NEXT:    sbc hl, de
 ; EZ80-CODE16-NEXT:    lea hl, iy + 0
 ; EZ80-CODE16-NEXT:    sbc hl, bc
-; EZ80-CODE16-NEXT:    ; kill: def $a killed $a
 ; EZ80-CODE16-NEXT:    sbc a, a
 ; EZ80-CODE16-NEXT:    pop ix
 ; EZ80-CODE16-NEXT:    ret
@@ -5031,7 +4999,6 @@ define i1 @usub.with.overflow.i32(i32, i32) {
 ; EZ80-NEXT:    sbc hl, de
 ; EZ80-NEXT:    ld a, (iy + 6)
 ; EZ80-NEXT:    sbc a, (iy + 12)
-; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ret
   call {i32, i1} @llvm.usub.with.overflow.i32(i32 %0, i32 %1)
@@ -5070,7 +5037,6 @@ define i1 @usub.with.overflow.i64(i64, i64) {
 ; Z80-NEXT:    ld e, (ix + 18)
 ; Z80-NEXT:    ld d, (ix + 19)
 ; Z80-NEXT:    sbc hl, de
-; Z80-NEXT:    ; kill: def $a killed $a
 ; Z80-NEXT:    sbc a, a
 ; Z80-NEXT:    pop ix
 ; Z80-NEXT:    ret
@@ -5093,7 +5059,6 @@ define i1 @usub.with.overflow.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld hl, (ix + 10)
 ; EZ80-CODE16-NEXT:    ld de, (ix + 18)
 ; EZ80-CODE16-NEXT:    sbc hl, de
-; EZ80-CODE16-NEXT:    ; kill: def $a killed $a
 ; EZ80-CODE16-NEXT:    sbc a, a
 ; EZ80-CODE16-NEXT:    pop ix
 ; EZ80-CODE16-NEXT:    ret
@@ -5114,7 +5079,6 @@ define i1 @usub.with.overflow.i64(i64, i64) {
 ; EZ80-NEXT:    ; kill: def $hl killed $hl killed $uhl
 ; EZ80-NEXT:    lea de, iy + 0
 ; EZ80-NEXT:    sbc.sis hl, de
-; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
@@ -5969,7 +5933,6 @@ define i1 @umul.with.overflow.i8(i8, i8) {
 ; Z80-NEXT:    ld c, a
 ; Z80-NEXT:    call __bdivu
 ; Z80-NEXT:    cp a, l
-; Z80-NEXT:    ; kill: def $a killed $a
 ; Z80-NEXT:    sbc a, a
 ; Z80-NEXT:    ret
 ;
@@ -5989,7 +5952,6 @@ define i1 @umul.with.overflow.i8(i8, i8) {
 ; EZ80-CODE16-NEXT:    ld c, a
 ; EZ80-CODE16-NEXT:    call __bdivu
 ; EZ80-CODE16-NEXT:    cp a, l
-; EZ80-CODE16-NEXT:    ; kill: def $a killed $a
 ; EZ80-CODE16-NEXT:    sbc a, a
 ; EZ80-CODE16-NEXT:    ret
 ;
@@ -6009,7 +5971,6 @@ define i1 @umul.with.overflow.i8(i8, i8) {
 ; EZ80-NEXT:    ld c, a
 ; EZ80-NEXT:    call __bdivu
 ; EZ80-NEXT:    cp a, l
-; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ret
   call {i8, i1} @llvm.umul.with.overflow.i8(i8 %0, i8 %1)
@@ -6045,7 +6006,6 @@ define i1 @umul.with.overflow.i16(i16, i16) {
 ; Z80-NEXT:    ld d, iyh
 ; Z80-NEXT:    or a, a
 ; Z80-NEXT:    sbc hl, de
-; Z80-NEXT:    ; kill: def $a killed $a
 ; Z80-NEXT:    sbc a, a
 ; Z80-NEXT:    pop ix
 ; Z80-NEXT:    ret
@@ -6071,7 +6031,6 @@ define i1 @umul.with.overflow.i16(i16, i16) {
 ; EZ80-CODE16-NEXT:    lea de, iy + 0
 ; EZ80-CODE16-NEXT:    or a, a
 ; EZ80-CODE16-NEXT:    sbc hl, de
-; EZ80-CODE16-NEXT:    ; kill: def $a killed $a
 ; EZ80-CODE16-NEXT:    sbc a, a
 ; EZ80-CODE16-NEXT:    pop ix
 ; EZ80-CODE16-NEXT:    ret
@@ -6098,7 +6057,6 @@ define i1 @umul.with.overflow.i16(i16, i16) {
 ; EZ80-NEXT:    lea de, iy + 0
 ; EZ80-NEXT:    or a, a
 ; EZ80-NEXT:    sbc.sis hl, de
-; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    pop ix
 ; EZ80-NEXT:    ret
@@ -6124,7 +6082,6 @@ define i1 @umul.with.overflow.i32(i32, i32) {
 ; Z80-NEXT:    ld de, 0
 ; Z80-NEXT:    call __lcmpu
 ; Z80-NEXT:    ccf
-; Z80-NEXT:    ; kill: def $a killed $a
 ; Z80-NEXT:    sbc a, a
 ; Z80-NEXT:    inc a
 ; Z80-NEXT:    bit 0, a
@@ -6154,7 +6111,6 @@ define i1 @umul.with.overflow.i32(i32, i32) {
 ; Z80-NEXT:    pop iy
 ; Z80-NEXT:    call __lcmpu
 ; Z80-NEXT:    ccf
-; Z80-NEXT:    ; kill: def $a killed $a
 ; Z80-NEXT:    sbc a, a
 ; Z80-NEXT:    inc a
 ; Z80-NEXT:    pop ix
@@ -6171,7 +6127,6 @@ define i1 @umul.with.overflow.i32(i32, i32) {
 ; EZ80-CODE16-NEXT:    ld de, 0
 ; EZ80-CODE16-NEXT:    call __lcmpu
 ; EZ80-CODE16-NEXT:    ccf
-; EZ80-CODE16-NEXT:    ; kill: def $a killed $a
 ; EZ80-CODE16-NEXT:    sbc a, a
 ; EZ80-CODE16-NEXT:    inc a
 ; EZ80-CODE16-NEXT:    bit 0, a
@@ -6196,7 +6151,6 @@ define i1 @umul.with.overflow.i32(i32, i32) {
 ; EZ80-CODE16-NEXT:    ld iy, (ix + 6)
 ; EZ80-CODE16-NEXT:    call __lcmpu
 ; EZ80-CODE16-NEXT:    ccf
-; EZ80-CODE16-NEXT:    ; kill: def $a killed $a
 ; EZ80-CODE16-NEXT:    sbc a, a
 ; EZ80-CODE16-NEXT:    inc a
 ; EZ80-CODE16-NEXT:    pop ix
@@ -6214,7 +6168,6 @@ define i1 @umul.with.overflow.i32(i32, i32) {
 ; EZ80-NEXT:    ld a, d
 ; EZ80-NEXT:    call __lcmpu
 ; EZ80-NEXT:    ccf
-; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    inc a
 ; EZ80-NEXT:    bit 0, a
@@ -6243,7 +6196,6 @@ define i1 @umul.with.overflow.i32(i32, i32) {
 ; EZ80-NEXT:    ld a, iyl
 ; EZ80-NEXT:    call __lcmpu
 ; EZ80-NEXT:    ccf
-; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    inc a
 ; EZ80-NEXT:    pop ix
@@ -6284,7 +6236,6 @@ define i1 @umul.with.overflow.i64(i64, i64) {
 ; Z80-NEXT:    ld d, b
 ; Z80-NEXT:    call __llcmpu
 ; Z80-NEXT:    ccf
-; Z80-NEXT:    ; kill: def $a killed $a
 ; Z80-NEXT:    sbc a, a
 ; Z80-NEXT:    inc a
 ; Z80-NEXT:    ld iy, 10
@@ -6363,7 +6314,6 @@ define i1 @umul.with.overflow.i64(i64, i64) {
 ; Z80-NEXT:    ld h, (ix - 1)
 ; Z80-NEXT:    call __llcmpu
 ; Z80-NEXT:    ccf
-; Z80-NEXT:    ; kill: def $a killed $a
 ; Z80-NEXT:    sbc a, a
 ; Z80-NEXT:    inc a
 ; Z80-NEXT:    ld sp, ix
@@ -6392,7 +6342,6 @@ define i1 @umul.with.overflow.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld d, b
 ; EZ80-CODE16-NEXT:    call __llcmpu
 ; EZ80-CODE16-NEXT:    ccf
-; EZ80-CODE16-NEXT:    ; kill: def $a killed $a
 ; EZ80-CODE16-NEXT:    sbc a, a
 ; EZ80-CODE16-NEXT:    inc a
 ; EZ80-CODE16-NEXT:    ld iy, 10
@@ -6460,7 +6409,6 @@ define i1 @umul.with.overflow.i64(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld hl, (ix - 2)
 ; EZ80-CODE16-NEXT:    call __llcmpu
 ; EZ80-CODE16-NEXT:    ccf
-; EZ80-CODE16-NEXT:    ; kill: def $a killed $a
 ; EZ80-CODE16-NEXT:    sbc a, a
 ; EZ80-CODE16-NEXT:    inc a
 ; EZ80-CODE16-NEXT:    ld sp, ix
@@ -6485,7 +6433,6 @@ define i1 @umul.with.overflow.i64(i64, i64) {
 ; EZ80-NEXT:    ld.sis bc, 0
 ; EZ80-NEXT:    call __llcmpu
 ; EZ80-NEXT:    ccf
-; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    inc a
 ; EZ80-NEXT:    ld iy, 9
@@ -6532,7 +6479,6 @@ define i1 @umul.with.overflow.i64(i64, i64) {
 ; EZ80-NEXT:    push iy
 ; EZ80-NEXT:    call __llcmpu
 ; EZ80-NEXT:    ccf
-; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    inc a
 ; EZ80-NEXT:    ld sp, ix
@@ -12250,7 +12196,6 @@ define i64 @sdiv.fix.i64.31(i64, i64) {
 ; Z80-NEXT:    ld d, (ix - 11)
 ; Z80-NEXT:    call __llcmpu
 ; Z80-NEXT:    ccf
-; Z80-NEXT:    ; kill: def $a killed $a
 ; Z80-NEXT:    sbc a, a
 ; Z80-NEXT:    ld iyl, a
 ; Z80-NEXT:    inc iyl
@@ -12576,7 +12521,6 @@ define i64 @sdiv.fix.i64.31(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld de, (ix - 12)
 ; EZ80-CODE16-NEXT:    call __llcmpu
 ; EZ80-CODE16-NEXT:    ccf
-; EZ80-CODE16-NEXT:    ; kill: def $a killed $a
 ; EZ80-CODE16-NEXT:    sbc a, a
 ; EZ80-CODE16-NEXT:    ld iyl, a
 ; EZ80-CODE16-NEXT:    inc iyl
@@ -12833,7 +12777,6 @@ define i64 @sdiv.fix.i64.31(i64, i64) {
 ; EZ80-NEXT:    ld hl, (ix - 13)
 ; EZ80-NEXT:    call __llcmpu
 ; EZ80-NEXT:    ccf
-; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    inc a
 ; EZ80-NEXT:    ld (ix - 24), a
@@ -13480,7 +13423,6 @@ define i64 @udiv.fix.i64.32(i64, i64) {
 ; Z80-NEXT:    ld d, (ix - 3)
 ; Z80-NEXT:    call __llcmpu
 ; Z80-NEXT:    ccf
-; Z80-NEXT:    ; kill: def $a killed $a
 ; Z80-NEXT:    sbc a, a
 ; Z80-NEXT:    ld iyl, a
 ; Z80-NEXT:    inc iyl
@@ -13793,7 +13735,6 @@ define i64 @udiv.fix.i64.32(i64, i64) {
 ; EZ80-CODE16-NEXT:    ld de, (ix - 4)
 ; EZ80-CODE16-NEXT:    call __llcmpu
 ; EZ80-CODE16-NEXT:    ccf
-; EZ80-CODE16-NEXT:    ; kill: def $a killed $a
 ; EZ80-CODE16-NEXT:    sbc a, a
 ; EZ80-CODE16-NEXT:    ld iyl, a
 ; EZ80-CODE16-NEXT:    inc iyl
@@ -14028,7 +13969,6 @@ define i64 @udiv.fix.i64.32(i64, i64) {
 ; EZ80-NEXT:    push iy
 ; EZ80-NEXT:    call __llcmpu
 ; EZ80-NEXT:    ccf
-; EZ80-NEXT:    ; kill: def $a killed $a
 ; EZ80-NEXT:    sbc a, a
 ; EZ80-NEXT:    ld iyl, a
 ; EZ80-NEXT:    inc iyl
